@@ -31,4 +31,24 @@ class Store extends Model
     {
         return $this->belongsTo(User::class, 'user_id');
     }
+
+    public function categories()
+    {
+        return $this->hasMany(Category::class);
+    }
+
+    public function products()
+    {
+        return $this->hasMany(Product::class);
+    }
+
+    public function attributes()
+    {
+        return $this->hasMany(Attribute::class);
+    }
+
+    public function attributeGroups()
+    {
+        return $this->hasMany(AttributeGroup::class, 'store_id');
+    }
 }

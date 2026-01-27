@@ -21,6 +21,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'plan_id',
     ];
 
     /**
@@ -46,9 +47,13 @@ class User extends Authenticatable
         ];
     }
     public function stores()
-{
-    return $this->belongsToMany(Store::class, 'store_user')
-                ->withPivot('role_id')
-                ->withTimestamps();
-}
+    {
+        return $this->belongsToMany(Store::class, 'store_user')
+            ->withPivot('role_id')
+            ->withTimestamps();
+    }
+    public function plan()
+    {
+        return $this->belongsTo(Plan::class);
+    }
 }

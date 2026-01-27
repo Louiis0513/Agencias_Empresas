@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use App\Models\Plan;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -27,6 +28,12 @@ new #[Layout('layouts.guest')] class extends Component
         ]);
 
         $validated['password'] = Hash::make($validated['password']);
+
+        // Asignar automáticamente el plan gratuito al usuario
+        $freePlan = Plan::where('slug', 'free')->first();
+        if ($freePlan) {
+            $validated['plan_id'] = $freePlan->id;
+        }
 
         event(new Registered($user = User::create($validated)));
 

@@ -1,14 +1,19 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-            {{ __('Dashboard') }}
-        </h2>
+        {{-- Encabezado con el título y el botón alineados --}}
+        <div class="flex justify-between items-center">
+            <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
+                {{ __('Dashboard') }}
+            </h2>
+            
+            {{-- AQUÍ INYECTAMOS EL BOTÓN --}}
+            <livewire:create-store-modal />
+        </div>
     </x-slot>
 
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-
-            {{-- Título de la sección --}}
+            
             <h3 class="text-lg font-bold mb-4 text-gray-900 dark:text-gray-100 px-4 sm:px-0">
                 Mis Tiendas
             </h3>
@@ -48,7 +53,7 @@
                                 </div>
 
                                 <div class="mt-6">
-                                    <a href="{{ route('stores.show', $store) }}"
+                                    <a href="{{ route('stores.dashboard', $store) }}"
                                         class="block w-full text-center bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg transition">
                                         Entrar a gestionar &rarr;
                                     </a>
