@@ -51,4 +51,9 @@ class Product extends Model
             ->withPivot('value')
             ->withTimestamps();
     }
+
+    public function invoiceDetails()
+    {
+        return $this->hasMany(InvoiceDetail::class);
+    }
 }

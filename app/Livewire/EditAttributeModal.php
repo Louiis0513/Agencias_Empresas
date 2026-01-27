@@ -3,18 +3,21 @@
 namespace App\Livewire;
 
 use App\Models\AttributeGroup;
+use App\Models\Attribute;
 use App\Models\Store;
 use App\Services\AttributeService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
 
-class CreateAttributeModal extends Component
+class EditAttributeModal extends Component
 {
     public int $storeId;
 
     /** Si se usa en la página de grupos (redirect allí tras crear). */
     public bool $fromGroupsPage = false;
+
+    public ?int $attributeId = null;
 
     public string $name = '';
     public string $code = '';
@@ -22,6 +25,62 @@ class CreateAttributeModal extends Component
     public string $type = 'text';
     public bool $is_required = false;
     public array $options = [''];
+
+    public function loadAttribute($attributeId = null)
+    {
+        if ($attributeId === null) {
+            return;
+        }
+
+        // Extraer el ID si viene como objeto
+        if (is_array($attributeId) && isset($attributeId['id'])) {
+            $attributeId = $attributeId['id'];
+        } elseif (is_object($attributeId) && isset($attributeId->id)) {
+            $attributeId = $attributeId->id;
+        }
+
+        $this->attributeId = (int)$attributeId;
+
+        $store = $this->getStoreProperty();
+        if (!$store) {
+            return;
+        }
+
+        $attribute = Attribute::where('id', $this->attributeId)
+            ->where('store_id', $store->id)
+            ->with(['options', 'groups' => function($q) {
+                $q->withPivot('is_required', 'position');
+            }])
+            ->first();
+
+        if ($attribute) {
+            $this->name = $attribute->name;
+            $this->code = $attribute->code ?? '';
+            $this->type = $attribute->type;
+
+            // Obtener el grupo al que pertenece y el is_required del pivot
+            $group = $attribute->groups->first();
+            $this->attribute_group_id = $group ? (string)$group->id : null;
+            
+            // Obtener is_required del pivot (grupo) o del atributo como fallback
+            $this->is_required = $group && isset($group->pivot->is_required) 
+                ? (bool)$group->pivot->is_required 
+                : $attribute->is_required;
+
+            // Cargar opciones si es tipo select
+            if ($attribute->type === 'select') {
+                $this->options = $attribute->options->pluck('value')->toArray();
+                if (empty($this->options)) {
+                    $this->options = [''];
+                }
+            } else {
+                $this->options = [''];
+            }
+
+            // Abrir el modal
+            $this->dispatch('open-modal', 'edit-attribute');
+        }
+    }
 
     protected function rules(): array
     {
@@ -87,12 +146,6 @@ class CreateAttributeModal extends Component
         }
     }
 
-    public function hydrate()
-    {
-        // Asegurar que todas las opciones sean strings después de la hidratación
-        $this->normalizeOptions();
-    }
-
     protected function normalizeOptions()
     {
         if (!is_array($this->options)) {
@@ -113,7 +166,7 @@ class CreateAttributeModal extends Component
         }
     }
 
-    public function save(AttributeService $service)
+    public function update(AttributeService $service)
     {
         // Normalizar las opciones para asegurar que sean strings
         if (is_array($this->options)) {
@@ -129,29 +182,40 @@ class CreateAttributeModal extends Component
 
         $store = $this->getStoreProperty();
         if (! $store || ! Auth::user()->stores->contains($store->id)) {
-            abort(403, 'No tienes permiso para crear atributos en esta tienda.');
+            abort(403, 'No tienes permiso para editar atributos en esta tienda.');
+        }
+
+        if (!$this->attributeId) {
+            return;
         }
 
         $filteredOptions = array_filter($this->options, fn ($opt) => ! empty(trim((string) $opt)));
 
-        $service->createAttribute($store, [
-            'name' => $this->name,
-            'code' => $this->code ?: null,
-            'attribute_group_id' => $this->attribute_group_id,
-            'type' => $this->type,
-            'is_required' => $this->is_required,
-            'options' => array_values($filteredOptions),
-        ]);
+        try {
+            // Actualizar el atributo (el servicio maneja también el cambio de grupo)
+            $service->updateAttribute($store, $this->attributeId, [
+                'name' => $this->name,
+                'code' => $this->code ?: null,
+                'type' => $this->type,
+                'is_required' => $this->is_required,
+                'attribute_group_id' => $this->attribute_group_id,
+                'options' => array_values($filteredOptions),
+            ]);
 
-        $this->reset(['name', 'code', 'attribute_group_id', 'type', 'is_required', 'options']);
-        $this->resetValidation();
-        $this->options = [''];
+            $this->reset(['name', 'code', 'attribute_group_id', 'type', 'is_required', 'options', 'attributeId']);
+            $this->resetValidation();
+            $this->options = [''];
 
-        if ($this->fromGroupsPage) {
-            return redirect()->route('stores.attribute-groups', $store);
+            if ($this->fromGroupsPage) {
+                return redirect()->route('stores.attribute-groups', $store)
+                    ->with('success', 'Atributo actualizado correctamente.');
+            }
+
+            return redirect()->back()
+                ->with('success', 'Atributo actualizado correctamente.');
+        } catch (\Exception $e) {
+            $this->addError('general', $e->getMessage());
         }
-
-        return redirect()->back();
     }
 
     public function render()
@@ -160,9 +224,9 @@ class CreateAttributeModal extends Component
         if ($this->type === 'select' && empty($this->options)) {
             $this->options = [''];
         }
-        
+
         // Normalizar opciones antes de renderizar
         $this->normalizeOptions();
-        return view('livewire.create-attribute-modal');
+        return view('livewire.edit-attribute-modal');
     }
 }

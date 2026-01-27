@@ -11,6 +11,7 @@
     </x-slot>
 
     <livewire:create-product-modal :store-id="$store->id" />
+    <livewire:edit-product-modal :store-id="$store->id" />
 
     <div class="py-12" x-data>
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
@@ -141,12 +142,20 @@
                                                 </span>
                                             </td>
                                             <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
-                                                <button class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 mr-3">
+                                                <button x-on:click="$dispatch('open-edit-product-modal', { id: {{ $product->id }} })"
+                                                        class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 mr-3">
                                                     Editar
                                                 </button>
-                                                <button class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300">
-                                                    Eliminar
-                                                </button>
+                                                <form method="POST" action="{{ route('stores.products.destroy', [$store, $product]) }}" 
+                                                      onsubmit="return confirm('¿Estás seguro de eliminar el producto «{{ $product->name }}»?');"
+                                                      class="inline">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" 
+                                                            class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300">
+                                                        Eliminar
+                                                    </button>
+                                                </form>
                                             </td>
                                         </tr>
                                     @endforeach

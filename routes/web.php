@@ -24,6 +24,7 @@ Route::middleware(['auth', 'verified'])->prefix('tienda/{store:slug}')->name('st
     Route::get('/roles', [StoreController::class, 'roles'])->name('roles');
 
     Route::get('/productos', [StoreController::class, 'products'])->name('products');
+    Route::delete('/productos/{product}', [StoreController::class, 'destroyProduct'])->name('products.destroy');
 
     Route::get('/categorias', [StoreController::class, 'categories'])->name('categories');
     Route::delete('/categorias/{category}', [StoreController::class, 'destroyCategory'])->name('categories.destroy');
@@ -36,9 +37,17 @@ Route::middleware(['auth', 'verified'])->prefix('tienda/{store:slug}')->name('st
     Route::get('/categorias/{category}/atributos', [StoreController::class, 'categoryAttributes'])->name('category.attributes');
     Route::post('/categorias/{category}/atributos', [StoreController::class, 'assignAttributes'])->name('category.attributes.assign');
 
-    Route::get('/facturas', function () { 
-        return "Aquí irá el módulo de Facturas"; 
-    })->name('invoices');
+    // Facturas
+    Route::get('/facturas', [StoreController::class, 'invoices'])->name('invoices');
+    Route::post('/facturas', [StoreController::class, 'storeInvoice'])->name('invoices.store');
+    Route::get('/facturas/{invoice}', [StoreController::class, 'showInvoice'])->name('invoices.show');
+    Route::post('/facturas/{invoice}/anular', [StoreController::class, 'voidInvoice'])->name('invoices.void');
+
+    // Clientes
+    Route::get('/clientes', [StoreController::class, 'customers'])->name('customers');
+    Route::post('/clientes', [StoreController::class, 'storeCustomer'])->name('customers.store');
+    Route::put('/clientes/{customer}', [StoreController::class, 'updateCustomer'])->name('customers.update');
+    Route::delete('/clientes/{customer}', [StoreController::class, 'destroyCustomer'])->name('customers.destroy');
 
 });
 

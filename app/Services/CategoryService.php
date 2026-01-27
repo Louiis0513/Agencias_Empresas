@@ -94,28 +94,39 @@ class CategoryService
     }
 
     /**
-     * Eliminar una categoría con validaciones defensivas.
-     * No permite eliminar si tiene hijos o productos.
+     * Eliminar una categoría con eliminación en cascada de subcategorías.
+     * Los productos asociados quedarán sin categoría (category_id = null) gracias a la migración.
      */
     public function deleteCategory(Store $store, int $categoryId): bool
     {
-        $category = Category::where('id', $categoryId)
-            ->where('store_id', $store->id)
-            ->firstOrFail();
+        return DB::transaction(function () use ($store, $categoryId) {
+            $category = Category::where('id', $categoryId)
+                ->where('store_id', $store->id)
+                ->firstOrFail();
 
-        // Validación 1: No eliminar si tiene hijos (subcategorías)
-        if ($category->children()->exists()) {
-            throw new Exception('No puedes eliminar esta categoría porque tiene subcategorías. Elimínalas o muévelas primero.');
+            // Eliminar todas las subcategorías recursivamente primero
+            $this->deleteCategoryRecursive($category);
+
+            // Eliminar la categoría principal
+            $category->delete();
+
+            return true;
+        });
+    }
+
+    /**
+     * Eliminar una categoría y todas sus subcategorías recursivamente.
+     */
+    protected function deleteCategoryRecursive(Category $category): void
+    {
+        // Obtener todas las subcategorías
+        $children = $category->children()->get();
+
+        // Eliminar recursivamente cada subcategoría
+        foreach ($children as $child) {
+            $this->deleteCategoryRecursive($child);
+            $child->delete();
         }
-
-        // Validación 2: No eliminar si tiene productos
-        if ($category->products()->exists()) {
-            throw new Exception('No puedes eliminar esta categoría porque contiene productos. Mueve los productos a otra categoría antes de eliminar.');
-        }
-
-        $category->delete();
-
-        return true;
     }
 
     /**

@@ -160,39 +160,78 @@ class AttributeService
      */
     public function updateAttribute(Store $store, int $attributeId, array $data): Attribute
     {
-        $attribute = Attribute::where('id', $attributeId)
-            ->where('store_id', $store->id)
-            ->firstOrFail();
+        return DB::transaction(function () use ($store, $attributeId, $data) {
+            $attribute = Attribute::where('id', $attributeId)
+                ->where('store_id', $store->id)
+                ->firstOrFail();
 
-        // Si cambia de tipo select a otro, eliminar opciones
-        if ($attribute->type === 'select' && $data['type'] !== 'select') {
-            $attribute->options()->delete();
-        }
+            // Si cambia de tipo select a otro, eliminar opciones
+            if ($attribute->type === 'select' && ($data['type'] ?? $attribute->type) !== 'select') {
+                $attribute->options()->delete();
+            }
 
-        $attribute->update([
-            'name' => $data['name'] ?? $attribute->name,
-            'type' => $data['type'] ?? $attribute->type,
-            'is_required' => $data['is_required'] ?? $attribute->is_required,
-        ]);
+            $attribute->update([
+                'name' => $data['name'] ?? $attribute->name,
+                'type' => $data['type'] ?? $attribute->type,
+                'is_required' => $data['is_required'] ?? $attribute->is_required,
+            ]);
 
-        // Si es tipo select, actualizar opciones
-        if ($attribute->type === 'select' && isset($data['options']) && is_array($data['options'])) {
-            // Eliminar opciones existentes
-            $attribute->options()->delete();
+            // Si es tipo select, actualizar opciones
+            if (($data['type'] ?? $attribute->type) === 'select' && isset($data['options']) && is_array($data['options'])) {
+                // Eliminar opciones existentes
+                $attribute->options()->delete();
 
-            // Crear nuevas opciones
-            foreach ($data['options'] as $index => $optionValue) {
-                if (!empty($optionValue)) {
-                    AttributeOption::create([
-                        'attribute_id' => $attribute->id,
-                        'value' => $optionValue,
-                        'position' => $index,
+                // Crear nuevas opciones
+                foreach ($data['options'] as $index => $optionValue) {
+                    if (!empty($optionValue)) {
+                        AttributeOption::create([
+                            'attribute_id' => $attribute->id,
+                            'value' => $optionValue,
+                            'position' => $index,
+                        ]);
+                    }
+                }
+            }
+
+            // Si se proporciona un nuevo grupo, actualizar la relación
+            if (isset($data['attribute_group_id']) && $data['attribute_group_id']) {
+                $groupId = (int)$data['attribute_group_id'];
+                $group = AttributeGroup::where('id', $groupId)
+                    ->where('store_id', $store->id)
+                    ->firstOrFail();
+
+                // Detach de todos los grupos primero
+                $attribute->groups()->detach();
+
+                // Attach al nuevo grupo con is_required y position
+                $isRequired = $data['is_required'] ?? false;
+                $position = $group->attributes()->count();
+                
+                $attribute->groups()->attach($groupId, [
+                    'is_required' => $isRequired,
+                    'position' => $position,
+                ]);
+            } elseif (isset($data['attribute_group_id']) && $data['attribute_group_id'] === null) {
+                // Si se quiere quitar del grupo (no debería pasar normalmente)
+                // Solo actualizamos is_required en el grupo actual si existe
+                $currentGroup = $attribute->groups->first();
+                if ($currentGroup) {
+                    $attribute->groups()->updateExistingPivot($currentGroup->id, [
+                        'is_required' => $data['is_required'] ?? false,
+                    ]);
+                }
+            } else {
+                // Si no se cambia el grupo, solo actualizar is_required en el grupo actual
+                $currentGroup = $attribute->groups->first();
+                if ($currentGroup && isset($data['is_required'])) {
+                    $attribute->groups()->updateExistingPivot($currentGroup->id, [
+                        'is_required' => $data['is_required'],
                     ]);
                 }
             }
-        }
 
-        return $attribute->fresh('options');
+            return $attribute->fresh()->load(['options', 'groups']);
+        });
     }
 
     /**

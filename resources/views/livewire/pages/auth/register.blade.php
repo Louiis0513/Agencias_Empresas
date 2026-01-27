@@ -2,6 +2,7 @@
 
 use App\Models\User;
 use App\Models\Plan;
+use App\Services\CustomerService;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -36,6 +37,10 @@ new #[Layout('layouts.guest')] class extends Component
         }
 
         event(new Registered($user = User::create($validated)));
+
+        // Vincular automáticamente customers existentes con el mismo email
+        $customerService = app(CustomerService::class);
+        $customerService->vincularCustomersExistentes($user);
 
         Auth::login($user);
 

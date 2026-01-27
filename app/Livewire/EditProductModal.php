@@ -3,15 +3,17 @@
 namespace App\Livewire;
 
 use App\Models\Category;
+use App\Models\Product;
 use App\Models\Store;
 use App\Services\ProductService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
 
-class CreateProductModal extends Component
+class EditProductModal extends Component
 {
     public int $storeId;
+    public ?int $productId = null;
 
     public string $name = '';
     public string $barcode = '';
@@ -88,9 +90,7 @@ class CreateProductModal extends Component
 
     public function getStoreProperty(): ?Store
     {
-        $store = Store::find($this->storeId);
-
-        return $store ? $store->load('categories') : null;
+        return Store::find($this->storeId);
     }
 
     /** Categorías que tienen al menos un atributo asignado. */
@@ -126,8 +126,66 @@ class CreateProductModal extends Component
             ->first();
     }
 
+    public function loadProduct($productId = null)
+    {
+        // Si se llama desde Alpine.js, el parámetro puede venir como objeto { id: X }
+        if ($productId === null) {
+            return;
+        }
+        
+        // Extraer el ID si viene como objeto
+        if (is_array($productId) && isset($productId['id'])) {
+            $productId = $productId['id'];
+        } elseif (is_object($productId) && isset($productId->id)) {
+            $productId = $productId->id;
+        }
+        
+        $this->productId = (int)$productId;
+        
+        $store = $this->getStoreProperty();
+        if (!$store) {
+            return;
+        }
+
+        $product = Product::where('id', $this->productId)
+            ->where('store_id', $store->id)
+            ->with(['category', 'attributeValues.attribute'])
+            ->first();
+
+        if ($product) {
+            $this->name = $product->name;
+            $this->barcode = $product->barcode ?? '';
+            $this->sku = $product->sku ?? '';
+            $this->category_id = $product->category_id ? (string)$product->category_id : null;
+            $this->price = (string)$product->price;
+            $this->cost = (string)$product->cost;
+            $this->stock = (string)$product->stock;
+            $this->location = $product->location ?? '';
+            $this->type = $product->type ?? '';
+            $this->is_active = $product->is_active;
+
+            // Cargar valores de atributos existentes
+            $this->attribute_values = [];
+            $category = $this->getSelectedCategoryProperty();
+            if ($category) {
+                foreach ($category->attributes as $attr) {
+                    $existingValue = $product->attributeValues->firstWhere('attribute_id', $attr->id);
+                    if ($attr->type === 'boolean') {
+                        $this->attribute_values[$attr->id] = $existingValue && $existingValue->value === '1' ? '1' : '0';
+                    } else {
+                        $this->attribute_values[$attr->id] = $existingValue ? $existingValue->value : '';
+                    }
+                }
+            }
+            
+            // Abrir el modal
+            $this->dispatch('open-modal', 'edit-product');
+        }
+    }
+
     public function updatedCategoryId(): void
     {
+        // Si cambia la categoría, reinicializar los valores de atributos
         $this->attribute_values = [];
         $cat = $this->getSelectedCategoryProperty();
         if ($cat) {
@@ -143,7 +201,6 @@ class CreateProductModal extends Component
      */
     public function updatedAttributeValues($value, $key): void
     {
-        // Extraer el ID del atributo de la clave (formato: "attribute_values.7")
         $parts = explode('.', $key);
         if (count($parts) !== 2 || $parts[0] !== 'attribute_values') {
             return;
@@ -178,7 +235,6 @@ class CreateProductModal extends Component
     {
         $val = $this->attribute_values[$attrId] ?? null;
         
-        // Convertir cualquier valor booleano a string '0' o '1'
         if ($val === true || $val === '1' || $val === 1 || $val === 'true') {
             $this->attribute_values[$attrId] = '1';
         } else {
@@ -186,7 +242,7 @@ class CreateProductModal extends Component
         }
     }
 
-    public function save(ProductService $service)
+    public function update(ProductService $service)
     {
         // Normalizar valores booleanos antes de validar
         $this->normalizeBooleanAttributes();
@@ -195,7 +251,11 @@ class CreateProductModal extends Component
 
         $store = $this->getStoreProperty();
         if (! $store || ! Auth::user()->stores->contains($store->id)) {
-            abort(403, 'No tienes permiso para crear productos en esta tienda.');
+            abort(403, 'No tienes permiso para editar productos en esta tienda.');
+        }
+
+        if (!$this->productId) {
+            return;
         }
 
         $category = $this->getSelectedCategoryProperty();
@@ -206,7 +266,6 @@ class CreateProductModal extends Component
                 continue;
             }
             if ($attr->type === 'boolean') {
-                // Asegurar que siempre sea string '0' o '1'
                 if ($val === true || $val === '1' || $val === 1 || $val === 'true') {
                     $normalized[$attrId] = '1';
                 } else {
@@ -218,7 +277,7 @@ class CreateProductModal extends Component
         }
 
         try {
-            $service->createProduct($store, [
+            $service->updateProduct($store, $this->productId, [
                 'name' => $this->name,
                 'barcode' => $this->barcode ?: null,
                 'sku' => $this->sku ?: null,
@@ -233,23 +292,22 @@ class CreateProductModal extends Component
             ]);
         } catch (\Exception $e) {
             $this->addError('category_id', $e->getMessage());
-
             return;
         }
 
         $this->reset([
             'name', 'barcode', 'sku', 'category_id', 'price', 'cost', 'stock',
-            'location', 'type', 'is_active', 'attribute_values',
+            'location', 'type', 'is_active', 'attribute_values', 'productId',
         ]);
         $this->resetValidation();
 
-        return redirect()->route('stores.products', $store);
+        return redirect()->route('stores.products', $store)
+            ->with('success', 'Producto actualizado correctamente.');
     }
 
     public function render()
     {
-        // Asegurar que la propiedad se evalúe al renderizar
         $this->categoriesWithAttributes;
-        return view('livewire.create-product-modal');
+        return view('livewire.edit-product-modal');
     }
 }

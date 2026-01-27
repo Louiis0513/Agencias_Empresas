@@ -11,7 +11,9 @@
     </x-slot>
 
     <livewire:create-attribute-group-modal :store-id="$store->id" />
+    <livewire:edit-attribute-group-modal :store-id="$store->id" />
     <livewire:create-attribute-modal :store-id="$store->id" :from-groups-page="true" />
+    <livewire:edit-attribute-modal :store-id="$store->id" :from-groups-page="true" />
 
     <div class="py-12" x-data>
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
@@ -60,6 +62,10 @@
                                 <h3 class="font-semibold text-gray-900 dark:text-gray-100">{{ $group->name }}</h3>
                                 <div class="flex items-center gap-2">
                                     <span class="text-sm text-gray-500">{{ $group->attributes->count() }} atributo(s)</span>
+                                    <button x-on:click="$dispatch('open-edit-attribute-group-modal', { id: {{ $group->id }} })"
+                                            class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 text-sm">
+                                        Editar
+                                    </button>
                                     <form action="{{ route('stores.attribute-groups.destroy', [$store, $group]) }}" method="POST" class="inline"
                                           onsubmit="return confirm('¿Eliminar este grupo? Debes mover o borrar sus atributos antes.');">
                                         @csrf
@@ -85,6 +91,10 @@
                                                         <span class="text-xs text-gray-400">{{ $attr->options->pluck('value')->join(', ') }}</span>
                                                     @endif
                                                 </div>
+                                                <button x-on:click="$dispatch('open-edit-attribute-modal', { id: {{ $attr->id }} })"
+                                                        class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 text-sm">
+                                                    Editar
+                                                </button>
                                             </div>
                                         @endforeach
                                     </div>

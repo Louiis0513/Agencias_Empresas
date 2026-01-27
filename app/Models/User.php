@@ -52,8 +52,18 @@ class User extends Authenticatable
             ->withPivot('role_id')
             ->withTimestamps();
     }
+    
     public function plan()
     {
         return $this->belongsTo(Plan::class);
+    }
+
+    /**
+     * Relación: Un usuario puede ser cliente en múltiples tiendas
+     * Un User (global) puede tener muchos Customer (uno por cada tienda)
+     */
+    public function customers()
+    {
+        return $this->hasMany(Customer::class);
     }
 }

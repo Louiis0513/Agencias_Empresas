@@ -6,6 +6,11 @@ use App\Models\Store;
 use App\Models\Category;
 use App\Services\CategoryService;
 use App\Services\AttributeService;
+use App\Services\ProductService;
+use App\Services\CustomerService;
+use App\Services\InvoiceService;
+use App\Http\Requests\StoreCustomerRequest;
+use App\Http\Requests\StoreInvoiceRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -99,6 +104,26 @@ class StoreController extends Controller
             ->get();
 
         return view('stores.productos', compact('store', 'products'));
+    }
+
+    public function destroyProduct(Store $store, \App\Models\Product $product, ProductService $productService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+
+        if ($product->store_id !== $store->id) {
+            abort(404);
+        }
+
+        try {
+            $productService->deleteProduct($store, $product->id);
+            return redirect()->route('stores.products', $store)
+                ->with('success', 'Producto eliminado correctamente.');
+        } catch (\Exception $e) {
+            return redirect()->route('stores.products', $store)
+                ->with('error', $e->getMessage());
+        }
     }
 
     public function categories(Store $store, CategoryService $categoryService)
@@ -209,6 +234,155 @@ class StoreController extends Controller
             return redirect()->route('stores.attribute-groups', $store)->with('success', 'Grupo eliminado.');
         } catch (\Exception $e) {
             return redirect()->route('stores.attribute-groups', $store)->with('error', $e->getMessage());
+        }
+    }
+
+    // ==================== FACTURAS ====================
+
+    public function invoices(Store $store, InvoiceService $invoiceService, Request $request)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+
+        session(['current_store_id' => $store->id]);
+
+        $filtros = [
+            'status' => $request->get('status'),
+            'customer_id' => $request->get('customer_id'),
+            'search' => $request->get('search'),
+            'per_page' => $request->get('per_page', 15),
+        ];
+
+        $invoices = $invoiceService->listarFacturas($store, $filtros);
+        $customers = \App\Models\Customer::where('store_id', $store->id)->orderBy('name')->get();
+
+        return view('stores.facturas', compact('store', 'invoices', 'customers'));
+    }
+
+    public function showInvoice(Store $store, \App\Models\Invoice $invoice, InvoiceService $invoiceService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+
+        if ($invoice->store_id !== $store->id) {
+            abort(404);
+        }
+
+        $invoice = $invoiceService->obtenerFactura($store, $invoice->id);
+
+        return view('stores.factura-detalle', compact('store', 'invoice'));
+    }
+
+    public function storeInvoice(Store $store, StoreInvoiceRequest $request, InvoiceService $invoiceService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+
+        try {
+            $invoice = $invoiceService->crearFactura($store, Auth::id(), $request->validated());
+            return redirect()->route('stores.invoices', $store)
+                ->with('success', 'Factura creada correctamente.');
+        } catch (\Exception $e) {
+            return redirect()->route('stores.invoices', $store)
+                ->with('error', $e->getMessage());
+        }
+    }
+
+    public function voidInvoice(Store $store, \App\Models\Invoice $invoice, InvoiceService $invoiceService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+
+        if ($invoice->store_id !== $store->id) {
+            abort(404);
+        }
+
+        try {
+            $invoiceService->anularFactura($store, $invoice);
+            return redirect()->route('stores.invoices', $store)
+                ->with('success', 'Factura anulada correctamente.');
+        } catch (\Exception $e) {
+            return redirect()->route('stores.invoices', $store)
+                ->with('error', $e->getMessage());
+        }
+    }
+
+    // ==================== CLIENTES ====================
+
+    public function customers(Store $store, CustomerService $customerService, Request $request)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+
+        session(['current_store_id' => $store->id]);
+
+        $filtros = [
+            'search' => $request->get('search'),
+        ];
+
+        $customers = $customerService->getStoreCustomers($store, $filtros);
+
+        return view('stores.clientes', compact('store', 'customers'));
+    }
+
+    public function storeCustomer(Store $store, StoreCustomerRequest $request, CustomerService $customerService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+
+        try {
+            $customer = $customerService->createCustomer($store, $request->validated());
+            return redirect()->route('stores.customers', $store)
+                ->with('success', 'Cliente creado correctamente.');
+        } catch (\Exception $e) {
+            return redirect()->route('stores.customers', $store)
+                ->with('error', $e->getMessage());
+        }
+    }
+
+    public function updateCustomer(Store $store, \App\Models\Customer $customer, StoreCustomerRequest $request, CustomerService $customerService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+
+        if ($customer->store_id !== $store->id) {
+            abort(404);
+        }
+
+        try {
+            $customerService->updateCustomer($store, $customer->id, $request->validated());
+            return redirect()->route('stores.customers', $store)
+                ->with('success', 'Cliente actualizado correctamente.');
+        } catch (\Exception $e) {
+            return redirect()->route('stores.customers', $store)
+                ->with('error', $e->getMessage());
+        }
+    }
+
+    public function destroyCustomer(Store $store, \App\Models\Customer $customer, CustomerService $customerService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+
+        if ($customer->store_id !== $store->id) {
+            abort(404);
+        }
+
+        try {
+            $customerService->deleteCustomer($store, $customer->id);
+            return redirect()->route('stores.customers', $store)
+                ->with('success', 'Cliente eliminado correctamente.');
+        } catch (\Exception $e) {
+            return redirect()->route('stores.customers', $store)
+                ->with('error', $e->getMessage());
         }
     }
 }

@@ -1,19 +1,25 @@
-<div>
-    <x-modal name="create-attribute" focusable maxWidth="2xl">
-        <form wire:submit="save" class="p-6">
+<div x-on:open-edit-attribute-modal.window="$wire.loadAttribute($event.detail.id || $event.detail)">
+    <x-modal name="edit-attribute" focusable maxWidth="2xl">
+        <form wire:submit="update" class="p-6">
             <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">
-                {{ __('Crear atributo') }}
+                {{ __('Editar atributo') }}
             </h2>
             <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                {{ __('Cada atributo debe pertenecer a un grupo. Indica si es requerido u opcional dentro del grupo.') }}
+                {{ __('Modifica los datos del atributo. Puedes cambiar el nombre, tipo, grupo y si es requerido.') }}
             </p>
+
+            @if($errors->has('general'))
+                <div class="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+                    <p class="text-sm text-red-800 dark:text-red-200">{{ $errors->first('general') }}</p>
+                </div>
+            @endif
 
             <div class="mt-6 space-y-4">
                 @if($this->groups->isNotEmpty())
                     <div>
-                        <x-input-label for="attribute_group_id" value="{{ __('Grupo de atributos') }} *" />
+                        <x-input-label for="edit_attribute_group_id" value="{{ __('Grupo de atributos') }} *" />
                         <select wire:model="attribute_group_id"
-                                id="attribute_group_id"
+                                id="edit_attribute_group_id"
                                 class="block mt-1 w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
                             <option value="">{{ __('Selecciona un grupo') }}</option>
                             @foreach($this->groups as $g)
@@ -31,9 +37,9 @@
                 @endif
 
                 <div>
-                    <x-input-label for="name" value="{{ __('Nombre del atributo') }}" />
+                    <x-input-label for="edit_attribute_name" value="{{ __('Nombre del atributo') }}" />
                     <x-text-input wire:model="name" 
-                                  id="name" 
+                                  id="edit_attribute_name" 
                                   class="block mt-1 w-full" 
                                   type="text" 
                                   placeholder="Ej: Talla, Color, Material..."
@@ -42,9 +48,9 @@
                 </div>
 
                 <div>
-                    <x-input-label for="code" value="{{ __('Código (opcional)') }}" />
+                    <x-input-label for="edit_attribute_code" value="{{ __('Código (opcional)') }}" />
                     <x-text-input wire:model="code" 
-                                  id="code" 
+                                  id="edit_attribute_code" 
                                   class="block mt-1 w-full" 
                                   type="text" 
                                   placeholder="Ej: size, color, material (se genera automáticamente si se deja vacío)" />
@@ -55,9 +61,9 @@
                 </div>
 
                 <div>
-                    <x-input-label for="type" value="{{ __('Tipo de atributo') }}" />
+                    <x-input-label for="edit_attribute_type" value="{{ __('Tipo de atributo') }}" />
                     <select wire:model.live="type" 
-                            id="type" 
+                            id="edit_attribute_type" 
                             class="block mt-1 w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
                         <option value="text">Texto</option>
                         <option value="number">Número</option>
@@ -104,10 +110,10 @@
 
                 <div class="flex items-center">
                     <input wire:model="is_required"
-                           id="is_required"
+                           id="edit_is_required"
                            type="checkbox"
                            class="rounded border-gray-300 dark:border-gray-700 text-indigo-600 shadow-sm focus:ring-indigo-500">
-                    <x-input-label for="is_required" value="{{ __('Requerido en el grupo') }}" class="ml-2" />
+                    <x-input-label for="edit_is_required" value="{{ __('Requerido en el grupo') }}" class="ml-2" />
                     <p class="ml-2 text-xs text-gray-500">Si está activo, este atributo será obligatorio al usarlo en categorías.</p>
                     <x-input-error :messages="$errors->get('is_required')" class="ml-2" />
                 </div>
@@ -119,14 +125,14 @@
                 </x-secondary-button>
                 @if($this->groups->isNotEmpty())
                     <x-primary-button type="submit" wire:loading.attr="disabled">
-                        {{ __('Crear atributo') }}
+                        {{ __('Actualizar atributo') }}
                     </x-primary-button>
                 @endif
             </div>
         </form>
 
         @if($errors->any())
-            <div x-init="$dispatch('open-modal', 'create-attribute')"></div>
+            <div x-init="$dispatch('open-modal', 'edit-attribute')"></div>
         @endif
     </x-modal>
 </div>

@@ -40,14 +40,13 @@
                 Editar
             </button>
             <form method="POST" action="{{ route('stores.categories.destroy', [$store, $category]) }}" 
-                  onsubmit="return confirm('¿Estás seguro de eliminar esta categoría?{{ $hasProducts ? ' Esta categoría tiene productos asociados.' : '' }}');"
+                  onsubmit="return confirm('¿Estás seguro de eliminar esta categoría?{{ $hasChildren ? '\\n\\nADVERTENCIA: Esta categoría tiene ' . $category->children->count() . ' subcategoría(s) que también serán eliminadas.' : '' }}{{ $hasProducts ? '\\n\\nADVERTENCIA: Esta categoría tiene ' . $category->products->count() . ' producto(s) asociado(s) que quedarán sin categoría.' : '' }}');"
                   class="inline">
                 @csrf
                 @method('DELETE')
                 <button type="submit" 
-                        class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 text-sm font-medium {{ $hasChildren || $hasProducts ? 'opacity-50 cursor-not-allowed' : '' }}"
-                        {{ $hasChildren || $hasProducts ? 'disabled' : '' }}
-                        title="{{ $hasChildren ? 'No se puede eliminar: tiene subcategorías' : ($hasProducts ? 'No se puede eliminar: tiene productos' : '') }}">
+                        class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 text-sm font-medium"
+                        title="Eliminar categoría{{ $hasChildren ? ' (incluye subcategorías)' : '' }}{{ $hasProducts ? ' (los productos quedarán sin categoría)' : '' }}">
                     Eliminar
                 </button>
             </form>
