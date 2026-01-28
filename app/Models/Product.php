@@ -56,4 +56,15 @@ class Product extends Model
     {
         return $this->hasMany(InvoiceDetail::class);
     }
+
+    public function movimientosInventario()
+    {
+        return $this->hasMany(MovimientoInventario::class);
+    }
+
+    /** Indica si el producto tiene control de inventario (entradas/salidas). */
+    public function isProductoInventario(): bool
+    {
+        return $this->type === MovimientoInventario::PRODUCT_TYPE_INVENTARIO;
+    }
 }

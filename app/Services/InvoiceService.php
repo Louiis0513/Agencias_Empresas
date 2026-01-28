@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Invoice;
 use App\Models\InvoiceDetail;
+use App\Models\MovimientoInventario;
 use App\Models\Product;
 use App\Models\Store;
 use App\Services\CajaService;
@@ -339,29 +340,31 @@ class InvoiceService
     }
 
     /**
-     * Procesa un detalle de factura y actualiza el stock del producto.
-     * NOTA: Por ahora NO se valida stock (se hará en módulo de ventas).
+     * Procesa un detalle de factura.
+     * Para productos con type = "producto": valida stock >= quantity. No se permite facturar más de lo disponible.
+     * La actualización de stock por ventas (movimiento SALIDA) se hará cuando se implemente la integración con inventario.
      */
     private function procesarDetalle(Store $store, Invoice $factura, array $item): void
     {
         $producto = Product::where('id', $item['product_id'])
             ->where('store_id', $store->id)
+            ->lockForUpdate()
             ->firstOrFail();
 
-        // TODO: Validación de stock se implementará en módulo de ventas
-        // Por ahora permitimos facturar sin validar stock
+        $qty = (int) $item['quantity'];
+        if ($producto->type === MovimientoInventario::PRODUCT_TYPE_INVENTARIO && $producto->stock < $qty) {
+            throw new Exception(
+                "Stock insuficiente en «{$producto->name}». Actual: {$producto->stock}, solicitado: {$qty}."
+            );
+        }
 
-        // Crear el detalle de factura (snapshot)
         InvoiceDetail::create([
             'invoice_id'   => $factura->id,
             'product_id'   => $producto->id,
-            'product_name' => $producto->name, // Snapshot
+            'product_name' => $producto->name,
             'unit_price'   => $item['unit_price'],
-            'quantity'     => $item['quantity'],
+            'quantity'     => $qty,
             'subtotal'     => $item['subtotal'],
         ]);
-
-        // TODO: Actualización de stock se implementará en módulo de ventas
-        // Por ahora NO actualizamos stock al crear factura
     }
 }

@@ -57,6 +57,10 @@ Route::middleware(['auth', 'verified'])->prefix('tienda/{store:slug}')->name('st
     Route::delete('/caja/bolsillos/{bolsillo}', [StoreController::class, 'destroyBolsillo'])->name('cajas.bolsillos.destroy');
     Route::post('/caja/movimientos', [StoreController::class, 'storeMovimiento'])->name('cajas.movimientos.store');
     Route::delete('/caja/movimientos/{movimiento}', [StoreController::class, 'destroyMovimiento'])->name('cajas.movimientos.destroy');
+
+    // Inventario: movimientos entrada/salida (solo productos type = producto)
+    Route::get('/inventario', [StoreController::class, 'inventario'])->name('inventario');
+    Route::post('/inventario/movimientos', [StoreController::class, 'storeMovimientoInventario'])->name('inventario.movimientos.store');
 });
 
 require __DIR__.'/auth.php';

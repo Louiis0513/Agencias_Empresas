@@ -10,6 +10,7 @@ use App\Services\ProductService;
 use App\Services\CustomerService;
 use App\Services\InvoiceService;
 use App\Services\CajaService;
+use App\Services\InventarioService;
 use App\Http\Requests\StoreCustomerRequest;
 use App\Http\Requests\StoreInvoiceRequest;
 use Illuminate\Http\Request;
@@ -546,6 +547,56 @@ class StoreController extends Controller
             return redirect()->route('stores.cajas.bolsillos.show', [$store, $bolsillo])->with('success', 'Movimiento eliminado correctamente.');
         } catch (\Exception $e) {
             return redirect()->route('stores.cajas.bolsillos.show', [$store, $bolsillo])->with('error', $e->getMessage());
+        }
+    }
+
+    // ==================== INVENTARIO (movimientos entrada/salida productos) ====================
+
+    public function inventario(Store $store, InventarioService $inventarioService, Request $request)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        session(['current_store_id' => $store->id]);
+
+        $filtros = [
+            'product_id'   => $request->get('product_id'),
+            'type'         => $request->get('type'),
+            'fecha_desde'  => $request->get('fecha_desde'),
+            'fecha_hasta'  => $request->get('fecha_hasta'),
+            'per_page'     => $request->get('per_page', 15),
+        ];
+        $movimientos = $inventarioService->listarMovimientos($store, $filtros);
+        $productosInventario = $inventarioService->productosConInventario($store);
+
+        return view('stores.inventario', compact('store', 'movimientos', 'productosInventario'));
+    }
+
+    public function storeMovimientoInventario(Store $store, Request $request, InventarioService $inventarioService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        $request->validate([
+            'product_id'  => ['required', 'exists:products,id'],
+            'type'        => ['required', 'in:ENTRADA,SALIDA'],
+            'quantity'    => ['required', 'integer', 'min:1'],
+            'description' => ['nullable', 'string', 'max:500'],
+            'unit_cost'   => ['nullable', 'numeric', 'min:0'],
+        ]);
+        try {
+            $inventarioService->registrarMovimiento($store, Auth::id(), [
+                'product_id'  => (int) $request->input('product_id'),
+                'type'        => $request->input('type'),
+                'quantity'    => (int) $request->input('quantity'),
+                'description' => $request->input('description') ?: null,
+                'unit_cost'   => $request->input('unit_cost') !== '' && $request->input('unit_cost') !== null
+                    ? (float) $request->input('unit_cost')
+                    : null,
+            ]);
+            return redirect()->route('stores.inventario', $store)->with('success', 'Movimiento de inventario registrado correctamente.');
+        } catch (\Exception $e) {
+            return redirect()->route('stores.inventario', $store)->with('error', $e->getMessage());
         }
     }
 }
