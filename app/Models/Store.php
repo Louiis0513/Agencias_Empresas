@@ -61,4 +61,9 @@ class Store extends Model
     {
         return $this->hasMany(Invoice::class);
     }
+
+    public function bolsillos()
+    {
+        return $this->hasMany(Bolsillo::class);
+    }
 }

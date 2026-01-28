@@ -71,6 +71,11 @@ new class extends Component
                             {{ __('Facturas') }}
                         </x-nav-link>
 
+                        {{-- 8. Caja --}}
+                        <x-nav-link :href="route('stores.cajas', $store)" :active="request()->routeIs('stores.cajas*')" wire:navigate>
+                            {{ __('Caja') }}
+                        </x-nav-link>
+
                         {{-- Botón de Salir (Volver al panel general) --}}
                         <div class="flex items-center ml-4 pl-4 border-l border-gray-300 dark:border-gray-600 h-6 my-auto">
                             <a href="{{ route('dashboard') }}" class="text-sm text-gray-500 hover:text-red-500 transition dark:text-gray-400 dark:hover:text-red-400" wire:navigate>
@@ -156,6 +161,9 @@ new class extends Component
                 </x-responsive-nav-link>
                 <x-responsive-nav-link :href="route('stores.invoices', $store)" :active="request()->routeIs('stores.invoices*')" wire:navigate>
                     {{ __('Facturas') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('stores.cajas', $store)" :active="request()->routeIs('stores.cajas*')" wire:navigate>
+                    {{ __('Caja') }}
                 </x-responsive-nav-link>
                 <div class="border-t border-gray-200 dark:border-gray-600 my-2"></div>
                 <x-responsive-nav-link :href="route('dashboard')" wire:navigate class="text-red-500">

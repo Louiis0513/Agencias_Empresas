@@ -9,6 +9,7 @@ use App\Services\AttributeService;
 use App\Services\ProductService;
 use App\Services\CustomerService;
 use App\Services\InvoiceService;
+use App\Services\CajaService;
 use App\Http\Requests\StoreCustomerRequest;
 use App\Http\Requests\StoreInvoiceRequest;
 use Illuminate\Http\Request;
@@ -389,6 +390,162 @@ class StoreController extends Controller
         } catch (\Exception $e) {
             return redirect()->route('stores.customers', $store)
                 ->with('error', $e->getMessage());
+        }
+    }
+
+    // ==================== CAJA (suma de bolsillos) Y BOLSILLOS ====================
+
+    public function caja(Store $store, CajaService $cajaService, Request $request)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        session(['current_store_id' => $store->id]);
+
+        $filtros = [
+            'search' => $request->get('search'),
+            'is_active' => $request->has('is_active') ? (bool) $request->get('is_active') : null,
+            'per_page' => $request->get('per_page', 15),
+        ];
+        $bolsillos = $cajaService->listarBolsillos($store, $filtros);
+        $totalCaja = $cajaService->totalCaja($store);
+        return view('stores.caja', compact('store', 'bolsillos', 'totalCaja'));
+    }
+
+    public function showBolsillo(Store $store, \App\Models\Bolsillo $bolsillo, CajaService $cajaService, Request $request)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        if ($bolsillo->store_id !== $store->id) {
+            abort(404);
+        }
+        session(['current_store_id' => $store->id]);
+
+        $filtros = [
+            'bolsillo_id' => $bolsillo->id,
+            'type' => $request->get('type'),
+            'fecha_desde' => $request->get('fecha_desde'),
+            'fecha_hasta' => $request->get('fecha_hasta'),
+            'per_page' => $request->get('per_page', 15),
+        ];
+        $movimientos = $cajaService->listarMovimientos($store, $filtros);
+        $bolsillosActivos = \App\Models\Bolsillo::deTienda($store->id)->activos()->orderBy('name')->get();
+        return view('stores.bolsillo-detalle', compact('store', 'bolsillo', 'movimientos', 'bolsillosActivos'));
+    }
+
+    public function storeBolsillo(Store $store, Request $request, CajaService $cajaService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'detalles' => ['nullable', 'string', 'max:1000'],
+            'saldo' => ['nullable', 'numeric', 'min:0'],
+            'is_bank_account' => ['nullable', 'boolean'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+        try {
+            $cajaService->crearBolsillo($store, [
+                'name' => $request->input('name'),
+                'detalles' => $request->input('detalles'),
+                'saldo' => (float) ($request->input('saldo') ?? 0),
+                'is_bank_account' => (bool) $request->input('is_bank_account', false),
+                'is_active' => (bool) $request->input('is_active', true),
+            ]);
+            return redirect()->route('stores.cajas', $store)->with('success', 'Bolsillo creado correctamente.');
+        } catch (\Exception $e) {
+            return redirect()->route('stores.cajas', $store)->with('error', $e->getMessage());
+        }
+    }
+
+    public function updateBolsillo(Store $store, \App\Models\Bolsillo $bolsillo, Request $request, CajaService $cajaService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        if ($bolsillo->store_id !== $store->id) {
+            abort(404);
+        }
+        $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'detalles' => ['nullable', 'string', 'max:1000'],
+            'is_bank_account' => ['nullable', 'boolean'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+        try {
+            $cajaService->actualizarBolsillo($bolsillo, [
+                'name' => $request->input('name'),
+                'detalles' => $request->input('detalles'),
+                'is_bank_account' => (bool) $request->input('is_bank_account', false),
+                'is_active' => (bool) $request->input('is_active', true),
+            ]);
+            return redirect()->route('stores.cajas.bolsillos.show', [$store, $bolsillo])->with('success', 'Bolsillo actualizado correctamente.');
+        } catch (\Exception $e) {
+            return redirect()->route('stores.cajas.bolsillos.show', [$store, $bolsillo])->with('error', $e->getMessage());
+        }
+    }
+
+    public function destroyBolsillo(Store $store, \App\Models\Bolsillo $bolsillo, CajaService $cajaService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        if ($bolsillo->store_id !== $store->id) {
+            abort(404);
+        }
+        try {
+            $cajaService->eliminarBolsillo($bolsillo);
+            return redirect()->route('stores.cajas', $store)->with('success', 'Bolsillo eliminado correctamente.');
+        } catch (\Exception $e) {
+            return redirect()->route('stores.cajas', $store)->with('error', $e->getMessage());
+        }
+    }
+
+    public function storeMovimiento(Store $store, Request $request, CajaService $cajaService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        $request->validate([
+            'bolsillo_id' => ['required', 'exists:bolsillos,id'],
+            'type' => ['required', 'in:INCOME,EXPENSE'],
+            'amount' => ['required', 'numeric', 'min:0.01'],
+            'description' => ['nullable', 'string', 'max:500'],
+        ]);
+        try {
+            $bolsillo = $cajaService->obtenerBolsillo($store, (int) $request->input('bolsillo_id'));
+            $cajaService->registrarMovimiento($store, Auth::id(), [
+                'bolsillo_id' => $bolsillo->id,
+                'type' => $request->input('type'),
+                'amount' => (float) $request->input('amount'),
+                'description' => $request->input('description'),
+            ]);
+            return redirect()->route('stores.cajas.bolsillos.show', [$store, $bolsillo])->with('success', 'Movimiento registrado correctamente.');
+        } catch (\Exception $e) {
+            $bolsillo = \App\Models\Bolsillo::find($request->input('bolsillo_id'));
+            $redirect = $bolsillo && $bolsillo->store_id === $store->id
+                ? route('stores.cajas.bolsillos.show', [$store, $bolsillo])
+                : route('stores.cajas', $store);
+            return redirect()->to($redirect)->with('error', $e->getMessage());
+        }
+    }
+
+    public function destroyMovimiento(Store $store, \App\Models\MovimientoBolsillo $movimiento, CajaService $cajaService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        if ($movimiento->store_id !== $store->id) {
+            abort(404);
+        }
+        $bolsillo = $movimiento->bolsillo;
+        try {
+            $cajaService->eliminarMovimiento($movimiento);
+            return redirect()->route('stores.cajas.bolsillos.show', [$store, $bolsillo])->with('success', 'Movimiento eliminado correctamente.');
+        } catch (\Exception $e) {
+            return redirect()->route('stores.cajas.bolsillos.show', [$store, $bolsillo])->with('error', $e->getMessage());
         }
     }
 }

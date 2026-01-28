@@ -82,6 +82,7 @@
                                     <option value="CASH" {{ request('payment_method') == 'CASH' ? 'selected' : '' }}>Efectivo</option>
                                     <option value="CARD" {{ request('payment_method') == 'CARD' ? 'selected' : '' }}>Tarjeta</option>
                                     <option value="TRANSFER" {{ request('payment_method') == 'TRANSFER' ? 'selected' : '' }}>Transferencia</option>
+                                    <option value="MIXED" {{ request('payment_method') == 'MIXED' ? 'selected' : '' }}>Mixto</option>
                                 </select>
                             </div>
 
@@ -139,8 +140,10 @@
                                                     Efectivo
                                                 @elseif($invoice->payment_method == 'CARD')
                                                     Tarjeta
-                                                @else
+                                                @elseif($invoice->payment_method == 'TRANSFER')
                                                     Transferencia
+                                                @else
+                                                    Mixto
                                                 @endif
                                             </td>
                                             <td class="px-4 py-4 whitespace-nowrap text-sm font-medium">

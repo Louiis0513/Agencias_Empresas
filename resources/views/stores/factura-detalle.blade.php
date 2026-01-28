@@ -43,8 +43,10 @@
                                     Efectivo
                                 @elseif($invoice->payment_method == 'CARD')
                                     Tarjeta
-                                @else
+                                @elseif($invoice->payment_method == 'TRANSFER')
                                     Transferencia
+                                @else
+                                    Mixto
                                 @endif
                             </p>
                         </div>

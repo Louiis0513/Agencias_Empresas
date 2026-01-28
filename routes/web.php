@@ -49,6 +49,14 @@ Route::middleware(['auth', 'verified'])->prefix('tienda/{store:slug}')->name('st
     Route::put('/clientes/{customer}', [StoreController::class, 'updateCustomer'])->name('customers.update');
     Route::delete('/clientes/{customer}', [StoreController::class, 'destroyCustomer'])->name('customers.destroy');
 
+    // Caja = suma de bolsillos. Bolsillos (Caja 1, Caja 2, Cuenta banco…) y movimientos.
+    Route::get('/caja', [StoreController::class, 'caja'])->name('cajas');
+    Route::post('/caja/bolsillos', [StoreController::class, 'storeBolsillo'])->name('cajas.bolsillos.store');
+    Route::get('/caja/bolsillos/{bolsillo}', [StoreController::class, 'showBolsillo'])->name('cajas.bolsillos.show');
+    Route::put('/caja/bolsillos/{bolsillo}', [StoreController::class, 'updateBolsillo'])->name('cajas.bolsillos.update');
+    Route::delete('/caja/bolsillos/{bolsillo}', [StoreController::class, 'destroyBolsillo'])->name('cajas.bolsillos.destroy');
+    Route::post('/caja/movimientos', [StoreController::class, 'storeMovimiento'])->name('cajas.movimientos.store');
+    Route::delete('/caja/movimientos/{movimiento}', [StoreController::class, 'destroyMovimiento'])->name('cajas.movimientos.destroy');
 });
 
 require __DIR__.'/auth.php';

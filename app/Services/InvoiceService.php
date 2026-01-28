@@ -6,6 +6,8 @@ use App\Models\Invoice;
 use App\Models\InvoiceDetail;
 use App\Models\Product;
 use App\Models\Store;
+use App\Services\CajaService;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Exception;
@@ -45,18 +47,16 @@ class InvoiceService
         $query = Invoice::deTienda($store->id)
             ->with(['user:id,name,email', 'customer:id,name,email', 'details']);
 
-        // Filtro por rango de fechas (últimos 31 días por defecto si no se especifica)
+        // Filtro por rango de fechas. fecha_hasta = fin del día para incluir facturas de hoy.
         if (isset($filtros['fecha_desde']) && isset($filtros['fecha_hasta'])) {
-            $query->whereBetween('created_at', [
-                $filtros['fecha_desde'],
-                $filtros['fecha_hasta']
-            ]);
+            $desde = Carbon::parse($filtros['fecha_desde'])->startOfDay();
+            $hasta = Carbon::parse($filtros['fecha_hasta'])->endOfDay();
+            $query->whereBetween('created_at', [$desde, $hasta]);
         } else {
-            // Por defecto: últimos 31 días
             $rango = $this->getRangoFechasPorDefecto();
             $query->whereBetween('created_at', [
-                $rango['fecha_desde'],
-                $rango['fecha_hasta']
+                $rango['fecha_desde']->copy()->startOfDay(),
+                $rango['fecha_hasta']->copy()->endOfDay(),
             ]);
         }
 
@@ -113,32 +113,64 @@ class InvoiceService
 
     /**
      * Crea una nueva factura, procesa detalles y actualiza stock.
-     * 
+     * Si status = PAID y se pasa payments[], registra un ingreso por cada parte (movimiento).
+     * Si status = PENDING, no se registra movimiento.
+     *
      * @param Store $store Tienda
      * @param int $userId ID del usuario que crea la factura
-     * @param array $datos Datos de la factura: customer_id, subtotal, tax, discount, total, status, payment_method, details
+     * @param array $datos customer_id, subtotal, tax, discount, total, status, details, payments (solo si PAID)
+     *   payments = [ ['payment_method' => 'CASH'|'CARD'|'TRANSFER', 'amount' => float, 'bolsillo_id' => int ], ... ]
      * @return Invoice
      */
     public function crearFactura(Store $store, int $userId, array $datos): Invoice
     {
-        return DB::transaction(function () use ($store, $userId, $datos) {
-            
-            // 1. Crear Header
+        $cajaService = app(CajaService::class);
+
+        return DB::transaction(function () use ($store, $userId, $datos, $cajaService) {
+            $status = $datos['status'] ?? 'PAID';
+            $payments = $datos['payments'] ?? [];
+
+            if ($status === 'PENDING') {
+                $payments = [];
+            }
+
+            $methods = array_unique(array_column($payments, 'payment_method'));
+            $paymentMethod = count($methods) > 1 ? 'MIXED' : ($methods[0] ?? 'CASH');
+
+            // 1. Crear cabecera
             $factura = Invoice::create([
-                'store_id'      => $store->id,
-                'user_id'       => $userId,
-                'customer_id'   => $datos['customer_id'] ?? null,
-                'subtotal'      => $datos['subtotal'],
-                'tax'           => $datos['tax'] ?? 0,
-                'discount'      => $datos['discount'] ?? 0,
-                'total'         => $datos['total'],
-                'status'        => $datos['status'] ?? 'PAID',
-                'payment_method' => $datos['payment_method'] ?? 'CASH',
+                'store_id'       => $store->id,
+                'user_id'        => $userId,
+                'customer_id'    => $datos['customer_id'] ?? null,
+                'subtotal'       => $datos['subtotal'],
+                'tax'            => $datos['tax'] ?? 0,
+                'discount'       => $datos['discount'] ?? 0,
+                'total'          => $datos['total'],
+                'status'         => $status,
+                'payment_method' => $paymentMethod,
             ]);
 
-            // 2. Procesar Detalles y Actualizar Stock
+            // 2. Procesar detalles
             foreach ($datos['details'] as $item) {
                 $this->procesarDetalle($store, $factura, $item);
+            }
+
+            // 3. Si pagada: registrar un ingreso por cada parte del pago
+            foreach ($payments as $p) {
+                $amount = (float) ($p['amount'] ?? 0);
+                $bolsilloId = (int) ($p['bolsillo_id'] ?? 0);
+                $method = $p['payment_method'] ?? 'CASH';
+                if ($amount <= 0 || ! $bolsilloId) {
+                    continue;
+                }
+                $cajaService->registrarMovimiento($store, $userId, [
+                    'bolsillo_id'    => $bolsilloId,
+                    'type'           => \App\Models\MovimientoBolsillo::TYPE_INCOME,
+                    'amount'         => $amount,
+                    'payment_method' => $method,
+                    'description'    => 'Pago Factura #' . $factura->id,
+                    'invoice_id'     => $factura->id,
+                ]);
             }
 
             return $factura->load(['details.product', 'customer', 'user']);
