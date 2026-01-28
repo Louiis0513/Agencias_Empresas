@@ -15,9 +15,13 @@
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6">
                     {{-- Información de la factura --}}
-                    <div class="mb-6 grid grid-cols-2 gap-4">
+                    <div class="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">Fecha</p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Número de Factura</p>
+                            <p class="text-lg font-semibold text-gray-900 dark:text-gray-100">#{{ $invoice->id }}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Fecha de Emisión</p>
                             <p class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ $invoice->created_at->format('d/m/Y H:i') }}</p>
                         </div>
                         <div>
@@ -33,18 +37,6 @@
                             </p>
                         </div>
                         <div>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">Cliente</p>
-                            <p class="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                                {{ $invoice->customer ? $invoice->customer->name : 'Cliente Genérico' }}
-                            </p>
-                            @if($invoice->customer)
-                                <p class="text-sm text-gray-500 dark:text-gray-400">{{ $invoice->customer->email }}</p>
-                                @if($invoice->customer->phone)
-                                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ $invoice->customer->phone }}</p>
-                                @endif
-                            @endif
-                        </div>
-                        <div>
                             <p class="text-sm text-gray-500 dark:text-gray-400">Método de Pago</p>
                             <p class="text-lg font-semibold text-gray-900 dark:text-gray-100">
                                 @if($invoice->payment_method == 'CASH')
@@ -55,6 +47,69 @@
                                     Transferencia
                                 @endif
                             </p>
+                        </div>
+                    </div>
+
+                    {{-- Información del Cliente --}}
+                    <div class="mb-6 border-t border-gray-200 dark:border-gray-700 pt-4">
+                        <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Información del Cliente</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">Nombre</p>
+                                <p class="text-base font-semibold text-gray-900 dark:text-gray-100">
+                                    {{ $invoice->customer ? $invoice->customer->name : 'Cliente Genérico' }}
+                                </p>
+                            </div>
+                            @if($invoice->customer)
+                                @if($invoice->customer->email)
+                                    <div>
+                                        <p class="text-sm text-gray-500 dark:text-gray-400">Email</p>
+                                        <p class="text-base text-gray-900 dark:text-gray-100">{{ $invoice->customer->email }}</p>
+                                    </div>
+                                @endif
+                                @if($invoice->customer->phone)
+                                    <div>
+                                        <p class="text-sm text-gray-500 dark:text-gray-400">Teléfono</p>
+                                        <p class="text-base text-gray-900 dark:text-gray-100">{{ $invoice->customer->phone }}</p>
+                                    </div>
+                                @endif
+                                @if($invoice->customer->document_number)
+                                    <div>
+                                        <p class="text-sm text-gray-500 dark:text-gray-400">Documento</p>
+                                        <p class="text-base text-gray-900 dark:text-gray-100">{{ $invoice->customer->document_number }}</p>
+                                    </div>
+                                @endif
+                                @if($invoice->customer->address)
+                                    <div class="md:col-span-2">
+                                        <p class="text-sm text-gray-500 dark:text-gray-400">Dirección</p>
+                                        <p class="text-base text-gray-900 dark:text-gray-100">{{ $invoice->customer->address }}</p>
+                                    </div>
+                                @endif
+                            @endif
+                        </div>
+                    </div>
+
+                    {{-- Información del Usuario y Tienda --}}
+                    <div class="mb-6 border-t border-gray-200 dark:border-gray-700 pt-4">
+                        <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Información Adicional</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">Registrado por</p>
+                                <p class="text-base text-gray-900 dark:text-gray-100">
+                                    {{ $invoice->user ? $invoice->user->name : 'N/A' }}
+                                </p>
+                                @if($invoice->user)
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ $invoice->user->email }}</p>
+                                @endif
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">Tienda</p>
+                                <p class="text-base text-gray-900 dark:text-gray-100">{{ $store->name }}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">Última Actualización</p>
+                                <p class="text-base text-gray-900 dark:text-gray-100">{{ $invoice->updated_at->format('d/m/Y H:i') }}</p>
+                            </div>
                         </div>
                     </div>
 
@@ -111,6 +166,20 @@
                                 </div>
                             </div>
                         </div>
+                    </div>
+
+                    {{-- Botones de Acción --}}
+                    <div class="mt-6 flex justify-end space-x-3 border-t border-gray-200 dark:border-gray-700 pt-4">
+                        <button type="button" 
+                                disabled
+                                class="px-4 py-2 bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-md cursor-not-allowed" 
+                                title="Próximamente">
+                            Imprimir
+                        </button>
+                        <a href="{{ route('stores.invoices', $store) }}" 
+                           class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+                            Volver a Facturas
+                        </a>
                     </div>
                 </div>
             </div>

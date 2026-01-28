@@ -23,9 +23,9 @@ class CreateCustomerModal extends Component
 
         return [
             'name' => ['required', 'string', 'min:1', 'max:255'],
-            'email' => ['nullable', 'email', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:255'],
-            'document_number' => ['nullable', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255'],
+            'phone' => ['required', 'string', 'max:255'],
+            'document_number' => ['required', 'string', 'max:255'],
             'address' => ['nullable', 'string'],
         ];
     }
@@ -34,7 +34,10 @@ class CreateCustomerModal extends Component
     {
         return [
             'name.required' => 'El nombre del cliente es obligatorio.',
+            'email.required' => 'El email del cliente es obligatorio.',
             'email.email' => 'Debe ser un correo electrónico válido.',
+            'phone.required' => 'El teléfono del cliente es obligatorio.',
+            'document_number.required' => 'El número de documento es obligatorio.',
         ];
     }
 
@@ -61,9 +64,11 @@ class CreateCustomerModal extends Component
                 'address' => $this->address ?: null,
             ]);
 
-            $this->dispatch('customer-created');
-            $this->dispatch('close-modal', 'create-customer');
             $this->reset(['name', 'email', 'phone', 'document_number', 'address']);
+            $this->resetValidation();
+
+            return redirect()->route('stores.customers', $store)
+                ->with('success', 'Cliente creado correctamente.');
         } catch (\Exception $e) {
             $this->addError('name', $e->getMessage());
         }

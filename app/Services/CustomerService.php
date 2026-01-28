@@ -100,7 +100,7 @@ class CustomerService
     }
 
     /**
-     * Obtiene todos los clientes de una tienda
+     * Obtiene todos los clientes de una tienda con paginación
      */
     public function getStoreCustomers(Store $store, array $filtros = [])
     {
@@ -112,7 +112,19 @@ class CustomerService
             $query->buscar($filtros['search']);
         }
 
-        return $query->orderBy('created_at', 'desc')->get();
+        $perPage = $filtros['per_page'] ?? 10;
+
+        return $query->orderBy('created_at', 'desc')->paginate($perPage);
+    }
+
+    /**
+     * Obtiene todos los clientes de una tienda sin paginación (para dropdowns)
+     */
+    public function getAllStoreCustomers(Store $store)
+    {
+        return Customer::deTienda($store->id)
+            ->orderBy('name')
+            ->get();
     }
 
     /**
@@ -137,6 +149,32 @@ class CustomerService
             // Vincular cada customer al usuario
             foreach ($customers as $customer) {
                 $customer->user_id = $user->id;
+                $customer->save();
+            }
+
+            return $customers->count();
+        });
+    }
+
+    /**
+     * Desvincula todos los customers de un usuario cuando cambia su email.
+     * Esto es necesario porque el email es la clave de vinculación.
+     * 
+     * @param User $user Usuario cuyo email cambió
+     * @param string $oldEmail Email anterior del usuario
+     * @return int Número de customers desvinculados
+     */
+    public function desvincularCustomersPorCambioEmail(User $user, string $oldEmail): int
+    {
+        return DB::transaction(function () use ($user, $oldEmail) {
+            // Buscar todos los customers vinculados a este usuario que tengan el email anterior
+            $customers = Customer::where('user_id', $user->id)
+                ->where('email', $oldEmail)
+                ->get();
+
+            // Desvincular cada customer
+            foreach ($customers as $customer) {
+                $customer->user_id = null;
                 $customer->save();
             }
 

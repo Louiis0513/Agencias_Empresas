@@ -27,7 +27,7 @@ class StoreCustomerRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'email' => [
-                'nullable',
+                'required',
                 'email',
                 'max:255',
                 Rule::unique('customers', 'email')
@@ -35,9 +35,9 @@ class StoreCustomerRequest extends FormRequest
                     ->whereNotNull('email')
                     ->ignore($this->route('customer')),
             ],
-            'phone' => ['nullable', 'string', 'max:255'],
+            'phone' => ['required', 'string', 'max:255'],
             'document_number' => [
-                'nullable',
+                'required',
                 'string',
                 'max:255',
                 Rule::unique('customers', 'document_number')
@@ -59,9 +59,12 @@ class StoreCustomerRequest extends FormRequest
         return [
             'name.required' => 'El nombre del cliente es obligatorio.',
             'name.max' => 'El nombre no puede exceder 255 caracteres.',
+            'email.required' => 'El email del cliente es obligatorio.',
             'email.email' => 'Debe ser un correo electrónico válido.',
             'email.unique' => 'Ya existe un cliente con este correo electrónico en esta tienda.',
+            'phone.required' => 'El teléfono del cliente es obligatorio.',
             'phone.max' => 'El teléfono no puede exceder 255 caracteres.',
+            'document_number.required' => 'El número de documento es obligatorio.',
             'document_number.unique' => 'Ya existe un cliente con este número de documento en esta tienda.',
         ];
     }

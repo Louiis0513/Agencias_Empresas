@@ -12,15 +12,43 @@
 
     <livewire:create-customer-modal :store-id="$store->id" />
     <livewire:edit-customer-modal :store-id="$store->id" />
+    <livewire:customer-detail-modal :store-id="$store->id" />
 
     <div class="py-12" x-data>
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+            {{-- Mensajes de éxito/error --}}
+            @if(session('success'))
+                <div class="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
+                    <span class="block sm:inline">{{ session('success') }}</span>
+                </div>
+            @endif
+
+            @if(session('error'))
+                <div class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+                    <span class="block sm:inline">{{ session('error') }}</span>
+                </div>
+            @endif
+
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6">
                     {{-- Buscador y botón crear --}}
                     <div class="mb-6 flex justify-between items-center gap-4">
-                        <form method="GET" action="{{ route('stores.customers', $store) }}" class="flex-1">
-                            <input type="text" name="search" value="{{ request('search') }}" placeholder="Buscar por nombre, email, documento o teléfono..." class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                        <form method="GET" action="{{ route('stores.customers', $store) }}" class="flex-1 flex gap-2">
+                            <input type="text" 
+                                   name="search" 
+                                   value="{{ request('search') }}" 
+                                   placeholder="Buscar por nombre, email, documento o teléfono..." 
+                                   class="flex-1 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                            <button type="submit" 
+                                    class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+                                Buscar
+                            </button>
+                            @if(request('search'))
+                                <a href="{{ route('stores.customers', $store) }}" 
+                                   class="px-4 py-2 bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-400 dark:hover:bg-gray-600">
+                                    Limpiar
+                                </a>
+                            @endif
                         </form>
                         <button type="button"
                                 x-on:click="$dispatch('open-modal', 'create-customer')"
@@ -39,10 +67,9 @@
                                 <thead class="bg-gray-50 dark:bg-gray-900">
                                     <tr>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Nombre</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Documento</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Email</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Teléfono</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Documento</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Usuario Vinculado</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Acciones</th>
                                     </tr>
                                 </thead>
@@ -50,22 +77,18 @@
                                     @foreach($customers as $customer)
                                         <tr>
                                             <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">{{ $customer->name }}</td>
+                                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ $customer->document_number ?? '-' }}</td>
                                             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ $customer->email ?? '-' }}</td>
                                             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ $customer->phone ?? '-' }}</td>
-                                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ $customer->document_number ?? '-' }}</td>
-                                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                                                @if($customer->user)
-                                                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                                                        {{ $customer->user->name }}
-                                                    </span>
-                                                @else
-                                                    <span class="text-gray-400">No vinculado</span>
-                                                @endif
-                                            </td>
                                             <td class="px-4 py-4 whitespace-nowrap text-sm font-medium">
                                                 <button type="button"
-                                                        x-on:click="$dispatch('open-modal', { modal: 'edit-customer', customerId: {{ $customer->id }} })"
+                                                        x-on:click="$dispatch('open-customer-detail-modal', { id: {{ $customer->id }} })"
                                                         class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 mr-3">
+                                                    Ver Detalle
+                                                </button>
+                                                <button type="button"
+                                                        x-on:click="$dispatch('open-edit-customer-modal', { id: {{ $customer->id }} })"
+                                                        class="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 mr-3">
                                                     Editar
                                                 </button>
                                                 <form method="POST" action="{{ route('stores.customers.destroy', [$store, $customer]) }}" class="inline" onsubmit="return confirm('¿Estás seguro de eliminar este cliente?');">
@@ -79,8 +102,19 @@
                                 </tbody>
                             </table>
                         </div>
+
+                        {{-- Paginación --}}
+                        <div class="mt-4">
+                            {{ $customers->links() }}
+                        </div>
                     @else
-                        <p class="text-gray-500 dark:text-gray-400 text-center py-8">No hay clientes registrados.</p>
+                        <p class="text-gray-500 dark:text-gray-400 text-center py-8">
+                            @if(request('search'))
+                                No se encontraron clientes con el término "{{ request('search') }}".
+                            @else
+                                No hay clientes registrados.
+                            @endif
+                        </p>
                     @endif
                 </div>
             </div>

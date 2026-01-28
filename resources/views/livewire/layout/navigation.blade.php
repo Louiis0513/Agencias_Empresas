@@ -61,8 +61,13 @@ new class extends Component
                             {{ __('Atributos') }}
                         </x-nav-link>
 
-                        {{-- 6. Facturas --}}
-                        <x-nav-link :href="route('stores.invoices', $store)" :active="request()->routeIs('stores.invoices')" wire:navigate>
+                        {{-- 6. Clientes --}}
+                        <x-nav-link :href="route('stores.customers', $store)" :active="request()->routeIs('stores.customers*')" wire:navigate>
+                            {{ __('Clientes') }}
+                        </x-nav-link>
+
+                        {{-- 7. Facturas --}}
+                        <x-nav-link :href="route('stores.invoices', $store)" :active="request()->routeIs('stores.invoices*')" wire:navigate>
                             {{ __('Facturas') }}
                         </x-nav-link>
 
@@ -146,7 +151,10 @@ new class extends Component
                 <x-responsive-nav-link :href="route('stores.attribute-groups', $store)" :active="request()->routeIs('stores.attribute-groups*')" wire:navigate>
                     {{ __('Atributos') }}
                 </x-responsive-nav-link>
-                <x-responsive-nav-link :href="route('stores.invoices', $store)" :active="request()->routeIs('stores.invoices')" wire:navigate>
+                <x-responsive-nav-link :href="route('stores.customers', $store)" :active="request()->routeIs('stores.customers*')" wire:navigate>
+                    {{ __('Clientes') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('stores.invoices', $store)" :active="request()->routeIs('stores.invoices*')" wire:navigate>
                     {{ __('Facturas') }}
                 </x-responsive-nav-link>
                 <div class="border-t border-gray-200 dark:border-gray-600 my-2"></div>

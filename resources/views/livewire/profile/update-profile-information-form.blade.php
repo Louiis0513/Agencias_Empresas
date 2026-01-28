@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use App\Services\CustomerService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Validation\Rule;
@@ -26,6 +27,7 @@ new class extends Component
     public function updateProfileInformation(): void
     {
         $user = Auth::user();
+        $oldEmail = $user->email; // Guardar el email anterior
 
         $validated = $this->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -34,11 +36,23 @@ new class extends Component
 
         $user->fill($validated);
 
-        if ($user->isDirty('email')) {
+        $emailChanged = $user->isDirty('email');
+        
+        if ($emailChanged) {
             $user->email_verified_at = null;
+            
+            // Desvincular customers cuando cambia el email (antes de guardar)
+            $customerService = app(CustomerService::class);
+            $customerService->desvincularCustomersPorCambioEmail($user, $oldEmail);
         }
 
         $user->save();
+
+        // Si el email cambió, intentar vincular customers con el nuevo email
+        if ($emailChanged) {
+            $customerService = app(CustomerService::class);
+            $customerService->vincularCustomersExistentes($user);
+        }
 
         $this->dispatch('profile-updated', name: $user->name);
     }

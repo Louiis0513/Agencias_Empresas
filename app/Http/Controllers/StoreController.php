@@ -247,17 +247,23 @@ class StoreController extends Controller
 
         session(['current_store_id' => $store->id]);
 
+        // Obtener rango de fechas por defecto (últimos 31 días)
+        $rangoFechas = $invoiceService->getRangoFechasPorDefecto();
+
         $filtros = [
             'status' => $request->get('status'),
             'customer_id' => $request->get('customer_id'),
+            'payment_method' => $request->get('payment_method'),
             'search' => $request->get('search'),
-            'per_page' => $request->get('per_page', 15),
+            'fecha_desde' => $request->get('fecha_desde', $rangoFechas['fecha_desde']->format('Y-m-d')),
+            'fecha_hasta' => $request->get('fecha_hasta', $rangoFechas['fecha_hasta']->format('Y-m-d')),
+            'per_page' => $request->get('per_page', 10),
         ];
 
         $invoices = $invoiceService->listarFacturas($store, $filtros);
         $customers = \App\Models\Customer::where('store_id', $store->id)->orderBy('name')->get();
 
-        return view('stores.facturas', compact('store', 'invoices', 'customers'));
+        return view('stores.facturas', compact('store', 'invoices', 'customers', 'rangoFechas'));
     }
 
     public function showInvoice(Store $store, \App\Models\Invoice $invoice, InvoiceService $invoiceService)

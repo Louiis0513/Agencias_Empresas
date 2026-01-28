@@ -17,16 +17,48 @@ class InvoiceService
     /* -------------------------------------------------------------------------- */
 
     /**
+     * Obtiene el rango de fechas para filtrar facturas (últimos 31 días por defecto).
+     * 
+     * @return array ['fecha_desde' => Carbon, 'fecha_hasta' => Carbon]
+     */
+    public function getRangoFechasPorDefecto(): array
+    {
+        $fechaHasta = now();
+        $fechaDesde = now()->subDays(30);
+
+        return [
+            'fecha_desde' => $fechaDesde,
+            'fecha_hasta' => $fechaHasta,
+        ];
+    }
+
+    /**
      * Lista facturas con filtros opcionales y paginación.
+     * Por defecto muestra solo las facturas de los últimos 31 días.
      * 
      * @param Store $store Tienda
-     * @param array $filtros Filtros opcionales: status, customer_id, search, per_page
+     * @param array $filtros Filtros opcionales: status, customer_id, search, payment_method, fecha_desde, fecha_hasta, per_page
      * @return LengthAwarePaginator
      */
     public function listarFacturas(Store $store, array $filtros = []): LengthAwarePaginator
     {
         $query = Invoice::deTienda($store->id)
             ->with(['user:id,name,email', 'customer:id,name,email', 'details']);
+
+        // Filtro por rango de fechas (últimos 31 días por defecto si no se especifica)
+        if (isset($filtros['fecha_desde']) && isset($filtros['fecha_hasta'])) {
+            $query->whereBetween('created_at', [
+                $filtros['fecha_desde'],
+                $filtros['fecha_hasta']
+            ]);
+        } else {
+            // Por defecto: últimos 31 días
+            $rango = $this->getRangoFechasPorDefecto();
+            $query->whereBetween('created_at', [
+                $rango['fecha_desde'],
+                $rango['fecha_hasta']
+            ]);
+        }
 
         // Filtro por estado
         if (isset($filtros['status']) && !empty($filtros['status'])) {
@@ -38,13 +70,18 @@ class InvoiceService
             $query->where('customer_id', $filtros['customer_id']);
         }
 
+        // Filtro por método de pago
+        if (isset($filtros['payment_method']) && !empty($filtros['payment_method'])) {
+            $query->where('payment_method', $filtros['payment_method']);
+        }
+
         // Búsqueda (usa el scope del modelo)
         if (isset($filtros['search']) && !empty($filtros['search'])) {
             $query->buscar($filtros['search']);
         }
 
         // Paginación
-        $perPage = $filtros['per_page'] ?? 15;
+        $perPage = $filtros['per_page'] ?? 10;
 
         return $query->orderBy('created_at', 'desc')->paginate($perPage);
     }
@@ -200,7 +237,78 @@ class InvoiceService
     }
 
     /**
+     * Calcula los totales de una factura basándose en los detalles.
+     * 
+     * @param array $details Array de detalles con: quantity, unit_price, discount (opcional)
+     * @param float $discountAmount Descuento total (monto fijo)
+     * @param float $discountPercent Descuento total (porcentaje)
+     * @return array ['subtotal' => float, 'discount' => float, 'total' => float]
+     */
+    public function calcularTotales(array $details, float $discountAmount = 0, float $discountPercent = 0): array
+    {
+        // Calcular subtotal sumando todos los detalles
+        $subtotal = 0;
+        foreach ($details as $detail) {
+            $itemSubtotal = ($detail['unit_price'] * $detail['quantity']);
+            // Si el detalle tiene descuento individual, aplicarlo
+            if (isset($detail['discount'])) {
+                $itemSubtotal -= $detail['discount'];
+            }
+            $subtotal += $itemSubtotal;
+        }
+
+        // Aplicar descuentos globales
+        $discount = 0;
+        
+        // Primero aplicar descuento por porcentaje
+        if ($discountPercent > 0) {
+            $discount = $subtotal * ($discountPercent / 100);
+        }
+        
+        // Luego aplicar descuento por monto fijo (se suma al descuento por porcentaje)
+        $discount += $discountAmount;
+
+        // El total es subtotal menos descuentos
+        $total = $subtotal - $discount;
+
+        // Asegurar que el total no sea negativo
+        if ($total < 0) {
+            $total = 0;
+            $discount = $subtotal; // Ajustar el descuento para que no exceda el subtotal
+        }
+
+        return [
+            'subtotal' => round($subtotal, 2),
+            'discount' => round($discount, 2),
+            'total' => round($total, 2),
+        ];
+    }
+
+    /**
+     * Busca productos para agregar a una factura.
+     * Busca por ID, nombre o código de barras.
+     * 
+     * @param Store $store Tienda
+     * @param string $termino Término de búsqueda
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    public function buscarProductos(Store $store, string $termino)
+    {
+        return Product::where('store_id', $store->id)
+            ->where('is_active', true)
+            ->where(function($query) use ($termino) {
+                $query->where('id', $termino)
+                    ->orWhere('name', 'like', "%{$termino}%")
+                    ->orWhere('barcode', 'like', "%{$termino}%");
+            })
+            ->orderBy('name')
+            ->limit(20) // Limitar resultados para rendimiento
+            ->get();
+    }
+
+    /**
      * Procesa un detalle de factura y actualiza el stock del producto.
+     * NOTA: Por ahora NO se valida stock (se hará en módulo de ventas).
      */
     private function procesarDetalle(Store $store, Invoice $factura, array $item): void
     {
@@ -208,10 +316,8 @@ class InvoiceService
             ->where('store_id', $store->id)
             ->firstOrFail();
 
-        // Validar stock disponible (solo si el producto tiene stock)
-        if ($producto->stock !== null && $producto->stock < $item['quantity']) {
-            throw new Exception("No hay suficiente stock para el producto '{$producto->name}'. Stock disponible: {$producto->stock}");
-        }
+        // TODO: Validación de stock se implementará en módulo de ventas
+        // Por ahora permitimos facturar sin validar stock
 
         // Crear el detalle de factura (snapshot)
         InvoiceDetail::create([
@@ -223,9 +329,7 @@ class InvoiceService
             'subtotal'     => $item['subtotal'],
         ]);
 
-        // Actualizar stock del producto (solo si tiene stock)
-        if ($producto->stock !== null) {
-            $producto->decrement('stock', $item['quantity']);
-        }
+        // TODO: Actualización de stock se implementará en módulo de ventas
+        // Por ahora NO actualizamos stock al crear factura
     }
 }
