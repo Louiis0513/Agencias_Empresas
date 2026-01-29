@@ -67,6 +67,22 @@ Route::middleware(['auth', 'verified'])->prefix('tienda/{store:slug}')->name('st
     // Inventario: movimientos entrada/salida (solo productos type = producto)
     Route::get('/inventario', [StoreController::class, 'inventario'])->name('inventario');
     Route::post('/inventario/movimientos', [StoreController::class, 'storeMovimientoInventario'])->name('inventario.movimientos.store');
+
+    // Compras
+    Route::get('/compras', [StoreController::class, 'purchases'])->name('purchases');
+    Route::get('/compras/crear', [StoreController::class, 'createPurchase'])->name('purchases.create');
+    Route::post('/compras', [StoreController::class, 'storePurchase'])->name('purchases.store');
+    Route::get('/compras/{purchase}', [StoreController::class, 'showPurchase'])->name('purchases.show');
+    Route::get('/compras/{purchase}/editar', [StoreController::class, 'editPurchase'])->name('purchases.edit');
+    Route::put('/compras/{purchase}', [StoreController::class, 'updatePurchase'])->name('purchases.update');
+    Route::post('/compras/{purchase}/aprobar', [StoreController::class, 'approvePurchase'])->name('purchases.approve');
+    Route::post('/compras/{purchase}/anular', [StoreController::class, 'voidPurchase'])->name('purchases.void');
+
+    // Cuentas por pagar
+    Route::get('/cuentas-por-pagar', [StoreController::class, 'accountsPayables'])->name('accounts-payables');
+    Route::get('/cuentas-por-pagar/{accountPayable}', [StoreController::class, 'showAccountPayable'])->name('accounts-payables.show');
+    Route::post('/cuentas-por-pagar/{accountPayable}/pagar', [StoreController::class, 'payAccountPayable'])->name('accounts-payables.pay');
+    Route::post('/cuentas-por-pagar/{accountPayable}/reversar-pago/{payment}', [StoreController::class, 'reversarPagoAccountPayable'])->name('accounts-payables.reversar-pago');
 });
 
 require __DIR__.'/auth.php';

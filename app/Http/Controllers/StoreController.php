@@ -12,6 +12,8 @@ use App\Services\InvoiceService;
 use App\Services\ProveedorService;
 use App\Services\CajaService;
 use App\Services\InventarioService;
+use App\Services\PurchaseService;
+use App\Services\AccountPayableService;
 use App\Http\Requests\StoreCustomerRequest;
 use App\Http\Requests\StoreInvoiceRequest;
 use App\Http\Requests\StoreProveedorRequest;
@@ -678,6 +680,244 @@ class StoreController extends Controller
             return redirect()->route('stores.inventario', $store)->with('success', 'Movimiento de inventario registrado correctamente.');
         } catch (\Exception $e) {
             return redirect()->route('stores.inventario', $store)->with('error', $e->getMessage());
+        }
+    }
+
+    // ==================== COMPRAS ====================
+
+    public function purchases(Store $store, PurchaseService $purchaseService, Request $request)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        session(['current_store_id' => $store->id]);
+
+        $filtros = [
+            'status' => $request->get('status'),
+            'payment_status' => $request->get('payment_status'),
+            'proveedor_id' => $request->get('proveedor_id'),
+            'fecha_desde' => $request->get('fecha_desde'),
+            'fecha_hasta' => $request->get('fecha_hasta'),
+        ];
+        $purchases = $purchaseService->listarCompras($store, $filtros);
+        $proveedores = \App\Models\Proveedor::deTienda($store->id)->orderBy('nombre')->get();
+
+        return view('stores.compras', compact('store', 'purchases', 'proveedores'));
+    }
+
+    public function createPurchase(Store $store, InventarioService $inventarioService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        session(['current_store_id' => $store->id]);
+
+        $proveedores = \App\Models\Proveedor::deTienda($store->id)->orderBy('nombre')->get();
+        $productos = $inventarioService->productosConInventario($store);
+
+        return view('stores.compra-crear', compact('store', 'proveedores', 'productos'));
+    }
+
+    public function editPurchase(Store $store, \App\Models\Purchase $purchase, InventarioService $inventarioService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        if ($purchase->store_id !== $store->id) {
+            abort(404);
+        }
+        if (! $purchase->isBorrador()) {
+            return redirect()->route('stores.purchases.show', [$store, $purchase])
+                ->with('error', 'Solo se pueden editar compras en estado BORRADOR.');
+        }
+        session(['current_store_id' => $store->id]);
+
+        $purchase->load(['details.product', 'proveedor']);
+        $proveedores = \App\Models\Proveedor::deTienda($store->id)->orderBy('nombre')->get();
+        $productos = $inventarioService->productosConInventario($store);
+
+        return view('stores.compra-editar', compact('store', 'purchase', 'proveedores', 'productos'));
+    }
+
+    public function showPurchase(Store $store, \App\Models\Purchase $purchase, PurchaseService $purchaseService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        if ($purchase->store_id !== $store->id) {
+            abort(404);
+        }
+        session(['current_store_id' => $store->id]);
+
+        $purchase = $purchaseService->obtenerCompra($store, $purchase->id);
+
+        return view('stores.compra-detalle', compact('store', 'purchase'));
+    }
+
+    public function storePurchase(Store $store, Request $request, PurchaseService $purchaseService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+
+        $request->validate([
+            'proveedor_id' => ['nullable', 'exists:proveedores,id'],
+            'payment_status' => ['required', 'in:PAGADO,PENDIENTE'],
+            'invoice_number' => ['nullable', 'string', 'max:100'],
+            'invoice_date' => ['nullable', 'date'],
+            'details' => ['required', 'array', 'min:1'],
+            'details.*.product_id' => ['nullable', 'exists:products,id'],
+            'details.*.item_type' => ['required', 'in:INVENTARIO,ACTIVO_FIJO'],
+            'details.*.description' => ['required', 'string', 'max:255'],
+            'details.*.quantity' => ['required', 'integer', 'min:1'],
+            'details.*.unit_cost' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        try {
+            $purchaseService->crearCompra($store, Auth::id(), $request->all());
+            return redirect()->route('stores.purchases', $store)->with('success', 'Compra creada correctamente.');
+        } catch (\Exception $e) {
+            return redirect()->route('stores.purchases', $store)->with('error', $e->getMessage());
+        }
+    }
+
+    public function updatePurchase(Store $store, \App\Models\Purchase $purchase, Request $request, PurchaseService $purchaseService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        if ($purchase->store_id !== $store->id) {
+            abort(404);
+        }
+
+        $request->validate([
+            'proveedor_id' => ['nullable', 'exists:proveedores,id'],
+            'payment_status' => ['required', 'in:PAGADO,PENDIENTE'],
+            'invoice_number' => ['nullable', 'string', 'max:100'],
+            'invoice_date' => ['nullable', 'date'],
+            'details' => ['required', 'array', 'min:1'],
+            'details.*.product_id' => ['nullable', 'exists:products,id'],
+            'details.*.item_type' => ['required', 'in:INVENTARIO,ACTIVO_FIJO'],
+            'details.*.description' => ['required', 'string', 'max:255'],
+            'details.*.quantity' => ['required', 'integer', 'min:1'],
+            'details.*.unit_cost' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        try {
+            $purchaseService->actualizarCompra($store, $purchase->id, $request->all());
+            return redirect()->route('stores.purchases.show', [$store, $purchase])->with('success', 'Compra actualizada correctamente.');
+        } catch (\Exception $e) {
+            return redirect()->route('stores.purchases.show', [$store, $purchase])->with('error', $e->getMessage());
+        }
+    }
+
+    public function approvePurchase(Store $store, \App\Models\Purchase $purchase, PurchaseService $purchaseService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        if ($purchase->store_id !== $store->id) {
+            abort(404);
+        }
+
+        try {
+            $purchaseService->aprobarCompra($store, $purchase->id, Auth::id());
+            return redirect()->route('stores.purchases.show', [$store, $purchase])->with('success', 'Compra aprobada. Inventario actualizado.');
+        } catch (\Exception $e) {
+            return redirect()->route('stores.purchases.show', [$store, $purchase])->with('error', $e->getMessage());
+        }
+    }
+
+    public function voidPurchase(Store $store, \App\Models\Purchase $purchase, PurchaseService $purchaseService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        if ($purchase->store_id !== $store->id) {
+            abort(404);
+        }
+
+        try {
+            $purchaseService->anularCompra($store, $purchase->id);
+            return redirect()->route('stores.purchases', $store)->with('success', 'Compra anulada.');
+        } catch (\Exception $e) {
+            return redirect()->route('stores.purchases', $store)->with('error', $e->getMessage());
+        }
+    }
+
+    // ==================== CUENTAS POR PAGAR ====================
+
+    public function accountsPayables(Store $store, AccountPayableService $accountPayableService, Request $request)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        session(['current_store_id' => $store->id]);
+
+        $filtros = [
+            'status' => $request->get('status'),
+        ];
+        $accountsPayables = $accountPayableService->listarCuentasPorPagar($store, $filtros);
+        $deudaTotal = $accountPayableService->deudaTotal($store);
+
+        return view('stores.cuentas-por-pagar', compact('store', 'accountsPayables', 'deudaTotal'));
+    }
+
+    public function showAccountPayable(Store $store, \App\Models\AccountPayable $accountPayable, AccountPayableService $accountPayableService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        if ($accountPayable->store_id !== $store->id) {
+            abort(404);
+        }
+        session(['current_store_id' => $store->id]);
+
+        $accountPayable = $accountPayableService->obtenerCuentaPorPagar($store, $accountPayable->id);
+        $bolsillos = \App\Models\Bolsillo::deTienda($store->id)->activos()->orderBy('name')->get();
+
+        return view('stores.cuenta-por-pagar-detalle', compact('store', 'accountPayable', 'bolsillos'));
+    }
+
+    public function payAccountPayable(Store $store, \App\Models\AccountPayable $accountPayable, Request $request, AccountPayableService $accountPayableService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        if ($accountPayable->store_id !== $store->id) {
+            abort(404);
+        }
+
+        $request->validate([
+            'payment_date' => ['required', 'date'],
+            'notes' => ['nullable', 'string', 'max:500'],
+            'parts' => ['required', 'array', 'min:1'],
+            'parts.*.bolsillo_id' => ['required', 'exists:bolsillos,id'],
+            'parts.*.amount' => ['required', 'numeric', 'min:0.01'],
+        ]);
+
+        try {
+            $accountPayableService->registrarPago($store, $accountPayable->id, Auth::id(), $request->all());
+            return redirect()->route('stores.accounts-payables.show', [$store, $accountPayable])->with('success', 'Pago registrado correctamente.');
+        } catch (\Exception $e) {
+            return redirect()->route('stores.accounts-payables.show', [$store, $accountPayable])->with('error', $e->getMessage());
+        }
+    }
+
+    public function reversarPagoAccountPayable(Store $store, \App\Models\AccountPayable $accountPayable, \App\Models\AccountPayablePayment $payment, AccountPayableService $accountPayableService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        if ($accountPayable->store_id !== $store->id || $payment->account_payable_id !== $accountPayable->id) {
+            abort(404);
+        }
+
+        try {
+            $accountPayableService->reversarPago($store, $accountPayable->id, $payment->id, Auth::id());
+            return redirect()->route('stores.accounts-payables.show', [$store, $accountPayable])->with('success', 'Pago revertido correctamente. El saldo de la cuenta y los bolsillos han sido restaurados.');
+        } catch (\Exception $e) {
+            return redirect()->route('stores.accounts-payables.show', [$store, $accountPayable])->with('error', $e->getMessage());
         }
     }
 }

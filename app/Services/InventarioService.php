@@ -63,6 +63,7 @@ class InventarioService
                 'store_id'    => $store->id,
                 'user_id'     => $userId,
                 'product_id'  => $product->id,
+                'purchase_id' => $datos['purchase_id'] ?? null,
                 'type'        => $type,
                 'quantity'    => $quantity,
                 'description' => $datos['description'] ?? null,

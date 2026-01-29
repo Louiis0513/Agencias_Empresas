@@ -76,12 +76,22 @@ new class extends Component
                             {{ __('Facturas') }}
                         </x-nav-link>
 
-                        {{-- 9. Caja --}}
+                        {{-- 9. Compras --}}
+                        <x-nav-link :href="route('stores.purchases', $store)" :active="request()->routeIs('stores.purchases*')" wire:navigate>
+                            {{ __('Compras') }}
+                        </x-nav-link>
+
+                        {{-- 10. Cuentas por Pagar --}}
+                        <x-nav-link :href="route('stores.accounts-payables', $store)" :active="request()->routeIs('stores.accounts-payables*')" wire:navigate>
+                            {{ __('Cuentas por Pagar') }}
+                        </x-nav-link>
+
+                        {{-- 11. Caja --}}
                         <x-nav-link :href="route('stores.cajas', $store)" :active="request()->routeIs('stores.cajas*')" wire:navigate>
                             {{ __('Caja') }}
                         </x-nav-link>
 
-                        {{-- 10. Inventario --}}
+                        {{-- 12. Inventario --}}
                         <x-nav-link :href="route('stores.inventario', $store)" :active="request()->routeIs('stores.inventario*')" wire:navigate>
                             {{ __('Inventario') }}
                         </x-nav-link>
@@ -174,6 +184,12 @@ new class extends Component
                 </x-responsive-nav-link>
                 <x-responsive-nav-link :href="route('stores.invoices', $store)" :active="request()->routeIs('stores.invoices*')" wire:navigate>
                     {{ __('Facturas') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('stores.purchases', $store)" :active="request()->routeIs('stores.purchases*')" wire:navigate>
+                    {{ __('Compras') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('stores.accounts-payables', $store)" :active="request()->routeIs('stores.accounts-payables*')" wire:navigate>
+                    {{ __('Cuentas por Pagar') }}
                 </x-responsive-nav-link>
                 <x-responsive-nav-link :href="route('stores.cajas', $store)" :active="request()->routeIs('stores.cajas*')" wire:navigate>
                     {{ __('Caja') }}

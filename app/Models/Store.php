@@ -71,4 +71,14 @@ class Store extends Model
     {
         return $this->hasMany(Proveedor::class);
     }
+
+    public function purchases()
+    {
+        return $this->hasMany(Purchase::class);
+    }
+
+    public function accountsPayables()
+    {
+        return $this->hasMany(AccountPayable::class);
+    }
 }

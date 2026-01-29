@@ -38,6 +38,11 @@ class Proveedor extends Model
             ->withTimestamps();
     }
 
+    public function purchases()
+    {
+        return $this->hasMany(Purchase::class);
+    }
+
     public function scopeDeTienda(Builder $query, int $storeId): void
     {
         $query->where('store_id', $storeId);

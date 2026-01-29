@@ -17,6 +17,8 @@ class MovimientoBolsillo extends Model
         'store_id',
         'bolsillo_id',
         'invoice_id',
+        'account_payable_payment_id',
+        'reversal_of_account_payable_payment_id',
         'user_id',
         'type',
         'amount',
@@ -50,6 +52,16 @@ class MovimientoBolsillo extends Model
         return $this->belongsTo(Invoice::class);
     }
 
+    public function accountPayablePayment()
+    {
+        return $this->belongsTo(AccountPayablePayment::class);
+    }
+
+    public function reversalOfAccountPayablePayment()
+    {
+        return $this->belongsTo(AccountPayablePayment::class, 'reversal_of_account_payable_payment_id');
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class);
@@ -68,5 +80,10 @@ class MovimientoBolsillo extends Model
     public function scopePorTipo(Builder $query, string $type): void
     {
         $query->where('type', $type);
+    }
+
+    public function isReversal(): bool
+    {
+        return (bool) $this->reversal_of_account_payable_payment_id;
     }
 }

@@ -16,6 +16,7 @@ class MovimientoInventario extends Model
         'store_id',
         'user_id',
         'product_id',
+        'purchase_id',
         'type',
         'quantity',
         'description',
@@ -46,6 +47,11 @@ class MovimientoInventario extends Model
     public function product()
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function purchase()
+    {
+        return $this->belongsTo(Purchase::class);
     }
 
     public function scopeDeTienda(Builder $query, int $storeId): void

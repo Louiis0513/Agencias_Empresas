@@ -92,14 +92,23 @@
                                             <td class="px-4 py-3 text-sm font-semibold {{ $m->type === 'INCOME' ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300' }}">
                                                 {{ $m->type === 'INCOME' ? '+' : '-' }}${{ number_format($m->amount, 2) }}
                                             </td>
-                                            <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{{ $m->description ?? '—' }}</td>
+                                            <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                                                @if($m->reversal_of_account_payable_payment_id)
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 mr-1">Reversa</span>
+                                                @endif
+                                                {{ $m->description ?? '—' }}
+                                            </td>
                                             <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{{ $m->user->name ?? '—' }}</td>
                                             <td class="px-4 py-3 text-right text-sm">
-                                                <form method="POST" action="{{ route('stores.cajas.movimientos.destroy', [$store, $m]) }}" class="inline" onsubmit="return confirm('¿Eliminar este movimiento? Se revertirá el efecto en el saldo.');">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit" class="text-red-600 dark:text-red-400 hover:underline">Eliminar</button>
-                                                </form>
+                                                @if($m->invoice_id || $m->account_payable_payment_id || $m->reversal_of_account_payable_payment_id)
+                                                    <span class="text-gray-400 dark:text-gray-500 text-xs" title="{{ $m->reversal_of_account_payable_payment_id ? 'Reversa de pago' : ($m->invoice_id ? 'Vinculado a factura' : 'Vinculado a pago de cuenta por pagar') }}">—</span>
+                                                @else
+                                                    <form method="POST" action="{{ route('stores.cajas.movimientos.destroy', [$store, $m]) }}" class="inline" onsubmit="return confirm('¿Eliminar este movimiento? Se revertirá el efecto en el saldo.');">
+                                                        @csrf
+                                                        @method('DELETE')
+                                                        <button type="submit" class="text-red-600 dark:text-red-400 hover:underline">Eliminar</button>
+                                                    </form>
+                                                @endif
                                             </td>
                                         </tr>
                                     @endforeach
