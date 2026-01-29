@@ -43,6 +43,12 @@ Route::middleware(['auth', 'verified'])->prefix('tienda/{store:slug}')->name('st
     Route::get('/facturas/{invoice}', [StoreController::class, 'showInvoice'])->name('invoices.show');
     Route::post('/facturas/{invoice}/anular', [StoreController::class, 'voidInvoice'])->name('invoices.void');
 
+    // Proveedores
+    Route::get('/proveedores', [StoreController::class, 'proveedores'])->name('proveedores');
+    Route::post('/proveedores', [StoreController::class, 'storeProveedor'])->name('proveedores.store');
+    Route::put('/proveedores/{proveedor}', [StoreController::class, 'updateProveedor'])->name('proveedores.update');
+    Route::delete('/proveedores/{proveedor}', [StoreController::class, 'destroyProveedor'])->name('proveedores.destroy');
+
     // Clientes
     Route::get('/clientes', [StoreController::class, 'customers'])->name('customers');
     Route::post('/clientes', [StoreController::class, 'storeCustomer'])->name('customers.store');

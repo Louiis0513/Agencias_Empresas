@@ -61,22 +61,27 @@ new class extends Component
                             {{ __('Atributos') }}
                         </x-nav-link>
 
-                        {{-- 6. Clientes --}}
+                        {{-- 6. Proveedores --}}
+                        <x-nav-link :href="route('stores.proveedores', $store)" :active="request()->routeIs('stores.proveedores*')" wire:navigate>
+                            {{ __('Proveedores') }}
+                        </x-nav-link>
+
+                        {{-- 7. Clientes --}}
                         <x-nav-link :href="route('stores.customers', $store)" :active="request()->routeIs('stores.customers*')" wire:navigate>
                             {{ __('Clientes') }}
                         </x-nav-link>
 
-                        {{-- 7. Facturas --}}
+                        {{-- 8. Facturas --}}
                         <x-nav-link :href="route('stores.invoices', $store)" :active="request()->routeIs('stores.invoices*')" wire:navigate>
                             {{ __('Facturas') }}
                         </x-nav-link>
 
-                        {{-- 8. Caja --}}
+                        {{-- 9. Caja --}}
                         <x-nav-link :href="route('stores.cajas', $store)" :active="request()->routeIs('stores.cajas*')" wire:navigate>
                             {{ __('Caja') }}
                         </x-nav-link>
 
-                        {{-- 9. Inventario --}}
+                        {{-- 10. Inventario --}}
                         <x-nav-link :href="route('stores.inventario', $store)" :active="request()->routeIs('stores.inventario*')" wire:navigate>
                             {{ __('Inventario') }}
                         </x-nav-link>
@@ -160,6 +165,9 @@ new class extends Component
                 </x-responsive-nav-link>
                 <x-responsive-nav-link :href="route('stores.attribute-groups', $store)" :active="request()->routeIs('stores.attribute-groups*')" wire:navigate>
                     {{ __('Atributos') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('stores.proveedores', $store)" :active="request()->routeIs('stores.proveedores*')" wire:navigate>
+                    {{ __('Proveedores') }}
                 </x-responsive-nav-link>
                 <x-responsive-nav-link :href="route('stores.customers', $store)" :active="request()->routeIs('stores.customers*')" wire:navigate>
                     {{ __('Clientes') }}

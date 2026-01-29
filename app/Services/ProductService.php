@@ -36,9 +36,14 @@ class ProductService
 
             $data['store_id'] = $store->id;
             $attributeValues = $data['attribute_values'] ?? [];
-            unset($data['attribute_values']);
+            $proveedorIds = $data['proveedor_ids'] ?? null;
+            unset($data['attribute_values'], $data['proveedor_ids']);
 
             $product = Product::create($data);
+
+            if ($proveedorIds !== null) {
+                $this->syncProveedores($product, $store, $proveedorIds);
+            }
 
             foreach ($attributeValues as $attributeId => $value) {
                 if ($value === null || $value === '') {
@@ -81,10 +86,15 @@ class ProductService
             }
 
             $attributeValues = $data['attribute_values'] ?? [];
-            unset($data['attribute_values']);
+            $proveedorIds = $data['proveedor_ids'] ?? null;
+            unset($data['attribute_values'], $data['proveedor_ids']);
 
             // Actualizar los campos del producto
             $product->update($data);
+
+            if ($proveedorIds !== null) {
+                $this->syncProveedores($product, $store, $proveedorIds);
+            }
 
             // Eliminar valores de atributos existentes
             $product->attributeValues()->delete();
@@ -122,5 +132,38 @@ class ProductService
 
             return true;
         });
+    }
+
+    /**
+     * Busca productos de la tienda por término (nombre, SKU, código de barras).
+     */
+    public function buscarProductos(Store $store, string $termino, array $excluirIds = []): \Illuminate\Database\Eloquent\Collection
+    {
+        $query = Product::where('store_id', $store->id)
+            ->where(function ($q) use ($termino) {
+                $q->where('id', $termino)
+                    ->orWhere('name', 'like', "%{$termino}%")
+                    ->orWhere('sku', 'like', "%{$termino}%")
+                    ->orWhere('barcode', 'like', "%{$termino}%");
+            });
+
+        if (! empty($excluirIds)) {
+            $query->whereNotIn('id', $excluirIds);
+        }
+
+        return $query->orderBy('name')->limit(20)->get();
+    }
+
+    /**
+     * Sincroniza los proveedores de un producto (solo proveedores de la misma tienda).
+     */
+    protected function syncProveedores(Product $product, Store $store, array $proveedorIds): void
+    {
+        $validIds = \App\Models\Proveedor::where('store_id', $store->id)
+            ->whereIn('id', $proveedorIds)
+            ->pluck('id')
+            ->toArray();
+
+        $product->proveedores()->sync($validIds);
     }
 }

@@ -62,6 +62,12 @@ class Product extends Model
         return $this->hasMany(MovimientoInventario::class);
     }
 
+    public function proveedores()
+    {
+        return $this->belongsToMany(Proveedor::class, 'producto_proveedor')
+            ->withTimestamps();
+    }
+
     /** Indica si el producto tiene control de inventario (entradas/salidas). */
     public function isProductoInventario(): bool
     {

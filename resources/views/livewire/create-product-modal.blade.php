@@ -164,6 +164,7 @@
                     <x-input-label for="is_active" value="{{ __('Activo') }}" class="ml-2" />
                     <x-input-error :messages="$errors->get('is_active')" class="ml-2" />
                 </div>
+
             </div>
 
             <div class="mt-6 flex justify-end gap-3">

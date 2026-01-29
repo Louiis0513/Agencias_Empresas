@@ -9,10 +9,12 @@ use App\Services\AttributeService;
 use App\Services\ProductService;
 use App\Services\CustomerService;
 use App\Services\InvoiceService;
+use App\Services\ProveedorService;
 use App\Services\CajaService;
 use App\Services\InventarioService;
 use App\Http\Requests\StoreCustomerRequest;
 use App\Http\Requests\StoreInvoiceRequest;
+use App\Http\Requests\StoreProveedorRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -315,6 +317,85 @@ class StoreController extends Controller
                 ->with('success', 'Factura anulada correctamente.');
         } catch (\Exception $e) {
             return redirect()->route('stores.invoices', $store)
+                ->with('error', $e->getMessage());
+        }
+    }
+
+    // ==================== PROVEEDORES ====================
+
+    public function proveedores(Store $store, ProveedorService $proveedorService, Request $request)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+
+        session(['current_store_id' => $store->id]);
+
+        $filtros = [
+            'search' => $request->get('search'),
+        ];
+
+        $proveedores = $proveedorService->listarProveedores($store, $filtros);
+
+        return view('stores.proveedores', compact('store', 'proveedores'));
+    }
+
+    public function storeProveedor(Store $store, StoreProveedorRequest $request, ProveedorService $proveedorService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+
+        try {
+            $data = $request->validated();
+            $data['estado'] = $request->boolean('estado', true);
+            $proveedorService->crearProveedor($store, $data);
+            return redirect()->route('stores.proveedores', $store)
+                ->with('success', 'Proveedor creado correctamente.');
+        } catch (\Exception $e) {
+            return redirect()->route('stores.proveedores', $store)
+                ->with('error', $e->getMessage());
+        }
+    }
+
+    public function updateProveedor(Store $store, \App\Models\Proveedor $proveedor, StoreProveedorRequest $request, ProveedorService $proveedorService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+
+        if ($proveedor->store_id !== $store->id) {
+            abort(404);
+        }
+
+        try {
+            $data = $request->validated();
+            $data['estado'] = $request->boolean('estado', true);
+            $proveedorService->actualizarProveedor($store, $proveedor->id, $data);
+            return redirect()->route('stores.proveedores', $store)
+                ->with('success', 'Proveedor actualizado correctamente.');
+        } catch (\Exception $e) {
+            return redirect()->route('stores.proveedores', $store)
+                ->with('error', $e->getMessage());
+        }
+    }
+
+    public function destroyProveedor(Store $store, \App\Models\Proveedor $proveedor, ProveedorService $proveedorService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+
+        if ($proveedor->store_id !== $store->id) {
+            abort(404);
+        }
+
+        try {
+            $proveedorService->eliminarProveedor($store, $proveedor->id);
+            return redirect()->route('stores.proveedores', $store)
+                ->with('success', 'Proveedor eliminado correctamente.');
+        } catch (\Exception $e) {
+            return redirect()->route('stores.proveedores', $store)
                 ->with('error', $e->getMessage());
         }
     }
