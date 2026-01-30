@@ -7,11 +7,17 @@ use App\Models\Store;
 use App\Services\ProductService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
+use Livewire\Attributes\On;
 use Livewire\Component;
 
 class CreateProductModal extends Component
 {
     public int $storeId;
+
+    public bool $fromPurchase = false;
+
+    /** RowId de la fila en compra cuando se abre desde el modal de selección */
+    public string $compraRowId = '';
 
     public string $name = '';
     public string $barcode = '';
@@ -26,6 +32,23 @@ class CreateProductModal extends Component
 
     /** @var array<int, string> Valores de atributos: [attribute_id => value] */
     public array $attribute_values = [];
+
+    #[On('open-create-product-from-compra')]
+    public function setCompraRowId(string $rowId = ''): void
+    {
+        if ($this->fromPurchase) {
+            $this->compraRowId = $rowId;
+        }
+    }
+
+    public function mount(int $storeId, bool $fromPurchase = false): void
+    {
+        $this->storeId = $storeId;
+        $this->fromPurchase = $fromPurchase;
+        if ($fromPurchase) {
+            $this->stock = '0';
+        }
+    }
 
     protected function rules(): array
     {
@@ -217,15 +240,17 @@ class CreateProductModal extends Component
             }
         }
 
+        $stock = $this->fromPurchase ? 0 : (int) $this->stock;
+
         try {
-            $service->createProduct($store, [
+            $product = $service->createProduct($store, [
                 'name' => $this->name,
                 'barcode' => $this->barcode ?: null,
                 'sku' => $this->sku ?: null,
                 'category_id' => $this->category_id,
                 'price' => (float) $this->price,
                 'cost' => (float) $this->cost,
-                'stock' => (int) $this->stock,
+                'stock' => $stock,
                 'location' => $this->location ?: null,
                 'type' => $this->type ?: null,
                 'is_active' => $this->is_active,
@@ -237,11 +262,21 @@ class CreateProductModal extends Component
             return;
         }
 
+        $compraRowId = $this->compraRowId;
+
         $this->reset([
             'name', 'barcode', 'sku', 'category_id', 'price', 'cost', 'stock',
-            'location', 'type', 'is_active', 'attribute_values',
+            'location', 'type', 'is_active', 'attribute_values', 'compraRowId',
         ]);
         $this->resetValidation();
+
+        if ($this->fromPurchase) {
+            $this->dispatch('item-selected', rowId: $compraRowId, id: $product->id, name: $product->name, type: 'INVENTARIO');
+            $this->dispatch('close-modal', 'create-product-from-compra');
+            $this->dispatch('close-modal', 'select-item-compra');
+
+            return;
+        }
 
         return redirect()->route('stores.products', $store);
     }

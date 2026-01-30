@@ -114,4 +114,24 @@ class InventarioService
             ->orderBy('name')
             ->get(['id', 'store_id', 'name', 'sku', 'stock', 'cost']);
     }
+
+    /**
+     * Busca productos de inventario por término (para buscador en compras).
+     */
+    public function buscarProductosInventario(Store $store, string $term, int $limit = 15): \Illuminate\Support\Collection
+    {
+        $query = Product::where('store_id', $store->id)
+            ->where('type', MovimientoInventario::PRODUCT_TYPE_INVENTARIO)
+            ->where('is_active', true);
+
+        if (strlen(trim($term)) >= 2) {
+            $query->where(function ($q) use ($term) {
+                $q->where('name', 'like', '%' . trim($term) . '%')
+                    ->orWhere('sku', 'like', '%' . trim($term) . '%')
+                    ->orWhere('barcode', 'like', '%' . trim($term) . '%');
+            });
+        }
+
+        return $query->orderBy('name')->limit($limit)->get(['id', 'name', 'sku', 'stock', 'cost']);
+    }
 }

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\AccountPayable;
+use App\Models\Activo;
 use App\Models\Purchase;
 use App\Models\PurchaseDetail;
 use App\Models\Store;
@@ -13,7 +14,8 @@ use Illuminate\Support\Facades\DB;
 class PurchaseService
 {
     public function __construct(
-        protected InventarioService $inventarioService
+        protected InventarioService $inventarioService,
+        protected ActivoService $activoService
     ) {}
 
     /**
@@ -32,12 +34,18 @@ class PurchaseService
                 $total += $subtotal;
             }
 
+            $paymentStatus = $data['payment_status'] ?? Purchase::PAYMENT_PAGADO;
+            $paymentType = $paymentStatus === Purchase::PAYMENT_PENDIENTE
+                ? Purchase::PAYMENT_TYPE_CREDITO
+                : Purchase::PAYMENT_TYPE_CONTADO;
+
             $purchase = Purchase::create([
                 'store_id' => $store->id,
                 'user_id' => $userId,
                 'proveedor_id' => $data['proveedor_id'] ?? null,
                 'status' => Purchase::STATUS_BORRADOR,
-                'payment_status' => $data['payment_status'] ?? Purchase::PAYMENT_PAGADO,
+                'payment_status' => $paymentStatus,
+                'payment_type' => $paymentType,
                 'invoice_number' => $data['invoice_number'] ?? null,
                 'invoice_date' => $data['invoice_date'] ?? null,
                 'image_path' => $data['image_path'] ?? null,
@@ -52,7 +60,7 @@ class PurchaseService
                 $this->crearCuentaPorPagar($purchase);
             }
 
-            return $purchase->load(['details.product', 'proveedor', 'user']);
+            return $purchase->load(['details.product', 'details.activo', 'proveedor', 'user']);
         });
     }
 
@@ -72,6 +80,12 @@ class PurchaseService
 
             $details = $data['details'] ?? null;
             unset($data['details']);
+
+            if (isset($data['payment_status'])) {
+                $data['payment_type'] = $data['payment_status'] === Purchase::PAYMENT_PENDIENTE
+                    ? Purchase::PAYMENT_TYPE_CREDITO
+                    : Purchase::PAYMENT_TYPE_CONTADO;
+            }
 
             if ($details !== null) {
                 $purchase->details()->delete();
@@ -93,10 +107,11 @@ class PurchaseService
 
     /**
      * Aprueba una compra: suma inventario (INVENTARIO) y confirma.
+     * Si es contado (PAGADO), requiere paymentData para registrar el pago en caja.
      */
-    public function aprobarCompra(Store $store, int $purchaseId, int $userId): Purchase
+    public function aprobarCompra(Store $store, int $purchaseId, int $userId, ?AccountPayableService $accountPayableService = null, ?array $paymentData = null): Purchase
     {
-        return DB::transaction(function () use ($store, $purchaseId, $userId) {
+        return DB::transaction(function () use ($store, $purchaseId, $userId, $accountPayableService, $paymentData) {
             $purchase = Purchase::where('id', $purchaseId)
                 ->where('store_id', $store->id)
                 ->with('details.product')
@@ -104,6 +119,14 @@ class PurchaseService
 
             if (! $purchase->isBorrador()) {
                 throw new Exception('Solo se pueden aprobar compras en estado BORRADOR.');
+            }
+
+            if ($purchase->payment_status === Purchase::PAYMENT_PAGADO) {
+                if (! $accountPayableService || ! $paymentData || empty($paymentData['parts'])) {
+                    throw new Exception('Para compras de contado debe indicar de qué bolsillo(s) se paga.');
+                }
+                $accountPayable = $this->crearCuentaPorPagar($purchase);
+                $accountPayableService->registrarPago($store, $accountPayable->id, $userId, $paymentData);
             }
 
             $purchase->update(['status' => Purchase::STATUS_APROBADO]);
@@ -122,9 +145,12 @@ class PurchaseService
                         ]);
                     }
                 }
+                if ($detail->isActivoFijo() && $detail->activo_id) {
+                    $this->activoService->registrarEntrada($store, $detail->activo_id, $detail->quantity, (float) $detail->unit_cost, $userId, $purchase->id, "Compra #{$purchase->id}");
+                }
             }
 
-            return $purchase->fresh()->load(['details.product', 'proveedor', 'user']);
+            return $purchase->fresh()->load(['details.product', 'details.activo', 'proveedor', 'user']);
         });
     }
 
@@ -151,7 +177,7 @@ class PurchaseService
     public function listarCompras(Store $store, array $filtros = []): LengthAwarePaginator
     {
         $query = Purchase::deTienda($store->id)
-            ->with(['details.product', 'proveedor', 'user', 'accountPayable'])
+            ->with(['details.product', 'details.activo', 'proveedor', 'user', 'accountPayable'])
             ->orderByDesc('created_at');
 
         if (! empty($filtros['status'])) {
@@ -189,6 +215,7 @@ class PurchaseService
 
         $itemType = $d['item_type'] ?? PurchaseDetail::TYPE_INVENTARIO;
         $productId = $d['product_id'] ?? null;
+        $activoId = $d['activo_id'] ?? null;
         $description = $d['description'] ?? null;
 
         if ($productId) {
@@ -198,13 +225,21 @@ class PurchaseService
             }
         }
 
+        if ($activoId) {
+            $activo = Activo::where('id', $activoId)->where('store_id', $purchase->store_id)->first();
+            if ($activo && empty($description)) {
+                $description = $activo->name;
+            }
+        }
+
         if (empty($description)) {
-            throw new Exception('La descripción es obligatoria cuando no hay producto vinculado.');
+            throw new Exception('La descripción es obligatoria cuando no hay producto o activo vinculado.');
         }
 
         return PurchaseDetail::create([
             'purchase_id' => $purchase->id,
             'product_id' => $productId,
+            'activo_id' => $activoId,
             'item_type' => $itemType,
             'description' => $description,
             'quantity' => $quantity,
@@ -215,14 +250,16 @@ class PurchaseService
 
     protected function crearCuentaPorPagar(Purchase $purchase): AccountPayable
     {
-        return AccountPayable::create([
-            'store_id' => $purchase->store_id,
-            'purchase_id' => $purchase->id,
-            'total_amount' => $purchase->total,
-            'balance' => $purchase->total,
-            'due_date' => $purchase->invoice_date,
-            'status' => AccountPayable::STATUS_PENDIENTE,
-        ]);
+        return AccountPayable::firstOrCreate(
+            ['purchase_id' => $purchase->id],
+            [
+                'store_id' => $purchase->store_id,
+                'total_amount' => $purchase->total,
+                'balance' => $purchase->total,
+                'due_date' => $purchase->invoice_date,
+                'status' => AccountPayable::STATUS_PENDIENTE,
+            ]
+        );
     }
 
     protected function sincronizarCuentaPorPagar(Purchase $purchase): void

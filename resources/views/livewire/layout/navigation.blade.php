@@ -91,7 +91,12 @@ new class extends Component
                             {{ __('Caja') }}
                         </x-nav-link>
 
-                        {{-- 12. Inventario --}}
+                        {{-- 12. Activos --}}
+                        <x-nav-link :href="route('stores.activos', $store)" :active="request()->routeIs('stores.activos*')" wire:navigate>
+                            {{ __('Activos') }}
+                        </x-nav-link>
+
+                        {{-- 13. Inventario --}}
                         <x-nav-link :href="route('stores.inventario', $store)" :active="request()->routeIs('stores.inventario*')" wire:navigate>
                             {{ __('Inventario') }}
                         </x-nav-link>
@@ -193,6 +198,9 @@ new class extends Component
                 </x-responsive-nav-link>
                 <x-responsive-nav-link :href="route('stores.cajas', $store)" :active="request()->routeIs('stores.cajas*')" wire:navigate>
                     {{ __('Caja') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('stores.activos', $store)" :active="request()->routeIs('stores.activos*')" wire:navigate>
+                    {{ __('Activos') }}
                 </x-responsive-nav-link>
                 <x-responsive-nav-link :href="route('stores.inventario', $store)" :active="request()->routeIs('stores.inventario*')" wire:navigate>
                     {{ __('Inventario') }}

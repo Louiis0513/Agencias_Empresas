@@ -45,7 +45,13 @@
                         <div>
                             <p class="text-sm text-gray-500 dark:text-gray-400">Forma de Pago</p>
                             <p class="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                                {{ $purchase->payment_status == 'PAGADO' ? 'Pagado (Contado)' : 'Pendiente (Crédito)' }}
+                                @if($purchase->payment_type == 'CONTADO')
+                                    Contado
+                                @elseif($purchase->payment_status == 'PAGADO')
+                                    Crédito (Pagado)
+                                @else
+                                    Crédito (Pendiente)
+                                @endif
                             </p>
                         </div>
                         <div>
@@ -87,27 +93,121 @@
                     </div>
 
                     @if($purchase->isBorrador())
-                        <div class="flex gap-3">
-                            <a href="{{ route('stores.purchases.edit', [$store, $purchase]) }}" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Editar</a>
-                            <form method="POST" action="{{ route('stores.purchases.approve', [$store, $purchase]) }}" class="inline">
-                                @csrf
-                                <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700" onclick="return confirm('¿Aprobar esta compra? Se sumará al inventario los productos tipo INVENTARIO.');">Aprobar Compra</button>
-                            </form>
-                            <form method="POST" action="{{ route('stores.purchases.void', [$store, $purchase]) }}" class="inline">
-                                @csrf
-                                <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700" onclick="return confirm('¿Anular esta compra?');">Anular</button>
-                            </form>
+                        <div class="flex flex-col gap-4">
+                            <div class="flex gap-3">
+                                <a href="{{ route('stores.purchases.edit', [$store, $purchase]) }}" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Editar</a>
+                                @if($purchase->payment_status == 'PAGADO' && $bolsillos && $bolsillos->isNotEmpty())
+                                    <button type="button" id="btn-show-pago-contado" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">Aprobar Compra (Contado)</button>
+                                @elseif($purchase->payment_status == 'PAGADO' && (!$bolsillos || $bolsillos->isEmpty()))
+                                    <span class="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-400 rounded-md cursor-not-allowed" title="Crea al menos un bolsillo en Caja para poder aprobar compras de contado">Aprobar (sin bolsillos)</span>
+                                @elseif($purchase->payment_status == 'PENDIENTE')
+                                    <form method="POST" action="{{ route('stores.purchases.approve', [$store, $purchase]) }}" class="inline">
+                                        @csrf
+                                        <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700" onclick="return confirm('¿Aprobar esta compra? Los productos tipo Inventario sumarán al stock. Los Activos Fijos sumarán al módulo Activos.');">Aprobar Compra</button>
+                                    </form>
+                                @endif
+                                <form method="POST" action="{{ route('stores.purchases.void', [$store, $purchase]) }}" class="inline">
+                                    @csrf
+                                    <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700" onclick="return confirm('¿Anular esta compra?');">Anular</button>
+                                </form>
+                            </div>
+
+                            @if($purchase->payment_status == 'PAGADO' && $bolsillos)
+                                <div id="form-pago-contado" class="hidden p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+                                    <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Registrar pago de contado (se descontará de caja)</h3>
+                                    <form method="POST" action="{{ route('stores.purchases.approve', [$store, $purchase]) }}">
+                                        @csrf
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha del Pago</label>
+                                                <input type="date" name="payment_date" value="{{ date('Y-m-d') }}" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" required>
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notas</label>
+                                                <input type="text" name="notes" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" placeholder="Opcional">
+                                            </div>
+                                        </div>
+                                        <div class="mb-4">
+                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">De qué bolsillo(s) se paga (Total: {{ number_format($purchase->total, 2) }})</label>
+                                            <div id="payment-parts">
+                                                <div class="flex gap-2 mb-2">
+                                                    <select name="parts[0][bolsillo_id]" class="flex-1 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" required>
+                                                        <option value="">Seleccionar bolsillo</option>
+                                                        @foreach($bolsillos as $b)
+                                                            <option value="{{ $b->id }}">{{ $b->name }} ({{ number_format($b->saldo, 2) }})</option>
+                                                        @endforeach
+                                                    </select>
+                                                    <input type="number" name="parts[0][amount]" step="0.01" min="0.01" placeholder="Monto" value="{{ $purchase->total }}" class="w-32 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" required>
+                                                </div>
+                                            </div>
+                                            <button type="button" id="add-part" class="text-sm text-indigo-600 hover:text-indigo-800">+ Agregar otro bolsillo</button>
+                                        </div>
+                                        <div class="flex gap-3">
+                                            <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">Aprobar y Registrar Pago</button>
+                                            <button type="button" id="btn-cancel-pago" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600">Cancelar</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            @endif
                         </div>
                     @endif
 
-                    @if($purchase->accountPayable && !$purchase->accountPayable->isPagado())
+                    @if($purchase->accountPayable)
                         <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                            <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">Cuenta por pagar: Saldo pendiente {{ number_format($purchase->accountPayable->balance, 2) }}</p>
-                            <a href="{{ route('stores.accounts-payables.show', [$store, $purchase->accountPayable]) }}" class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400">Ir a Cuentas por Pagar →</a>
+                            @if($purchase->accountPayable->isPagado())
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">Cuenta por pagar: Pagada</p>
+                                <a href="{{ route('stores.accounts-payables.show', [$store, $purchase->accountPayable]) }}" class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400">Ver historial de pagos en Cuentas por Pagar →</a>
+                            @else
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">Cuenta por pagar: Saldo pendiente {{ number_format($purchase->accountPayable->balance, 2) }}</p>
+                                <a href="{{ route('stores.accounts-payables.show', [$store, $purchase->accountPayable]) }}" class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400">Ir a Cuentas por Pagar →</a>
+                            @endif
                         </div>
                     @endif
                 </div>
             </div>
         </div>
     </div>
+
+    @if($purchase->isBorrador() && $purchase->payment_status == 'PAGADO' && $bolsillos && $bolsillos->isNotEmpty())
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const btnShow = document.getElementById('btn-show-pago-contado');
+            const formPago = document.getElementById('form-pago-contado');
+            const btnCancel = document.getElementById('btn-cancel-pago');
+            const addPart = document.getElementById('add-part');
+            const container = document.getElementById('payment-parts');
+            const totalCompra = {{ $purchase->total }};
+            const bolsillos = @json($bolsillos->map(fn($b) => ['id' => $b->id, 'name' => $b->name, 'saldo' => (float)$b->saldo]));
+
+            if (btnShow && formPago) {
+                btnShow.addEventListener('click', function() {
+                    formPago.classList.remove('hidden');
+                    btnShow.classList.add('hidden');
+                });
+            }
+            if (btnCancel && formPago && btnShow) {
+                btnCancel.addEventListener('click', function() {
+                    formPago.classList.add('hidden');
+                    btnShow.classList.remove('hidden');
+                });
+            }
+            if (addPart && container && bolsillos.length) {
+                let partIndex = 1;
+                addPart.addEventListener('click', function() {
+                    const div = document.createElement('div');
+                    div.className = 'flex gap-2 mb-2';
+                    div.innerHTML = `
+                        <select name="parts[${partIndex}][bolsillo_id]" class="flex-1 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" required>
+                            <option value="">Seleccionar bolsillo</option>
+                            ${bolsillos.map(b => `<option value="${b.id}">${b.name} (${b.saldo.toFixed(2)})</option>`).join('')}
+                        </select>
+                        <input type="number" name="parts[${partIndex}][amount]" step="0.01" min="0.01" placeholder="Monto" class="w-32 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" required>
+                    `;
+                    container.appendChild(div);
+                    partIndex++;
+                });
+            }
+        });
+    </script>
+    @endif
 </x-app-layout>

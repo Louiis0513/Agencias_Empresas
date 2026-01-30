@@ -8,11 +8,15 @@ use App\Models\Customer;
 use App\Services\CajaService;
 use App\Services\InvoiceService;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Component;
 
 class CreateInvoiceModal extends Component
 {
     public int $storeId;
+
+    /** Evita doble envío del formulario (cuentas por cobrar duplicadas). */
+    protected bool $saving = false;
 
     // Cliente
     public ?int $customer_id = null;
@@ -148,6 +152,7 @@ class CreateInvoiceModal extends Component
 
     public function resetFormulario()
     {
+        $this->saving = false;
         $this->customer_id = null;
         $this->busquedaCliente = '';
         $this->clientesEncontrados = [];
@@ -482,19 +487,44 @@ class CreateInvoiceModal extends Component
 
     public function save(InvoiceService $invoiceService)
     {
+        if ($this->saving) {
+            return;
+        }
+        $this->saving = true;
+
+        $store = $this->getStoreProperty();
+        $lockKey = 'create-invoice-lock:' . ($store?->id ?? 0) . ':' . Auth::id();
+        $lock = Cache::lock($lockKey, 15);
+        if (! $lock->get()) {
+            $this->saving = false;
+            return;
+        }
+
+        try {
+            $this->saveInvoice($invoiceService, $store);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    protected function saveInvoice(InvoiceService $invoiceService, ?Store $store): void
+    {
         // Validaciones
         if (!$this->customer_id) {
+            $this->saving = false;
             $this->addError('customer_id', 'Debes seleccionar un cliente.');
             return;
         }
 
         if (empty($this->productosSeleccionados)) {
             $this->addError('productosSeleccionados', 'Debes agregar al menos un producto.');
+            $this->saving = false;
             return;
         }
 
         if ($this->total <= 0) {
             $this->addError('total', 'El total debe ser mayor a 0.');
+            $this->saving = false;
             return;
         }
 
@@ -504,6 +534,7 @@ class CreateInvoiceModal extends Component
                 $this->addError('paymentParts', $diferencia > 0
                     ? "La suma de pagos ({$this->totalPagado}) debe ser igual al total ({$this->total}). Falta: {$diferencia}."
                     : "La suma de pagos ({$this->totalPagado}) supera el total ({$this->total}). Sobra: " . abs($diferencia) . ".");
+                $this->saving = false;
                 return;
             }
             foreach ($this->paymentParts as $i => $p) {
@@ -512,12 +543,14 @@ class CreateInvoiceModal extends Component
                 $method = $p['method'] ?? 'CASH';
                 if ($amount <= 0) {
                     $this->addError("paymentParts.{$i}.amount", "Monto debe ser mayor a 0.");
+                    $this->saving = false;
                     return;
                 }
                 // Validar que este pago no exceda el máximo permitido (saldo restante).
                 $max = $this->maxMontoPago((int) $i);
                 if ($amount > $max + 0.00001) {
                     $this->addError("paymentParts.{$i}.amount", "El monto máximo permitido para este pago es {$max}.");
+                    $this->saving = false;
                     return;
                 }
                 if ($method === 'CASH') {
@@ -526,19 +559,21 @@ class CreateInvoiceModal extends Component
                     // Permitimos 0/vacío (porque es ayuda visual), pero si escribió algo, debe cuadrar.
                     if ($recibido > 0 && $recibido + 0.00001 < $amount) {
                         $this->addError("paymentParts.{$i}.recibido", "El recibido debe ser mayor o igual al monto.");
+                        $this->saving = false;
                         return;
                     }
                 }
                 $bolsillos = $this->bolsillosParaMetodo($method);
                 if (! $bolsillos->contains('id', $bid)) {
                     $this->addError("paymentParts.{$i}.bolsillo_id", "Selecciona un bolsillo válido para {$method}.");
+                    $this->saving = false;
                     return;
                 }
             }
         }
 
-        $store = $this->getStoreProperty();
         if (! $store || ! Auth::user()->stores->contains($store->id)) {
+            $this->saving = false;
             abort(403, 'No tienes permiso para crear facturas en esta tienda.');
         }
 
@@ -576,9 +611,10 @@ class CreateInvoiceModal extends Component
             // Resetear formulario
             $this->resetFormulario();
 
-            return redirect()->route('stores.invoices', $store)
+            redirect()->route('stores.invoices', $store)
                 ->with('success', 'Factura creada correctamente.');
         } catch (\Exception $e) {
+            $this->saving = false;
             $this->addError('customer_id', $e->getMessage());
         }
     }

@@ -68,6 +68,17 @@ Route::middleware(['auth', 'verified'])->prefix('tienda/{store:slug}')->name('st
     Route::get('/inventario', [StoreController::class, 'inventario'])->name('inventario');
     Route::post('/inventario/movimientos', [StoreController::class, 'storeMovimientoInventario'])->name('inventario.movimientos.store');
 
+    // Activos (espejo de products: computadores, muebles, etc. - van al escritorio, no a la estantería)
+    Route::get('/activos', [StoreController::class, 'activos'])->name('activos');
+    Route::get('/activos/movimientos', [StoreController::class, 'activosMovimientos'])->name('activos.movimientos');
+    Route::get('/activos/crear', [StoreController::class, 'createActivo'])->name('activos.create');
+    Route::post('/activos', [StoreController::class, 'storeActivo'])->name('activos.store');
+    Route::get('/activos/{activo}/editar', [StoreController::class, 'editActivo'])->name('activos.edit');
+    Route::put('/activos/{activo}', [StoreController::class, 'updateActivo'])->name('activos.update');
+    Route::delete('/activos/{activo}', [StoreController::class, 'destroyActivo'])->name('activos.destroy');
+    Route::get('/api/activos/buscar', [StoreController::class, 'buscarActivos'])->name('activos.buscar');
+    Route::get('/api/productos-inventario/buscar', [StoreController::class, 'buscarProductosInventario'])->name('productos-inventario.buscar');
+
     // Compras
     Route::get('/compras', [StoreController::class, 'purchases'])->name('purchases');
     Route::get('/compras/crear', [StoreController::class, 'createPurchase'])->name('purchases.create');

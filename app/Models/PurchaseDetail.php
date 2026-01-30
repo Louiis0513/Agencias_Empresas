@@ -12,6 +12,7 @@ class PurchaseDetail extends Model
     protected $fillable = [
         'purchase_id',
         'product_id',
+        'activo_id',
         'item_type',
         'description',
         'quantity',
@@ -36,6 +37,11 @@ class PurchaseDetail extends Model
     public function product()
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function activo()
+    {
+        return $this->belongsTo(Activo::class);
     }
 
     public function isInventario(): bool

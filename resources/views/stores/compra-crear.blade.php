@@ -10,7 +10,11 @@
         </div>
     </x-slot>
 
-    <div class="py-12">
+    @livewire('select-item-modal', ['storeId' => $store->id])
+    @livewire('create-product-modal', ['storeId' => $store->id, 'fromPurchase' => true])
+    @livewire('create-activo-modal', ['storeId' => $store->id, 'fromPurchase' => true])
+
+    <div class="py-12" x-data="compraItemSelection()">
         <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
             @if(session('error'))
                 <div class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
@@ -18,7 +22,8 @@
                 </div>
             @endif
 
-            <form method="POST" action="{{ route('stores.purchases.store', $store) }}" class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg p-6">
+            <form method="POST" action="{{ route('stores.purchases.store', $store) }}" class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg p-6"
+                  x-on:item-selected.window="onItemSelected($event.detail)">
                 @csrf
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -57,8 +62,8 @@
                         <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                             <thead class="bg-gray-50 dark:bg-gray-900">
                                 <tr>
-                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Producto / Descripción</th>
                                     <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Tipo</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Bien / Producto</th>
                                     <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Cantidad</th>
                                     <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Costo Unit.</th>
                                     <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Subtotal</th>
@@ -66,21 +71,26 @@
                                 </tr>
                             </thead>
                             <tbody id="details-body" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                                <tr class="detail-row">
+                                <tr class="detail-row" data-row-id="0">
                                     <td class="px-3 py-2">
-                                        <select name="details[0][product_id]" class="product-select w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
-                                            <option value="">-- Bien/Activo (escribir abajo) --</option>
-                                            @foreach($productos as $p)
-                                                <option value="{{ $p->id }}" data-name="{{ $p->name }}">{{ $p->name }}</option>
-                                            @endforeach
-                                        </select>
-                                        <input type="text" name="details[0][description]" class="mt-1 w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" placeholder="Descripción (obligatorio si no hay producto)" required>
-                                    </td>
-                                    <td class="px-3 py-2">
-                                        <select name="details[0][item_type]" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
+                                        <select name="details[0][item_type]" class="item-type-select w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
                                             <option value="INVENTARIO">Inventario</option>
                                             <option value="ACTIVO_FIJO">Activo Fijo</option>
                                         </select>
+                                    </td>
+                                    <td class="px-3 py-2">
+                                        <div class="item-select-wrapper">
+                                            <input type="hidden" name="details[0][product_id]" class="product-id-input" value="">
+                                            <input type="hidden" name="details[0][activo_id]" class="activo-id-input" value="">
+                                            <input type="hidden" name="details[0][description]" class="item-description-input" value="">
+                                            <span class="item-selected-name text-sm text-gray-700 dark:text-gray-300 block mb-1 min-h-[1.25rem]"></span>
+                                            <button type="button" class="btn-select-item px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+                                                Seleccionar
+                                            </button>
+                                            <button type="button" class="btn-change-item hidden px-2 py-1 text-xs text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300">
+                                                Cambiar
+                                            </button>
+                                        </div>
                                     </td>
                                     <td class="px-3 py-2">
                                         <input type="number" name="details[0][quantity]" value="1" min="1" class="detail-qty w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" required>
@@ -99,7 +109,7 @@
                         </table>
                     </div>
                     <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                        <strong>Inventario:</strong> suma al stock del producto. <strong>Activo Fijo:</strong> no suma stock (ej: nevera, muebles).
+                        <strong>Inventario:</strong> suma al stock (productos para vender). <strong>Activo Fijo:</strong> va al módulo Activos (computadores, muebles, etc.).
                     </p>
                 </div>
 
@@ -107,7 +117,7 @@
                     <a href="{{ route('stores.purchases', $store) }}" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600">
                         Cancelar
                     </a>
-                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700" id="btn-submit-compra">
                         Guardar Compra (Borrador)
                     </button>
                 </div>
@@ -116,33 +126,64 @@
     </div>
 
     <script>
+        function compraItemSelection() {
+            return {
+                onItemSelected(detail) {
+                    const row = document.querySelector(`.detail-row[data-row-id="${detail.rowId}"]`);
+                    if (!row) return;
+                    const productInput = row.querySelector('.product-id-input');
+                    const activoInput = row.querySelector('.activo-id-input');
+                    const descInput = row.querySelector('.item-description-input');
+                    const nameSpan = row.querySelector('.item-selected-name');
+                    if (detail.type === 'INVENTARIO') {
+                        productInput.value = detail.id;
+                        activoInput.value = '';
+                    } else {
+                        activoInput.value = detail.id;
+                        productInput.value = '';
+                    }
+                    descInput.value = detail.name;
+                    if (nameSpan) nameSpan.textContent = detail.name;
+                    const btnSelect = row.querySelector('.btn-select-item');
+                    const btnChange = row.querySelector('.btn-change-item');
+                    if (btnSelect) btnSelect.classList.add('hidden');
+                    if (btnChange) btnChange.classList.remove('hidden');
+                }
+            };
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             let rowIndex = 1;
             const tbody = document.getElementById('details-body');
-            const productOptions = @json($productos->map(fn($p) => ['id' => $p->id, 'name' => $p->name]));
+            const storeId = {{ $store->id }};
 
-            function addRow() {
-                const tr = document.createElement('tr');
-                tr.className = 'detail-row';
-                tr.innerHTML = `
+            function createRowHtml(idx) {
+                return `
                     <td class="px-3 py-2">
-                        <select name="details[${rowIndex}][product_id]" class="product-select w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
-                            <option value="">-- Bien/Activo (escribir abajo) --</option>
-                            ${productOptions.map(p => `<option value="${p.id}" data-name="${p.name}">${p.name}</option>`).join('')}
-                        </select>
-                        <input type="text" name="details[${rowIndex}][description]" class="mt-1 w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" placeholder="Descripción" required>
-                    </td>
-                    <td class="px-3 py-2">
-                        <select name="details[${rowIndex}][item_type]" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
+                        <select name="details[${idx}][item_type]" class="item-type-select w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
                             <option value="INVENTARIO">Inventario</option>
                             <option value="ACTIVO_FIJO">Activo Fijo</option>
                         </select>
                     </td>
                     <td class="px-3 py-2">
-                        <input type="number" name="details[${rowIndex}][quantity]" value="1" min="1" class="detail-qty w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" required>
+                        <div class="item-select-wrapper">
+                            <input type="hidden" name="details[${idx}][product_id]" class="product-id-input" value="">
+                            <input type="hidden" name="details[${idx}][activo_id]" class="activo-id-input" value="">
+                            <input type="hidden" name="details[${idx}][description]" class="item-description-input" value="">
+                            <span class="item-selected-name text-sm text-gray-700 dark:text-gray-300 block mb-1 min-h-[1.25rem]"></span>
+                            <button type="button" class="btn-select-item px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+                                Seleccionar
+                            </button>
+                            <button type="button" class="btn-change-item hidden px-2 py-1 text-xs text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300">
+                                Cambiar
+                            </button>
+                        </div>
                     </td>
                     <td class="px-3 py-2">
-                        <input type="number" name="details[${rowIndex}][unit_cost]" value="0" min="0" step="0.01" class="detail-cost w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" required>
+                        <input type="number" name="details[${idx}][quantity]" value="1" min="1" class="detail-qty w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" required>
+                    </td>
+                    <td class="px-3 py-2">
+                        <input type="number" name="details[${idx}][unit_cost]" value="0" min="0" step="0.01" class="detail-cost w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" required>
                     </td>
                     <td class="px-3 py-2">
                         <span class="detail-subtotal text-sm font-medium">0.00</span>
@@ -151,9 +192,6 @@
                         <button type="button" class="remove-row text-red-600 hover:text-red-800 text-sm">Quitar</button>
                     </td>
                 `;
-                tbody.appendChild(tr);
-                rowIndex++;
-                bindRowEvents(tr);
             }
 
             function updateSubtotal(row) {
@@ -163,20 +201,83 @@
             }
 
             function bindRowEvents(row) {
-                row.querySelector('.detail-qty, .detail-cost').addEventListener('input', () => updateSubtotal(row));
-                row.querySelector('.product-select').addEventListener('change', function() {
-                    const opt = this.options[this.selectedIndex];
-                    const descInput = row.querySelector('input[name*="[description]"]');
-                    if (opt.value && opt.dataset.name) descInput.value = opt.dataset.name;
+                row.querySelectorAll('.detail-qty, .detail-cost').forEach(input => {
+                    input.addEventListener('input', () => updateSubtotal(row));
                 });
+                const btnSelect = row.querySelector('.btn-select-item');
+                const btnChange = row.querySelector('.btn-change-item');
+                if (btnSelect) {
+                    btnSelect.addEventListener('click', function() {
+                        const rowId = row.getAttribute('data-row-id');
+                        const itemType = row.querySelector('.item-type-select').value;
+                        Livewire.dispatch('open-select-item-for-row', { rowId: rowId, itemType: itemType });
+                    });
+                }
+                if (btnChange) {
+                    btnChange.addEventListener('click', function() {
+                        row.querySelector('.product-id-input').value = '';
+                        row.querySelector('.activo-id-input').value = '';
+                        row.querySelector('.item-description-input').value = '';
+                        row.querySelector('.item-selected-name').textContent = '';
+                        btnSelect.classList.remove('hidden');
+                        btnChange.classList.add('hidden');
+                    });
+                }
                 row.querySelector('.remove-row').addEventListener('click', function() {
-                    if (tbody.querySelectorAll('.detail-row').length > 1) row.remove();
+                    if (tbody.querySelectorAll('.detail-row').length > 1) {
+                        row.remove();
+                        renumberRows();
+                    }
                 });
                 updateSubtotal(row);
             }
 
+            function renumberRows() {
+                const rows = tbody.querySelectorAll('.detail-row');
+                rows.forEach((row, i) => {
+                    row.setAttribute('data-row-id', String(i));
+                    row.querySelector('.item-type-select').name = `details[${i}][item_type]`;
+                    row.querySelector('.product-id-input').name = `details[${i}][product_id]`;
+                    row.querySelector('.activo-id-input').name = `details[${i}][activo_id]`;
+                    row.querySelector('.item-description-input').name = `details[${i}][description]`;
+                    row.querySelector('.detail-qty').name = `details[${i}][quantity]`;
+                    row.querySelector('.detail-cost').name = `details[${i}][unit_cost]`;
+                });
+            }
+
+            function addRow() {
+                const tr = document.createElement('tr');
+                tr.className = 'detail-row';
+                tr.setAttribute('data-row-id', '0');
+                tr.innerHTML = createRowHtml(0);
+                tbody.insertBefore(tr, tbody.firstChild);
+                const rows = tbody.querySelectorAll('.detail-row');
+                rows.forEach((row, i) => {
+                    row.setAttribute('data-row-id', String(i));
+                    row.querySelector('.item-type-select').name = `details[${i}][item_type]`;
+                    row.querySelector('.product-id-input').name = `details[${i}][product_id]`;
+                    row.querySelector('.activo-id-input').name = `details[${i}][activo_id]`;
+                    row.querySelector('.item-description-input').name = `details[${i}][description]`;
+                    row.querySelector('.detail-qty').name = `details[${i}][quantity]`;
+                    row.querySelector('.detail-cost').name = `details[${i}][unit_cost]`;
+                });
+                rowIndex++;
+                bindRowEvents(tr);
+            }
+
             document.getElementById('add-row').addEventListener('click', addRow);
             tbody.querySelectorAll('.detail-row').forEach(bindRowEvents);
+
+            const form = document.querySelector('form[action*="purchases"]');
+            if (form) {
+                form.addEventListener('submit', function() {
+                    const btn = document.getElementById('btn-submit-compra');
+                    if (btn) {
+                        btn.disabled = true;
+                        btn.textContent = 'Guardando...';
+                    }
+                });
+            }
         });
     </script>
 </x-app-layout>

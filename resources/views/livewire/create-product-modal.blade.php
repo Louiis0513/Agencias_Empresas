@@ -1,5 +1,8 @@
 <div>
-    <x-modal name="create-product" focusable maxWidth="2xl">
+    @php
+        $modalName = ($fromPurchase ?? false) ? 'create-product-from-compra' : 'create-product';
+    @endphp
+    <x-modal :name="$modalName" focusable maxWidth="2xl">
         <form wire:submit="save" class="p-6">
             <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">
                 {{ __('Crear producto') }}
@@ -144,6 +147,9 @@
                     <div>
                         <x-input-label for="stock" value="{{ __('Stock') }}" />
                         <x-text-input wire:model="stock" id="stock" class="block mt-1 w-full" type="number" min="0" placeholder="0" />
+                        @if($fromPurchase ?? false)
+                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Será 0. La compra inyectará el stock al aprobarse.</p>
+                        @endif
                         <x-input-error :messages="$errors->get('stock')" class="mt-1" />
                     </div>
                     <div>
@@ -168,7 +174,7 @@
             </div>
 
             <div class="mt-6 flex justify-end gap-3">
-                <x-secondary-button type="button" x-on:click="$dispatch('close')">
+                <x-secondary-button type="button" x-on:click="$dispatch('close-modal', '{{ $modalName }}')">
                     {{ __('Cancelar') }}
                 </x-secondary-button>
                 @if($this->categoriesWithAttributes->isNotEmpty())
@@ -180,7 +186,7 @@
         </form>
 
         @if($errors->any())
-            <div x-init="$dispatch('open-modal', 'create-product')"></div>
+            <div x-init="$dispatch('open-modal', '{{ $modalName }}')"></div>
         @endif
     </x-modal>
 </div>

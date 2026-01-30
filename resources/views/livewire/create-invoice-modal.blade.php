@@ -1,6 +1,6 @@
 <div x-on:open-modal.window="if ($event.detail === 'create-invoice') { $wire.resetFormulario(); }">
     <x-modal name="create-invoice" focusable maxWidth="4xl">
-        <form wire:submit="save" class="p-6">
+        <form wire:submit.prevent="save" class="p-6">
             <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">
                 {{ __('Crear Factura') }}
             </h2>
@@ -355,12 +355,17 @@
                 @endif
             </div>
 
-            <div class="mt-6 flex justify-end space-x-3">
+            <div class="mt-6 flex justify-end space-x-3" x-data="{ formSubmitting: false }">
                 <x-secondary-button type="button" x-on:click="$dispatch('close-modal', 'create-invoice')">
                     {{ __('Cancelar') }}
                 </x-secondary-button>
-                <x-primary-button type="submit" wire:loading.attr="disabled">
-                    {{ __('Crear Factura') }}
+                <x-primary-button type="submit"
+                                 wire:loading.attr="disabled"
+                                 wire:target="save"
+                                 x-on:click="if (!formSubmitting) formSubmitting = true"
+                                 :disabled="formSubmitting">
+                    <span wire:loading.remove wire:target="save">{{ __('Crear Factura') }}</span>
+                    <span wire:loading wire:target="save">{{ __('Guardando...') }}</span>
                 </x-primary-button>
             </div>
         </form>

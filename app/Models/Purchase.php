@@ -16,6 +16,7 @@ class Purchase extends Model
         'proveedor_id',
         'status',
         'payment_status',
+        'payment_type',
         'invoice_number',
         'invoice_date',
         'image_path',
@@ -33,6 +34,8 @@ class Purchase extends Model
 
     public const PAYMENT_PENDIENTE = 'PENDIENTE';
     public const PAYMENT_PAGADO = 'PAGADO';
+    public const PAYMENT_TYPE_CONTADO = 'CONTADO';
+    public const PAYMENT_TYPE_CREDITO = 'CREDITO';
 
     public function store()
     {
