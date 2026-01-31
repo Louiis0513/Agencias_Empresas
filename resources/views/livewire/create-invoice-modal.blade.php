@@ -355,15 +355,13 @@
                 @endif
             </div>
 
-            <div class="mt-6 flex justify-end space-x-3" x-data="{ formSubmitting: false }">
+            <div class="mt-6 flex justify-end space-x-3">
                 <x-secondary-button type="button" x-on:click="$dispatch('close-modal', 'create-invoice')">
                     {{ __('Cancelar') }}
                 </x-secondary-button>
                 <x-primary-button type="submit"
                                  wire:loading.attr="disabled"
-                                 wire:target="save"
-                                 x-on:click="if (!formSubmitting) formSubmitting = true"
-                                 :disabled="formSubmitting">
+                                 wire:target="save">
                     <span wire:loading.remove wire:target="save">{{ __('Crear Factura') }}</span>
                     <span wire:loading wire:target="save">{{ __('Guardando...') }}</span>
                 </x-primary-button>

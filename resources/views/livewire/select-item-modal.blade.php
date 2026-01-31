@@ -48,7 +48,7 @@
                                 <td class="px-4 py-2 text-sm text-gray-500 dark:text-gray-400 font-mono">{{ $item['code'] ?? '—' }}</td>
                                 <td class="px-4 py-2 text-right">
                                     <button type="button"
-                                            wire:click="selectItem({{ $item['id'] }}, @js($item['name']), '{{ $item['type'] }}')"
+                                            wire:click="selectItem({{ $item['id'] }}, @js($item['name']), '{{ $item['type'] }}', @js($item['control_type'] ?? null))"
                                             class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 text-sm font-medium">
                                         Seleccionar
                                     </button>

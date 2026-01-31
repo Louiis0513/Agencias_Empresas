@@ -19,12 +19,14 @@ class Purchase extends Model
         'payment_type',
         'invoice_number',
         'invoice_date',
+        'due_date',
         'image_path',
         'total',
     ];
 
     protected $casts = [
         'invoice_date' => 'date',
+        'due_date' => 'date',
         'total' => 'decimal:2',
     ];
 

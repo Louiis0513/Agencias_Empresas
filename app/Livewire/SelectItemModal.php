@@ -56,7 +56,7 @@ class SelectItemModal extends Component
             ]);
         }
 
-        return app(ActivoService::class)->buscarActivos(
+        return app(ActivoService::class)->buscarActivosParaCompra(
             $store,
             $this->search,
             25
@@ -65,10 +65,11 @@ class SelectItemModal extends Component
             'name' => $a->name,
             'code' => $a->code ?? null,
             'type' => 'ACTIVO_FIJO',
+            'control_type' => $a->control_type ?? 'LOTE',
         ]);
     }
 
-    public function selectItem(int $id, string $name, string $type): void
+    public function selectItem(int $id, string $name, string $type, ?string $controlType = null): void
     {
         $payload = [
             'rowId' => $this->rowId,
@@ -76,6 +77,9 @@ class SelectItemModal extends Component
             'name' => $name,
             'type' => $type,
         ];
+        if ($type === 'ACTIVO_FIJO' && $controlType !== null) {
+            $payload['controlType'] = $controlType;
+        }
         $this->dispatch('item-selected', ...$payload);
         $this->dispatch('close-modal', 'select-item-compra');
     }

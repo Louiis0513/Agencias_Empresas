@@ -20,6 +20,7 @@ use App\Http\Requests\StoreInvoiceRequest;
 use App\Http\Requests\StoreProveedorRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 
 class StoreController extends Controller
 {
@@ -730,7 +731,8 @@ class StoreController extends Controller
         }
         session(['current_store_id' => $store->id]);
 
-        return view('stores.activo-crear', compact('store'));
+        $workers = $store->workers()->select('users.id', 'users.name')->orderBy('users.name')->get();
+        return view('stores.activo-crear', compact('store', 'workers'));
     }
 
     public function storeActivo(Store $store, Request $request, ActivoService $activoService)
@@ -739,15 +741,29 @@ class StoreController extends Controller
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
 
-        $request->validate([
+        $rules = [
+            'control_type' => ['required', 'in:LOTE,SERIALIZADO'],
             'name' => ['required', 'string', 'max:255'],
             'code' => ['nullable', 'string', 'max:100'],
+            'brand' => ['nullable', 'string', 'max:100'],
+            'model' => ['nullable', 'string', 'max:100'],
             'description' => ['nullable', 'string', 'max:1000'],
             'quantity' => ['required', 'integer', 'min:0'],
             'unit_cost' => ['nullable', 'numeric', 'min:0'],
             'location' => ['nullable', 'string', 'max:255'],
+            'purchase_date' => ['nullable', 'date'],
+            'assigned_to_user_id' => ['nullable', 'integer', 'exists:users,id'],
+            'condition' => ['nullable', 'string', 'in:NUEVO,BUENO,REGULAR,MALO'],
+            'status' => ['nullable', 'string', 'in:ACTIVO,EN_MANTENIMIENTO,BAJA,PRESTADO'],
             'is_active' => ['nullable', 'boolean'],
-        ]);
+        ];
+        if ($request->input('control_type') === 'SERIALIZADO' && (int) $request->input('quantity') === 1) {
+            $rules['serial_number'] = ['required', 'string', 'max:100'];
+        }
+        if ($request->input('assigned_to_user_id') === '') {
+            $request->merge(['assigned_to_user_id' => null]);
+        }
+        $request->validate($rules);
 
         try {
             $activoService->crearActivo($store, $request->all(), Auth::id());
@@ -767,7 +783,8 @@ class StoreController extends Controller
         }
         session(['current_store_id' => $store->id]);
 
-        return view('stores.activo-editar', compact('store', 'activo'));
+        $workers = $store->workers()->select('users.id', 'users.name')->orderBy('users.name')->get();
+        return view('stores.activo-editar', compact('store', 'activo', 'workers'));
     }
 
     public function updateActivo(Store $store, \App\Models\Activo $activo, Request $request, ActivoService $activoService)
@@ -779,16 +796,27 @@ class StoreController extends Controller
             abort(404);
         }
 
+        if ($request->input('assigned_to_user_id') === '') {
+            $request->merge(['assigned_to_user_id' => null]);
+        }
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'code' => ['nullable', 'string', 'max:100'],
+            'serial_number' => ['nullable', 'string', 'max:100'],
+            'brand' => ['nullable', 'string', 'max:100'],
+            'model' => ['nullable', 'string', 'max:100'],
             'description' => ['nullable', 'string', 'max:1000'],
             'location' => ['nullable', 'string', 'max:255'],
+            'purchase_date' => ['nullable', 'date'],
+            'assigned_to_user_id' => ['nullable', 'integer', 'exists:users,id'],
+            'condition' => ['nullable', 'string', 'in:NUEVO,BUENO,REGULAR,MALO'],
+            'status' => ['nullable', 'string', 'in:ACTIVO,EN_MANTENIMIENTO,BAJA,PRESTADO'],
+            'warranty_expiry' => ['nullable', 'date'],
             'is_active' => ['nullable', 'boolean'],
         ]);
 
         try {
-            $activoService->actualizarActivo($store, $activo->id, $request->only(['name', 'code', 'description', 'location', 'is_active']));
+            $activoService->actualizarActivo($store, $activo->id, $request->only(['name', 'code', 'serial_number', 'brand', 'model', 'description', 'location', 'purchase_date', 'assigned_to_user_id', 'condition', 'status', 'warranty_expiry', 'is_active']));
             return redirect()->route('stores.activos', $store)->with('success', 'Activo actualizado correctamente.');
         } catch (\Exception $e) {
             return redirect()->route('stores.activos.edit', [$store, $activo])->with('error', $e->getMessage());
@@ -910,6 +938,49 @@ class StoreController extends Controller
         return view('stores.compra-detalle', compact('store', 'purchase', 'bolsillos'));
     }
 
+    /**
+     * Valida que activos serializados tengan cantidad 0 o 1, y el resto cantidad >= 1.
+     */
+    protected function validarCantidadActivosSerializados(Store $store, array $details): void
+    {
+        $activos = \App\Models\Activo::where('store_id', $store->id)
+            ->whereIn('id', collect($details)->pluck('activo_id')->filter()->values())
+            ->get()
+            ->keyBy('id');
+
+        foreach ($details as $i => $d) {
+            $qty = (int) ($d['quantity'] ?? 0);
+            if ($d['item_type'] === 'INVENTARIO') {
+                if ($qty < 1) {
+                    throw ValidationException::withMessages([
+                        "details.{$i}.quantity" => ['La cantidad debe ser al menos 1 para productos de inventario.'],
+                    ]);
+                }
+                continue;
+            }
+            if (empty($d['activo_id'])) {
+                continue;
+            }
+            $activo = $activos->get($d['activo_id']);
+            if (! $activo) {
+                continue;
+            }
+            if ($activo->control_type === \App\Models\Activo::CONTROL_SERIALIZADO) {
+                if ($qty < 0 || $qty > 1) {
+                    throw ValidationException::withMessages([
+                        "details.{$i}.quantity" => ["El activo «{$activo->name}» es serializado (único). La cantidad debe ser 0 o 1."],
+                    ]);
+                }
+            } else {
+                if ($qty < 1) {
+                    throw ValidationException::withMessages([
+                        "details.{$i}.quantity" => ["La cantidad debe ser al menos 1 para el activo «{$activo->name}»."],
+                    ]);
+                }
+            }
+        }
+    }
+
     public function storePurchase(Store $store, Request $request, PurchaseService $purchaseService)
     {
         if (! Auth::user()->stores->contains($store->id)) {
@@ -919,22 +990,29 @@ class StoreController extends Controller
         $request->validate([
             'proveedor_id' => ['nullable', 'exists:proveedores,id'],
             'payment_status' => ['required', 'in:PAGADO,PENDIENTE'],
-            'invoice_number' => ['nullable', 'string', 'max:100'],
-            'invoice_date' => ['nullable', 'date'],
+            'invoice_number' => ['required', 'string', 'max:100'],
+            'invoice_date' => ['required', 'date'],
+            'due_date' => ['nullable', 'date'],
             'details' => ['required', 'array', 'min:1'],
             'details.*.product_id' => ['nullable', 'exists:products,id'],
             'details.*.activo_id' => ['nullable', 'exists:activos,id'],
             'details.*.item_type' => ['required', 'in:INVENTARIO,ACTIVO_FIJO'],
             'details.*.description' => ['required', 'string', 'max:255'],
-            'details.*.quantity' => ['required', 'integer', 'min:1'],
+            'details.*.quantity' => ['required', 'integer', 'min:0'],
             'details.*.unit_cost' => ['required', 'numeric', 'min:0'],
+        ], [
+            'details.*.description.required' => 'Debes seleccionar al menos un producto o bien en el detalle de la compra. Haz clic en "Seleccionar" en cada línea.',
         ]);
+
+        $this->validarCantidadActivosSerializados($store, $request->input('details', []));
 
         try {
             $purchaseService->crearCompra($store, Auth::id(), $request->all());
             return redirect()->route('stores.purchases', $store)->with('success', 'Compra creada correctamente.');
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
-            return redirect()->route('stores.purchases', $store)->with('error', $e->getMessage());
+            return redirect()->back()->withInput()->with('error', $e->getMessage());
         }
     }
 
@@ -950,22 +1028,29 @@ class StoreController extends Controller
         $request->validate([
             'proveedor_id' => ['nullable', 'exists:proveedores,id'],
             'payment_status' => ['required', 'in:PAGADO,PENDIENTE'],
-            'invoice_number' => ['nullable', 'string', 'max:100'],
-            'invoice_date' => ['nullable', 'date'],
+            'invoice_number' => ['required', 'string', 'max:100'],
+            'invoice_date' => ['required', 'date'],
+            'due_date' => ['nullable', 'date'],
             'details' => ['required', 'array', 'min:1'],
             'details.*.product_id' => ['nullable', 'exists:products,id'],
             'details.*.activo_id' => ['nullable', 'exists:activos,id'],
             'details.*.item_type' => ['required', 'in:INVENTARIO,ACTIVO_FIJO'],
             'details.*.description' => ['required', 'string', 'max:255'],
-            'details.*.quantity' => ['required', 'integer', 'min:1'],
+            'details.*.quantity' => ['required', 'integer', 'min:0'],
             'details.*.unit_cost' => ['required', 'numeric', 'min:0'],
+        ], [
+            'details.*.description.required' => 'Debes seleccionar al menos un producto o bien en el detalle de la compra. Haz clic en "Seleccionar" en cada línea.',
         ]);
+
+        $this->validarCantidadActivosSerializados($store, $request->input('details', []));
 
         try {
             $purchaseService->actualizarCompra($store, $purchase->id, $request->all());
             return redirect()->route('stores.purchases.show', [$store, $purchase])->with('success', 'Compra actualizada correctamente.');
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
-            return redirect()->route('stores.purchases.show', [$store, $purchase])->with('error', $e->getMessage());
+            return redirect()->back()->withInput()->with('error', $e->getMessage());
         }
     }
 
@@ -999,8 +1084,17 @@ class StoreController extends Controller
             ];
         }
 
+        $serialsByDetailId = null;
+        $serials = $request->input('serials');
+        if (is_array($serials)) {
+            $serialsByDetailId = [];
+            foreach ($serials as $detailId => $arr) {
+                $serialsByDetailId[(int) $detailId] = array_values(array_filter(array_map('trim', (array) $arr)));
+            }
+        }
+
         try {
-            $purchaseService->aprobarCompra($store, $purchase->id, Auth::id(), $accountPayableService, $paymentData);
+            $purchaseService->aprobarCompra($store, $purchase->id, Auth::id(), $accountPayableService, $paymentData, $serialsByDetailId);
             return redirect()->route('stores.purchases.show', [$store, $purchase])->with('success', 'Compra aprobada. Inventario actualizado.');
         } catch (\Exception $e) {
             return redirect()->route('stores.purchases.show', [$store, $purchase])->with('error', $e->getMessage());

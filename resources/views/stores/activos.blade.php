@@ -55,7 +55,8 @@
                                 <thead class="bg-gray-50 dark:bg-gray-900">
                                     <tr>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Nombre</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Código</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Tipo</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Serial / Código</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Cantidad</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Costo Unit.</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Valor Total</th>
@@ -68,7 +69,12 @@
                                     @foreach($activos as $activo)
                                         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
                                             <td class="px-4 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">{{ $activo->name }}</td>
-                                            <td class="px-4 py-4 text-sm text-gray-900 dark:text-gray-100">{{ $activo->code ?? '-' }}</td>
+                                            <td class="px-4 py-4 text-sm">
+                                                <span class="px-2 py-0.5 text-xs rounded {{ $activo->control_type === 'SERIALIZADO' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300' }}">
+                                                    {{ $activo->control_type === 'SERIALIZADO' ? 'Serial' : 'Lote' }}
+                                                </span>
+                                            </td>
+                                            <td class="px-4 py-4 text-sm text-gray-900 dark:text-gray-100">{{ $activo->serial_number ?? $activo->code ?? '-' }}</td>
                                             <td class="px-4 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">{{ $activo->quantity }}</td>
                                             <td class="px-4 py-4 text-sm text-gray-900 dark:text-gray-100">{{ number_format($activo->unit_cost, 2) }}</td>
                                             <td class="px-4 py-4 text-sm font-semibold text-gray-900 dark:text-gray-100">{{ number_format($activo->valor_total, 2) }}</td>

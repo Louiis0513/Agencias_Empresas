@@ -185,7 +185,10 @@
             </div>
         </form>
 
-        @if($errors->any())
+        @php
+            $productFormErrors = $errors->has('name') || $errors->has('category_id') || $errors->has('price') || $errors->has('cost') || $errors->has('stock');
+        @endphp
+        @if($errors->any() && (($fromPurchase ?? false) === false || $productFormErrors))
             <div x-init="$dispatch('open-modal', '{{ $modalName }}')"></div>
         @endif
     </x-modal>

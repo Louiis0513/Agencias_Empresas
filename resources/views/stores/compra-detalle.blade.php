@@ -92,6 +92,10 @@
                         </div>
                     </div>
 
+                    @php
+                        $detallesSerializados = $purchase->details->filter(fn($d) => $d->isActivoFijo() && $d->activo && $d->activo->isSerializado() && empty($d->activo->serial_number));
+                    @endphp
+
                     @if($purchase->isBorrador())
                         <div class="flex flex-col gap-4">
                             <div class="flex gap-3">
@@ -101,8 +105,25 @@
                                 @elseif($purchase->payment_status == 'PAGADO' && (!$bolsillos || $bolsillos->isEmpty()))
                                     <span class="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-400 rounded-md cursor-not-allowed" title="Crea al menos un bolsillo en Caja para poder aprobar compras de contado">Aprobar (sin bolsillos)</span>
                                 @elseif($purchase->payment_status == 'PENDIENTE')
-                                    <form method="POST" action="{{ route('stores.purchases.approve', [$store, $purchase]) }}" class="inline">
+                                    <form method="POST" action="{{ route('stores.purchases.approve', [$store, $purchase]) }}" class="inline" id="form-aprobar-credito">
                                         @csrf
+                                        @if($detallesSerializados->isNotEmpty())
+                                            <div class="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg mb-3">
+                                                <h3 class="text-sm font-medium text-amber-800 dark:text-amber-200 mb-2">Activos serializados: indica los números de serie</h3>
+                                                <p class="text-xs text-amber-700 dark:text-amber-300 mb-3">Cada unidad debe tener un serial único.</p>
+                                                <div class="space-y-3">
+                                                    @foreach($detallesSerializados as $d)
+                                                        <div class="flex flex-wrap items-center gap-2">
+                                                            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $d->description }} ({{ $d->quantity }}):</span>
+                                                            @for($i = 0; $i < $d->quantity; $i++)
+                                                                <input type="text" name="serials[{{ $d->id }}][]" placeholder="Serial {{ $i + 1 }}" required
+                                                                       class="w-40 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
+                                                            @endfor
+                                                        </div>
+                                                    @endforeach
+                                                </div>
+                                            </div>
+                                        @endif
                                         <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700" onclick="return confirm('¿Aprobar esta compra? Los productos tipo Inventario sumarán al stock. Los Activos Fijos sumarán al módulo Activos.');">Aprobar Compra</button>
                                     </form>
                                 @endif
@@ -117,6 +138,22 @@
                                     <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Registrar pago de contado (se descontará de caja)</h3>
                                     <form method="POST" action="{{ route('stores.purchases.approve', [$store, $purchase]) }}">
                                         @csrf
+                                        @if($detallesSerializados->isNotEmpty())
+                                            <div class="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg mb-4">
+                                                <h4 class="text-sm font-medium text-amber-800 dark:text-amber-200 mb-2">Activos serializados: indica los números de serie</h4>
+                                                <div class="space-y-3">
+                                                    @foreach($detallesSerializados as $d)
+                                                        <div class="flex flex-wrap items-center gap-2">
+                                                            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $d->description }} ({{ $d->quantity }}):</span>
+                                                            @for($i = 0; $i < $d->quantity; $i++)
+                                                                <input type="text" name="serials[{{ $d->id }}][]" placeholder="Serial {{ $i + 1 }}" required
+                                                                       class="w-40 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
+                                                            @endfor
+                                                        </div>
+                                                    @endforeach
+                                                </div>
+                                            </div>
+                                        @endif
                                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                             <div>
                                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha del Pago</label>
