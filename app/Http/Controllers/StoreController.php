@@ -1228,6 +1228,7 @@ class StoreController extends Controller
 
         // Reconstruir cuentas seleccionadas cuando hay error de validación (old input)
         $cuentasSeleccionadasInit = [];
+        $proveedorIdInit = null;
         $oldDestinos = old('destinos', []);
         $destinosConFactura = array_values(array_filter($oldDestinos, fn ($d) => ! empty($d['account_payable_id'] ?? null)));
         if (! empty($destinosConFactura)) {
@@ -1249,9 +1250,14 @@ class StoreController extends Controller
                     ];
                 }
             }
+            // Usar proveedor de la primera factura (puede ser null para "Sin proveedor")
+            $primera = $cuentas->first();
+            $proveedorIdInit = $primera?->purchase?->proveedor_id;
+        } else {
+            $proveedorIdInit = old('proveedor_id');
         }
 
-        return view('stores.comprobante-egreso-crear', compact('store', 'bolsillos', 'proveedores', 'cuentasSeleccionadasInit'));
+        return view('stores.comprobante-egreso-crear', compact('store', 'bolsillos', 'proveedores', 'cuentasSeleccionadasInit', 'proveedorIdInit'));
     }
 
     public function cuentasPorPagarProveedor(Request $request, Store $store, AccountPayableService $accountPayableService)
@@ -1290,20 +1296,40 @@ class StoreController extends Controller
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
 
-        $request->validate([
+        // Normalizar proveedor_id vacío a null (facturas con proveedor null)
+        $input = $request->all();
+        if (isset($input['proveedor_id']) && $input['proveedor_id'] === '') {
+            $input['proveedor_id'] = null;
+        }
+        $request->merge($input);
+
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
             'payment_date' => ['required', 'date'],
             'notes' => ['nullable', 'string', 'max:500'],
             'proveedor_id' => ['nullable', 'exists:proveedores,id'],
             'destinos' => ['required', 'array', 'min:1'],
             'destinos.*.amount' => ['required', 'numeric', 'min:0.01'],
-            'destinos.*.account_payable_id' => ['required_with:proveedor_id', 'nullable', 'exists:accounts_payables,id'],
-            'destinos.*.concepto' => ['required_without:proveedor_id', 'nullable', 'string', 'max:255'],
+            'destinos.*.account_payable_id' => ['nullable', 'exists:accounts_payables,id'],
+            'destinos.*.concepto' => ['nullable', 'string', 'max:255'],
             'destinos.*.beneficiario' => ['nullable', 'string', 'max:255'],
             'origenes' => ['required', 'array', 'min:1'],
             'origenes.*.bolsillo_id' => ['required', 'exists:bolsillos,id'],
             'origenes.*.amount' => ['required', 'numeric', 'min:0.01'],
             'origenes.*.reference' => ['nullable', 'string', 'max:100'],
         ]);
+
+        $validator->after(function ($validator) use ($request) {
+            $destinos = $request->input('destinos', []);
+            foreach ($destinos as $i => $d) {
+                $hasAccountPayable = ! empty($d['account_payable_id'] ?? null);
+                $hasConcepto = ! empty(trim($d['concepto'] ?? ''));
+                if (! $hasAccountPayable && ! $hasConcepto) {
+                    $validator->errors()->add("destinos.{$i}.concepto", 'El concepto es requerido cuando no hay cuenta por pagar.');
+                }
+            }
+        });
+
+        $validator->validate();
 
         try {
             $comprobante = $comprobanteEgresoService->crearComprobante($store, Auth::id(), $request->all());
@@ -1323,8 +1349,50 @@ class StoreController extends Controller
         }
 
         $comprobante = $comprobanteEgresoService->obtener($store, $comprobanteEgreso->id);
+        $bolsillos = \App\Models\Bolsillo::deTienda($store->id)->activos()->orderBy('name')->get();
 
-        return view('stores.comprobante-egreso-detalle', compact('store', 'comprobante'));
+        return view('stores.comprobante-egreso-detalle', compact('store', 'comprobante', 'bolsillos'));
+    }
+
+    public function editComprobanteEgreso(Store $store, \App\Models\ComprobanteEgreso $comprobanteEgreso, \App\Services\ComprobanteEgresoService $comprobanteEgresoService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        if ($comprobanteEgreso->store_id !== $store->id) {
+            abort(404);
+        }
+        if ($comprobanteEgreso->isReversed()) {
+            return redirect()->route('stores.comprobantes-egreso.show', [$store, $comprobanteEgreso])
+                ->with('error', 'No se puede editar un comprobante revertido.');
+        }
+
+        $comprobante = $comprobanteEgresoService->obtener($store, $comprobanteEgreso->id);
+
+        return view('stores.comprobante-egreso-editar', compact('store', 'comprobante'));
+    }
+
+    public function updateComprobanteEgreso(Store $store, \App\Models\ComprobanteEgreso $comprobanteEgreso, Request $request, \App\Services\ComprobanteEgresoService $comprobanteEgresoService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        if ($comprobanteEgreso->store_id !== $store->id) {
+            abort(404);
+        }
+
+        $request->validate([
+            'payment_date' => ['required', 'date'],
+            'notes' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        try {
+            $comprobanteEgresoService->actualizarComprobante($store, $comprobanteEgreso->id, $request->only(['payment_date', 'notes']));
+            return redirect()->route('stores.comprobantes-egreso.show', [$store, $comprobanteEgreso])
+                ->with('success', 'Comprobante actualizado correctamente.');
+        } catch (\Exception $e) {
+            return redirect()->back()->withInput()->with('error', $e->getMessage());
+        }
     }
 
     public function reversarComprobanteEgreso(Store $store, \App\Models\ComprobanteEgreso $comprobanteEgreso, \App\Services\ComprobanteEgresoService $comprobanteEgresoService)
@@ -1339,6 +1407,35 @@ class StoreController extends Controller
         try {
             $comprobanteEgresoService->reversar($store, $comprobanteEgreso->id, Auth::id());
             return redirect()->route('stores.comprobantes-egreso.index', $store)->with('success', 'Comprobante revertido correctamente.');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
+    public function anularComprobanteEgreso(Store $store, \App\Models\ComprobanteEgreso $comprobanteEgreso, Request $request, \App\Services\ComprobanteEgresoService $comprobanteEgresoService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        if ($comprobanteEgreso->store_id !== $store->id) {
+            abort(404);
+        }
+        if ($comprobanteEgreso->isReversed()) {
+            return redirect()->route('stores.comprobantes-egreso.show', [$store, $comprobanteEgreso])
+                ->with('error', 'Este comprobante ya fue anulado.');
+        }
+
+        $request->validate([
+            'origenes' => ['required', 'array', 'min:1'],
+            'origenes.*.bolsillo_id' => ['required', 'exists:bolsillos,id'],
+            'origenes.*.amount' => ['required', 'numeric', 'min:0.01'],
+            'origenes.*.reference' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        try {
+            $comprobanteEgresoService->anularComprobante($store, $comprobanteEgreso->id, Auth::id(), $request->input('origenes'));
+            return redirect()->route('stores.comprobantes-egreso.show', [$store, $comprobanteEgreso])
+                ->with('success', 'Comprobante anulado correctamente. El dinero fue devuelto a los bolsillos indicados y las cuentas por pagar fueron restauradas.');
         } catch (\Exception $e) {
             return redirect()->back()->with('error', $e->getMessage());
         }

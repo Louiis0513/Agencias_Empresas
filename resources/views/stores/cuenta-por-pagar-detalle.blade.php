@@ -109,7 +109,6 @@
                                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Fecha</th>
                                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Monto</th>
                                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Bolsillos</th>
-                                        <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -132,16 +131,6 @@
                                                     {{ $origen->bolsillo->name }}: {{ number_format($origen->amount, 2) }}
                                                     @if($origen->reference) <span class="text-gray-500">({{ $origen->reference }})</span> @endif<br>
                                                 @endforeach
-                                            </td>
-                                            <td class="px-3 py-2 text-right">
-                                                @if($comprobante->isReversed())
-                                                    <span class="text-gray-400 dark:text-gray-500 text-xs">—</span>
-                                                @else
-                                                    <form method="POST" action="{{ route('stores.accounts-payables.reversar-pago', [$store, $accountPayable, $comprobante]) }}" class="inline" onsubmit="return confirm('¿Reversar este pago? Se registrará un ingreso en caja (reversa) y se restaurará el saldo de la cuenta.');">
-                                                        @csrf
-                                                        <button type="submit" class="text-amber-600 dark:text-amber-400 hover:underline text-sm">Reversar</button>
-                                                    </form>
-                                                @endif
                                             </td>
                                         </tr>
                                     @endforeach

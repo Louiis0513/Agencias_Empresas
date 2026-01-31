@@ -1,12 +1,68 @@
 <x-app-layout>
     <x-slot name="header">
-        <div class="flex justify-between items-center">
+        <div class="flex justify-between items-center" @if(!$comprobante->isReversed()) x-data="anularComprobanteModal()" x-init="init()" @endif>
             <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
                 Comprobante {{ $comprobante->number }} - {{ $store->name }}
             </h2>
-            <a href="{{ route('stores.comprobantes-egreso.index', $store) }}" class="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
-                ← Volver a Comprobantes
-            </a>
+            <div class="flex items-center gap-3">
+                @if(!$comprobante->isReversed())
+                    <a href="{{ route('stores.comprobantes-egreso.edit', [$store, $comprobante]) }}"
+                       class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm font-medium">
+                        Editar comprobante
+                    </a>
+                    <button type="button"
+                            @click="$refs.modalAnular?.showModal()"
+                            class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm font-medium">
+                        Anular comprobante
+                    </button>
+                @endif
+                <a href="{{ route('stores.comprobantes-egreso.index', $store) }}" class="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+                    ← Volver a Comprobantes
+                </a>
+            </div>
+            @if(!$comprobante->isReversed())
+            {{-- Modal Anular (dentro del header para compartir x-data) --}}
+            <dialog x-ref="modalAnular" class="rounded-lg shadow-xl max-w-lg w-full p-0 backdrop:bg-black/50"
+                    @click.self="$refs.modalAnular.close()">
+                <div class="bg-white dark:bg-gray-800 p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Anular comprobante {{ $comprobante->number }}</h3>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                        Indica a qué bolsillos se devolverá el dinero del reverso. La suma debe coincidir con el total: <strong>{{ number_format($comprobante->total_amount, 2) }}</strong>
+                    </p>
+                    <form method="POST" action="{{ route('stores.comprobantes-egreso.anular', [$store, $comprobante]) }}" id="form-anular">
+                        @csrf
+                        <div class="space-y-2 mb-4" id="origenes-reverso-container">
+                            @foreach($comprobante->origenes as $i => $o)
+                            <div class="origen-reverso-row flex gap-2 items-center">
+                                <select name="origenes[{{ $i }}][bolsillo_id]" class="flex-1 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" required>
+                                    <option value="">Seleccionar bolsillo</option>
+                                    @foreach($bolsillos as $b)
+                                        <option value="{{ $b->id }}" {{ $o->bolsillo_id == $b->id ? 'selected' : '' }}>{{ $b->name }} ({{ number_format($b->saldo, 2) }})</option>
+                                    @endforeach
+                                </select>
+                                <input type="text" name="origenes[{{ $i }}][reference]" value="{{ $o->reference }}" class="w-28 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" placeholder="Ref.">
+                                <input type="number" name="origenes[{{ $i }}][amount]" step="0.01" min="0.01" value="{{ $o->amount }}" class="w-24 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm origen-amount" required placeholder="Monto">
+                                <button type="button" class="remove-origen-reverso text-red-600 hover:text-red-800 text-sm {{ $comprobante->origenes->count() > 1 ? '' : 'hidden' }}">✕</button>
+                            </div>
+                            @endforeach
+                        </div>
+                        <button type="button" id="add-origen-reverso" class="mb-4 text-sm text-indigo-600 hover:text-indigo-800 dark:text-indigo-400">+ Agregar bolsillo</button>
+                        <p class="text-xs text-amber-600 dark:text-amber-400 mb-4" x-show="!sumaCoincide" x-transition>
+                            La suma de los montos (<span x-text="sumaOrigenes.toFixed(2)"></span>) debe coincidir con el total ({{ number_format($comprobante->total_amount, 2) }}).
+                        </p>
+                        <div class="flex justify-end gap-2">
+                            <button type="button" @click="$refs.modalAnular.close()" class="px-3 py-1.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+                                Cancelar
+                            </button>
+                            <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm font-medium disabled:opacity-50"
+                                    :disabled="!sumaCoincide">
+                                Confirmar anulación
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </dialog>
+            @endif
         </div>
     </x-slot>
 
@@ -132,14 +188,72 @@
                         </table>
                     </div>
 
-                    @if(!$comprobante->isReversed())
-                        <form method="POST" action="{{ route('stores.comprobantes-egreso.reversar', [$store, $comprobante]) }}" class="inline" onsubmit="return confirm('¿Reversar este comprobante? Se registrarán ingresos en caja y se restaurarán los saldos de las cuentas por pagar afectadas.');">
-                            @csrf
-                            <button type="submit" class="px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700">Reversar comprobante</button>
-                        </form>
-                    @endif
                 </div>
             </div>
         </div>
     </div>
+
+    @if(!$comprobante->isReversed())
+    <script>
+        function anularComprobanteModal() {
+            const totalComprobante = {{ $comprobante->total_amount }};
+            const bolsillos = @json($bolsillos->map(fn($b) => ['id' => $b->id, 'name' => $b->name, 'saldo' => $b->saldo]));
+            const origenesInit = @json($comprobante->origenes->map(fn($o) => ['bolsillo_id' => $o->bolsillo_id, 'amount' => (float)$o->amount, 'reference' => $o->reference]));
+
+            return {
+                open: false,
+                get sumaOrigenes() {
+                    return Array.from(document.querySelectorAll('.origen-amount'))
+                        .reduce((sum, el) => sum + parseFloat(el?.value || 0), 0);
+                },
+                get sumaCoincide() {
+                    return Math.abs(this.sumaOrigenes - totalComprobante) < 0.01;
+                },
+                abrirModal() {
+                    this.$refs.modalAnular.showModal();
+                },
+                init() {
+                    this.$nextTick(() => this.bindOrigenesReverso());
+                },
+                bindOrigenesReverso() {
+                    const container = document.getElementById('origenes-reverso-container');
+                    const addBtn = document.getElementById('add-origen-reverso');
+                    if (!container || !addBtn) return;
+
+                    addBtn.onclick = () => {
+                        const idx = container.querySelectorAll('.origen-reverso-row').length;
+                        const row = document.createElement('div');
+                        row.className = 'origen-reverso-row flex gap-2 items-center';
+                        row.innerHTML = `
+                            <select name="origenes[${idx}][bolsillo_id]" class="flex-1 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" required>
+                                <option value="">Seleccionar bolsillo</option>
+                                ${bolsillos.map(b => `<option value="${b.id}">${b.name} (${parseFloat(b.saldo).toFixed(2)})</option>`).join('')}
+                            </select>
+                            <input type="text" name="origenes[${idx}][reference]" class="w-28 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" placeholder="Ref.">
+                            <input type="number" name="origenes[${idx}][amount]" step="0.01" min="0.01" class="w-24 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm origen-amount" required placeholder="Monto">
+                            <button type="button" class="remove-origen-reverso text-red-600 hover:text-red-800 text-sm">✕</button>
+                        `;
+                        container.appendChild(row);
+                        this.toggleRemoveButtons();
+                        row.querySelector('.remove-origen-reverso').onclick = () => { row.remove(); this.toggleRemoveButtons(); };
+                    };
+
+                    container.querySelectorAll('.remove-origen-reverso').forEach(btn => {
+                        btn.onclick = () => {
+                            btn.closest('.origen-reverso-row').remove();
+                            this.toggleRemoveButtons();
+                        };
+                    });
+                },
+                toggleRemoveButtons() {
+                    const rows = document.querySelectorAll('.origen-reverso-row');
+                    rows.forEach((r, i) => {
+                        const btn = r.querySelector('.remove-origen-reverso');
+                        if (btn) btn.classList.toggle('hidden', rows.length <= 1);
+                    });
+                }
+            };
+        }
+    </script>
+    @endif
 </x-app-layout>

@@ -101,7 +101,10 @@ Route::middleware(['auth', 'verified'])->prefix('tienda/{store:slug}')->name('st
     Route::get('/comprobantes-egreso/cuentas-proveedor', [StoreController::class, 'cuentasPorPagarProveedor'])->name('comprobantes-egreso.cuentas-proveedor');
     Route::post('/comprobantes-egreso', [StoreController::class, 'storeComprobanteEgreso'])->name('comprobantes-egreso.store');
     Route::get('/comprobantes-egreso/{comprobanteEgreso}', [StoreController::class, 'showComprobanteEgreso'])->name('comprobantes-egreso.show');
+    Route::get('/comprobantes-egreso/{comprobanteEgreso}/editar', [StoreController::class, 'editComprobanteEgreso'])->name('comprobantes-egreso.edit');
+    Route::put('/comprobantes-egreso/{comprobanteEgreso}', [StoreController::class, 'updateComprobanteEgreso'])->name('comprobantes-egreso.update');
     Route::post('/comprobantes-egreso/{comprobanteEgreso}/reversar', [StoreController::class, 'reversarComprobanteEgreso'])->name('comprobantes-egreso.reversar');
+    Route::post('/comprobantes-egreso/{comprobanteEgreso}/anular', [StoreController::class, 'anularComprobanteEgreso'])->name('comprobantes-egreso.anular');
 });
 
 require __DIR__.'/auth.php';

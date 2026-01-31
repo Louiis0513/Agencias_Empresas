@@ -86,12 +86,14 @@ class SelectAccountPayableModal extends Component
             'per_page' => 10,
             'page' => $this->getPage(),
             'status' => $this->status,
-            'proveedor_id' => $this->proveedorId,
             'exclude_ids' => $this->excludeIds,
             'search' => $this->search,
             'fecha_vencimiento_desde' => $this->fechaVencimientoDesde,
             'fecha_vencimiento_hasta' => $this->fechaVencimientoHasta,
         ];
+        if (count($this->excludeIds) > 0) {
+            $filtros['proveedor_id'] = $this->proveedorId;
+        }
 
         return app(AccountPayableService::class)->listarCuentasPorPagar($store, $filtros);
     }

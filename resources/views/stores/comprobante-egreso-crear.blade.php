@@ -37,7 +37,7 @@
                   x-ref="form"
                   @submit="onSubmit($event)">
                 @csrf
-                <input type="hidden" name="proveedor_id" :value="proveedorId || ''">
+                <input type="hidden" name="proveedor_id" :value="(proveedorId && proveedorId !== 'null') ? proveedorId : ''">
 
                 <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
                     <div class="p-6 space-y-6">
@@ -61,30 +61,26 @@
                                 Selecciona la primera factura para definir el proveedor. Luego puedes agregar más del mismo proveedor.
                             </p>
                             <div class="flex flex-wrap items-center gap-2 mb-3">
+                                {{-- Estado inicial: buscar factura --}}
                                 <button type="button"
                                         x-show="cuentasSeleccionadas.length === 0"
                                         @click="openBuscarFacturaModal()"
                                         class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm font-medium">
                                     Buscar factura por número o proveedor
                                 </button>
+                                {{-- Modo pago a proveedor (con facturas): añadir más cuentas --}}
                                 <button type="button"
                                         x-show="cuentasSeleccionadas.length > 0"
                                         @click="openAddCuentaModal()"
                                         class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm font-medium">
                                     + Añadir cuenta por pagar
                                 </button>
-                                <button type="button"
-                                        x-show="cuentasSeleccionadas.length > 0"
-                                        @click="clearFacturas()"
-                                        class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 text-sm">
-                                    Gasto directo (sin factura)
-                                </button>
                                 <span x-show="proveedorId" x-cloak class="text-sm font-medium text-gray-900 dark:text-gray-100">
                                     Proveedor: <span x-text="proveedorNombre || '—'"></span>
                                 </span>
                             </div>
                             <div x-show="cuentasSeleccionadas.length === 0" class="text-sm text-gray-500 dark:text-gray-400 py-4">
-                                No hay facturas. Haz clic en "Buscar factura" para seleccionar la primera.
+                                No hay facturas. Haz clic en "Buscar factura" para pagar a un proveedor, o complete los gastos directos más abajo.
                             </div>
                             <div x-show="cuentasSeleccionadas.length > 0" class="space-y-2">
                                 <template x-for="(cuenta, i) in cuentasSeleccionadas" :key="cuenta.id">
@@ -104,22 +100,33 @@
                             </div>
                         </div>
 
-                        {{-- Gasto directo - Ítems libres (sin factura) --}}
-                        <div class="border-l-4 border-indigo-500 pl-4" x-show="!proveedorId" x-cloak>
+                        {{-- Gasto directo - Ítems libres (sin factura). x-if elimina del DOM cuando hay facturas, así no se envían inputs vacíos. --}}
+                        <template x-if="!proveedorId">
+                        <div class="border-l-4 border-indigo-500 pl-4">
                             <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">¿Qué gastos registro? (Gasto directo)</h3>
-                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Agrega ítems libres (taxi, café, etc.)</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Agrega ítems libres (taxi, café, etc.)</p>
+                            <p class="text-xs font-medium text-amber-600 dark:text-amber-400 mb-3">Debe indicar el concepto para cada ítem de gasto directo.</p>
                             <div class="space-y-2" x-ref="itemsLibresContainer">
+                                <div class="flex flex-wrap gap-2 px-3 pb-1 text-xs font-medium text-gray-500 dark:text-gray-400">
+                                    <span class="flex-1 min-w-[150px]">Concepto *</span>
+                                    <span class="w-32">Beneficiario</span>
+                                    <span class="w-28">Monto *</span>
+                                    <span class="w-8"></span>
+                                </div>
                                 <template x-for="(item, i) in itemsLibres" :key="i">
                                     <div class="flex flex-wrap gap-2 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
-                                        <input type="text" x-model="item.concepto" placeholder="Concepto (ej: Taxi a la oficina)"
+                                        <input type="text" x-model="item.concepto" placeholder="Ej: Taxi a la oficina"
                                                class="flex-1 min-w-[150px] rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm"
-                                               :name="'destinos[' + i + '][concepto]'">
+                                               :name="proveedorId ? '' : 'destinos[' + i + '][concepto]'"
+                                               :disabled="!!proveedorId">
                                         <input type="text" x-model="item.beneficiario" placeholder="Beneficiario (opcional)"
                                                class="w-32 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm"
-                                               :name="'destinos[' + i + '][beneficiario]'">
+                                               :name="proveedorId ? '' : 'destinos[' + i + '][beneficiario]'"
+                                               :disabled="!!proveedorId">
                                         <input type="number" x-model="item.amount" step="0.01" min="0.01" placeholder="Monto"
                                                class="w-28 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm"
-                                               :name="'destinos[' + i + '][amount]'">
+                                               :name="proveedorId ? '' : 'destinos[' + i + '][amount]'"
+                                               :disabled="!!proveedorId">
                                         <button type="button" @click="removeItemLibre(i)" class="text-red-600 hover:text-red-800 text-sm"
                                                 x-show="itemsLibres.length > 1">✕</button>
                                     </div>
@@ -130,6 +137,7 @@
                                 + Agregar ítem libre
                             </button>
                         </div>
+                        </template>
 
                         {{-- Fase C: ¿Con qué pago? --}}
                         <div class="border-l-4 border-indigo-500 pl-4" x-show="totalDestinos > 0">
@@ -173,12 +181,17 @@
         function comprobanteEgresoFlow() {
             const storeId = {{ $store->id }};
             const bolsillos = @json($bolsillos->map(fn($b) => ['id' => $b->id, 'name' => $b->name, 'saldo' => $b->saldo]));
-            @php $oldProv = old('proveedor_id') ? $proveedores->firstWhere('id', old('proveedor_id')) : null; @endphp
-            const initProveedorNombre = @json($oldProv?->nombre ?? '');
+            @php
+                $oldProv = ($proveedorIdInit !== null && $proveedorIdInit !== '') ? $proveedores->firstWhere('id', $proveedorIdInit) : null;
+                $initProvNombre = $oldProv?->nombre ?? (($proveedorIdInit === null || $proveedorIdInit === '') && !empty($cuentasSeleccionadasInit) ? 'Sin proveedor' : '');
+                $initProvId = empty($cuentasSeleccionadasInit) ? '' : ($proveedorIdInit === null || $proveedorIdInit === '' ? 'null' : (string)$proveedorIdInit);
+            @endphp
+            const initProveedorNombre = @json($initProvNombre);
             const cuentasSeleccionadasInit = @json($cuentasSeleccionadasInit ?? []);
+            const proveedorIdInit = @json($initProvId);
 
             return {
-                proveedorId: @json(old('proveedor_id')),
+                proveedorId: proveedorIdInit,
                 proveedorNombre: initProveedorNombre,
                 cuentasSeleccionadas: cuentasSeleccionadasInit,
                 itemsLibres: @json($itemsLibresInit),
@@ -207,8 +220,9 @@
 
                 openAddCuentaModal() {
                     if (!this.proveedorId || this.cuentasSeleccionadas.length === 0) return;
+                    const provId = this.proveedorId === 'null' ? null : parseInt(this.proveedorId);
                     Livewire.dispatch('open-select-account-payable-for-comprobante', {
-                        proveedor_id: parseInt(this.proveedorId),
+                        proveedor_id: provId,
                         selected_ids: this.cuentasSeleccionadas.map(c => c.id)
                     });
                 },
@@ -216,15 +230,16 @@
                 bindLivewireEvents() {
                     Livewire.on('account-payable-selected-for-comprobante', (payload) => {
                         const p = Array.isArray(payload) ? payload[0] : payload;
-                        if (!p?.id || !p?.proveedorId) return;
-                        if (this.proveedorId && String(p.proveedorId) !== this.proveedorId) {
+                        if (!p?.id) return;
+                        const pProvId = p.proveedorId == null ? 'null' : String(p.proveedorId);
+                        if (this.proveedorId && pProvId !== this.proveedorId) {
                             alert('Solo puedes agregar facturas del mismo proveedor (' + this.proveedorNombre + ').');
                             return;
                         }
                         if (!this.cuentasSeleccionadas.some(c => c.id == p.id)) {
                             if (!this.proveedorId) {
-                                this.proveedorId = String(p.proveedorId);
-                                this.proveedorNombre = p.proveedorNombre || '';
+                                this.proveedorId = pProvId;
+                                this.proveedorNombre = (p.proveedorId == null ? 'Sin proveedor' : (p.proveedorNombre || ''));
                             }
                             this.cuentasSeleccionadas.push({
                                 id: p.id,
@@ -235,12 +250,6 @@
                             });
                         }
                     });
-                },
-
-                clearFacturas() {
-                    this.proveedorId = '';
-                    this.proveedorNombre = '';
-                    this.cuentasSeleccionadas = [];
                 },
 
                 removeCuentaSeleccionada(id) {

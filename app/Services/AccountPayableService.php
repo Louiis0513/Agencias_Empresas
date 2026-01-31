@@ -77,6 +77,7 @@ class AccountPayableService
         }
 
         $comprobanteData = [
+            'proveedor_id' => $accountPayable->purchase->proveedor_id,
             'payment_date' => $data['payment_date'] ?? now()->toDateString(),
             'notes' => $data['notes'] ?? null,
             'destinos' => $destinos,
@@ -100,8 +101,12 @@ class AccountPayableService
             }
         }
 
-        if (! empty($filtros['proveedor_id'])) {
-            $query->whereHas('purchase', fn ($q) => $q->where('proveedor_id', $filtros['proveedor_id']));
+        if (array_key_exists('proveedor_id', $filtros)) {
+            if ($filtros['proveedor_id'] === null || $filtros['proveedor_id'] === '') {
+                $query->whereHas('purchase', fn ($q) => $q->whereNull('proveedor_id'));
+            } else {
+                $query->whereHas('purchase', fn ($q) => $q->where('proveedor_id', $filtros['proveedor_id']));
+            }
         }
 
         if (! empty($filtros['fecha_vencimiento_desde'])) {

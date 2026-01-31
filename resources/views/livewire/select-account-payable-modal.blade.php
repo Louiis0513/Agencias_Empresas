@@ -5,7 +5,7 @@
                 Seleccionar cuenta por pagar
             </h2>
             <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                @if($forComprobante && $proveedorId)
+                @if($forComprobante && count($excludeIds) > 0)
                     Facturas pendientes del proveedor seleccionado. Haz clic en "Seleccionar" para agregar cada factura.
                 @else
                     Busca por Compra #, número de factura o nombre del proveedor. Si no recuerdas el proveedor, busca la factura directamente.
@@ -22,10 +22,10 @@
             <div class="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                 <div>
                     <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Proveedor</label>
-                    @if($forComprobante && $proveedorId)
-                        @php $prov = $this->proveedores->firstWhere('id', $proveedorId); @endphp
+                    @if($forComprobante && count($excludeIds) > 0)
+                        @php $prov = $proveedorId ? $this->proveedores->firstWhere('id', $proveedorId) : null; @endphp
                         <div class="px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm font-medium">
-                            {{ $prov?->nombre ?? 'Proveedor' }}
+                            {{ $prov?->nombre ?? 'Sin proveedor' }}
                         </div>
                         <p class="mt-0.5 text-xs text-gray-500">Solo facturas de este proveedor</p>
                     @else

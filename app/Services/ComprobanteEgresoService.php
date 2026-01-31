@@ -53,8 +53,9 @@ class ComprobanteEgresoService
                 throw new Exception("La suma de destinos ({$totalDestinos}) debe coincidir con la suma de orígenes ({$totalOrigenes}).");
             }
 
-            $beneficiaryName = $this->calcularBeneficiaryName($store, $proveedorId, $destinos);
-            $type = $proveedorId ? ComprobanteEgreso::TYPE_PAGO_CUENTA : ComprobanteEgreso::TYPE_GASTO_DIRECTO;
+            $tieneCuentasPorPagar = collect($destinos)->contains(fn ($d) => ! empty($d['account_payable_id'] ?? null));
+            $beneficiaryName = $this->calcularBeneficiaryName($store, $proveedorId, $destinos, $tieneCuentasPorPagar);
+            $type = $tieneCuentasPorPagar ? ComprobanteEgreso::TYPE_PAGO_CUENTA : ComprobanteEgreso::TYPE_GASTO_DIRECTO;
 
             $comprobante = ComprobanteEgreso::create([
                 'store_id' => $store->id,
@@ -74,12 +75,13 @@ class ComprobanteEgresoService
                     continue;
                 }
 
-                if ($proveedorId) {
-                    $accountPayableId = (int) ($d['account_payable_id'] ?? 0);
-                    if (! $accountPayableId) {
-                        throw new Exception('Debe indicar account_payable_id para cada destino cuando paga facturas.');
+                $accountPayableId = ! empty($d['account_payable_id']) ? (int) $d['account_payable_id'] : null;
+
+                // Si tiene account_payable_id = pago a cuenta por pagar (factura), aunque proveedor sea null
+                if ($accountPayableId) {
+                    if ($proveedorId !== null) {
+                        $this->validarCuentaPerteneceAProveedor($store, $accountPayableId, $proveedorId);
                     }
-                    $this->validarCuentaPerteneceAProveedor($store, $accountPayableId, $proveedorId);
                     $this->aplicarPagoACuentaPorPagar($store, $accountPayableId, $amount);
 
                     ComprobanteEgresoDestino::create([
@@ -91,6 +93,7 @@ class ComprobanteEgresoService
                         'amount' => $amount,
                     ]);
                 } else {
+                    // Gasto directo: requiere concepto
                     $concepto = trim($d['concepto'] ?? '');
                     if (! $concepto) {
                         throw new Exception('Debe indicar el concepto para cada ítem de gasto directo.');
@@ -141,12 +144,36 @@ class ComprobanteEgresoService
     }
 
     /**
-     * Revierte un comprobante de egreso.
-     * Crea movimientos INGRESO por cada origen y restaura balances de cuentas por pagar.
+     * Revierte un comprobante de egreso (usa origenes originales).
+     * Usado internamente por AccountPayableService.
      */
     public function reversar(Store $store, int $comprobanteId, int $userId): void
     {
-        DB::transaction(function () use ($store, $comprobanteId, $userId) {
+        $comprobante = ComprobanteEgreso::where('id', $comprobanteId)
+            ->where('store_id', $store->id)
+            ->with(['origenes'])
+            ->firstOrFail();
+
+        $origenes = $comprobante->origenes->map(fn ($o) => [
+            'bolsillo_id' => $o->bolsillo_id,
+            'amount' => (float) $o->amount,
+            'reference' => $o->reference,
+        ])->toArray();
+
+        $this->anularComprobante($store, $comprobanteId, $userId, $origenes);
+    }
+
+    /**
+     * Anula un comprobante de egreso.
+     * - Registra INGRESOS en los bolsillos indicados (concepto: Reverso comprobante de egreso)
+     * - Restaura saldos de cuentas por pagar
+     * - Marca el comprobante como revertido
+     *
+     * @param  array  $origenes  [['bolsillo_id' => int, 'amount' => float, 'reference' => ?string], ...]
+     */
+    public function anularComprobante(Store $store, int $comprobanteId, int $userId, array $origenes): void
+    {
+        DB::transaction(function () use ($store, $comprobanteId, $userId, $origenes) {
             $comprobante = ComprobanteEgreso::where('id', $comprobanteId)
                 ->where('store_id', $store->id)
                 ->with(['destinos.accountPayable.purchase', 'origenes.bolsillo'])
@@ -154,15 +181,39 @@ class ComprobanteEgresoService
                 ->firstOrFail();
 
             if ($comprobante->isReversed()) {
-                throw new Exception('Este comprobante ya fue revertido.');
+                throw new Exception('Este comprobante ya fue anulado.');
             }
 
-            foreach ($comprobante->origenes as $origen) {
+            $totalOrigenes = 0;
+            foreach ($origenes as $o) {
+                $amount = (float) ($o['amount'] ?? 0);
+                if ($amount <= 0) {
+                    continue;
+                }
+                $bolsilloId = (int) ($o['bolsillo_id'] ?? 0);
+                if (! $bolsilloId) {
+                    throw new Exception('Debe indicar bolsillo para cada origen del reverso.');
+                }
+                $totalOrigenes += $amount;
+            }
+
+            $totalComprobante = (float) $comprobante->total_amount;
+            if (abs($totalOrigenes - $totalComprobante) > 0.01) {
+                throw new Exception("La suma de los bolsillos del reverso ({$totalOrigenes}) debe coincidir con el total del comprobante ({$totalComprobante}).");
+            }
+
+            $concepto = "Reverso comprobante de egreso {$comprobante->number}";
+
+            foreach ($origenes as $o) {
+                $amount = (float) ($o['amount'] ?? 0);
+                if ($amount <= 0) {
+                    continue;
+                }
                 $this->cajaService->registrarMovimiento($store, $userId, [
-                    'bolsillo_id' => $origen->bolsillo_id,
+                    'bolsillo_id' => (int) $o['bolsillo_id'],
                     'type' => MovimientoBolsillo::TYPE_INCOME,
-                    'amount' => $origen->amount,
-                    'description' => "Reversa de comprobante {$comprobante->number}",
+                    'amount' => $amount,
+                    'description' => $concepto,
                     'reversal_of_comprobante_egreso_id' => $comprobante->id,
                 ]);
             }
@@ -208,12 +259,36 @@ class ComprobanteEgresoService
             ->firstOrFail();
     }
 
-    private function calcularBeneficiaryName(Store $store, ?int $proveedorId, array $destinos): string
+    /**
+     * Actualiza campos editables del comprobante (fecha, notas).
+     * Los montos y destinos/orígenes no se pueden editar sin reversar.
+     */
+    public function actualizarComprobante(Store $store, int $comprobanteId, array $data): ComprobanteEgreso
+    {
+        $comprobante = $this->obtener($store, $comprobanteId);
+
+        if ($comprobante->isReversed()) {
+            throw new Exception('No se puede editar un comprobante revertido.');
+        }
+
+        $comprobante->update([
+            'payment_date' => $data['payment_date'] ?? $comprobante->payment_date,
+            'notes' => $data['notes'] ?? $comprobante->notes,
+        ]);
+
+        return $comprobante->load(['user', 'proveedor', 'destinos.accountPayable.purchase.proveedor', 'origenes.bolsillo']);
+    }
+
+    private function calcularBeneficiaryName(Store $store, ?int $proveedorId, array $destinos, bool $tieneCuentasPorPagar = false): string
     {
         if ($proveedorId) {
             $proveedor = \App\Models\Proveedor::find($proveedorId);
 
             return $proveedor?->nombre ?? 'Proveedor';
+        }
+
+        if ($tieneCuentasPorPagar) {
+            return 'Sin proveedor';
         }
 
         $primerConcepto = collect($destinos)->firstWhere(fn ($d) => (float) ($d['amount'] ?? 0) > 0);
@@ -284,7 +359,7 @@ class ComprobanteEgresoService
 
     private function revertirPagoACuentaPorPagar(AccountPayable $accountPayable, float $monto): void
     {
-        $accountPayable = $accountPayable->lockForUpdate()->fresh();
+        $accountPayable = AccountPayable::where('id', $accountPayable->id)->lockForUpdate()->firstOrFail();
         $eraPagado = $accountPayable->isPagado();
         $nuevoBalance = $accountPayable->balance + $monto;
         $nuevoStatus = $nuevoBalance <= 0
