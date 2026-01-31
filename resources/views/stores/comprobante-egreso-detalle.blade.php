@@ -42,6 +42,12 @@
                             <p class="text-sm text-gray-500 dark:text-gray-400">A quién</p>
                             <p class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ $comprobante->beneficiary_name ?? '—' }}</p>
                         </div>
+                        @if($comprobante->proveedor)
+                            <div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">Proveedor</p>
+                                <p class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ $comprobante->proveedor->nombre }}</p>
+                            </div>
+                        @endif
                         <div>
                             <p class="text-sm text-gray-500 dark:text-gray-400">Tipo</p>
                             <p class="text-lg font-semibold text-gray-900 dark:text-gray-100">

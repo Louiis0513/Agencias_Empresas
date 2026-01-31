@@ -112,6 +112,29 @@ class AccountPayableService
             $query->whereDate('due_date', '<=', $filtros['fecha_vencimiento_hasta']);
         }
 
+        if (! empty($filtros['exclude_ids'])) {
+            $ids = is_array($filtros['exclude_ids']) ? $filtros['exclude_ids'] : [$filtros['exclude_ids']];
+            $query->whereNotIn('id', array_filter(array_map('intval', $ids)));
+        }
+
+        if (! empty($filtros['search'])) {
+            $term = trim($filtros['search']);
+            $query->where(function ($q) use ($term) {
+                $q->whereHas('purchase', function ($sub) use ($term) {
+                    if (is_numeric($term)) {
+                        $sub->where('id', (int) $term)
+                            ->orWhere('invoice_number', 'like', "%{$term}%");
+                    } else {
+                        $sub->where('invoice_number', 'like', "%{$term}%");
+                    }
+                })
+                ->orWhereHas('purchase.proveedor', function ($sub) use ($term) {
+                    $sub->where('nombre', 'like', "%{$term}%")
+                        ->orWhere('nit', 'like', "%{$term}%");
+                });
+            });
+        }
+
         $perPage = $filtros['per_page'] ?? 15;
         $page = $filtros['page'] ?? null;
 

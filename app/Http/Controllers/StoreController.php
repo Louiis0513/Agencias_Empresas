@@ -1224,8 +1224,64 @@ class StoreController extends Controller
         session(['current_store_id' => $store->id]);
 
         $bolsillos = \App\Models\Bolsillo::deTienda($store->id)->activos()->orderBy('name')->get();
+        $proveedores = \App\Models\Proveedor::deTienda($store->id)->activos()->orderBy('nombre')->get(['id', 'nombre']);
 
-        return view('stores.comprobante-egreso-crear', compact('store', 'bolsillos'));
+        // Reconstruir cuentas seleccionadas cuando hay error de validación (old input)
+        $cuentasSeleccionadasInit = [];
+        $oldDestinos = old('destinos', []);
+        $destinosConFactura = array_values(array_filter($oldDestinos, fn ($d) => ! empty($d['account_payable_id'] ?? null)));
+        if (! empty($destinosConFactura)) {
+            $ids = array_column($destinosConFactura, 'account_payable_id');
+            $cuentas = \App\Models\AccountPayable::deTienda($store->id)
+                ->whereIn('id', $ids)
+                ->with(['purchase.proveedor'])
+                ->get()
+                ->keyBy('id');
+            foreach ($destinosConFactura as $d) {
+                $ap = $cuentas->get($d['account_payable_id']);
+                if ($ap) {
+                    $cuentasSeleccionadasInit[] = [
+                        'id' => $ap->id,
+                        'purchase_id' => $ap->purchase_id,
+                        'balance' => (float) $ap->balance,
+                        'due_date' => $ap->due_date?->format('Y-m-d'),
+                        'amount' => (float) ($d['amount'] ?? $ap->balance),
+                    ];
+                }
+            }
+        }
+
+        return view('stores.comprobante-egreso-crear', compact('store', 'bolsillos', 'proveedores', 'cuentasSeleccionadasInit'));
+    }
+
+    public function cuentasPorPagarProveedor(Request $request, Store $store, AccountPayableService $accountPayableService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+
+        $proveedorId = $request->get('proveedor_id');
+        if (! $proveedorId) {
+            return response()->json([]);
+        }
+
+        $cuentas = $accountPayableService->listarCuentasPorPagar($store, [
+            'proveedor_id' => (int) $proveedorId,
+            'status' => 'pendientes',
+            'per_page' => 100,
+        ]);
+
+        $data = collect($cuentas->items())->map(fn ($ap) => [
+            'id' => $ap->id,
+            'purchase_id' => $ap->purchase->id ?? null,
+            'proveedor_nombre' => $ap->purchase->proveedor->nombre ?? '—',
+            'total_amount' => (float) $ap->total_amount,
+            'balance' => (float) $ap->balance,
+            'due_date' => $ap->due_date?->format('Y-m-d'),
+            'status' => $ap->status,
+        ])->values()->all();
+
+        return response()->json($data);
     }
 
     public function storeComprobanteEgreso(Store $store, Request $request, \App\Services\ComprobanteEgresoService $comprobanteEgresoService)
@@ -1237,11 +1293,11 @@ class StoreController extends Controller
         $request->validate([
             'payment_date' => ['required', 'date'],
             'notes' => ['nullable', 'string', 'max:500'],
+            'proveedor_id' => ['nullable', 'exists:proveedores,id'],
             'destinos' => ['required', 'array', 'min:1'],
-            'destinos.*.type' => ['required', 'in:CUENTA_POR_PAGAR,GASTO_DIRECTO'],
             'destinos.*.amount' => ['required', 'numeric', 'min:0.01'],
-            'destinos.*.account_payable_id' => ['required_if:destinos.*.type,CUENTA_POR_PAGAR', 'nullable', 'exists:accounts_payables,id'],
-            'destinos.*.concepto' => ['required_if:destinos.*.type,GASTO_DIRECTO', 'nullable', 'string', 'max:255'],
+            'destinos.*.account_payable_id' => ['required_with:proveedor_id', 'nullable', 'exists:accounts_payables,id'],
+            'destinos.*.concepto' => ['required_without:proveedor_id', 'nullable', 'string', 'max:255'],
             'destinos.*.beneficiario' => ['nullable', 'string', 'max:255'],
             'origenes' => ['required', 'array', 'min:1'],
             'origenes.*.bolsillo_id' => ['required', 'exists:bolsillos,id'],

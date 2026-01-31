@@ -5,19 +5,38 @@
                 Seleccionar cuenta por pagar
             </h2>
             <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                Busca y filtra las cuentas por pagar. Selecciona una de la tabla para asignarla al destino.
+                @if($forComprobante && $proveedorId)
+                    Facturas pendientes del proveedor seleccionado. Haz clic en "Seleccionar" para agregar cada factura.
+                @else
+                    Busca por Compra #, número de factura o nombre del proveedor. Si no recuerdas el proveedor, busca la factura directamente.
+                @endif
             </p>
+
+            <div class="mt-4">
+                <input type="text"
+                       wire:model.live.debounce.300ms="search"
+                       placeholder="Buscar por Compra #, factura o proveedor (ej: 123, Acme)..."
+                       class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+            </div>
 
             <div class="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                 <div>
                     <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Proveedor</label>
-                    <select wire:model.live="proveedorId"
-                            class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
-                        <option value="">Todos</option>
-                        @foreach($this->proveedores as $prov)
-                            <option value="{{ $prov->id }}">{{ $prov->nombre }}</option>
-                        @endforeach
-                    </select>
+                    @if($forComprobante && $proveedorId)
+                        @php $prov = $this->proveedores->firstWhere('id', $proveedorId); @endphp
+                        <div class="px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm font-medium">
+                            {{ $prov?->nombre ?? 'Proveedor' }}
+                        </div>
+                        <p class="mt-0.5 text-xs text-gray-500">Solo facturas de este proveedor</p>
+                    @else
+                        <select wire:model.live="proveedorId"
+                                class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
+                            <option value="">Todos</option>
+                            @foreach($this->proveedores as $prov)
+                                <option value="{{ $prov->id }}">{{ $prov->nombre }}</option>
+                            @endforeach
+                        </select>
+                    @endif
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Vencimiento desde</label>
@@ -74,7 +93,7 @@
                                 </td>
                                 <td class="px-4 py-2 text-right">
                                     <button type="button"
-                                            wire:click="selectAccountPayable({{ $ap->id }}, {{ $ap->purchase->id }}, @js($ap->purchase->proveedor?->nombre ?? ''), {{ $ap->total_amount }}, {{ $ap->balance }}, @js($ap->due_date?->format('Y-m-d')), @js($ap->status))"
+                                            wire:click="selectAccountPayable({{ $ap->id }}, {{ $ap->purchase->id }}, {{ $ap->purchase->proveedor_id ?? 'null' }}, @js($ap->purchase->proveedor?->nombre ?? ''), {{ $ap->total_amount }}, {{ $ap->balance }}, @js($ap->due_date?->format('Y-m-d')), @js($ap->status))"
                                             class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 text-sm font-medium">
                                         Seleccionar
                                     </button>

@@ -98,6 +98,7 @@ Route::middleware(['auth', 'verified'])->prefix('tienda/{store:slug}')->name('st
     // Comprobantes de Egreso
     Route::get('/comprobantes-egreso', [StoreController::class, 'comprobantesEgreso'])->name('comprobantes-egreso.index');
     Route::get('/comprobantes-egreso/crear', [StoreController::class, 'createComprobanteEgreso'])->name('comprobantes-egreso.create');
+    Route::get('/comprobantes-egreso/cuentas-proveedor', [StoreController::class, 'cuentasPorPagarProveedor'])->name('comprobantes-egreso.cuentas-proveedor');
     Route::post('/comprobantes-egreso', [StoreController::class, 'storeComprobanteEgreso'])->name('comprobantes-egreso.store');
     Route::get('/comprobantes-egreso/{comprobanteEgreso}', [StoreController::class, 'showComprobanteEgreso'])->name('comprobantes-egreso.show');
     Route::post('/comprobantes-egreso/{comprobanteEgreso}/reversar', [StoreController::class, 'reversarComprobanteEgreso'])->name('comprobantes-egreso.reversar');

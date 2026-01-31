@@ -31,19 +31,19 @@ class ComprobanteEgresoService
 
     /**
      * Crea un comprobante de egreso con múltiples destinos y orígenes.
-     * Soporta pagos a cuentas por pagar y gastos directos.
+     * Regla de Oro: Un Comprobante = Un Proveedor (o NULL para gasto directo).
+     * - proveedor_id: pago de facturas del proveedor
+     * - proveedor_id NULL: gastos directos (ítems libres)
      */
     public function crearComprobante(Store $store, int $userId, array $data): ComprobanteEgreso
     {
         return DB::transaction(function () use ($store, $userId, $data) {
+            $proveedorId = ! empty($data['proveedor_id']) ? (int) $data['proveedor_id'] : null;
             $destinos = $data['destinos'] ?? [];
             $origenes = $data['origenes'] ?? [];
 
-            $totalDestinos = array_sum(array_column($destinos, 'amount'));
-            $totalOrigenes = 0;
-            foreach ($origenes as $o) {
-                $totalOrigenes += (float) ($o['amount'] ?? 0);
-            }
+            $totalDestinos = array_sum(array_map(fn ($d) => (float) ($d['amount'] ?? 0), $destinos));
+            $totalOrigenes = array_sum(array_map(fn ($o) => (float) ($o['amount'] ?? 0), $origenes));
 
             if ($totalDestinos <= 0 || $totalOrigenes <= 0) {
                 throw new Exception('Debe indicar al menos un destino y un origen con montos mayores a cero.');
@@ -53,11 +53,12 @@ class ComprobanteEgresoService
                 throw new Exception("La suma de destinos ({$totalDestinos}) debe coincidir con la suma de orígenes ({$totalOrigenes}).");
             }
 
-            $beneficiaryName = $this->calcularBeneficiaryName($store, $destinos);
-            $type = $this->calcularTipo($destinos);
+            $beneficiaryName = $this->calcularBeneficiaryName($store, $proveedorId, $destinos);
+            $type = $proveedorId ? ComprobanteEgreso::TYPE_PAGO_CUENTA : ComprobanteEgreso::TYPE_GASTO_DIRECTO;
 
             $comprobante = ComprobanteEgreso::create([
                 'store_id' => $store->id,
+                'proveedor_id' => $proveedorId,
                 'number' => $this->siguienteNumero($store),
                 'total_amount' => $totalDestinos,
                 'payment_date' => $data['payment_date'] ?? now()->toDateString(),
@@ -73,26 +74,37 @@ class ComprobanteEgresoService
                     continue;
                 }
 
-                $destinoType = $d['type'] ?? ComprobanteEgresoDestino::TYPE_CUENTA_POR_PAGAR;
-
-                if ($destinoType === ComprobanteEgresoDestino::TYPE_CUENTA_POR_PAGAR) {
+                if ($proveedorId) {
                     $accountPayableId = (int) ($d['account_payable_id'] ?? 0);
                     if (! $accountPayableId) {
-                        throw new Exception('Debe indicar account_payable_id para destinos tipo CUENTA_POR_PAGAR.');
+                        throw new Exception('Debe indicar account_payable_id para cada destino cuando paga facturas.');
                     }
+                    $this->validarCuentaPerteneceAProveedor($store, $accountPayableId, $proveedorId);
                     $this->aplicarPagoACuentaPorPagar($store, $accountPayableId, $amount);
-                }
 
-                ComprobanteEgresoDestino::create([
-                    'comprobante_egreso_id' => $comprobante->id,
-                    'type' => $destinoType,
-                    'account_payable_id' => $destinoType === ComprobanteEgresoDestino::TYPE_CUENTA_POR_PAGAR
-                        ? (int) ($d['account_payable_id'] ?? 0)
-                        : null,
-                    'concepto' => $d['concepto'] ?? null,
-                    'beneficiario' => $d['beneficiario'] ?? null,
-                    'amount' => $amount,
-                ]);
+                    ComprobanteEgresoDestino::create([
+                        'comprobante_egreso_id' => $comprobante->id,
+                        'type' => ComprobanteEgresoDestino::TYPE_CUENTA_POR_PAGAR,
+                        'account_payable_id' => $accountPayableId,
+                        'concepto' => null,
+                        'beneficiario' => null,
+                        'amount' => $amount,
+                    ]);
+                } else {
+                    $concepto = trim($d['concepto'] ?? '');
+                    if (! $concepto) {
+                        throw new Exception('Debe indicar el concepto para cada ítem de gasto directo.');
+                    }
+
+                    ComprobanteEgresoDestino::create([
+                        'comprobante_egreso_id' => $comprobante->id,
+                        'type' => ComprobanteEgresoDestino::TYPE_GASTO_DIRECTO,
+                        'account_payable_id' => null,
+                        'concepto' => $concepto,
+                        'beneficiario' => trim($d['beneficiario'] ?? ''),
+                        'amount' => $amount,
+                    ]);
+                }
             }
 
             foreach ($origenes as $o) {
@@ -171,7 +183,7 @@ class ComprobanteEgresoService
     public function listar(Store $store, array $filtros = []): LengthAwarePaginator
     {
         $query = ComprobanteEgreso::deTienda($store->id)
-            ->with(['user:id,name', 'destinos.accountPayable.purchase.proveedor'])
+            ->with(['user:id,name', 'proveedor:id,nombre', 'destinos.accountPayable.purchase.proveedor'])
             ->orderByDesc('payment_date')
             ->orderByDesc('id');
 
@@ -192,65 +204,48 @@ class ComprobanteEgresoService
     {
         return ComprobanteEgreso::where('id', $comprobanteId)
             ->where('store_id', $store->id)
-            ->with(['user', 'destinos.accountPayable.purchase.proveedor', 'origenes.bolsillo'])
+            ->with(['user', 'proveedor', 'destinos.accountPayable.purchase.proveedor', 'origenes.bolsillo'])
             ->firstOrFail();
     }
 
-    private function calcularBeneficiaryName(Store $store, array $destinos): string
+    private function calcularBeneficiaryName(Store $store, ?int $proveedorId, array $destinos): string
     {
-        $nombres = [];
-        foreach ($destinos as $d) {
-            $type = $d['type'] ?? ComprobanteEgresoDestino::TYPE_CUENTA_POR_PAGAR;
-            $amount = (float) ($d['amount'] ?? 0);
-            if ($amount <= 0) {
-                continue;
-            }
-            if ($type === ComprobanteEgresoDestino::TYPE_GASTO_DIRECTO) {
-                $nombres[] = $d['beneficiario'] ?? $d['concepto'] ?? 'Gasto directo';
-            } else {
-                $apId = (int) ($d['account_payable_id'] ?? 0);
-                if ($apId) {
-                    $ap = AccountPayable::where('store_id', $store->id)->with('purchase.proveedor')->find($apId);
-                    $nombres[] = $ap?->purchase?->proveedor?->nombre ?? "Cuenta #{$apId}";
-                }
-            }
+        if ($proveedorId) {
+            $proveedor = \App\Models\Proveedor::find($proveedorId);
+
+            return $proveedor?->nombre ?? 'Proveedor';
         }
 
-        $unicos = array_unique(array_filter($nombres));
+        $primerConcepto = collect($destinos)->firstWhere(fn ($d) => (float) ($d['amount'] ?? 0) > 0);
+        $concepto = $primerConcepto['concepto'] ?? $primerConcepto['beneficiario'] ?? null;
 
-        return count($unicos) > 1 ? 'Varios' : ($unicos[0] ?? '—');
+        return $concepto ?: 'Gasto directo';
     }
 
-    private function calcularTipo(array $destinos): string
+    private function validarCuentaPerteneceAProveedor(Store $store, int $accountPayableId, int $proveedorId): void
     {
-        $tieneCuenta = false;
-        $tieneGasto = false;
-        foreach ($destinos as $d) {
-            $type = $d['type'] ?? ComprobanteEgresoDestino::TYPE_CUENTA_POR_PAGAR;
-            if ($type === ComprobanteEgresoDestino::TYPE_CUENTA_POR_PAGAR) {
-                $tieneCuenta = true;
-            } else {
-                $tieneGasto = true;
-            }
-        }
+        $ap = AccountPayable::where('id', $accountPayableId)
+            ->where('store_id', $store->id)
+            ->with('purchase')
+            ->first();
 
-        return ($tieneCuenta && $tieneGasto) ? ComprobanteEgreso::TYPE_MIXTO
-            : ($tieneGasto ? ComprobanteEgreso::TYPE_GASTO_DIRECTO : ComprobanteEgreso::TYPE_PAGO_CUENTA);
+        if (! $ap || $ap->purchase->proveedor_id != $proveedorId) {
+            throw new Exception("La cuenta por pagar #{$accountPayableId} no pertenece al proveedor seleccionado.");
+        }
     }
 
     private function descripcionMovimiento(ComprobanteEgreso $comprobante, array $destinos): string
     {
         $partes = [];
         foreach ($destinos as $d) {
-            $type = $d['type'] ?? ComprobanteEgresoDestino::TYPE_CUENTA_POR_PAGAR;
             $amount = (float) ($d['amount'] ?? 0);
-            if ($type === ComprobanteEgresoDestino::TYPE_GASTO_DIRECTO) {
-                $partes[] = ($d['concepto'] ?? 'Gasto') . ': ' . number_format($amount, 2);
-            } else {
-                $apId = (int) ($d['account_payable_id'] ?? 0);
-                $ap = $apId ? AccountPayable::with('purchase')->find($apId) : null;
+            if ($d['account_payable_id'] ?? null) {
+                $apId = (int) $d['account_payable_id'];
+                $ap = AccountPayable::with('purchase')->find($apId);
                 $compraId = $ap?->purchase?->id ?? $apId;
                 $partes[] = "Compra #{$compraId}: " . number_format($amount, 2);
+            } else {
+                $partes[] = ($d['concepto'] ?? 'Gasto') . ': ' . number_format($amount, 2);
             }
         }
 

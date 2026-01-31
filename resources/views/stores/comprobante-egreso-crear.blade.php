@@ -1,4 +1,5 @@
 <x-app-layout>
+    @livewire('select-account-payable-modal', ['storeId' => $store->id])
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
@@ -10,9 +11,12 @@
         </div>
     </x-slot>
 
-    @livewire('select-account-payable-modal', ['storeId' => $store->id])
-
-    <div class="py-12" x-data="comprobanteDestinoSelection()">
+    @php
+        $oldDestinos = old('destinos', []);
+        $itemsLibresInit = array_values(array_filter($oldDestinos, fn($d) => empty($d['account_payable_id'] ?? null)));
+        $itemsLibresInit = !empty($itemsLibresInit) ? $itemsLibresInit : [['concepto' => '', 'beneficiario' => '', 'amount' => '']];
+    @endphp
+    <div class="py-12" x-data="comprobanteEgresoFlow()">
         <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
             @if(session('error'))
                 <div class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
@@ -29,223 +33,293 @@
                 </div>
             @endif
 
-            <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
-                <div class="p-6">
-                    <form method="POST" action="{{ route('stores.comprobantes-egreso.store', $store) }}" id="form-comprobante">
-                        @csrf
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <form method="POST" action="{{ route('stores.comprobantes-egreso.store', $store) }}" id="form-comprobante"
+                  x-ref="form"
+                  @submit="onSubmit($event)">
+                @csrf
+                <input type="hidden" name="proveedor_id" :value="proveedorId || ''">
+
+                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
+                    <div class="p-6 space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha</label>
-                                <input type="date" name="payment_date" value="{{ old('payment_date', date('Y-m-d')) }}" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" required>
+                                <input type="date" name="payment_date" value="{{ old('payment_date', date('Y-m-d')) }}"
+                                       class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" required>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notas</label>
-                                <input type="text" name="notes" value="{{ old('notes') }}" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" placeholder="Opcional">
+                                <input type="text" name="notes" value="{{ old('notes') }}"
+                                       class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" placeholder="Opcional">
                             </div>
                         </div>
 
-                        <div class="mb-6">
-                            <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Destinos (a qué se paga)</h3>
-                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Cuentas por pagar o gastos directos (taxi, café, etc.)</p>
-                            <div id="destinos-container">
-                                @php $destinosOld = old('destinos', [['type' => 'CUENTA_POR_PAGAR', 'account_payable_id' => '', 'concepto' => '', 'beneficiario' => '', 'amount' => '']]); @endphp
-                                @foreach($destinosOld as $i => $d)
-                                <div class="destino-row flex flex-wrap gap-2 mb-2 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
-                                    <select name="destinos[{{ $i }}][type]" class="destino-type w-40 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
-                                        <option value="CUENTA_POR_PAGAR" {{ ($d['type'] ?? '') == 'CUENTA_POR_PAGAR' ? 'selected' : '' }}>Cuenta por pagar</option>
-                                        <option value="GASTO_DIRECTO" {{ ($d['type'] ?? '') == 'GASTO_DIRECTO' ? 'selected' : '' }}>Gasto directo</option>
-                                    </select>
-                                    <div class="destino-cuenta flex-1 min-w-[200px] {{ ($d['type'] ?? 'CUENTA_POR_PAGAR') == 'GASTO_DIRECTO' ? 'hidden' : '' }}" data-destino-index="{{ $i }}">
-                                        @php
-                                            $apSelected = !empty($d['account_payable_id'])
-                                                ? \App\Models\AccountPayable::with('purchase.proveedor')->find($d['account_payable_id'])
-                                                : null;
-                                        @endphp
-                                        <input type="hidden" name="destinos[{{ $i }}][account_payable_id]" value="{{ $d['account_payable_id'] ?? '' }}" class="destino-account-payable-id">
-                                        <div class="destino-cuenta-display flex gap-2 items-center">
-                                            <span class="destino-cuenta-text text-sm text-gray-700 dark:text-gray-300 flex-1 min-w-0 truncate">
-                                                @if($apSelected)
-                                                    Compra #{{ $apSelected->purchase->id }} - {{ $apSelected->purchase->proveedor?->nombre }} (Saldo: {{ number_format($apSelected->balance, 2) }})
-                                                @else
-                                                    <span class="text-gray-500">Ninguna seleccionada</span>
-                                                @endif
-                                            </span>
-                                            <button type="button" class="btn-buscar-cuenta shrink-0 px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-md hover:bg-indigo-700">
-                                                Buscar
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div class="destino-gasto flex-1 min-w-[200px] space-y-1 {{ ($d['type'] ?? 'CUENTA_POR_PAGAR') == 'CUENTA_POR_PAGAR' ? 'hidden' : '' }}">
-                                        <input type="text" name="destinos[{{ $i }}][concepto]" value="{{ $d['concepto'] ?? '' }}" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" placeholder="Concepto (ej: Taxi)">
-                                        <input type="text" name="destinos[{{ $i }}][beneficiario]" value="{{ $d['beneficiario'] ?? '' }}" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" placeholder="Beneficiario (ej: Juan Pérez)">
-                                    </div>
-                                    <input type="number" name="destinos[{{ $i }}][amount]" step="0.01" min="0.01" placeholder="Monto" value="{{ $d['amount'] ?? '' }}" class="w-28 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" required>
-                                    <button type="button" class="remove-destino text-red-600 hover:text-red-800 text-sm {{ count($destinosOld) > 1 ? '' : 'hidden' }}">✕</button>
-                                </div>
-                                @endforeach
+                        {{-- Fase A y B: Buscar factura (define proveedor) + Añadir más --}}
+                        <div class="border-l-4 border-indigo-500 pl-4">
+                            <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">¿Qué facturas pago?</h3>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                                Selecciona la primera factura para definir el proveedor. Luego puedes agregar más del mismo proveedor.
+                            </p>
+                            <div class="flex flex-wrap items-center gap-2 mb-3">
+                                <button type="button"
+                                        x-show="cuentasSeleccionadas.length === 0"
+                                        @click="openBuscarFacturaModal()"
+                                        class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm font-medium">
+                                    Buscar factura por número o proveedor
+                                </button>
+                                <button type="button"
+                                        x-show="cuentasSeleccionadas.length > 0"
+                                        @click="openAddCuentaModal()"
+                                        class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm font-medium">
+                                    + Añadir cuenta por pagar
+                                </button>
+                                <button type="button"
+                                        x-show="cuentasSeleccionadas.length > 0"
+                                        @click="clearFacturas()"
+                                        class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 text-sm">
+                                    Gasto directo (sin factura)
+                                </button>
+                                <span x-show="proveedorId" x-cloak class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                    Proveedor: <span x-text="proveedorNombre || '—'"></span>
+                                </span>
                             </div>
-                            <button type="button" id="add-destino" class="text-sm text-indigo-600 hover:text-indigo-800">+ Agregar destino</button>
+                            <div x-show="cuentasSeleccionadas.length === 0" class="text-sm text-gray-500 dark:text-gray-400 py-4">
+                                No hay facturas. Haz clic en "Buscar factura" para seleccionar la primera.
+                            </div>
+                            <div x-show="cuentasSeleccionadas.length > 0" class="space-y-2">
+                                <template x-for="(cuenta, i) in cuentasSeleccionadas" :key="cuenta.id">
+                                    <div class="flex flex-wrap items-center gap-2 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                                        <span class="flex-1 min-w-[200px] text-sm text-gray-700 dark:text-gray-300">
+                                            Compra #<span x-text="cuenta.purchase_id"></span> - Saldo: <span x-text="formatNumber(cuenta.balance)"></span>
+                                            <span x-show="cuenta.due_date" class="text-gray-500">(Vence: <span x-text="cuenta.due_date"></span>)</span>
+                                        </span>
+                                        <input type="number" step="0.01" min="0" :max="cuenta.balance"
+                                               x-model="cuenta.amount"
+                                               placeholder="Monto"
+                                               class="w-28 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
+                                        <button type="button" @click="removeCuentaSeleccionada(cuenta.id)"
+                                                class="text-red-600 hover:text-red-800 text-sm font-medium">✕ Quitar</button>
+                                    </div>
+                                </template>
+                            </div>
                         </div>
 
-                        <div class="mb-6">
-                            <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Orígenes (de qué bolsillos sale el dinero)</h3>
-                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Puede incluir referencia (cheque, transacción bancaria)</p>
-                            <div id="origenes-container">
+                        {{-- Gasto directo - Ítems libres (sin factura) --}}
+                        <div class="border-l-4 border-indigo-500 pl-4" x-show="!proveedorId" x-cloak>
+                            <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">¿Qué gastos registro? (Gasto directo)</h3>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Agrega ítems libres (taxi, café, etc.)</p>
+                            <div class="space-y-2" x-ref="itemsLibresContainer">
+                                <template x-for="(item, i) in itemsLibres" :key="i">
+                                    <div class="flex flex-wrap gap-2 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                                        <input type="text" x-model="item.concepto" placeholder="Concepto (ej: Taxi a la oficina)"
+                                               class="flex-1 min-w-[150px] rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm"
+                                               :name="'destinos[' + i + '][concepto]'">
+                                        <input type="text" x-model="item.beneficiario" placeholder="Beneficiario (opcional)"
+                                               class="w-32 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm"
+                                               :name="'destinos[' + i + '][beneficiario]'">
+                                        <input type="number" x-model="item.amount" step="0.01" min="0.01" placeholder="Monto"
+                                               class="w-28 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm"
+                                               :name="'destinos[' + i + '][amount]'">
+                                        <button type="button" @click="removeItemLibre(i)" class="text-red-600 hover:text-red-800 text-sm"
+                                                x-show="itemsLibres.length > 1">✕</button>
+                                    </div>
+                                </template>
+                            </div>
+                            <button type="button" @click="addItemLibre()"
+                                    class="mt-2 text-sm text-indigo-600 hover:text-indigo-800 dark:text-indigo-400">
+                                + Agregar ítem libre
+                            </button>
+                        </div>
+
+                        {{-- Fase C: ¿Con qué pago? --}}
+                        <div class="border-l-4 border-indigo-500 pl-4" x-show="totalDestinos > 0">
+                            <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">Fase C: ¿De qué bolsillos sale el dinero?</h3>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">La suma debe coincidir con el total a pagar: <strong x-text="formatNumber(totalDestinos)"></strong></p>
+                            <div id="origenes-container" class="space-y-2">
                                 @php $origenesOld = old('origenes', [['bolsillo_id' => '', 'reference' => '', 'amount' => '']]); @endphp
                                 @foreach($origenesOld as $i => $o)
-                                <div class="origen-row flex gap-2 mb-2">
+                                <div class="origen-row flex gap-2">
                                     <select name="origenes[{{ $i }}][bolsillo_id]" class="flex-1 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" required>
                                         <option value="">Seleccionar bolsillo</option>
                                         @foreach($bolsillos as $b)
                                             <option value="{{ $b->id }}" {{ (string)($o['bolsillo_id'] ?? '') === (string)$b->id ? 'selected' : '' }}>{{ $b->name }} ({{ number_format($b->saldo, 2) }})</option>
                                         @endforeach
                                     </select>
-                                    <input type="text" name="origenes[{{ $i }}][reference]" value="{{ $o['reference'] ?? '' }}" class="w-32 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" placeholder="Cheque/Transacción">
-                                    <input type="number" name="origenes[{{ $i }}][amount]" step="0.01" min="0.01" placeholder="Monto" value="{{ $o['amount'] ?? '' }}" class="w-28 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" required>
+                                    <input type="text" name="origenes[{{ $i }}][reference]" value="{{ $o['reference'] ?? '' }}" class="w-32 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" placeholder="Cheque/Trans.">
+                                    <input type="number" name="origenes[{{ $i }}][amount]" step="0.01" min="0.01" value="{{ $o['amount'] ?? '' }}" class="w-28 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" required placeholder="Monto">
                                     <button type="button" class="remove-origen text-red-600 hover:text-red-800 text-sm {{ count($origenesOld) > 1 ? '' : 'hidden' }}">✕</button>
                                 </div>
                                 @endforeach
                             </div>
-                            <button type="button" id="add-origen" class="text-sm text-indigo-600 hover:text-indigo-800">+ Agregar bolsillo</button>
-                            <p class="text-xs text-amber-600 dark:text-amber-400 mt-2">La suma de orígenes debe coincidir con la suma de destinos.</p>
+                            <button type="button" id="add-origen" class="mt-2 text-sm text-indigo-600 hover:text-indigo-800 dark:text-indigo-400">+ Agregar bolsillo</button>
+                            <p class="mt-2 text-xs text-amber-600 dark:text-amber-400" x-show="totalDestinos > 0 && Math.abs(totalDestinos - totalOrigenes) > 0.01">
+                                La suma de orígenes (<span x-text="formatNumber(totalOrigenes)"></span>) debe coincidir con el total.
+                            </p>
                         </div>
 
-                        <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Registrar Comprobante</button>
-                    </form>
+                        <div class="pt-4">
+                            <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    :disabled="totalDestinos <= 0">
+                                Registrar Comprobante
+                            </button>
+                        </div>
+                    </div>
                 </div>
-            </div>
+            </form>
         </div>
     </div>
 
     <script>
-        function updateDestinoWithAccountPayable(detail) {
-            if (!detail || typeof detail !== 'object') return;
-            const index = String(detail.destinoRowIndex ?? '');
-            const cuentaDiv = document.querySelector(`.destino-cuenta[data-destino-index="${index}"]`);
-            if (!cuentaDiv) return;
-            const hiddenInput = cuentaDiv.querySelector('.destino-account-payable-id');
-            const textSpan = cuentaDiv.querySelector('.destino-cuenta-text');
-            if (hiddenInput && textSpan) {
-                hiddenInput.value = detail.id ?? '';
-                const proveedor = detail.proveedorNombre ?? '';
-                const balance = parseFloat(detail.balance ?? 0).toFixed(2);
-                const purchaseId = detail.purchaseId ?? '';
-                textSpan.textContent = `Compra #${purchaseId} - ${proveedor} (Saldo: ${balance})`;
-                textSpan.classList.remove('text-gray-500');
-            }
-        }
-
-        function extractPayloadFromEvent(detail) {
-            if (!detail) return null;
-            if (Array.isArray(detail) && detail.length > 0) return detail[0];
-            if (typeof detail === 'object' && detail !== null) return detail;
-            return null;
-        }
-
-        window.comprobanteDestinoSelection = function() {
-            return {};
-        };
-
-        document.addEventListener('livewire:init', function() {
-            Livewire.on('account-payable-selected', function(detail) {
-                const payload = extractPayloadFromEvent(detail);
-                if (payload && typeof payload === 'object') {
-                    updateDestinoWithAccountPayable(payload);
-                }
-            });
-        });
-
-        document.addEventListener('DOMContentLoaded', function() {
+        function comprobanteEgresoFlow() {
+            const storeId = {{ $store->id }};
             const bolsillos = @json($bolsillos->map(fn($b) => ['id' => $b->id, 'name' => $b->name, 'saldo' => $b->saldo]));
+            @php $oldProv = old('proveedor_id') ? $proveedores->firstWhere('id', old('proveedor_id')) : null; @endphp
+            const initProveedorNombre = @json($oldProv?->nombre ?? '');
+            const cuentasSeleccionadasInit = @json($cuentasSeleccionadasInit ?? []);
 
-            let destinoIndex = {{ count($destinosOld) }};
-            let origenIndex = {{ count($origenesOld) }};
+            return {
+                proveedorId: @json(old('proveedor_id')),
+                proveedorNombre: initProveedorNombre,
+                cuentasSeleccionadas: cuentasSeleccionadasInit,
+                itemsLibres: @json($itemsLibresInit),
 
-            function toggleDestinoRow(row) {
-                const type = row.querySelector('.destino-type').value;
-                row.querySelector('.destino-cuenta').classList.toggle('hidden', type !== 'CUENTA_POR_PAGAR');
-                row.querySelector('.destino-gasto').classList.toggle('hidden', type !== 'GASTO_DIRECTO');
-                const cuentaDiv = row.querySelector('.destino-cuenta');
-                if (cuentaDiv) {
-                    cuentaDiv.querySelector('.destino-account-payable-id').disabled = type !== 'CUENTA_POR_PAGAR';
-                    cuentaDiv.querySelector('.destino-account-payable-id').required = type === 'CUENTA_POR_PAGAR';
+                get totalDestinos() {
+                    if (this.proveedorId) {
+                        return this.cuentasSeleccionadas
+                            .filter(c => parseFloat(c.amount) > 0)
+                            .reduce((sum, c) => sum + parseFloat(c.amount || 0), 0);
+                    }
+                    return this.itemsLibres.reduce((sum, i) => sum + parseFloat(i.amount || 0), 0);
+                },
+                get totalOrigenes() {
+                    return Array.from(document.querySelectorAll('#origenes-container input[name*="[amount]"]'))
+                        .reduce((sum, el) => sum + parseFloat(el.value || 0), 0);
+                },
+
+                init() {
+                    this.bindOrigenes();
+                    this.bindLivewireEvents();
+                },
+
+                openBuscarFacturaModal() {
+                    Livewire.dispatch('open-select-account-payable-for-comprobante', {});
+                },
+
+                openAddCuentaModal() {
+                    if (!this.proveedorId || this.cuentasSeleccionadas.length === 0) return;
+                    Livewire.dispatch('open-select-account-payable-for-comprobante', {
+                        proveedor_id: parseInt(this.proveedorId),
+                        selected_ids: this.cuentasSeleccionadas.map(c => c.id)
+                    });
+                },
+
+                bindLivewireEvents() {
+                    Livewire.on('account-payable-selected-for-comprobante', (payload) => {
+                        const p = Array.isArray(payload) ? payload[0] : payload;
+                        if (!p?.id || !p?.proveedorId) return;
+                        if (this.proveedorId && String(p.proveedorId) !== this.proveedorId) {
+                            alert('Solo puedes agregar facturas del mismo proveedor (' + this.proveedorNombre + ').');
+                            return;
+                        }
+                        if (!this.cuentasSeleccionadas.some(c => c.id == p.id)) {
+                            if (!this.proveedorId) {
+                                this.proveedorId = String(p.proveedorId);
+                                this.proveedorNombre = p.proveedorNombre || '';
+                            }
+                            this.cuentasSeleccionadas.push({
+                                id: p.id,
+                                purchase_id: p.purchaseId,
+                                balance: p.balance,
+                                due_date: p.dueDate || null,
+                                amount: parseFloat(p.balance) || 0
+                            });
+                        }
+                    });
+                },
+
+                clearFacturas() {
+                    this.proveedorId = '';
+                    this.proveedorNombre = '';
+                    this.cuentasSeleccionadas = [];
+                },
+
+                removeCuentaSeleccionada(id) {
+                    this.cuentasSeleccionadas = this.cuentasSeleccionadas.filter(c => c.id != id);
+                    if (this.cuentasSeleccionadas.length === 0) {
+                        this.proveedorId = '';
+                        this.proveedorNombre = '';
+                    }
+                },
+
+                addItemLibre() {
+                    this.itemsLibres.push({ concepto: '', beneficiario: '', amount: '' });
+                },
+                removeItemLibre(i) {
+                    if (this.itemsLibres.length > 1) this.itemsLibres.splice(i, 1);
+                },
+
+                formatNumber(n) {
+                    return parseFloat(n || 0).toLocaleString('es-CO', { minimumFractionDigits: 2 });
+                },
+
+                onSubmit(e) {
+                    if (this.proveedorId) {
+                        e.preventDefault();
+                        const selected = this.cuentasSeleccionadas.filter(c => parseFloat(c.amount) > 0);
+                        if (selected.length === 0) {
+                            alert('Agrega al menos una factura con monto desde el modal "Añadir cuenta por pagar".');
+                            return;
+                        }
+                        const form = this.$refs.form;
+                        form.querySelectorAll('input[name^="destinos"]').forEach(el => el.remove());
+                        selected.forEach((c, i) => {
+                            const inp1 = document.createElement('input');
+                            inp1.type = 'hidden';
+                            inp1.name = `destinos[${i}][account_payable_id]`;
+                            inp1.value = c.id;
+                            const inp2 = document.createElement('input');
+                            inp2.type = 'hidden';
+                            inp2.name = `destinos[${i}][amount]`;
+                            inp2.value = c.amount;
+                            form.appendChild(inp1);
+                            form.appendChild(inp2);
+                        });
+                        form.submit();
+                    }
+                },
+
+                bindOrigenes() {
+                    const container = document.getElementById('origenes-container');
+                    const addBtn = document.getElementById('add-origen');
+                    let origenIndex = container.querySelectorAll('.origen-row').length;
+
+                    addBtn?.addEventListener('click', () => {
+                        const row = document.createElement('div');
+                        row.className = 'origen-row flex gap-2';
+                        row.innerHTML = `
+                            <select name="origenes[${origenIndex}][bolsillo_id]" class="flex-1 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" required>
+                                <option value="">Seleccionar bolsillo</option>
+                                ${bolsillos.map(b => `<option value="${b.id}">${b.name} (${parseFloat(b.saldo).toFixed(2)})</option>`).join('')}
+                            </select>
+                            <input type="text" name="origenes[${origenIndex}][reference]" class="w-32 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" placeholder="Cheque/Trans.">
+                            <input type="number" name="origenes[${origenIndex}][amount]" step="0.01" min="0.01" class="w-28 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" required placeholder="Monto">
+                            <button type="button" class="remove-origen text-red-600 hover:text-red-800 text-sm">✕</button>
+                        `;
+                        container.appendChild(row);
+                        row.querySelector('.remove-origen').addEventListener('click', () => {
+                            if (container.querySelectorAll('.origen-row').length > 1) row.remove();
+                        });
+                        document.querySelectorAll('.remove-origen').forEach(btn => btn.classList.remove('hidden'));
+                        origenIndex++;
+                    });
+
+                    document.querySelectorAll('.remove-origen').forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            if (container.querySelectorAll('.origen-row').length > 1) this.closest('.origen-row').remove();
+                        });
+                    });
                 }
-                row.querySelector('.destino-gasto input[name*="concepto"]').required = type === 'GASTO_DIRECTO';
-            }
-
-            document.addEventListener('click', function(e) {
-                if (e.target.closest('.btn-buscar-cuenta')) {
-                    e.preventDefault();
-                    const cuentaDiv = e.target.closest('.destino-cuenta');
-                    const index = cuentaDiv?.getAttribute('data-destino-index') ?? '';
-                    window.Livewire.dispatch('open-select-account-payable', { destinoRowIndex: String(index) });
-                }
-            });
-
-            document.getElementById('add-destino').addEventListener('click', function() {
-                const container = document.getElementById('destinos-container');
-                const row = document.createElement('div');
-                row.className = 'destino-row flex flex-wrap gap-2 mb-2 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg';
-                row.innerHTML = `
-                    <select name="destinos[${destinoIndex}][type]" class="destino-type w-40 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
-                        <option value="CUENTA_POR_PAGAR">Cuenta por pagar</option>
-                        <option value="GASTO_DIRECTO">Gasto directo</option>
-                    </select>
-                    <div class="destino-cuenta flex-1 min-w-[200px]" data-destino-index="${destinoIndex}">
-                        <input type="hidden" name="destinos[${destinoIndex}][account_payable_id]" value="" class="destino-account-payable-id">
-                        <div class="destino-cuenta-display flex gap-2 items-center">
-                            <span class="destino-cuenta-text text-sm text-gray-700 dark:text-gray-300 flex-1 min-w-0 truncate text-gray-500">Ninguna seleccionada</span>
-                            <button type="button" class="btn-buscar-cuenta shrink-0 px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-md hover:bg-indigo-700">Buscar</button>
-                        </div>
-                    </div>
-                    <div class="destino-gasto hidden flex-1 min-w-[200px] space-y-1">
-                        <input type="text" name="destinos[${destinoIndex}][concepto]" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" placeholder="Concepto (ej: Taxi)">
-                        <input type="text" name="destinos[${destinoIndex}][beneficiario]" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" placeholder="Beneficiario">
-                    </div>
-                    <input type="number" name="destinos[${destinoIndex}][amount]" step="0.01" min="0.01" placeholder="Monto" class="w-28 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" required>
-                    <button type="button" class="remove-destino text-red-600 hover:text-red-800 text-sm">✕</button>
-                `;
-                container.appendChild(row);
-                row.querySelector('.destino-type').addEventListener('change', () => toggleDestinoRow(row));
-                row.querySelector('.remove-destino').addEventListener('click', () => { if (container.children.length > 1) row.remove(); });
-                toggleDestinoRow(row);
-                destinoIndex++;
-            });
-
-            document.getElementById('add-origen').addEventListener('click', function() {
-                const container = document.getElementById('origenes-container');
-                const row = document.createElement('div');
-                row.className = 'origen-row flex gap-2 mb-2';
-                row.innerHTML = `
-                    <select name="origenes[${origenIndex}][bolsillo_id]" class="flex-1 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" required>
-                        <option value="">Seleccionar bolsillo</option>
-                        ${bolsillos.map(b => `<option value="${b.id}">${b.name} (${parseFloat(b.saldo).toFixed(2)})</option>`).join('')}
-                    </select>
-                    <input type="text" name="origenes[${origenIndex}][reference]" class="w-32 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" placeholder="Cheque/Transacción">
-                    <input type="number" name="origenes[${origenIndex}][amount]" step="0.01" min="0.01" placeholder="Monto" class="w-28 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" required>
-                    <button type="button" class="remove-origen text-red-600 hover:text-red-800 text-sm">✕</button>
-                `;
-                container.appendChild(row);
-                row.querySelector('.remove-origen').addEventListener('click', () => { if (container.children.length > 1) row.remove(); });
-                origenIndex++;
-            });
-
-            document.querySelectorAll('.destino-type').forEach(sel => {
-                sel.addEventListener('change', function() { toggleDestinoRow(this.closest('.destino-row')); });
-            });
-            document.querySelectorAll('.destino-row').forEach(toggleDestinoRow);
-            document.querySelectorAll('.remove-destino').forEach(btn => {
-                btn.classList.remove('hidden');
-                btn.addEventListener('click', function() {
-                    if (document.getElementById('destinos-container').children.length > 1) this.closest('.destino-row').remove();
-                });
-            });
-            document.querySelectorAll('.remove-origen').forEach(btn => {
-                btn.classList.remove('hidden');
-                btn.addEventListener('click', function() {
-                    if (document.getElementById('origenes-container').children.length > 1) this.closest('.origen-row').remove();
-                });
-            });
-        });
+            };
+        }
     </script>
 </x-app-layout>
