@@ -1177,20 +1177,114 @@ class StoreController extends Controller
         }
     }
 
-    public function reversarPagoAccountPayable(Store $store, \App\Models\AccountPayable $accountPayable, \App\Models\AccountPayablePayment $payment, AccountPayableService $accountPayableService)
+    public function reversarPagoAccountPayable(Store $store, \App\Models\AccountPayable $accountPayable, \App\Models\ComprobanteEgreso $comprobanteEgreso, AccountPayableService $accountPayableService)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
-        if ($accountPayable->store_id !== $store->id || $payment->account_payable_id !== $accountPayable->id) {
+        if ($accountPayable->store_id !== $store->id || $comprobanteEgreso->store_id !== $store->id) {
+            abort(404);
+        }
+        if (! $accountPayable->comprobanteDestinos()->where('comprobante_egreso_id', $comprobanteEgreso->id)->exists()) {
+            abort(404, 'Este comprobante no aplica a esta cuenta por pagar.');
+        }
+
+        try {
+            $accountPayableService->reversarPago($store, $accountPayable->id, $comprobanteEgreso->id, Auth::id());
+            return redirect()->route('stores.accounts-payables.show', [$store, $accountPayable])->with('success', 'Pago revertido correctamente. El saldo de la cuenta y los bolsillos han sido restaurados.');
+        } catch (\Exception $e) {
+            return redirect()->route('stores.accounts-payables.show', [$store, $accountPayable])->with('error', $e->getMessage());
+        }
+    }
+
+    // ==================== COMPROBANTES DE EGRESO ====================
+
+    public function comprobantesEgreso(Store $store, \App\Services\ComprobanteEgresoService $comprobanteEgresoService, Request $request)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        session(['current_store_id' => $store->id]);
+
+        $filtros = [
+            'type' => $request->get('type'),
+            'fecha_desde' => $request->get('fecha_desde'),
+            'fecha_hasta' => $request->get('fecha_hasta'),
+        ];
+        $comprobantes = $comprobanteEgresoService->listar($store, $filtros);
+
+        return view('stores.comprobantes-egreso', compact('store', 'comprobantes'));
+    }
+
+    public function createComprobanteEgreso(Store $store)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        session(['current_store_id' => $store->id]);
+
+        $bolsillos = \App\Models\Bolsillo::deTienda($store->id)->activos()->orderBy('name')->get();
+
+        return view('stores.comprobante-egreso-crear', compact('store', 'bolsillos'));
+    }
+
+    public function storeComprobanteEgreso(Store $store, Request $request, \App\Services\ComprobanteEgresoService $comprobanteEgresoService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+
+        $request->validate([
+            'payment_date' => ['required', 'date'],
+            'notes' => ['nullable', 'string', 'max:500'],
+            'destinos' => ['required', 'array', 'min:1'],
+            'destinos.*.type' => ['required', 'in:CUENTA_POR_PAGAR,GASTO_DIRECTO'],
+            'destinos.*.amount' => ['required', 'numeric', 'min:0.01'],
+            'destinos.*.account_payable_id' => ['required_if:destinos.*.type,CUENTA_POR_PAGAR', 'nullable', 'exists:accounts_payables,id'],
+            'destinos.*.concepto' => ['required_if:destinos.*.type,GASTO_DIRECTO', 'nullable', 'string', 'max:255'],
+            'destinos.*.beneficiario' => ['nullable', 'string', 'max:255'],
+            'origenes' => ['required', 'array', 'min:1'],
+            'origenes.*.bolsillo_id' => ['required', 'exists:bolsillos,id'],
+            'origenes.*.amount' => ['required', 'numeric', 'min:0.01'],
+            'origenes.*.reference' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        try {
+            $comprobante = $comprobanteEgresoService->crearComprobante($store, Auth::id(), $request->all());
+            return redirect()->route('stores.comprobantes-egreso.show', [$store, $comprobante])->with('success', 'Comprobante de egreso registrado correctamente.');
+        } catch (\Exception $e) {
+            return redirect()->back()->withInput()->with('error', $e->getMessage());
+        }
+    }
+
+    public function showComprobanteEgreso(Store $store, \App\Models\ComprobanteEgreso $comprobanteEgreso, \App\Services\ComprobanteEgresoService $comprobanteEgresoService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        if ($comprobanteEgreso->store_id !== $store->id) {
+            abort(404);
+        }
+
+        $comprobante = $comprobanteEgresoService->obtener($store, $comprobanteEgreso->id);
+
+        return view('stores.comprobante-egreso-detalle', compact('store', 'comprobante'));
+    }
+
+    public function reversarComprobanteEgreso(Store $store, \App\Models\ComprobanteEgreso $comprobanteEgreso, \App\Services\ComprobanteEgresoService $comprobanteEgresoService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        if ($comprobanteEgreso->store_id !== $store->id) {
             abort(404);
         }
 
         try {
-            $accountPayableService->reversarPago($store, $accountPayable->id, $payment->id, Auth::id());
-            return redirect()->route('stores.accounts-payables.show', [$store, $accountPayable])->with('success', 'Pago revertido correctamente. El saldo de la cuenta y los bolsillos han sido restaurados.');
+            $comprobanteEgresoService->reversar($store, $comprobanteEgreso->id, Auth::id());
+            return redirect()->route('stores.comprobantes-egreso.index', $store)->with('success', 'Comprobante revertido correctamente.');
         } catch (\Exception $e) {
-            return redirect()->route('stores.accounts-payables.show', [$store, $accountPayable])->with('error', $e->getMessage());
+            return redirect()->back()->with('error', $e->getMessage());
         }
     }
 }

@@ -96,12 +96,16 @@
                         </div>
                     @endif
 
-                    @if($accountPayable->payments->count() > 0)
+                    @php
+                        $comprobantesPagos = $accountPayable->comprobanteDestinos->map(fn($d) => $d->comprobanteEgreso)->unique('id')->filter(fn($c) => $c);
+                    @endphp
+                    @if($comprobantesPagos->count() > 0)
                         <div>
                             <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Historial de Pagos</h3>
                             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                                 <thead class="bg-gray-50 dark:bg-gray-900">
                                     <tr>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Comprobante</th>
                                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Fecha</th>
                                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Monto</th>
                                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Bolsillos</th>
@@ -109,25 +113,31 @@
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                                    @foreach($accountPayable->payments as $p)
-                                        <tr class="{{ $p->isReversed() ? 'bg-gray-50 dark:bg-gray-900/50' : '' }}">
+                                    @foreach($comprobantesPagos as $comprobante)
+                                        @php
+                                            $destino = $accountPayable->comprobanteDestinos->firstWhere('comprobante_egreso_id', $comprobante->id);
+                                            $monto = $destino ? $destino->amount : $comprobante->total_amount;
+                                        @endphp
+                                        <tr class="{{ $comprobante->isReversed() ? 'bg-gray-50 dark:bg-gray-900/50' : '' }}">
                                             <td class="px-3 py-2 text-sm text-gray-900 dark:text-gray-100">
-                                                {{ $p->payment_date->format('d/m/Y') }}
-                                                @if($p->isReversed())
+                                                <a href="{{ route('stores.comprobantes-egreso.show', [$store, $comprobante]) }}" class="text-indigo-600 hover:text-indigo-800">{{ $comprobante->number }}</a>
+                                                @if($comprobante->isReversed())
                                                     <span class="ml-1 px-2 py-0.5 text-xs font-medium rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">Revertido</span>
                                                 @endif
                                             </td>
-                                            <td class="px-3 py-2 text-sm font-medium text-gray-900 dark:text-gray-100">{{ number_format($p->amount, 2) }}</td>
+                                            <td class="px-3 py-2 text-sm text-gray-900 dark:text-gray-100">{{ $comprobante->payment_date->format('d/m/Y') }}</td>
+                                            <td class="px-3 py-2 text-sm font-medium text-gray-900 dark:text-gray-100">{{ number_format($monto, 2) }}</td>
                                             <td class="px-3 py-2 text-sm text-gray-900 dark:text-gray-100">
-                                                @foreach($p->parts as $part)
-                                                    {{ $part->bolsillo->name }}: {{ number_format($part->amount, 2) }}<br>
+                                                @foreach($comprobante->origenes as $origen)
+                                                    {{ $origen->bolsillo->name }}: {{ number_format($origen->amount, 2) }}
+                                                    @if($origen->reference) <span class="text-gray-500">({{ $origen->reference }})</span> @endif<br>
                                                 @endforeach
                                             </td>
                                             <td class="px-3 py-2 text-right">
-                                                @if($p->isReversed())
+                                                @if($comprobante->isReversed())
                                                     <span class="text-gray-400 dark:text-gray-500 text-xs">—</span>
                                                 @else
-                                                    <form method="POST" action="{{ route('stores.accounts-payables.reversar-pago', [$store, $accountPayable, $p]) }}" class="inline" onsubmit="return confirm('¿Reversar este pago? Se registrará un ingreso en caja (reversa) y se restaurará el saldo de la cuenta.');">
+                                                    <form method="POST" action="{{ route('stores.accounts-payables.reversar-pago', [$store, $accountPayable, $comprobante]) }}" class="inline" onsubmit="return confirm('¿Reversar este pago? Se registrará un ingreso en caja (reversa) y se restaurará el saldo de la cuenta.');">
                                                         @csrf
                                                         <button type="submit" class="text-amber-600 dark:text-amber-400 hover:underline text-sm">Reversar</button>
                                                     </form>

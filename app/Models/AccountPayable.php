@@ -46,6 +46,16 @@ class AccountPayable extends Model
         return $this->hasMany(AccountPayablePayment::class);
     }
 
+    /**
+     * Destinos de comprobantes de egreso que abonaron a esta cuenta por pagar.
+     * Usar para historial de pagos (nueva estructura).
+     */
+    public function comprobanteDestinos()
+    {
+        return $this->hasMany(ComprobanteEgresoDestino::class, 'account_payable_id')
+            ->where('type', ComprobanteEgresoDestino::TYPE_CUENTA_POR_PAGAR);
+    }
+
     public function scopeDeTienda(Builder $query, int $storeId): void
     {
         $query->where('store_id', $storeId);

@@ -18,7 +18,9 @@ class MovimientoBolsillo extends Model
         'bolsillo_id',
         'invoice_id',
         'account_payable_payment_id',
+        'comprobante_egreso_id',
         'reversal_of_account_payable_payment_id',
+        'reversal_of_comprobante_egreso_id',
         'user_id',
         'type',
         'amount',
@@ -55,6 +57,11 @@ class MovimientoBolsillo extends Model
     public function accountPayablePayment()
     {
         return $this->belongsTo(AccountPayablePayment::class);
+    }
+
+    public function comprobanteEgreso()
+    {
+        return $this->belongsTo(ComprobanteEgreso::class);
     }
 
     public function reversalOfAccountPayablePayment()

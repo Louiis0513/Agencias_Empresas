@@ -47,7 +47,7 @@ new class extends Component
                             {{ __('Productos') }}
                         </x-nav-link>
 
-                        <x-nav-link :href="route('stores.cajas', $store)" :active="request()->routeIs('stores.cajas*') || request()->routeIs('stores.activos*') || request()->routeIs('stores.accounts-payables*') || request()->routeIs('stores.invoices*')" wire:navigate>
+                        <x-nav-link :href="route('stores.cajas', $store)" :active="request()->routeIs('stores.cajas*') || request()->routeIs('stores.activos*') || request()->routeIs('stores.accounts-payables*') || request()->routeIs('stores.comprobantes-egreso*') || request()->routeIs('stores.invoices*')" wire:navigate>
                             {{ __('Financiero') }}
                         </x-nav-link>
 
@@ -111,7 +111,7 @@ new class extends Component
             @php
                 $inPersonas = request()->routeIs('stores.customers*') || request()->routeIs('stores.workers*');
                 $inProductos = request()->routeIs('stores.products*') || request()->routeIs('stores.categories*') || request()->routeIs('stores.attribute-groups*') || request()->routeIs('stores.inventario*') || request()->routeIs('stores.purchases*') || request()->routeIs('stores.proveedores*');
-                $inFinanciero = request()->routeIs('stores.cajas*') || request()->routeIs('stores.activos*') || request()->routeIs('stores.accounts-payables*') || request()->routeIs('stores.invoices*');
+                $inFinanciero = request()->routeIs('stores.cajas*') || request()->routeIs('stores.activos*') || request()->routeIs('stores.accounts-payables*') || request()->routeIs('stores.comprobantes-egreso*') || request()->routeIs('stores.invoices*');
             @endphp
             @if($inPersonas || $inProductos || $inFinanciero)
                 <div class="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
@@ -153,6 +153,9 @@ new class extends Component
                             </a>
                             <a href="{{ route('stores.accounts-payables', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.accounts-payables*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
                                 {{ __('Cuentas por pagar') }}
+                            </a>
+                            <a href="{{ route('stores.comprobantes-egreso.index', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.comprobantes-egreso*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
+                                {{ __('Comprobantes de egreso') }}
                             </a>
                             <a href="{{ route('stores.invoices', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.invoices*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
                                 {{ __('Facturas') }}
@@ -211,6 +214,9 @@ new class extends Component
                 </x-responsive-nav-link>
                 <x-responsive-nav-link :href="route('stores.accounts-payables', $store)" :active="request()->routeIs('stores.accounts-payables*')" wire:navigate>
                     {{ __('Cuentas por pagar') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('stores.comprobantes-egreso.index', $store)" :active="request()->routeIs('stores.comprobantes-egreso*')" wire:navigate>
+                    {{ __('Comprobantes de egreso') }}
                 </x-responsive-nav-link>
                 <x-responsive-nav-link :href="route('stores.invoices', $store)" :active="request()->routeIs('stores.invoices*')" wire:navigate>
                     {{ __('Facturas') }}
