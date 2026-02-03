@@ -3,8 +3,10 @@
 namespace App\Livewire;
 
 use App\Models\Category;
+use App\Models\MovimientoInventario;
 use App\Models\Product;
 use App\Models\Store;
+use App\Livewire\CreateProductModal;
 use App\Services\ProductService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -46,7 +48,7 @@ class EditProductModal extends Component
             'cost' => ['required', 'numeric', 'min:0'],
             'stock' => ['required', 'integer', 'min:0'],
             'location' => ['nullable', 'string', 'max:255'],
-            'type' => ['nullable', 'string', 'max:255'],
+            'type' => ['required', 'string', Rule::in(array_keys(CreateProductModal::typeOptions()))],
             'is_active' => ['boolean'],
         ];
 
@@ -113,6 +115,11 @@ class EditProductModal extends Component
         return $this->getCategoriesWithAttributesProperty()->pluck('id')->toArray();
     }
 
+    public function getTypeOptionsProperty(): array
+    {
+        return CreateProductModal::typeOptions();
+    }
+
     /** Categoría seleccionada con sus atributos (para campos dinámicos). */
     public function getSelectedCategoryProperty(): ?Category
     {
@@ -161,7 +168,8 @@ class EditProductModal extends Component
             $this->cost = (string)$product->cost;
             $this->stock = (string)$product->stock;
             $this->location = $product->location ?? '';
-            $this->type = $product->type ?? '';
+            $allowedTypes = array_keys(CreateProductModal::typeOptions());
+            $this->type = in_array($product->type ?? '', $allowedTypes) ? $product->type : MovimientoInventario::PRODUCT_TYPE_BATCH;
             $this->is_active = $product->is_active;
 
             // Cargar valores de atributos existentes

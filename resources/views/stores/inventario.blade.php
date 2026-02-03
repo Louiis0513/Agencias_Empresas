@@ -29,7 +29,7 @@
                 <div class="flex flex-wrap justify-between items-center gap-4">
                     <div>
                         <p class="text-sm text-indigo-700 dark:text-indigo-300">Movimientos de inventario</p>
-                        <p class="text-indigo-900 dark:text-indigo-100 mt-1">Solo productos con type «producto». Entradas y salidas actualizan el stock. Los registros no se modifican ni eliminan.</p>
+                        <p class="text-indigo-900 dark:text-indigo-100 mt-1">Productos serializados (por unidad) o por lotes. Todo ingreso exige referencia de compra (o INI-YYYY para carga inicial). Trazabilidad total.</p>
                     </div>
                     <button type="button" x-on:click="$dispatch('open-modal', 'create-movimiento-inventario')" class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 font-medium">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>

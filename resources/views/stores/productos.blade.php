@@ -129,8 +129,14 @@
                                                 </div>
                                             </td>
                                             <td class="px-4 py-3 whitespace-nowrap">
+                                                @php
+                                                    $typeLabels = [
+                                                        'serialized' => 'Serializado',
+                                                        'batch' => 'Por lotes',
+                                                    ];
+                                                @endphp
                                                 <div class="text-sm text-gray-500 dark:text-gray-400">
-                                                    {{ $product->type ?? '—' }}
+                                                    {{ $typeLabels[$product->type ?? ''] ?? $product->type ?? '—' }}
                                                 </div>
                                             </td>
                                             <td class="px-4 py-3 whitespace-nowrap">

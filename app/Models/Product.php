@@ -62,15 +62,37 @@ class Product extends Model
         return $this->hasMany(MovimientoInventario::class);
     }
 
+    public function productItems()
+    {
+        return $this->hasMany(ProductItem::class);
+    }
+
+    public function batches()
+    {
+        return $this->hasMany(Batch::class);
+    }
+
     public function proveedores()
     {
         return $this->belongsToMany(Proveedor::class, 'producto_proveedor')
             ->withTimestamps();
     }
 
-    /** Indica si el producto tiene control de inventario (entradas/salidas). */
+    /** Indica si el producto tiene control de inventario (serializado o por lotes). */
     public function isProductoInventario(): bool
     {
-        return $this->type === MovimientoInventario::PRODUCT_TYPE_INVENTARIO;
+        return in_array($this->type, [MovimientoInventario::PRODUCT_TYPE_SERIALIZED, MovimientoInventario::PRODUCT_TYPE_BATCH], true);
+    }
+
+    /** Indica si el producto es serializado (cada unidad en product_items). */
+    public function isSerialized(): bool
+    {
+        return $this->type === MovimientoInventario::PRODUCT_TYPE_SERIALIZED;
+    }
+
+    /** Indica si el producto es por lotes (batches + batch_items). */
+    public function isBatch(): bool
+    {
+        return $this->type === MovimientoInventario::PRODUCT_TYPE_BATCH;
     }
 }

@@ -154,8 +154,14 @@
                 </div>
 
                 <div>
-                    <x-input-label for="edit_type" value="{{ __('Tipo') }}" />
-                    <x-text-input wire:model="type" id="edit_type" class="block mt-1 w-full" type="text" placeholder="Ej: simple, variable..." />
+                    <x-input-label for="edit_type" value="{{ __('Estrategia de inventario') }}" />
+                    <select wire:model="type"
+                            id="edit_type"
+                            class="block mt-1 w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                        @foreach($this->typeOptions as $value => $label)
+                            <option value="{{ $value }}">{{ $label }}</option>
+                        @endforeach
+                    </select>
                     <x-input-error :messages="$errors->get('type')" class="mt-1" />
                 </div>
 

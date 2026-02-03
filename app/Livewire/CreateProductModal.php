@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\Category;
+use App\Models\MovimientoInventario;
 use App\Models\Store;
 use App\Services\ProductService;
 use Illuminate\Support\Facades\Auth;
@@ -27,6 +28,7 @@ class CreateProductModal extends Component
     public string $cost = '0';
     public string $stock = '0';
     public string $location = '';
+    /** Estrategia de inventario: serialized o batch */
     public string $type = '';
     public bool $is_active = true;
 
@@ -45,9 +47,23 @@ class CreateProductModal extends Component
     {
         $this->storeId = $storeId;
         $this->fromPurchase = $fromPurchase;
-        if ($fromPurchase) {
-            $this->stock = '0';
+        if (empty($this->type)) {
+            $this->type = MovimientoInventario::PRODUCT_TYPE_BATCH;
         }
+    }
+
+    /** Opciones de tipo de producto para el select (valor => etiqueta). Solo serializado o lote. */
+    public static function typeOptions(): array
+    {
+        return [
+            MovimientoInventario::PRODUCT_TYPE_SERIALIZED => 'Serializado (por número de serie)',
+            MovimientoInventario::PRODUCT_TYPE_BATCH => 'Por lotes (variantes: talla, etc.)',
+        ];
+    }
+
+    public function getTypeOptionsProperty(): array
+    {
+        return self::typeOptions();
     }
 
     protected function rules(): array
@@ -56,6 +72,7 @@ class CreateProductModal extends Component
         $categoryIds = $store ? $this->getCategoriesWithAttributesIds() : [];
 
         $rules = [
+            'type' => ['required', 'string', Rule::in(array_keys(self::typeOptions()))],
             'name' => ['required', 'string', 'min:1', 'max:255'],
             'barcode' => ['nullable', 'string', 'max:255'],
             'sku' => ['nullable', 'string', 'max:255'],
@@ -63,50 +80,18 @@ class CreateProductModal extends Component
                 'required',
                 Rule::in($categoryIds),
             ],
-            'price' => ['required', 'numeric', 'min:0'],
-            'cost' => ['required', 'numeric', 'min:0'],
-            'stock' => ['required', 'integer', 'min:0'],
             'location' => ['nullable', 'string', 'max:255'],
-            'type' => ['nullable', 'string', 'max:255'],
             'is_active' => ['boolean'],
         ];
-
-        $category = $this->getSelectedCategoryProperty();
-        if ($category) {
-            foreach ($category->attributes as $attr) {
-                $key = "attribute_values.{$attr->id}";
-                $required = (bool) ($attr->pivot->is_required ?? $attr->is_required);
-                if ($attr->type === 'boolean') {
-                    $rules[$key] = [$required ? 'required' : 'nullable', 'string', 'in:0,1'];
-                } elseif ($attr->type === 'select') {
-                    $opts = $attr->options->pluck('value')->toArray();
-                    $rules[$key] = $required
-                        ? ['required', 'string', Rule::in($opts)]
-                        : ['nullable', 'string', Rule::in(array_merge([''], $opts))];
-                } else {
-                    $rules[$key] = [$required ? 'required' : 'nullable', 'string', 'max:255'];
-                }
-            }
-        }
 
         return $rules;
     }
 
     protected function messages(): array
     {
-        $msgs = [
+        return [
             'category_id.required' => 'Debes seleccionar una categoría. Crea categorías y asígnales atributos antes de crear productos.',
         ];
-        $category = $this->getSelectedCategoryProperty();
-        if ($category) {
-            foreach ($category->attributes as $attr) {
-                $req = (bool) ($attr->pivot->is_required ?? $attr->is_required);
-                if ($req) {
-                    $msgs["attribute_values.{$attr->id}.required"] = "El atributo «{$attr->name}» es obligatorio.";
-                }
-            }
-        }
-        return $msgs;
     }
 
     public function getStoreProperty(): ?Store
@@ -211,9 +196,6 @@ class CreateProductModal extends Component
 
     public function save(ProductService $service)
     {
-        // Normalizar valores booleanos antes de validar
-        $this->normalizeBooleanAttributes();
-        
         $this->validate();
 
         $store = $this->getStoreProperty();
@@ -221,40 +203,20 @@ class CreateProductModal extends Component
             abort(403, 'No tienes permiso para crear productos en esta tienda.');
         }
 
-        $category = $this->getSelectedCategoryProperty();
-        $normalized = [];
-        foreach ($this->attribute_values as $attrId => $val) {
-            $attr = $category->attributes->firstWhere('id', (int) $attrId);
-            if (! $attr) {
-                continue;
-            }
-            if ($attr->type === 'boolean') {
-                // Asegurar que siempre sea string '0' o '1'
-                if ($val === true || $val === '1' || $val === 1 || $val === 'true') {
-                    $normalized[$attrId] = '1';
-                } else {
-                    $normalized[$attrId] = '0';
-                }
-            } elseif ($val !== null && $val !== '') {
-                $normalized[$attrId] = (string) $val;
-            }
-        }
-
-        $stock = $this->fromPurchase ? 0 : (int) $this->stock;
-
+        // Solo se crea el producto con categoría; los atributos se asignan al dar entrada (seriales/lotes).
         try {
             $product = $service->createProduct($store, [
+                'type' => $this->type,
                 'name' => $this->name,
                 'barcode' => $this->barcode ?: null,
                 'sku' => $this->sku ?: null,
                 'category_id' => $this->category_id,
-                'price' => (float) $this->price,
-                'cost' => (float) $this->cost,
-                'stock' => $stock,
+                'price' => 0,
+                'cost' => 0,
+                'stock' => 0,
                 'location' => $this->location ?: null,
-                'type' => $this->type ?: null,
                 'is_active' => $this->is_active,
-                'attribute_values' => $normalized,
+                'attribute_values' => [],
             ]);
         } catch (\Exception $e) {
             $this->addError('category_id', $e->getMessage());
@@ -265,8 +227,8 @@ class CreateProductModal extends Component
         $compraRowId = $this->compraRowId;
 
         $this->reset([
-            'name', 'barcode', 'sku', 'category_id', 'price', 'cost', 'stock',
-            'location', 'type', 'is_active', 'attribute_values', 'compraRowId',
+            'name', 'barcode', 'sku', 'category_id', 'location',
+            'type', 'is_active', 'attribute_values', 'compraRowId',
         ]);
         $this->resetValidation();
 

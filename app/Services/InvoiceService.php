@@ -352,7 +352,7 @@ class InvoiceService
             ->firstOrFail();
 
         $qty = (int) $item['quantity'];
-        if ($producto->type === MovimientoInventario::PRODUCT_TYPE_INVENTARIO && $producto->stock < $qty) {
+        if ($producto->isProductoInventario() && $producto->stock < $qty) {
             throw new Exception(
                 "Stock insuficiente en «{$producto->name}». Actual: {$producto->stock}, solicitado: {$qty}."
             );

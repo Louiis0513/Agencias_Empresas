@@ -34,6 +34,12 @@ class MovimientoInventario extends Model
     /** Productos con control de inventario (movimientos de entrada/salida). */
     public const PRODUCT_TYPE_INVENTARIO = 'producto';
 
+    /** Productos serializados (cada unidad rastreada individualmente en product_items). */
+    public const PRODUCT_TYPE_SERIALIZED = 'serialized';
+
+    /** Productos por lotes (batches + batch_items con variantes). */
+    public const PRODUCT_TYPE_BATCH = 'batch';
+
     public function store()
     {
         return $this->belongsTo(Store::class);
