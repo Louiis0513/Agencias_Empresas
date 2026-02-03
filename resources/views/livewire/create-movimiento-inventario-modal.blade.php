@@ -193,14 +193,6 @@
                     @endif
                 @endif
 
-                @if($this->type === 'SALIDA')
-                    <div>
-                        <x-input-label for="unit_cost" value="{{ __('Costo unitario (opcional, para reportes)') }}" />
-                        <x-text-input wire:model="unit_cost" id="unit_cost" class="block mt-1 w-full" type="number" step="0.01" min="0" placeholder="0.00" />
-                        <x-input-error :messages="$errors->get('unit_cost')" class="mt-1" />
-                    </div>
-                @endif
-
                 <div>
                     <x-input-label for="description" value="{{ __('Descripción') }}" />
                     <textarea wire:model="description" id="description" class="block mt-1 w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500" rows="2" placeholder="Ej: Ajuste por conteo, Compra a proveedor"></textarea>

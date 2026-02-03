@@ -107,7 +107,7 @@ class StoreController extends Controller
         session(['current_store_id' => $store->id]);
 
         $products = $store->products()
-            ->with(['category', 'attributeValues.attribute'])
+            ->with(['category', 'attributeValues.attribute', 'batches.batchItems', 'productItems'])
             ->orderBy('name')
             ->get();
 

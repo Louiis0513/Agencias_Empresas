@@ -13,7 +13,7 @@
     <livewire:create-product-modal :store-id="$store->id" />
     <livewire:edit-product-modal :store-id="$store->id" />
 
-    <div class="py-12" x-data>
+    <div class="py-12" x-data="{ expandedId: null }">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6">
@@ -119,8 +119,15 @@
                                                 </div>
                                             </td>
                                             <td class="px-4 py-3 whitespace-nowrap">
-                                                <div class="text-sm text-gray-500 dark:text-gray-400">
-                                                    {{ $product->stock }}
+                                                <div class="flex items-center gap-1">
+                                                    <span class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ $product->stock }}</span>
+                                                    @if($product->isProductoInventario() && $product->stock > 0)
+                                                        <button type="button" x-on:click="expandedId = expandedId === {{ $product->id }} ? null : {{ $product->id }}"
+                                                                class="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500"
+                                                                title="Ver detalle de inventario">
+                                                            <svg class="w-4 h-4 transition-transform" :class="expandedId === {{ $product->id }} ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                                                        </button>
+                                                    @endif
                                                 </div>
                                             </td>
                                             <td class="px-4 py-3 whitespace-nowrap">
@@ -164,6 +171,68 @@
                                                 </form>
                                             </td>
                                         </tr>
+                                        {{-- Fila expandible: detalle de lotes / seriales --}}
+                                        @if($product->isProductoInventario())
+                                            <tr x-show="expandedId === {{ $product->id }}"
+                                                class="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
+                                                <td colspan="12" class="px-4 py-4">
+                                                    @if($product->isBatch())
+                                                        <div class="space-y-3">
+                                                            <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Lotes y variantes</h4>
+                                                            @php
+                                                                $batchesConStock = $product->batches->filter(fn($b) => $b->batchItems->where('quantity', '>', 0)->isNotEmpty());
+                                                            @endphp
+                                                            @forelse($batchesConStock as $batch)
+                                                                @php $items = $batch->batchItems->where('quantity', '>', 0); @endphp
+                                                                <div class="rounded-lg border border-gray-200 dark:border-gray-600 p-3 bg-white dark:bg-gray-800">
+                                                                    <div class="flex flex-wrap items-center gap-2 mb-2">
+                                                                        <span class="font-medium text-gray-900 dark:text-gray-100">{{ $batch->reference }}</span>
+                                                                        @if($batch->expiration_date)
+                                                                            <span class="text-xs text-amber-600 dark:text-amber-400">Vence: {{ $batch->expiration_date->format('d/m/Y') }}</span>
+                                                                        @endif
+                                                                        <span class="text-xs text-gray-500">Total: {{ $items->sum('quantity') }} uds</span>
+                                                                    </div>
+                                                                    <div class="flex flex-wrap gap-2">
+                                                                        @foreach($items as $bi)
+                                                                            <span class="inline-flex items-center px-2 py-1 rounded text-xs bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
+                                                                                @if(!empty($bi->features))
+                                                                                    {{ collect($bi->features)->map(fn($v, $k) => "$k: $v")->implode(', ') }}:
+                                                                                @endif
+                                                                                {{ $bi->quantity }} uds × {{ number_format($bi->unit_cost, 2) }} €
+                                                                            </span>
+                                                                        @endforeach
+                                                                    </div>
+                                                                </div>
+                                                            @empty
+                                                                <p class="text-sm text-gray-500 dark:text-gray-400">Sin lotes con stock.</p>
+                                                            @endforelse
+                                                        </div>
+                                                    @else
+                                                        {{-- Serializado --}}
+                                                        <div class="space-y-2">
+                                                            <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Unidades serializadas</h4>
+                                                            @php $disponibles = $product->productItems->where('status', \App\Models\ProductItem::STATUS_AVAILABLE); @endphp
+                                                            <div class="flex flex-wrap gap-2">
+                                                                @foreach($disponibles->take(20) as $pi)
+                                                                    <span class="inline-flex items-center px-2 py-1 rounded text-xs bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200" title="{{ $pi->serial_number }} — {{ number_format($pi->cost, 2) }} €">
+                                                                        {{ $pi->serial_number }}
+                                                                        @if(!empty($pi->features))
+                                                                            ({{ collect($pi->features)->implode(', ') }})
+                                                                        @endif
+                                                                    </span>
+                                                                @endforeach
+                                                                @if($disponibles->count() > 20)
+                                                                    <span class="text-xs text-gray-500">+ {{ $disponibles->count() - 20 }} más</span>
+                                                                @endif
+                                                            </div>
+                                                            @if($disponibles->isEmpty())
+                                                                <p class="text-sm text-gray-500 dark:text-gray-400">Sin unidades disponibles.</p>
+                                                            @endif
+                                                        </div>
+                                                    @endif
+                                                </td>
+                                            </tr>
+                                        @endif
                                     @endforeach
                                 </tbody>
                             </table>

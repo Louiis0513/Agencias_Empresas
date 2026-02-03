@@ -4,10 +4,10 @@ namespace App\Services;
 
 use App\Models\Invoice;
 use App\Models\InvoiceDetail;
-use App\Models\MovimientoInventario;
 use App\Models\Product;
 use App\Models\Store;
 use App\Services\CajaService;
+use App\Services\InventarioService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -126,8 +126,9 @@ class InvoiceService
     public function crearFactura(Store $store, int $userId, array $datos): Invoice
     {
         $cajaService = app(CajaService::class);
+        $inventarioService = app(InventarioService::class);
 
-        return DB::transaction(function () use ($store, $userId, $datos, $cajaService) {
+        return DB::transaction(function () use ($store, $userId, $datos, $cajaService, $inventarioService) {
             $status = $datos['status'] ?? 'PAID';
             $payments = $datos['payments'] ?? [];
 
@@ -151,12 +152,27 @@ class InvoiceService
                 'payment_method' => $paymentMethod,
             ]);
 
-            // 2. Procesar detalles
+            // 2. Procesar detalles (crear líneas y validar stock)
             foreach ($datos['details'] as $item) {
                 $this->procesarDetalle($store, $factura, $item);
             }
 
-            // 3. Si pagada: registrar un ingreso por cada parte del pago
+            // 3. Registrar salidas de inventario (FIFO: primero en entrar, primero en salir)
+            foreach ($datos['details'] as $item) {
+                $qty = (int) ($item['quantity'] ?? 0);
+                if ($qty < 1) {
+                    continue;
+                }
+                $inventarioService->registrarSalidaPorCantidadFIFO(
+                    $store,
+                    $userId,
+                    (int) $item['product_id'],
+                    $qty,
+                    'Venta Factura #' . $factura->id
+                );
+            }
+
+            // 4. Si pagada: registrar un ingreso por cada parte del pago
             foreach ($payments as $p) {
                 $amount = (float) ($p['amount'] ?? 0);
                 $bolsilloId = (int) ($p['bolsillo_id'] ?? 0);
@@ -340,9 +356,9 @@ class InvoiceService
     }
 
     /**
-     * Procesa un detalle de factura.
-     * Para productos con type = "producto": valida stock >= quantity. No se permite facturar más de lo disponible.
-     * La actualización de stock por ventas (movimiento SALIDA) se hará cuando se implemente la integración con inventario.
+     * Procesa un detalle de factura (crea la línea).
+     * Para productos de inventario (serialized/batch) valida stock >= quantity.
+     * La salida de inventario (FIFO) se registra en crearFactura después de crear todos los detalles.
      */
     private function procesarDetalle(Store $store, Invoice $factura, array $item): void
     {
