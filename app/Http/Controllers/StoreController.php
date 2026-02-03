@@ -864,6 +864,24 @@ class StoreController extends Controller
         return response()->json($productos);
     }
 
+    /**
+     * Atributos de la categoría del producto (para compra de productos serializados: cantidad, atributos, costo).
+     */
+    public function productCategoryAttributes(Store $store, \App\Models\Product $product)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        if ($product->store_id !== $store->id) {
+            abort(404);
+        }
+
+        $product->load(['category.attributes' => fn ($q) => $q->orderByPivot('position')]);
+        $attributes = $product->category?->attributes?->map(fn ($a) => ['id' => $a->id, 'name' => $a->name])->values() ?? [];
+
+        return response()->json(['attributes' => $attributes]);
+    }
+
     // ==================== COMPRAS ====================
 
     public function purchases(Store $store, PurchaseService $purchaseService, Request $request)
@@ -875,6 +893,7 @@ class StoreController extends Controller
 
         $filtros = [
             'status' => $request->get('status'),
+            'purchase_type' => \App\Models\Purchase::TYPE_ACTIVO,
             'payment_status' => $request->get('payment_status'),
             'proveedor_id' => $request->get('proveedor_id'),
             'fecha_desde' => $request->get('fecha_desde'),
@@ -896,6 +915,161 @@ class StoreController extends Controller
         $proveedores = \App\Models\Proveedor::deTienda($store->id)->orderBy('nombre')->get();
 
         return view('stores.compra-crear', compact('store', 'proveedores'));
+    }
+
+    /**
+     * Listado de compras de productos (inventario). Solo tipo PRODUCTO.
+     */
+    public function productPurchases(Store $store, PurchaseService $purchaseService, Request $request)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        session(['current_store_id' => $store->id]);
+
+        $filtros = [
+            'status' => $request->get('status'),
+            'purchase_type' => \App\Models\Purchase::TYPE_PRODUCTO,
+            'payment_status' => $request->get('payment_status'),
+            'proveedor_id' => $request->get('proveedor_id'),
+            'fecha_desde' => $request->get('fecha_desde'),
+            'fecha_hasta' => $request->get('fecha_hasta'),
+        ];
+        $purchases = $purchaseService->listarCompras($store, $filtros);
+        $proveedores = \App\Models\Proveedor::deTienda($store->id)->orderBy('nombre')->get();
+
+        return view('stores.compras-productos', compact('store', 'purchases', 'proveedores'));
+    }
+
+    /**
+     * Vista para crear compra de productos (inventario).
+     */
+    public function createProductPurchase(Store $store)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        session(['current_store_id' => $store->id]);
+
+        $proveedores = \App\Models\Proveedor::deTienda($store->id)->orderBy('nombre')->get();
+
+        return view('stores.compra-productos-crear', compact('store', 'proveedores'));
+    }
+
+    /**
+     * Guarda la compra de productos como borrador.
+     * Normaliza filas con serial_items (cantidad = nº unidades, costo = promedio por unidad).
+     */
+    public function storeProductPurchase(Store $store, Request $request, PurchaseService $purchaseService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+
+        $request->validate([
+            'proveedor_id' => ['nullable', 'exists:proveedores,id'],
+            'payment_status' => ['required', 'in:PAGADO,PENDIENTE'],
+            'invoice_number' => ['nullable', 'string', 'max:100'],
+            'invoice_date' => [
+                $request->input('payment_status') === \App\Models\Purchase::PAYMENT_PENDIENTE ? 'required' : 'nullable',
+                'date',
+            ],
+            'due_date' => ['nullable', 'date'],
+            'details' => ['required', 'array', 'min:1'],
+        ], [
+            'invoice_date.required' => 'La fecha de la factura es obligatoria cuando la compra es a crédito (para la fecha de vencimiento).',
+        ]);
+
+        $rawDetails = $request->input('details', []);
+        $normalized = $this->normalizeProductPurchaseDetails($rawDetails);
+
+        \Illuminate\Support\Facades\Validator::make(
+            ['details' => $normalized] + $request->only(['due_date', 'invoice_date']),
+            [
+                'details' => ['required', 'array', 'min:1'],
+                'details.*.product_id' => ['nullable', 'exists:products,id'],
+                'details.*.description' => ['required', 'string', 'max:255'],
+                'details.*.quantity' => ['required', 'integer', 'min:0'],
+                'details.*.unit_cost' => ['required', 'numeric', 'min:0'],
+                'due_date' => array_merge(
+                    $request->input('payment_status') === \App\Models\Purchase::PAYMENT_PENDIENTE ? ['required', 'date'] : ['nullable', 'date'],
+                    $request->filled('invoice_date') ? ['after_or_equal:invoice_date'] : []
+                ),
+            ],
+            [
+                'details.*.description.required' => 'Debes seleccionar al menos un producto en el detalle. Haz clic en "Seleccionar" en cada línea.',
+                'due_date.required' => 'La fecha de vencimiento de la factura es obligatoria cuando la compra es a crédito.',
+                'due_date.after_or_equal' => 'La fecha de vencimiento no puede ser anterior a la fecha de la factura.',
+            ]
+        )->validate();
+
+        foreach ($normalized as $i => $detail) {
+            if (! empty($detail['serial_items'] ?? [])) {
+                foreach ($detail['serial_items'] as $j => $unit) {
+                    if (trim($unit['serial_number'] ?? '') === '') {
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            'details' => ['Cada unidad de producto serializado debe tener número de serie. Revisa la línea ' . ($i + 1) . ', unidad ' . ($j + 1) . '.'],
+                        ]);
+                    }
+                }
+            }
+        }
+
+        $request->merge(['details' => $normalized, 'purchase_type' => \App\Models\Purchase::TYPE_PRODUCTO]);
+
+        try {
+            $purchaseService->crearCompra($store, Auth::id(), $request->all());
+            return redirect()->route('stores.product-purchases', $store)->with('success', 'Compra guardada como borrador.');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            return redirect()->back()->withInput()->with('error', $e->getMessage());
+        }
+    }
+
+    /**
+     * Convierte detalles de compra de productos al formato esperado por PurchaseService.
+     * Filas con serial_items: quantity = número de unidades, unit_cost = subtotal/quantity.
+     */
+    protected function normalizeProductPurchaseDetails(array $rawDetails): array
+    {
+        $normalized = [];
+        foreach ($rawDetails as $d) {
+            $serialItems = $d['serial_items'] ?? null;
+            if (is_array($serialItems) && count($serialItems) > 0) {
+                $subtotal = 0;
+                $itemsForStorage = [];
+                foreach ($serialItems as $unit) {
+                    $cost = (float) ($unit['cost'] ?? 0);
+                    $subtotal += $cost;
+                    $itemsForStorage[] = [
+                        'serial_number' => trim($unit['serial_number'] ?? ''),
+                        'cost' => $cost,
+                        'features' => $unit['features'] ?? null,
+                    ];
+                }
+                $qty = count($serialItems);
+                $normalized[] = [
+                    'item_type' => 'INVENTARIO',
+                    'product_id' => $d['product_id'] ?? null,
+                    'activo_id' => null,
+                    'description' => $d['description'] ?? '',
+                    'quantity' => $qty,
+                    'unit_cost' => $qty > 0 ? round($subtotal / $qty, 2) : 0,
+                    'serial_items' => $itemsForStorage,
+                ];
+            } else {
+                $normalized[] = [
+                    'item_type' => $d['item_type'] ?? 'INVENTARIO',
+                    'product_id' => $d['product_id'] ?? null,
+                    'activo_id' => $d['activo_id'] ?? null,
+                    'description' => $d['description'] ?? '',
+                    'quantity' => (int) ($d['quantity'] ?? 0),
+                    'unit_cost' => (float) ($d['unit_cost'] ?? 0),
+                ];
+            }
+        }
+        return $normalized;
     }
 
     public function editPurchase(Store $store, \App\Models\Purchase $purchase)
@@ -1005,6 +1179,8 @@ class StoreController extends Controller
         ]);
 
         $this->validarCantidadActivosSerializados($store, $request->input('details', []));
+
+        $request->merge(['purchase_type' => \App\Models\Purchase::TYPE_ACTIVO]);
 
         try {
             $purchaseService->crearCompra($store, Auth::id(), $request->all());

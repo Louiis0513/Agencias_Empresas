@@ -79,7 +79,7 @@
                 </div>
 
                 @if($control_type !== 'SERIALIZADO' || !$fromPurchase)
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="{{ $fromPurchase ? '' : 'grid grid-cols-1 sm:grid-cols-2 gap-4' }}">
                     <div>
                         <x-input-label for="activo_quantity" value="Cantidad *" />
                         <x-text-input wire:model.live="quantity" id="activo_quantity" class="block mt-1 w-full" type="number" min="0" step="1" @if($control_type === 'SERIALIZADO') max="1" @endif placeholder="{{ $control_type === 'SERIALIZADO' ? '0 o 1' : '' }}" />
@@ -87,19 +87,21 @@
                             @if($control_type === 'SERIALIZADO')
                                 0 = catálogo. 1 = unidad única (indica serial arriba).
                             @elseif($fromPurchase)
-                                Será 0. La compra inyectará el stock.
+                                Será 0. La compra inyectará el stock. El costo lo indicas en la compra.
                             @else
                                 Se suma automáticamente al aprobar compras.
                             @endif
                         </p>
                         <x-input-error :messages="$errors->get('quantity')" class="mt-1" />
                     </div>
+                    @if(!$fromPurchase)
                     <div>
                         <x-input-label for="activo_unit_cost" value="Costo unitario" />
                         <x-text-input wire:model="unit_cost" id="activo_unit_cost" class="block mt-1 w-full" type="number" min="0" step="0.01" placeholder="0.00" />
                         <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Se actualiza automáticamente al aprobar compras.</p>
                         <x-input-error :messages="$errors->get('unit_cost')" class="mt-1" />
                     </div>
+                    @endif
                 </div>
                 @endif
 

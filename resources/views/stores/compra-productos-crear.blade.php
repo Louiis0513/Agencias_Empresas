@@ -1,0 +1,535 @@
+<x-app-layout>
+    <x-slot name="header">
+        <div class="flex justify-between items-center">
+            <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
+                Nueva Compra de Productos - {{ $store->name }}
+            </h2>
+            <a href="{{ route('stores.product-purchases', $store) }}" class="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+                ← Volver a Compra de productos
+            </a>
+        </div>
+    </x-slot>
+
+    @livewire('select-item-modal', ['storeId' => $store->id, 'itemType' => 'INVENTARIO'])
+    @livewire('create-product-modal', ['storeId' => $store->id, 'fromPurchase' => true])
+
+    <div class="py-12" x-data="compraProductosSelection()">
+        <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
+            <p class="mb-4 text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/30 border border-gray-200 dark:border-gray-700 rounded-lg px-4 py-3">
+                La compra se guardará como borrador. Podrás editarla o aprobarla después desde el listado de compras de productos.
+            </p>
+
+            <form method="POST" action="{{ route('stores.product-purchases.store', $store) }}" class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg p-6" id="form-compra-productos"
+                  data-atributos-url="{{ route('stores.productos.atributos-categoria', [$store, 0]) }}"
+                  x-on:item-selected.window="onItemSelected($event.detail)">
+                @csrf
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Proveedor</label>
+                        <select name="proveedor_id" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                            <option value="">Sin proveedor</option>
+                            @foreach($proveedores as $prov)
+                                <option value="{{ $prov->id }}" {{ old('proveedor_id') == $prov->id ? 'selected' : '' }}>{{ $prov->nombre }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Forma de Pago</label>
+                        <select name="payment_status" x-model="paymentStatus" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                            <option value="PAGADO">Contado (Pagado)</option>
+                            <option value="PENDIENTE">A Crédito (Pendiente)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nº Factura Externa</label>
+                        <input type="text" name="invoice_number" value="{{ old('invoice_number') }}" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" placeholder="Ej: F-001-0001234">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha Factura Externa</label>
+                        <input type="date" name="invoice_date" value="{{ old('invoice_date') }}" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">Detalle (productos de inventario)</h3>
+                        <button type="button" id="add-row-productos" class="text-sm text-indigo-600 hover:text-indigo-800">+ Agregar línea</button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                            <thead class="bg-gray-50 dark:bg-gray-900">
+                                <tr>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Producto</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Cantidad</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Costo Unit.</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Subtotal</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="details-body-productos" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                                @php
+                                    $defaultDetail = ['item_type' => 'INVENTARIO', 'product_id' => '', 'description' => '', 'quantity' => 1, 'unit_cost' => 0];
+                                    $oldDetails = array_values(old('details', [$defaultDetail]));
+                                    if (empty($oldDetails)) {
+                                        $oldDetails = [$defaultDetail];
+                                    }
+                                @endphp
+                                @foreach($oldDetails as $i => $d)
+                                    @php
+                                        $hasItem = !empty(trim($d['description'] ?? '')) || !empty($d['product_id'] ?? '');
+                                        $qty = (int) ($d['quantity'] ?? 1);
+                                        $cost = (float) ($d['unit_cost'] ?? 0);
+                                        $subtotal = $qty * $cost;
+                                    @endphp
+                                    <tr class="detail-row" data-row-id="{{ $i }}" data-product-type="batch">
+                                        <td class="px-3 py-2">
+                                            <input type="hidden" name="details[{{ $i }}][item_type]" value="INVENTARIO">
+                                            <div class="item-select-wrapper">
+                                                <input type="hidden" name="details[{{ $i }}][product_id]" class="product-id-input" value="{{ $d['product_id'] ?? '' }}">
+                                                <input type="hidden" name="details[{{ $i }}][description]" class="item-description-input" value="{{ $d['description'] ?? '' }}">
+                                                <span class="item-selected-name text-sm text-gray-700 dark:text-gray-300 block mb-1 min-h-[1.25rem]">{{ $d['description'] ?? '' }}</span>
+                                                <button type="button" class="btn-select-item {{ $hasItem ? 'hidden' : '' }} px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+                                                    Seleccionar
+                                                </button>
+                                                <button type="button" class="btn-change-item {{ $hasItem ? '' : 'hidden' }} px-2 py-1 text-xs text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300">
+                                                    Cambiar
+                                                </button>
+                                            </div>
+                                        </td>
+                                        <td class="px-3 py-2 detail-qty-cell">
+                                            <input type="number" name="details[{{ $i }}][quantity]" value="{{ $qty }}" min="1" class="detail-qty w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
+                                            <span class="detail-serial-qty text-sm text-gray-600 dark:text-gray-400 hidden"></span>
+                                        </td>
+                                        <td class="px-3 py-2 detail-cost-cell">
+                                            <input type="number" name="details[{{ $i }}][unit_cost]" value="{{ $cost }}" min="0" step="0.01" class="detail-cost w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
+                                            <span class="detail-serial-dash hidden">—</span>
+                                        </td>
+                                        <td class="px-3 py-2">
+                                            <span class="detail-subtotal text-sm font-medium">{{ number_format($subtotal, 2) }}</span>
+                                        </td>
+                                        <td class="px-3 py-2">
+                                            <button type="button" class="remove-row text-red-600 hover:text-red-800 text-sm">Quitar</button>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                        Productos de inventario (para reventa). Busca por nombre o SKU en «Seleccionar» o crea un producto nuevo.
+                    </p>
+                </div>
+
+                <div class="mb-6 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700" x-show="paymentStatus === 'PENDIENTE'" x-transition>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Fecha de vencimiento de la factura</label>
+                    <input type="date" name="due_date" value="{{ old('due_date') }}" x-bind:required="paymentStatus === 'PENDIENTE'" x-bind:disabled="paymentStatus !== 'PENDIENTE'" class="w-full max-w-xs rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" placeholder="Cuando vence la cuenta por pagar">
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Indica cuándo vence el pago según la factura real o acuerdos con el proveedor.</p>
+                </div>
+
+                <div class="compra-productos-validation-error hidden mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+                    <span class="block sm:inline">Debes seleccionar al menos un producto en el detalle. Haz clic en «Seleccionar» en cada línea.</span>
+                    <button type="button" class="absolute top-2 right-2 text-red-600 hover:text-red-800" onclick="this.parentElement.classList.add('hidden')" aria-label="Cerrar">×</button>
+                </div>
+
+                <div class="flex justify-end gap-3">
+                    <a href="{{ route('stores.product-purchases', $store) }}" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600">
+                        Cancelar
+                    </a>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800">
+                        Guardar como borrador
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function compraProductosUpdateSubtotal(row) {
+            var qty = parseFloat(row.querySelector('.detail-qty').value) || 0;
+            var cost = parseFloat(row.querySelector('.detail-cost').value) || 0;
+            row.querySelector('.detail-subtotal').textContent = (qty * cost).toFixed(2);
+        }
+
+        function compraProductosUpdateSerialQtyAndSubtotal(detailRow) {
+            var serialRow = detailRow.nextElementSibling;
+            if (!serialRow || !serialRow.classList.contains('serial-details-row')) return;
+            var container = serialRow.querySelector('.serial-items-container');
+            if (!container) return;
+            var items = container.querySelectorAll('.serial-item');
+            var total = 0;
+            items.forEach(function(item) {
+                var cost = parseFloat(item.querySelector('.serial-cost').value) || 0;
+                total += cost;
+            });
+            var qtySpan = detailRow.querySelector('.detail-serial-qty');
+            var qtyInput = detailRow.querySelector('.detail-qty');
+            if (qtySpan) qtySpan.textContent = items.length + ' unidad(es)';
+            if (qtyInput) qtyInput.value = items.length;
+            detailRow.querySelector('.detail-subtotal').textContent = total.toFixed(2);
+        }
+
+        function compraProductosSelection() {
+            return {
+                paymentStatus: @json(old('payment_status', 'PENDIENTE')),
+                onItemSelected(detail) {
+                    if (detail.type !== 'INVENTARIO') return;
+                    const row = document.querySelector(`#details-body-productos .detail-row[data-row-id="${detail.rowId}"]`);
+                    if (!row) return;
+                    const productInput = row.querySelector('.product-id-input');
+                    const descInput = row.querySelector('.item-description-input');
+                    const nameSpan = row.querySelector('.item-selected-name');
+                    if (productInput) productInput.value = detail.id;
+                    if (descInput) descInput.value = detail.name;
+                    if (nameSpan) nameSpan.textContent = detail.name;
+                    const btnSelect = row.querySelector('.btn-select-item');
+                    const btnChange = row.querySelector('.btn-change-item');
+                    if (btnSelect) btnSelect.classList.add('hidden');
+                    if (btnChange) btnChange.classList.remove('hidden');
+
+                    const isSerialized = detail.productType === 'serialized';
+                    const rowId = detail.rowId;
+                    if (isSerialized) {
+                        row.setAttribute('data-product-type', 'serialized');
+                        const next = row.nextElementSibling;
+                        if (!next || !next.classList.contains('serial-details-row')) {
+                            window.compraProductosCreateSerialDetailsRowUnidades(rowId, detail.id, row);
+                        }
+                        row.querySelector('.detail-qty').classList.add('hidden');
+                        row.querySelector('.detail-serial-qty').classList.remove('hidden');
+                        row.querySelector('.detail-cost').classList.add('hidden');
+                        row.querySelector('.detail-serial-dash').classList.remove('hidden');
+                        compraProductosUpdateSerialQtyAndSubtotal(row);
+                    } else {
+                        row.setAttribute('data-product-type', 'batch');
+                        const next = row.nextElementSibling;
+                        if (next && next.classList.contains('serial-details-row')) next.remove();
+                        row.querySelector('.detail-qty').classList.remove('hidden');
+                        row.querySelector('.detail-serial-qty').classList.add('hidden').textContent = '';
+                        row.querySelector('.detail-cost').classList.remove('hidden');
+                        row.querySelector('.detail-serial-dash').classList.add('hidden');
+                        compraProductosUpdateSubtotal(row);
+                    }
+                    const errDiv = document.querySelector('.compra-productos-validation-error');
+                    if (errDiv) errDiv.classList.add('hidden');
+                }
+            };
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const tbody = document.getElementById('details-body-productos');
+
+            function createRowHtml(idx) {
+                return `
+                    <td class="px-3 py-2">
+                        <input type="hidden" name="details[${idx}][item_type]" value="INVENTARIO">
+                        <div class="item-select-wrapper">
+                            <input type="hidden" name="details[${idx}][product_id]" class="product-id-input" value="">
+                            <input type="hidden" name="details[${idx}][description]" class="item-description-input" value="">
+                            <span class="item-selected-name text-sm text-gray-700 dark:text-gray-300 block mb-1 min-h-[1.25rem]"></span>
+                            <button type="button" class="btn-select-item px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+                                Seleccionar
+                            </button>
+                            <button type="button" class="btn-change-item hidden px-2 py-1 text-xs text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300">
+                                Cambiar
+                            </button>
+                        </div>
+                    </td>
+                    <td class="px-3 py-2 detail-qty-cell">
+                        <input type="number" name="details[${idx}][quantity]" value="1" min="1" class="detail-qty w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
+                        <span class="detail-serial-qty text-sm text-gray-600 dark:text-gray-400 hidden"></span>
+                    </td>
+                    <td class="px-3 py-2 detail-cost-cell">
+                        <input type="number" name="details[${idx}][unit_cost]" value="0" min="0" step="0.01" class="detail-cost w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
+                        <span class="detail-serial-dash hidden">—</span>
+                    </td>
+                    <td class="px-3 py-2">
+                        <span class="detail-subtotal text-sm font-medium">0.00</span>
+                    </td>
+                    <td class="px-3 py-2">
+                        <button type="button" class="remove-row text-red-600 hover:text-red-800 text-sm">Quitar</button>
+                    </td>
+                `;
+            }
+
+            function createSerialDetailsRowUnidades(rowId, productId, detailRow) {
+                const tr = document.createElement('tr');
+                tr.className = 'serial-details-row bg-gray-50 dark:bg-gray-900/50';
+                tr.setAttribute('data-parent-row-id', rowId);
+                tr.setAttribute('data-product-id', productId);
+                tr.innerHTML = `
+                    <td colspan="5" class="px-3 py-3 border-t border-gray-200 dark:border-gray-700">
+                        <div class="space-y-4 text-sm">
+                            <div class="p-2 rounded bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800">
+                                <p class="text-sm font-medium text-indigo-800 dark:text-indigo-200">Referencia de compra/origen</p>
+                                <p class="mt-0.5 text-xs text-indigo-700 dark:text-indigo-300">La referencia será el mismo número de esta compra al guardarla (ej. Compra #47). No hace falta escribirla aquí.</p>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="font-semibold text-gray-700 dark:text-gray-200">Unidades (cada una: serial + atributos + costo)</span>
+                                <button type="button" class="btn-add-serial-unit text-indigo-600 hover:underline text-sm">+ Agregar unidad</button>
+                            </div>
+                            <div class="serial-items-container space-y-3"></div>
+                        </div>
+                    </td>
+                `;
+                detailRow.insertAdjacentElement('afterend', tr);
+                const container = tr.querySelector('.serial-items-container');
+                const form = document.getElementById('form-compra-productos');
+                const urlTemplate = form.getAttribute('data-atributos-url');
+                const url = urlTemplate.replace(/\/0\/atributos-categoria/, '/' + productId + '/atributos-categoria');
+                fetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        const attrs = data.attributes || [];
+                        function addUnit(index) {
+                            const unitDiv = document.createElement('div');
+                            unitDiv.className = 'serial-item border rounded-lg p-4 space-y-3 bg-gray-50 dark:bg-gray-900/30 border-gray-200 dark:border-gray-700';
+                            unitDiv.setAttribute('data-serial-index', index);
+                            let attrsHtml = '';
+                            attrs.forEach(function(attr) {
+                                attrsHtml += `
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">${escapeHtml(attr.name)}</label>
+                                        <input type="text" class="serial-attr-feature w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" placeholder="Ej: valor para ${escapeHtml(attr.name)}" data-attr-id="${attr.id}" name="details[${rowId}][serial_items][${index}][features][${attr.id}]">
+                                    </div>
+                                `;
+                            });
+                            unitDiv.innerHTML = `
+                                <div class="flex justify-between items-center serial-item-header">
+                                    <span class="text-sm font-semibold text-gray-600 dark:text-gray-300">Unidad #${index + 1}</span>
+                                    <button type="button" class="btn-remove-serial text-red-600 hover:underline text-sm">Eliminar</button>
+                                </div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Número de serie (IMEI, etc.)</label>
+                                        <input type="text" class="serial-number w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" placeholder="Ej: IMEI-123456789" name="details[${rowId}][serial_items][${index}][serial_number]">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Costo de esta unidad (€)</label>
+                                        <input type="number" step="0.01" min="0" class="serial-cost w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" placeholder="0.00" name="details[${rowId}][serial_items][${index}][cost]">
+                                    </div>
+                                </div>
+                                ${attrs.length ? '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">' + attrsHtml + '</div>' : ''}
+                            `;
+                            container.appendChild(unitDiv);
+                            unitDiv.querySelector('.serial-cost').addEventListener('input', function() { compraProductosUpdateSerialQtyAndSubtotal(detailRow); });
+                            const removeBtn = unitDiv.querySelector('.btn-remove-serial');
+                            if (removeBtn) {
+                                removeBtn.addEventListener('click', function() {
+                                    const items = container.querySelectorAll('.serial-item');
+                                    if (items.length > 1) {
+                                        unitDiv.remove();
+                                        renumberSerialItems(container, rowId, attrs);
+                                        compraProductosUpdateSerialQtyAndSubtotal(detailRow);
+                                    }
+                                });
+                            }
+                        }
+                        addUnit(0);
+                        tr.querySelector('.btn-add-serial-unit').addEventListener('click', function() {
+                            const n = container.querySelectorAll('.serial-item').length;
+                            addUnit(n);
+                            renumberSerialItems(container, rowId, attrs);
+                            compraProductosUpdateSerialQtyAndSubtotal(detailRow);
+                        });
+                        compraProductosUpdateSerialQtyAndSubtotal(detailRow);
+                        toggleSerialRemoveButtons(container);
+                    })
+                    .catch(function() {
+                        container.innerHTML = '<p class="text-xs text-amber-600 dark:text-amber-400">No se pudieron cargar los atributos. Añade al menos una unidad con serial y costo.</p>';
+                        const unitDiv = document.createElement('div');
+                        unitDiv.className = 'serial-item border rounded-lg p-4 space-y-3 bg-gray-50 dark:bg-gray-900/30';
+                        unitDiv.innerHTML = `
+                            <div class="text-sm font-semibold text-gray-600 dark:text-gray-300">Unidad #1</div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Número de serie (IMEI, etc.)</label>
+                                    <input type="text" class="serial-number w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" name="details[${rowId}][serial_items][0][serial_number]">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Costo de esta unidad (€)</label>
+                                    <input type="number" step="0.01" min="0" class="serial-cost w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" name="details[${rowId}][serial_items][0][cost]">
+                                </div>
+                            </div>
+                        `;
+                        container.appendChild(unitDiv);
+                        unitDiv.querySelector('.serial-cost').addEventListener('input', function() { compraProductosUpdateSerialQtyAndSubtotal(detailRow); });
+                        tr.querySelector('.btn-add-serial-unit').addEventListener('click', function() {
+                            const n = container.querySelectorAll('.serial-item').length;
+                            const u = document.createElement('div');
+                            u.className = 'serial-item border rounded-lg p-4 space-y-3 bg-gray-50 dark:bg-gray-900/30';
+                            u.innerHTML = `
+                                <div class="flex justify-between"><span class="text-sm font-semibold">Unidad #${n + 1}</span><button type="button" class="btn-remove-serial text-red-600 hover:underline text-sm">Eliminar</button></div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Número de serie</label><input type="text" class="serial-number w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" name="details[${rowId}][serial_items][${n}][serial_number]"></div>
+                                    <div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Costo (€)</label><input type="number" step="0.01" min="0" class="serial-cost w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" name="details[${rowId}][serial_items][${n}][cost]"></div>
+                                </div>
+                            `;
+                            container.appendChild(u);
+                            u.querySelector('.serial-cost').addEventListener('input', function() { compraProductosUpdateSerialQtyAndSubtotal(detailRow); });
+                            u.querySelector('.btn-remove-serial').addEventListener('click', function() { if (container.querySelectorAll('.serial-item').length > 1) { u.remove(); renumberSerialItems(container, rowId, []); compraProductosUpdateSerialQtyAndSubtotal(detailRow); } });
+                            compraProductosUpdateSerialQtyAndSubtotal(detailRow);
+                        });
+                        compraProductosUpdateSerialQtyAndSubtotal(detailRow);
+                    });
+            }
+
+            window.compraProductosCreateSerialDetailsRowUnidades = createSerialDetailsRowUnidades;
+
+            function toggleSerialRemoveButtons(container) {
+                const items = container.querySelectorAll('.serial-item');
+                const showRemove = items.length > 1;
+                items.forEach(function(item) {
+                    const header = item.querySelector('.serial-item-header');
+                    if (header) {
+                        const btn = header.querySelector('.btn-remove-serial');
+                        if (btn) btn.style.display = showRemove ? '' : 'none';
+                    }
+                });
+            }
+
+            function renumberSerialItems(container, rowId, attrs) {
+                const items = container.querySelectorAll('.serial-item');
+                items.forEach(function(item, i) {
+                    item.setAttribute('data-serial-index', String(i));
+                    var sn = item.querySelector('.serial-number');
+                    var sc = item.querySelector('.serial-cost');
+                    if (sn) sn.name = 'details[' + rowId + '][serial_items][' + i + '][serial_number]';
+                    if (sc) sc.name = 'details[' + rowId + '][serial_items][' + i + '][cost]';
+                    item.querySelectorAll('.serial-attr-feature').forEach(function(inp) {
+                        const attrId = inp.getAttribute('data-attr-id');
+                        if (attrId) inp.name = 'details[' + rowId + '][serial_items][' + i + '][features][' + attrId + ']';
+                    });
+                    const header = item.querySelector('.serial-item-header span');
+                    if (header) header.textContent = 'Unidad #' + (i + 1);
+                });
+                toggleSerialRemoveButtons(container);
+            }
+
+            function updateSerialQtyAndSubtotal(detailRow) {
+                const serialRow = detailRow.nextElementSibling;
+                if (!serialRow || !serialRow.classList.contains('serial-details-row')) return;
+                const container = serialRow.querySelector('.serial-items-container');
+                const items = container.querySelectorAll('.serial-item');
+                let total = 0;
+                items.forEach(function(item) {
+                    const cost = parseFloat(item.querySelector('.serial-cost').value) || 0;
+                    total += cost;
+                });
+                const qtySpan = detailRow.querySelector('.detail-serial-qty');
+                const qtyInput = detailRow.querySelector('.detail-qty');
+                if (qtySpan) qtySpan.textContent = items.length + ' unidad(es)';
+                if (qtyInput) qtyInput.value = items.length;
+                detailRow.querySelector('.detail-subtotal').textContent = total.toFixed(2);
+            }
+
+            function escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            function updateSubtotal(row) {
+                const qty = parseFloat(row.querySelector('.detail-qty').value) || 0;
+                const cost = parseFloat(row.querySelector('.detail-cost').value) || 0;
+                row.querySelector('.detail-subtotal').textContent = (qty * cost).toFixed(2);
+            }
+
+            function renumberRows() {
+                const rows = tbody.querySelectorAll('.detail-row');
+                rows.forEach(function(row, i) {
+                    row.setAttribute('data-row-id', String(i));
+                    const itemTypeInput = row.querySelector('input[name*="[item_type]"]');
+                    if (itemTypeInput) itemTypeInput.name = 'details[' + i + '][item_type]';
+                    const productInput = row.querySelector('.product-id-input');
+                    if (productInput) productInput.name = 'details[' + i + '][product_id]';
+                    const descInput = row.querySelector('.item-description-input');
+                    if (descInput) descInput.name = 'details[' + i + '][description]';
+                    const qtyInput = row.querySelector('.detail-qty');
+                    if (qtyInput) qtyInput.name = 'details[' + i + '][quantity]';
+                    const costInput = row.querySelector('.detail-cost');
+                    if (costInput) costInput.name = 'details[' + i + '][unit_cost]';
+
+                    const serialRow = row.nextElementSibling && row.nextElementSibling.classList.contains('serial-details-row') ? row.nextElementSibling : null;
+                    if (serialRow) {
+                        serialRow.setAttribute('data-parent-row-id', String(i));
+                        const container = serialRow.querySelector('.serial-items-container');
+                        if (container) {
+                            container.querySelectorAll('.serial-item').forEach(function(item, j) {
+                                var sn = item.querySelector('.serial-number');
+                                var sc = item.querySelector('.serial-cost');
+                                if (sn) sn.name = 'details[' + i + '][serial_items][' + j + '][serial_number]';
+                                if (sc) sc.name = 'details[' + i + '][serial_items][' + j + '][cost]';
+                                item.querySelectorAll('.serial-attr-feature').forEach(function(inp) {
+                                    const attrId = inp.getAttribute('data-attr-id');
+                                    if (attrId) inp.name = 'details[' + i + '][serial_items][' + j + '][features][' + attrId + ']';
+                                });
+                            });
+                        }
+                    }
+                });
+            }
+
+            function bindRowEvents(row) {
+                row.querySelectorAll('.detail-qty, .detail-cost').forEach(function(input) {
+                    input.addEventListener('input', function() { updateSubtotal(row); });
+                });
+                const btnSelect = row.querySelector('.btn-select-item');
+                const btnChange = row.querySelector('.btn-change-item');
+                if (btnSelect) {
+                    btnSelect.addEventListener('click', function() {
+                        const rowId = row.getAttribute('data-row-id');
+                        Livewire.dispatch('open-select-item-for-row', { rowId: rowId, itemType: 'INVENTARIO' });
+                    });
+                }
+                if (btnChange) {
+                    btnChange.addEventListener('click', function() {
+                        row.setAttribute('data-product-type', 'batch');
+                        const next = row.nextElementSibling;
+                        if (next && next.classList.contains('serial-details-row')) next.remove();
+                        row.querySelector('.product-id-input').value = '';
+                        row.querySelector('.item-description-input').value = '';
+                        row.querySelector('.item-selected-name').textContent = '';
+                        row.querySelector('.detail-qty').value = '1';
+                        row.querySelector('.detail-qty').classList.remove('hidden');
+                        row.querySelector('.detail-serial-qty').classList.add('hidden').textContent = '';
+                        row.querySelector('.detail-cost').value = '0';
+                        row.querySelector('.detail-cost').classList.remove('hidden');
+                        row.querySelector('.detail-serial-dash').classList.add('hidden');
+                        btnSelect.classList.remove('hidden');
+                        btnChange.classList.add('hidden');
+                        updateSubtotal(row);
+                    });
+                }
+                const removeBtn = row.querySelector('.remove-row');
+                if (removeBtn) {
+                    removeBtn.addEventListener('click', function() {
+                        if (tbody.querySelectorAll('.detail-row').length > 1) {
+                            const next = row.nextElementSibling;
+                            if (next && next.classList.contains('serial-details-row')) next.remove();
+                            row.remove();
+                            renumberRows();
+                        }
+                    });
+                }
+                updateSubtotal(row);
+            }
+
+            function addRow() {
+                const rows = tbody.querySelectorAll('.detail-row');
+                const idx = rows.length;
+                const tr = document.createElement('tr');
+                tr.className = 'detail-row';
+                tr.setAttribute('data-row-id', String(idx));
+                tr.setAttribute('data-product-type', 'batch');
+                tr.innerHTML = createRowHtml(idx);
+                tbody.appendChild(tr);
+                renumberRows();
+                bindRowEvents(tr);
+            }
+
+            document.getElementById('add-row-productos').addEventListener('click', addRow);
+            tbody.querySelectorAll('.detail-row').forEach(bindRowEvents);
+        });
+    </script>
+</x-app-layout>

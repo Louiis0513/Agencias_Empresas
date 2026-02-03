@@ -43,11 +43,17 @@ class PurchaseService
                 ? Purchase::PAYMENT_TYPE_CREDITO
                 : Purchase::PAYMENT_TYPE_CONTADO;
 
+            $purchaseType = $data['purchase_type'] ?? Purchase::TYPE_ACTIVO;
+            if (! in_array($purchaseType, [Purchase::TYPE_ACTIVO, Purchase::TYPE_PRODUCTO], true)) {
+                $purchaseType = Purchase::TYPE_ACTIVO;
+            }
+
             $purchase = Purchase::create([
                 'store_id' => $store->id,
                 'user_id' => $userId,
                 'proveedor_id' => $data['proveedor_id'] ?? null,
                 'status' => Purchase::STATUS_BORRADOR,
+                'purchase_type' => $purchaseType,
                 'payment_status' => $paymentStatus,
                 'payment_type' => $paymentType,
                 'invoice_number' => $data['invoice_number'] ?? null,
@@ -142,15 +148,36 @@ class PurchaseService
             foreach ($purchase->details as $detail) {
                 if ($detail->isInventario() && $detail->product_id) {
                     $product = $detail->product;
-                    if ($product && $product->type === \App\Models\MovimientoInventario::PRODUCT_TYPE_INVENTARIO) {
-                        $this->inventarioService->registrarMovimiento($store, $userId, [
-                            'product_id' => $product->id,
-                            'type' => \App\Models\MovimientoInventario::TYPE_ENTRADA,
-                            'quantity' => $detail->quantity,
-                            'unit_cost' => $detail->unit_cost,
-                            'description' => "Compra #{$purchase->id} - {$detail->description}",
-                            'purchase_id' => $purchase->id,
-                        ]);
+                    if (! $product) {
+                        continue;
+                    }
+                    $reference = "Compra #{$purchase->id}";
+                    $baseDatos = [
+                        'product_id' => $product->id,
+                        'type' => \App\Models\MovimientoInventario::TYPE_ENTRADA,
+                        'quantity' => $detail->quantity,
+                        'description' => "{$reference} - {$detail->description}",
+                        'purchase_id' => $purchase->id,
+                    ];
+                    if ($product->isSerialized()) {
+                        $serialItems = $detail->serial_items ?? [];
+                        if (empty($serialItems)) {
+                            throw new Exception("El producto «{$product->name}» es serializado. La compra en borrador debe incluir los números de serie por unidad. Edita la compra y añade las unidades con su serial.");
+                        }
+                        $this->inventarioService->registrarMovimiento($store, $userId, array_merge($baseDatos, [
+                            'reference' => $reference,
+                            'serial_items' => $serialItems,
+                        ]));
+                    } elseif ($product->isBatch()) {
+                        $this->inventarioService->registrarMovimiento($store, $userId, array_merge($baseDatos, [
+                            'unit_cost' => (float) $detail->unit_cost,
+                            'batch_data' => [
+                                'reference' => $reference,
+                                'items' => [
+                                    ['quantity' => $detail->quantity, 'cost' => (float) $detail->unit_cost],
+                                ],
+                            ],
+                        ]));
                     }
                 }
                 if ($detail->isActivoFijo() && $detail->activo_id) {
@@ -209,6 +236,9 @@ class PurchaseService
 
         if (! empty($filtros['status'])) {
             $query->porStatus($filtros['status']);
+        }
+        if (! empty($filtros['purchase_type'])) {
+            $query->porTipo($filtros['purchase_type']);
         }
         if (! empty($filtros['payment_status'])) {
             $query->porPaymentStatus($filtros['payment_status']);
@@ -303,6 +333,17 @@ class PurchaseService
             throw new Exception('La descripción es obligatoria cuando no hay producto o activo vinculado.');
         }
 
+        $serialItems = null;
+        if (! empty($d['serial_items']) && is_array($d['serial_items'])) {
+            $serialItems = array_values(array_map(function ($row) {
+                return [
+                    'serial_number' => trim($row['serial_number'] ?? ''),
+                    'cost' => (float) ($row['cost'] ?? 0),
+                    'features' => $row['features'] ?? null,
+                ];
+            }, $d['serial_items']));
+        }
+
         return PurchaseDetail::create([
             'purchase_id' => $purchase->id,
             'product_id' => $productId,
@@ -312,6 +353,7 @@ class PurchaseService
             'quantity' => $quantity,
             'unit_cost' => $unitCost,
             'subtotal' => $subtotal,
+            'serial_items' => $serialItems,
         ]);
     }
 

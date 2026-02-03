@@ -2,16 +2,15 @@
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-                Nueva Compra - {{ $store->name }}
+                Nueva Compra de Activos - {{ $store->name }}
             </h2>
             <a href="{{ route('stores.purchases', $store) }}" class="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
-                ← Volver a Compras
+                ← Volver a Compra de activos
             </a>
         </div>
     </x-slot>
 
-    @livewire('select-item-modal', ['storeId' => $store->id])
-    @livewire('create-product-modal', ['storeId' => $store->id, 'fromPurchase' => true])
+    @livewire('select-item-modal', ['storeId' => $store->id, 'itemType' => 'ACTIVO_FIJO'])
     @livewire('create-activo-modal', ['storeId' => $store->id, 'fromPurchase' => true])
 
     <div class="py-12" x-data="compraItemSelection({ paymentStatus: '{{ old('payment_status', 'PAGADO') }}' })">
@@ -51,7 +50,7 @@
             @endif
 
             <div class="compra-validation-error hidden mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-                <span class="block sm:inline">Debes seleccionar al menos un producto o bien en el detalle de la compra. Haz clic en "Seleccionar" en cada línea para elegir un producto de inventario o un activo fijo.</span>
+                <span class="block sm:inline">Debes seleccionar al menos un activo fijo en el detalle. Haz clic en "Seleccionar" en cada línea.</span>
                 <button type="button" class="absolute top-2 right-2 text-red-600 hover:text-red-800" onclick="this.parentElement.classList.add('hidden')" aria-label="Cerrar">×</button>
             </div>
 
@@ -88,15 +87,14 @@
 
                 <div class="mb-6">
                     <div class="flex justify-between items-center mb-2">
-                        <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">Detalle de la Compra</h3>
+                        <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">Detalle (activos fijos)</h3>
                         <button type="button" id="add-row" class="text-sm text-indigo-600 hover:text-indigo-800">+ Agregar línea</button>
                     </div>
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                             <thead class="bg-gray-50 dark:bg-gray-900">
                                 <tr>
-                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Tipo</th>
-                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Bien / Producto</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Activo fijo</th>
                                     <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Cantidad</th>
                                     <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Costo Unit.</th>
                                     <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Subtotal</th>
@@ -105,7 +103,7 @@
                             </thead>
                             <tbody id="details-body" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                                 @php
-                                    $defaultDetail = ['item_type' => 'INVENTARIO', 'product_id' => '', 'activo_id' => '', 'description' => '', 'quantity' => 1, 'unit_cost' => 0];
+                                    $defaultDetail = ['item_type' => 'ACTIVO_FIJO', 'product_id' => '', 'activo_id' => '', 'description' => '', 'quantity' => 1, 'unit_cost' => 0];
                                     $oldDetails = array_values(old('details', [$defaultDetail]));
                                     if (empty($oldDetails)) {
                                         $oldDetails = [$defaultDetail];
@@ -113,21 +111,16 @@
                                 @endphp
                                 @foreach($oldDetails as $i => $d)
                                     @php
-                                        $hasItem = !empty(trim($d['description'] ?? '')) || !empty($d['product_id'] ?? '') || !empty($d['activo_id'] ?? '');
+                                        $hasItem = !empty(trim($d['description'] ?? '')) || !empty($d['activo_id'] ?? '');
                                         $qty = (int) ($d['quantity'] ?? 1);
                                         $cost = (float) ($d['unit_cost'] ?? 0);
                                         $subtotal = $qty * $cost;
                                     @endphp
                                     <tr class="detail-row" data-row-id="{{ $i }}">
                                         <td class="px-3 py-2">
-                                            <select name="details[{{ $i }}][item_type]" class="item-type-select w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
-                                                <option value="INVENTARIO" {{ ($d['item_type'] ?? 'INVENTARIO') == 'INVENTARIO' ? 'selected' : '' }}>Inventario</option>
-                                                <option value="ACTIVO_FIJO" {{ ($d['item_type'] ?? '') == 'ACTIVO_FIJO' ? 'selected' : '' }}>Activo Fijo</option>
-                                            </select>
-                                        </td>
-                                        <td class="px-3 py-2">
+                                            <input type="hidden" name="details[{{ $i }}][item_type]" value="ACTIVO_FIJO">
+                                            <input type="hidden" name="details[{{ $i }}][product_id]" class="product-id-input" value="">
                                             <div class="item-select-wrapper">
-                                                <input type="hidden" name="details[{{ $i }}][product_id]" class="product-id-input" value="{{ $d['product_id'] ?? '' }}">
                                                 <input type="hidden" name="details[{{ $i }}][activo_id]" class="activo-id-input" value="{{ $d['activo_id'] ?? '' }}">
                                                 <input type="hidden" name="details[{{ $i }}][description]" class="item-description-input" value="{{ $d['description'] ?? '' }}">
                                                 <span class="item-selected-name text-sm text-gray-700 dark:text-gray-300 block mb-1 min-h-[1.25rem]">{{ $d['description'] ?? '' }}</span>
@@ -157,7 +150,7 @@
                         </table>
                     </div>
                     <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                        <strong>Inventario:</strong> suma al stock (productos para vender). <strong>Activo Fijo:</strong> va al módulo Activos (computadores, muebles, etc.).
+                        Solo activos fijos (computadores, muebles, etc.). Se suman al módulo Activos al aprobar la compra.
                     </p>
                 </div>
 
@@ -186,26 +179,19 @@
                 onItemSelected(detail) {
                     const row = document.querySelector(`.detail-row[data-row-id="${detail.rowId}"]`);
                     if (!row) return;
-                    const productInput = row.querySelector('.product-id-input');
                     const activoInput = row.querySelector('.activo-id-input');
+                    const productInput = row.querySelector('.product-id-input');
                     const descInput = row.querySelector('.item-description-input');
                     const nameSpan = row.querySelector('.item-selected-name');
                     const qtyInput = row.querySelector('.detail-qty');
-                    if (detail.type === 'INVENTARIO') {
-                        productInput.value = detail.id;
-                        activoInput.value = '';
-                        row.removeAttribute('data-activo-serializado');
-                        if (qtyInput) { qtyInput.min = 1; qtyInput.max = ''; qtyInput.value = 1; }
+                    activoInput.value = detail.id;
+                    if (productInput) productInput.value = '';
+                    if (detail.controlType === 'SERIALIZADO') {
+                        row.setAttribute('data-activo-serializado', '1');
+                        if (qtyInput) { qtyInput.min = 0; qtyInput.max = 1; qtyInput.value = 1; }
                     } else {
-                        activoInput.value = detail.id;
-                        productInput.value = '';
-                        if (detail.controlType === 'SERIALIZADO') {
-                            row.setAttribute('data-activo-serializado', '1');
-                            if (qtyInput) { qtyInput.min = 0; qtyInput.max = 1; qtyInput.value = 1; }
-                        } else {
-                            row.removeAttribute('data-activo-serializado');
-                            if (qtyInput) { qtyInput.min = 1; qtyInput.max = ''; qtyInput.value = qtyInput.value || 1; }
-                        }
+                        row.removeAttribute('data-activo-serializado');
+                        if (qtyInput) { qtyInput.min = 1; qtyInput.max = ''; qtyInput.value = qtyInput.value || 1; }
                     }
                     descInput.value = detail.name;
                     if (nameSpan) nameSpan.textContent = detail.name;
@@ -228,14 +214,9 @@
             function createRowHtml(idx) {
                 return `
                     <td class="px-3 py-2">
-                        <select name="details[${idx}][item_type]" class="item-type-select w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
-                            <option value="INVENTARIO">Inventario</option>
-                            <option value="ACTIVO_FIJO">Activo Fijo</option>
-                        </select>
-                    </td>
-                    <td class="px-3 py-2">
+                        <input type="hidden" name="details[${idx}][item_type]" value="ACTIVO_FIJO">
+                        <input type="hidden" name="details[${idx}][product_id]" class="product-id-input" value="">
                         <div class="item-select-wrapper">
-                            <input type="hidden" name="details[${idx}][product_id]" class="product-id-input" value="">
                             <input type="hidden" name="details[${idx}][activo_id]" class="activo-id-input" value="">
                             <input type="hidden" name="details[${idx}][description]" class="item-description-input" value="">
                             <span class="item-selected-name text-sm text-gray-700 dark:text-gray-300 block mb-1 min-h-[1.25rem]"></span>
@@ -277,8 +258,7 @@
                 if (btnSelect) {
                     btnSelect.addEventListener('click', function() {
                         const rowId = row.getAttribute('data-row-id');
-                        const itemType = row.querySelector('.item-type-select').value;
-                        Livewire.dispatch('open-select-item-for-row', { rowId: rowId, itemType: itemType });
+                        Livewire.dispatch('open-select-item-for-row', { rowId: rowId, itemType: 'ACTIVO_FIJO' });
                     });
                 }
                 if (btnChange) {
@@ -307,7 +287,8 @@
                 const rows = tbody.querySelectorAll('.detail-row');
                 rows.forEach((row, i) => {
                     row.setAttribute('data-row-id', String(i));
-                    row.querySelector('.item-type-select').name = `details[${i}][item_type]`;
+                    const itemTypeInput = row.querySelector('input[name*="[item_type]"]');
+                    if (itemTypeInput) itemTypeInput.name = `details[${i}][item_type]`;
                     row.querySelector('.product-id-input').name = `details[${i}][product_id]`;
                     row.querySelector('.activo-id-input').name = `details[${i}][activo_id]`;
                     row.querySelector('.item-description-input').name = `details[${i}][description]`;
@@ -325,7 +306,8 @@
                 const rows = tbody.querySelectorAll('.detail-row');
                 rows.forEach((row, i) => {
                     row.setAttribute('data-row-id', String(i));
-                    row.querySelector('.item-type-select').name = `details[${i}][item_type]`;
+                    const itemTypeInput = row.querySelector('input[name*="[item_type]"]');
+                    if (itemTypeInput) itemTypeInput.name = `details[${i}][item_type]`;
                     row.querySelector('.product-id-input').name = `details[${i}][product_id]`;
                     row.querySelector('.activo-id-input').name = `details[${i}][activo_id]`;
                     row.querySelector('.item-description-input').name = `details[${i}][description]`;
@@ -362,7 +344,7 @@
                             errorDiv.classList.remove('hidden');
                             errorDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
                         } else {
-                            alert('Debes seleccionar al menos un producto o bien en el detalle de la compra.');
+                            alert('Debes seleccionar al menos un activo fijo en el detalle.');
                         }
                         return false;
                     }

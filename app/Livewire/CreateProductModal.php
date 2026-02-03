@@ -233,7 +233,7 @@ class CreateProductModal extends Component
         $this->resetValidation();
 
         if ($this->fromPurchase) {
-            $this->dispatch('item-selected', rowId: $compraRowId, id: $product->id, name: $product->name, type: 'INVENTARIO');
+            $this->dispatch('item-selected', rowId: $compraRowId, id: $product->id, name: $product->name, type: 'INVENTARIO', productType: $product->type);
             $this->dispatch('close-modal', 'create-product-from-compra');
             $this->dispatch('close-modal', 'select-item-compra');
 

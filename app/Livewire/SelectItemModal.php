@@ -53,6 +53,7 @@ class SelectItemModal extends Component
                 'name' => $p->name,
                 'code' => $p->sku ?? null,
                 'type' => 'INVENTARIO',
+                'product_type' => $p->type ?? 'batch',
             ]);
         }
 
@@ -69,7 +70,7 @@ class SelectItemModal extends Component
         ]);
     }
 
-    public function selectItem(int $id, string $name, string $type, ?string $controlType = null): void
+    public function selectItem(int $id, string $name, string $type, ?string $controlType = null, ?string $productType = null): void
     {
         $payload = [
             'rowId' => $this->rowId,
@@ -79,6 +80,9 @@ class SelectItemModal extends Component
         ];
         if ($type === 'ACTIVO_FIJO' && $controlType !== null) {
             $payload['controlType'] = $controlType;
+        }
+        if ($type === 'INVENTARIO' && $productType !== null) {
+            $payload['productType'] = $productType;
         }
         $this->dispatch('item-selected', ...$payload);
         $this->dispatch('close-modal', 'select-item-compra');

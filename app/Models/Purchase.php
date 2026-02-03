@@ -15,6 +15,7 @@ class Purchase extends Model
         'user_id',
         'proveedor_id',
         'status',
+        'purchase_type',
         'payment_status',
         'payment_type',
         'invoice_number',
@@ -33,6 +34,11 @@ class Purchase extends Model
     public const STATUS_BORRADOR = 'BORRADOR';
     public const STATUS_APROBADO = 'APROBADO';
     public const STATUS_ANULADO = 'ANULADO';
+
+    /** Tipo de compra: activos fijos (módulo Financiero) */
+    public const TYPE_ACTIVO = 'ACTIVO';
+    /** Tipo de compra: productos de inventario (módulo Productos) */
+    public const TYPE_PRODUCTO = 'PRODUCTO';
 
     public const PAYMENT_PENDIENTE = 'PENDIENTE';
     public const PAYMENT_PAGADO = 'PAGADO';
@@ -72,6 +78,21 @@ class Purchase extends Model
     public function scopePorStatus(Builder $query, string $status): void
     {
         $query->where('status', $status);
+    }
+
+    public function scopePorTipo(Builder $query, string $purchaseType): void
+    {
+        $query->where('purchase_type', $purchaseType);
+    }
+
+    public function isActivo(): bool
+    {
+        return $this->purchase_type === self::TYPE_ACTIVO;
+    }
+
+    public function isProducto(): bool
+    {
+        return $this->purchase_type === self::TYPE_PRODUCTO;
     }
 
     public function scopePorPaymentStatus(Builder $query, string $paymentStatus): void

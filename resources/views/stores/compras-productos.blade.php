@@ -2,10 +2,10 @@
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-                Compra de activos - {{ $store->name }}
+                Compra de productos - {{ $store->name }}
             </h2>
-            <a href="{{ route('stores.dashboard', $store) }}" class="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
-                ← Volver al Resumen
+            <a href="{{ route('stores.products', $store) }}" class="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+                ← Volver a Productos
             </a>
         </div>
     </x-slot>
@@ -26,7 +26,7 @@
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6">
                     <div class="mb-6 flex justify-between items-center gap-4">
-                        <form method="GET" action="{{ route('stores.purchases', $store) }}" class="flex gap-2 flex-wrap">
+                        <form method="GET" action="{{ route('stores.product-purchases', $store) }}" class="flex gap-2 flex-wrap">
                             <select name="status" class="rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
                                 <option value="">Todos los estados</option>
                                 <option value="BORRADOR" {{ request('status') == 'BORRADOR' ? 'selected' : '' }}>Borrador</option>
@@ -46,12 +46,12 @@
                             </select>
                             <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Filtrar</button>
                         </form>
-                        <a href="{{ route('stores.purchases.create', $store) }}"
+                        <a href="{{ route('stores.product-purchases.create', $store) }}"
                            class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700">
                             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                             </svg>
-                            Nueva compra de activos
+                            Nueva compra de productos
                         </a>
                     </div>
 
@@ -107,7 +107,7 @@
                         </div>
                         <div class="mt-4">{{ $purchases->links() }}</div>
                     @else
-                        <p class="text-gray-500 dark:text-gray-400 text-center py-8">No hay compras registradas.</p>
+                        <p class="text-gray-500 dark:text-gray-400 text-center py-8">No hay compras de productos registradas.</p>
                     @endif
                 </div>
             </div>

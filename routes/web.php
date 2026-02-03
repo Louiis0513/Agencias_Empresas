@@ -24,6 +24,9 @@ Route::middleware(['auth', 'verified'])->prefix('tienda/{store:slug}')->name('st
     Route::get('/roles', [StoreController::class, 'roles'])->name('roles');
 
     Route::get('/productos', [StoreController::class, 'products'])->name('products');
+    Route::get('/productos/compras', [StoreController::class, 'productPurchases'])->name('product-purchases');
+    Route::get('/productos/compras/crear', [StoreController::class, 'createProductPurchase'])->name('product-purchases.create');
+    Route::post('/productos/compras', [StoreController::class, 'storeProductPurchase'])->name('product-purchases.store');
     Route::delete('/productos/{product}', [StoreController::class, 'destroyProduct'])->name('products.destroy');
 
     Route::get('/categorias', [StoreController::class, 'categories'])->name('categories');
@@ -78,6 +81,7 @@ Route::middleware(['auth', 'verified'])->prefix('tienda/{store:slug}')->name('st
     Route::delete('/activos/{activo}', [StoreController::class, 'destroyActivo'])->name('activos.destroy');
     Route::get('/api/activos/buscar', [StoreController::class, 'buscarActivos'])->name('activos.buscar');
     Route::get('/api/productos-inventario/buscar', [StoreController::class, 'buscarProductosInventario'])->name('productos-inventario.buscar');
+    Route::get('/api/productos/{product}/atributos-categoria', [StoreController::class, 'productCategoryAttributes'])->name('productos.atributos-categoria');
 
     // Compras
     Route::get('/compras', [StoreController::class, 'purchases'])->name('purchases');

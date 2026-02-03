@@ -447,6 +447,6 @@ class InventarioService
             });
         }
 
-        return $query->orderBy('name')->limit($limit)->get(['id', 'name', 'sku', 'stock', 'cost']);
+        return $query->orderBy('name')->limit($limit)->get(['id', 'name', 'sku', 'stock', 'cost', 'type']);
     }
 }

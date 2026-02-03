@@ -61,13 +61,16 @@ class CreateActivoModal extends Component
             'brand' => ['nullable', 'string', 'max:100'],
             'description' => ['nullable', 'string', 'max:500'],
             'quantity' => ['required', 'integer', 'min:0'],
-            'unit_cost' => ['required', 'numeric', 'min:0'],
             'location' => ['nullable', 'string', 'max:255'],
             'purchase_date' => ['nullable', 'date'],
             'warranty_expiry' => ['nullable', 'date'],
             'assigned_to_user_id' => ['nullable', 'integer', 'exists:users,id'],
             'is_active' => ['boolean'],
         ];
+        // El costo unitario solo se pide cuando NO es desde compra; en compra se indica en compras/crear
+        if (! $this->fromPurchase) {
+            $rules['unit_cost'] = ['required', 'numeric', 'min:0'];
+        }
         if ($this->control_type === 'SERIALIZADO') {
             $rules['quantity'] = ['required', 'integer', 'min:0', 'max:1'];
             if ($this->fromPurchase) {
@@ -93,7 +96,8 @@ class CreateActivoModal extends Component
         }
 
         $quantity = $this->fromPurchase && $this->control_type === 'SERIALIZADO' ? 0 : (int) $this->quantity;
-        $unitCost = $this->fromPurchase && $this->control_type === 'SERIALIZADO' ? 0 : (float) $this->unit_cost;
+        // Desde compra el costo se indica en el formulario de compra (compras/crear), no aquí
+        $unitCost = $this->fromPurchase ? 0 : (float) $this->unit_cost;
 
         $activo = $service->crearActivo($store, [
             'control_type' => $this->control_type,

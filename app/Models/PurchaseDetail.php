@@ -18,12 +18,14 @@ class PurchaseDetail extends Model
         'quantity',
         'unit_cost',
         'subtotal',
+        'serial_items',
     ];
 
     protected $casts = [
         'quantity' => 'integer',
         'unit_cost' => 'decimal:2',
         'subtotal' => 'decimal:2',
+        'serial_items' => 'array',
     ];
 
     public const TYPE_INVENTARIO = 'INVENTARIO';

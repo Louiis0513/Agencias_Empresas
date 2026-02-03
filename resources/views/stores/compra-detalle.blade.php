@@ -124,7 +124,7 @@
                                                 </div>
                                             </div>
                                         @endif
-                                        <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700" onclick="return confirm('¿Aprobar esta compra? Los productos tipo Inventario sumarán al stock. Los Activos Fijos sumarán al módulo Activos.');">Aprobar Compra</button>
+                                        <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700" onclick="return confirm('{{ $purchase->purchase_type === \App\Models\Purchase::TYPE_PRODUCTO ? "¿Aprobar esta compra? Los productos sumarán al stock de inventario." : "¿Aprobar esta compra? Los productos tipo Inventario sumarán al stock. Los Activos Fijos sumarán al módulo Activos." }}');">Aprobar Compra</button>
                                     </form>
                                 @endif
                                 <form method="POST" action="{{ route('stores.purchases.void', [$store, $purchase]) }}" class="inline">
