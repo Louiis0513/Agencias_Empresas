@@ -126,7 +126,7 @@
                                     <li class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50">
                                         <input type="checkbox"
                                                id="serial-{{ $unit['id'] }}"
-                                               wire:model="serialesSeleccionados"
+                                               wire:model.live="serialesSeleccionados"
                                                value="{{ $unit['serial_number'] }}"
                                                class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500">
                                         <label for="serial-{{ $unit['id'] }}" class="flex-1 text-sm text-gray-900 dark:text-gray-100 cursor-pointer">
@@ -211,22 +211,24 @@
                         </tr>
                     </thead>
                     <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-600">
-                        @foreach($carrito as $item)
+                        @foreach($carrito as $index => $item)
                             @php
                                 $qty = (int) ($item['quantity'] ?? 0);
                                 $isSerialized = !empty($item['serial_numbers'] ?? []);
                                 $serialNumbers = $item['serial_numbers'] ?? [];
                                 $stock = (int) ($item['stock'] ?? 0);
                                 $maxQty = max(1, $stock);
+                                $prices = $item['prices'] ?? [];
+                                $precioUnitTexto = $isSerialized && !empty($prices)
+                                    ? number_format((float) $prices[0], 2)
+                                    : number_format($item['price'] ?? 0, 2);
                             @endphp
                             <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                                 <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{{ $item['name'] }}</td>
                                 <td class="px-4 py-2 text-sm">
                                     @if($isSerialized)
                                         <span class="px-2 py-0.5 text-xs font-medium rounded bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 mr-1">Serializado</span>
-                                        <span class="text-gray-600 dark:text-gray-400" title="{{ implode(', ', $serialNumbers) }}">
-                                            {{ count($serialNumbers) }} unidad(es): {{ implode(', ', array_slice($serialNumbers, 0, 3)) }}{{ count($serialNumbers) > 3 ? '…' : '' }}
-                                        </span>
+                                        <span class="text-gray-600 dark:text-gray-400">{{ $serialNumbers[0] ?? '—' }}</span>
                                     @else
                                         <span class="px-2 py-0.5 text-xs font-medium rounded bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200">Lote</span>
                                         <span class="text-gray-500 dark:text-gray-400 text-xs">máx. {{ $stock }}</span>
@@ -234,7 +236,7 @@
                                 </td>
                                 <td class="px-4 py-2">
                                     @if($isSerialized)
-                                        <span class="text-sm font-medium">{{ $qty }}</span>
+                                        <span class="text-sm font-medium">1</span>
                                     @else
                                         <input type="number"
                                                min="1"
@@ -244,10 +246,10 @@
                                                class="w-20 rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 text-sm">
                                     @endif
                                 </td>
-                                <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{{ number_format($item['price'] ?? 0, 2) }}</td>
+                                <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{{ $precioUnitTexto }}</td>
                                 <td class="px-4 py-2 text-right">
                                     <button type="button"
-                                            wire:click="quitarDelCarrito({{ $item['product_id'] }})"
+                                            wire:click="quitarLineaCarrito({{ $index }})"
                                             class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 text-sm font-medium">
                                         Quitar
                                     </button>

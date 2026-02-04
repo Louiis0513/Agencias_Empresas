@@ -90,7 +90,25 @@ class VentasCarrito extends Component
     }
 
     /**
+     * Seriales que ya están en el carrito para un producto (no mostrarlos de nuevo en el modal).
+     */
+    protected function getSerialesEnCarritoParaProducto(int $productId): array
+    {
+        $serials = [];
+        foreach ($this->carrito as $item) {
+            if ((int) ($item['product_id'] ?? 0) !== $productId) {
+                continue;
+            }
+            foreach ($item['serial_numbers'] ?? [] as $sn) {
+                $serials[] = $sn;
+            }
+        }
+        return array_values(array_unique($serials));
+    }
+
+    /**
      * Carga la página actual de unidades disponibles (con búsqueda por serie y paginación).
+     * Excluye las unidades que ya están en el carrito para este producto.
      */
     public function cargarPaginaUnidadesDisponibles(): void
     {
@@ -99,9 +117,15 @@ class VentasCarrito extends Component
             return;
         }
 
+        $enCarrito = $this->getSerialesEnCarritoParaProducto($this->productoSerializadoId);
+
         $query = ProductItem::where('store_id', $store->id)
             ->where('product_id', $this->productoSerializadoId)
             ->where('status', ProductItem::STATUS_AVAILABLE);
+
+        if (! empty($enCarrito)) {
+            $query->whereNotIn('serial_number', $enCarrito);
+        }
 
         $search = trim($this->unidadesDisponiblesSearch);
         if ($search !== '') {
@@ -184,25 +208,28 @@ class VentasCarrito extends Component
             return;
         }
 
+        $productPrice = (float) $producto->price;
+        $productItems = ProductItem::where('store_id', $store->id)
+            ->where('product_id', $productId)
+            ->whereIn('serial_number', $serialNumbers)
+            ->get()
+            ->keyBy('serial_number');
+
         $carritoSimulado = $this->carrito;
-        $existe = false;
-        foreach ($carritoSimulado as $i => $item) {
-            if ((int) $item['product_id'] === $productId && isset($item['serial_numbers'])) {
-                $carritoSimulado[$i]['serial_numbers'] = array_values(array_unique(array_merge($item['serial_numbers'], $serialNumbers)));
-                $carritoSimulado[$i]['quantity'] = count($carritoSimulado[$i]['serial_numbers']);
-                $existe = true;
-                break;
-            }
-        }
-        if (! $existe) {
+        foreach ($serialNumbers as $serial) {
+            $pi = $productItems->get($serial);
+            $precio = $pi && $pi->price !== null && (float) $pi->price > 0
+                ? (float) $pi->price
+                : $productPrice;
             $carritoSimulado[] = [
                 'product_id' => $productId,
                 'name' => $producto->name,
-                'quantity' => count($serialNumbers),
+                'quantity' => 1,
                 'stock' => (int) $producto->stock,
-                'price' => (float) $producto->price,
+                'price' => $precio,
                 'type' => 'serialized',
-                'serial_numbers' => $serialNumbers,
+                'serial_numbers' => [$serial],
+                'prices' => [$precio],
             ];
         }
 
@@ -214,25 +241,20 @@ class VentasCarrito extends Component
             return;
         }
 
-        $existe = false;
-        foreach ($this->carrito as $i => $item) {
-            if ((int) $item['product_id'] === $productId && isset($item['serial_numbers'])) {
-                $this->carrito[$i]['serial_numbers'] = array_values(array_unique(array_merge($this->carrito[$i]['serial_numbers'], $serialNumbers)));
-                $this->carrito[$i]['quantity'] = count($this->carrito[$i]['serial_numbers']);
-                $this->carrito[$i]['stock'] = (int) $producto->stock;
-                $existe = true;
-                break;
-            }
-        }
-        if (! $existe) {
+        foreach ($serialNumbers as $serial) {
+            $pi = $productItems->get($serial);
+            $precio = $pi && $pi->price !== null && (float) $pi->price > 0
+                ? (float) $pi->price
+                : $productPrice;
             $this->carrito[] = [
                 'product_id' => $productId,
                 'name' => $producto->name,
-                'quantity' => count($serialNumbers),
+                'quantity' => 1,
                 'stock' => (int) $producto->stock,
-                'price' => (float) $producto->price,
+                'price' => $precio,
                 'type' => 'serialized',
-                'serial_numbers' => $serialNumbers,
+                'serial_numbers' => [$serial],
+                'prices' => [$precio],
             ];
         }
 
@@ -369,10 +391,16 @@ class VentasCarrito extends Component
         }
     }
 
-    public function quitarDelCarrito(int $productId): void
+    /**
+     * Quita una línea del carrito por su índice (cada serializado en su propia fila, cada lote una fila).
+     */
+    public function quitarLineaCarrito(int $index): void
     {
-        $this->carrito = array_values(array_filter($this->carrito, fn (array $item) => (int) $item['product_id'] !== $productId));
-        $this->errorStock = null;
+        if (isset($this->carrito[$index])) {
+            array_splice($this->carrito, $index, 1);
+            $this->carrito = array_values($this->carrito);
+            $this->errorStock = null;
+        }
     }
 
     public function render()

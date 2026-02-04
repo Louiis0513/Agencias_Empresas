@@ -61,10 +61,11 @@
 
             {{-- Inventario: serializado = product_items --}}
             @if($product->isSerialized())
+                <livewire:edit-product-item-modal :store-id="$store->id" :product-id="$product->id" />
                 <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg overflow-hidden">
                     <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                         <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">Unidades serializadas ({{ $product->productItems->count() }})</h3>
-                        <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Cada fila es una unidad en inventario con su número de serie.</p>
+                        <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Cada fila es una unidad en inventario. Asigna el precio de venta y edita datos con «Modificar».</p>
                     </div>
                     @if($product->productItems->isEmpty())
                         <div class="p-6 text-center text-sm text-gray-500 dark:text-gray-400">No hay unidades en inventario.</div>
@@ -75,9 +76,11 @@
                                     <tr>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Nº Serie</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Costo</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Precio venta</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Estado</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Referencia</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Atributos</th>
+                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Acción</th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -85,6 +88,13 @@
                                         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
                                             <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">{{ $item->serial_number }}</td>
                                             <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{{ number_format($item->cost, 2) }} €</td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                                                @if($item->price !== null && (float)$item->price > 0)
+                                                    {{ number_format($item->price, 2) }} €
+                                                @else
+                                                    <span class="text-gray-400 dark:text-gray-500">—</span>
+                                                @endif
+                                            </td>
                                             <td class="px-4 py-3 whitespace-nowrap">
                                                 @php
                                                     $statusLabels = \App\Models\ProductItem::estadosDisponibles();
@@ -105,6 +115,14 @@
                                                 @else
                                                     —
                                                 @endif
+                                            </td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
+                                                <button type="button"
+                                                        x-data
+                                                        @click="$dispatch('open-edit-product-item-modal', { id: {{ $item->id }} })"
+                                                        class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium">
+                                                    Modificar
+                                                </button>
                                             </td>
                                         </tr>
                                     @endforeach

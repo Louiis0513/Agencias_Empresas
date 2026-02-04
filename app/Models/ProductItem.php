@@ -21,12 +21,14 @@ class ProductItem extends Model
         'batch',
         'expiration_date',
         'cost',
+        'price',
         'status',
         'features',
     ];
 
     protected $casts = [
         'cost' => 'decimal:2',
+        'price' => 'decimal:2',
         'expiration_date' => 'date',
         'features' => 'array',
     ];
