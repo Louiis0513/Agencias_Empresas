@@ -392,6 +392,97 @@ class InventarioService
     }
 
     /**
+     * Registra salida de inventario por números de serie (productos serializados).
+     * El cliente eligió qué unidades concretas vender; se descuentan esos ítems.
+     *
+     * @param  array  $serialNumbers  Números de serie a descontar (deben existir y estar AVAILABLE)
+     * @throws Exception Si algún serial no existe o no está disponible
+     */
+    public function registrarSalidaPorSeriales(Store $store, int $userId, int $productId, array $serialNumbers, ?string $description = null): void
+    {
+        $serialNumbers = array_values(array_filter(array_map('trim', $serialNumbers)));
+        if (empty($serialNumbers)) {
+            return;
+        }
+
+        $product = Product::where('id', $productId)
+            ->where('store_id', $store->id)
+            ->firstOrFail();
+
+        if (! $product->isSerialized()) {
+            throw new Exception("El producto «{$product->name}» no es serializado; use registro por cantidad.");
+        }
+
+        $this->registrarMovimiento($store, $userId, [
+            'product_id'  => $productId,
+            'type'        => MovimientoInventario::TYPE_SALIDA,
+            'quantity'    => count($serialNumbers),
+            'description' => $description,
+        ], $serialNumbers);
+    }
+
+    /**
+     * Valida que haya stock disponible para todos los productos indicados.
+     * Solo valida productos de inventario (serialized/batch). No modifica el inventario.
+     * Para productos serializados puede recibir serial_numbers[] en lugar de quantity; entonces valida que esos seriales existan y estén disponibles.
+     *
+     * @param  array  $items  Lista de ítems: product_id + quantity O product_id + serial_numbers[]
+     * @throws Exception Si algún producto no tiene stock suficiente o un serial no está disponible
+     */
+    public function validarStockDisponible(Store $store, array $items): void
+    {
+        foreach ($items as $item) {
+            $productId = (int) ($item['product_id'] ?? 0);
+            if ($productId < 1) {
+                continue;
+            }
+
+            $product = Product::where('id', $productId)
+                ->where('store_id', $store->id)
+                ->first();
+
+            if (! $product) {
+                throw new Exception("El producto #{$productId} no existe o no pertenece a esta tienda.");
+            }
+
+            if (! $product->isProductoInventario()) {
+                continue;
+            }
+
+            $serialNumbers = $item['serial_numbers'] ?? null;
+            if (is_array($serialNumbers) && ! empty($serialNumbers)) {
+                // Validación por seriales (producto serializado)
+                foreach ($serialNumbers as $serial) {
+                    $serial = trim((string) $serial);
+                    if ($serial === '') {
+                        continue;
+                    }
+                    $productItem = ProductItem::where('store_id', $store->id)
+                        ->where('product_id', $product->id)
+                        ->where('serial_number', $serial)
+                        ->first();
+                    if (! $productItem) {
+                        throw new Exception("El serial «{$serial}» no existe en el inventario de «{$product->name}».");
+                    }
+                    if ($productItem->status !== ProductItem::STATUS_AVAILABLE) {
+                        throw new Exception("El ítem con serial «{$serial}» no está disponible (Estado: {$productItem->status}).");
+                    }
+                }
+            } else {
+                $quantity = (int) ($item['quantity'] ?? 0);
+                if ($quantity < 1) {
+                    continue;
+                }
+                if ($product->stock < $quantity) {
+                    throw new Exception(
+                        "Stock insuficiente en «{$product->name}». Actual: {$product->stock}, solicitado: {$quantity}."
+                    );
+                }
+            }
+        }
+    }
+
+    /**
      * Lista movimientos de inventario con filtros.
      *
      * @param array $filtros product_id, type, fecha_desde, fecha_hasta, per_page

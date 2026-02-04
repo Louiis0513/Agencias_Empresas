@@ -41,6 +41,9 @@ Route::middleware(['auth', 'verified'])->prefix('tienda/{store:slug}')->name('st
     Route::get('/categorias/{category}/atributos', [StoreController::class, 'categoryAttributes'])->name('category.attributes');
     Route::post('/categorias/{category}/atributos', [StoreController::class, 'assignAttributes'])->name('category.attributes.assign');
 
+    // Ventas (carrito, etc.)
+    Route::get('/ventas/carrito', [StoreController::class, 'carrito'])->name('ventas.carrito');
+
     // Facturas
     Route::get('/facturas', [StoreController::class, 'invoices'])->name('invoices');
     Route::post('/facturas', [StoreController::class, 'storeInvoice'])->name('invoices.store');
@@ -99,6 +102,17 @@ Route::middleware(['auth', 'verified'])->prefix('tienda/{store:slug}')->name('st
     Route::get('/cuentas-por-pagar/{accountPayable}', [StoreController::class, 'showAccountPayable'])->name('accounts-payables.show');
     Route::post('/cuentas-por-pagar/{accountPayable}/pagar', [StoreController::class, 'payAccountPayable'])->name('accounts-payables.pay');
     Route::post('/cuentas-por-pagar/{accountPayable}/reversar-pago/{comprobanteEgreso}', [StoreController::class, 'reversarPagoAccountPayable'])->name('accounts-payables.reversar-pago');
+
+    // Cuentas por cobrar
+    Route::get('/cuentas-por-cobrar', [StoreController::class, 'accountsReceivables'])->name('accounts-receivables');
+    Route::get('/cuentas-por-cobrar/{accountReceivable}', [StoreController::class, 'showAccountReceivable'])->name('accounts-receivables.show');
+    Route::post('/cuentas-por-cobrar/{accountReceivable}/cobrar', [StoreController::class, 'cobrarAccountReceivable'])->name('accounts-receivables.cobrar');
+
+    // Comprobantes de ingreso
+    Route::get('/comprobantes-ingreso', [StoreController::class, 'comprobantesIngreso'])->name('comprobantes-ingreso.index');
+    Route::get('/comprobantes-ingreso/crear', [StoreController::class, 'createComprobanteIngreso'])->name('comprobantes-ingreso.create');
+    Route::post('/comprobantes-ingreso', [StoreController::class, 'storeComprobanteIngreso'])->name('comprobantes-ingreso.store');
+    Route::get('/comprobantes-ingreso/{comprobanteIngreso}', [StoreController::class, 'showComprobanteIngreso'])->name('comprobantes-ingreso.show');
 
     // Comprobantes de Egreso
     Route::get('/comprobantes-egreso', [StoreController::class, 'comprobantesEgreso'])->name('comprobantes-egreso.index');

@@ -127,8 +127,9 @@ class InvoiceService
     {
         $cajaService = app(CajaService::class);
         $inventarioService = app(InventarioService::class);
+        $accountReceivableService = app(AccountReceivableService::class);
 
-        return DB::transaction(function () use ($store, $userId, $datos, $cajaService, $inventarioService) {
+        return DB::transaction(function () use ($store, $userId, $datos, $cajaService, $inventarioService, $accountReceivableService) {
             $status = $datos['status'] ?? 'PAID';
             $payments = $datos['payments'] ?? [];
 
@@ -188,6 +189,45 @@ class InvoiceService
                     'description'    => 'Pago Factura #' . $factura->id,
                     'invoice_id'     => $factura->id,
                 ]);
+            }
+
+            // 5. Si a crédito (PENDING): crear cuenta por cobrar y cuotas
+            if ($status === 'PENDING') {
+                $arData = $datos['account_receivable'] ?? [];
+                $dueDate = $arData['due_date'] ?? null;
+                $cuotas = $arData['cuotas'] ?? [];
+                $accountReceivableService->crearDesdeFactura($store, $factura, $dueDate, $cuotas);
+            }
+
+            return $factura->load(['details.product', 'customer', 'user', 'accountReceivable.cuotas']);
+        });
+    }
+
+    /**
+     * Crea la factura en estado PENDING solo con cabecera y detalles (sin inventario, caja ni cuenta por cobrar).
+     * Pensado para ser orquestado por VentaService::ventaACredito, que se encarga de validar stock,
+     * crear la cuenta por cobrar y descontar inventario.
+     *
+     * @param  array  $datos  customer_id, subtotal, tax, discount, total, details
+     * @return Invoice
+     */
+    public function crearFacturaPendienteSoloCabeceraYDetalles(Store $store, int $userId, array $datos): Invoice
+    {
+        return DB::transaction(function () use ($store, $userId, $datos) {
+            $factura = Invoice::create([
+                'store_id'        => $store->id,
+                'user_id'         => $userId,
+                'customer_id'     => $datos['customer_id'] ?? null,
+                'subtotal'        => $datos['subtotal'],
+                'tax'             => $datos['tax'] ?? 0,
+                'discount'        => $datos['discount'] ?? 0,
+                'total'           => $datos['total'],
+                'status'          => 'PENDING',
+                'payment_method'  => 'CREDIT',
+            ]);
+
+            foreach ($datos['details'] ?? [] as $item) {
+                $this->procesarDetalle($store, $factura, $item);
             }
 
             return $factura->load(['details.product', 'customer', 'user']);

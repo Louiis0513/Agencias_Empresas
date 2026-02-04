@@ -71,18 +71,20 @@ class CajaService
             }
 
             $mov = MovimientoBolsillo::create([
-                'store_id'                               => $store->id,
-                'bolsillo_id'                            => $bolsillo->id,
-                'invoice_id'                             => $datos['invoice_id'] ?? null,
-                'account_payable_payment_id'             => $datos['account_payable_payment_id'] ?? null,
-                'comprobante_egreso_id'                  => $datos['comprobante_egreso_id'] ?? null,
-                'reversal_of_account_payable_payment_id' => $datos['reversal_of_account_payable_payment_id'] ?? null,
-                'reversal_of_comprobante_egreso_id'      => $datos['reversal_of_comprobante_egreso_id'] ?? null,
-                'user_id'                                => $userId,
-                'type'                                   => $datos['type'],
-                'amount'                                 => $datos['amount'],
-                'payment_method'                         => $datos['payment_method'] ?? null,
-                'description'                            => $datos['description'] ?? null,
+                'store_id'                                => $store->id,
+                'bolsillo_id'                             => $bolsillo->id,
+                'invoice_id'                              => $datos['invoice_id'] ?? null,
+                'account_payable_payment_id'              => $datos['account_payable_payment_id'] ?? null,
+                'comprobante_egreso_id'                   => $datos['comprobante_egreso_id'] ?? null,
+                'comprobante_ingreso_id'                  => $datos['comprobante_ingreso_id'] ?? null,
+                'reversal_of_account_payable_payment_id'  => $datos['reversal_of_account_payable_payment_id'] ?? null,
+                'reversal_of_comprobante_egreso_id'       => $datos['reversal_of_comprobante_egreso_id'] ?? null,
+                'reversal_of_comprobante_ingreso_id'      => $datos['reversal_of_comprobante_ingreso_id'] ?? null,
+                'user_id'                                 => $userId,
+                'type'                                    => $datos['type'],
+                'amount'                                  => $datos['amount'],
+                'payment_method'                          => $datos['payment_method'] ?? null,
+                'description'                             => $datos['description'] ?? null,
             ]);
 
             if ($datos['type'] === MovimientoBolsillo::TYPE_INCOME) {

@@ -260,6 +260,19 @@ class StoreController extends Controller
         }
     }
 
+    // ==================== VENTAS ====================
+
+    public function carrito(Store $store)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+
+        session(['current_store_id' => $store->id]);
+
+        return view('stores.ventas.carrito', compact('store'));
+    }
+
     // ==================== FACTURAS ====================
 
     public function invoices(Store $store, InvoiceService $invoiceService, Request $request)
@@ -1386,6 +1399,194 @@ class StoreController extends Controller
         } catch (\Exception $e) {
             return redirect()->route('stores.accounts-payables.show', [$store, $accountPayable])->with('error', $e->getMessage());
         }
+    }
+
+    // ==================== CUENTAS POR COBRAR ====================
+
+    public function accountsReceivables(Store $store, \App\Services\AccountReceivableService $accountReceivableService, Request $request)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        session(['current_store_id' => $store->id]);
+
+        $filtros = [
+            'status' => $request->get('status'),
+            'customer_id' => $request->get('customer_id'),
+        ];
+        $cuentas = $accountReceivableService->listar($store, $filtros);
+        $saldoPendiente = $accountReceivableService->saldoPendienteTotal($store);
+        $customers = \App\Models\Customer::deTienda($store->id)->orderBy('name')->get(['id', 'name']);
+
+        return view('stores.cuentas-por-cobrar', compact('store', 'cuentas', 'saldoPendiente', 'customers'));
+    }
+
+    public function showAccountReceivable(Store $store, \App\Models\AccountReceivable $accountReceivable, \App\Services\AccountReceivableService $accountReceivableService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        if ($accountReceivable->store_id !== $store->id) {
+            abort(404);
+        }
+        session(['current_store_id' => $store->id]);
+
+        $accountReceivable = $accountReceivableService->obtener($store, $accountReceivable->id);
+        $bolsillos = \App\Models\Bolsillo::deTienda($store->id)->activos()->orderBy('name')->get();
+
+        return view('stores.cuenta-por-cobrar-detalle', compact('store', 'accountReceivable', 'bolsillos'));
+    }
+
+    public function cobrarAccountReceivable(Store $store, \App\Models\AccountReceivable $accountReceivable, Request $request, \App\Services\ComprobanteIngresoService $comprobanteIngresoService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        if ($accountReceivable->store_id !== $store->id) {
+            abort(404);
+        }
+
+        $request->validate([
+            'date' => ['required', 'date'],
+            'amount' => ['required', 'numeric', 'min:0.01', 'lte:' . (float) $accountReceivable->balance],
+            'notes' => ['nullable', 'string', 'max:500'],
+            'parts' => ['required', 'array', 'min:1'],
+            'parts.*.bolsillo_id' => ['required', 'exists:bolsillos,id'],
+            'parts.*.amount' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        $sumaPartes = collect($request->input('parts'))->sum(fn ($p) => (float) ($p['amount'] ?? 0));
+        $amount = (float) $request->input('amount');
+        if (abs($sumaPartes - $amount) > 0.01) {
+            return redirect()->route('stores.accounts-receivables.show', [$store, $accountReceivable])
+                ->with('error', "La suma de los montos por bolsillo ({$sumaPartes}) debe coincidir con el monto a cobrar ({$amount}).")->withInput();
+        }
+
+        $data = [
+            'date' => $request->input('date'),
+            'notes' => $request->input('notes'),
+            'aplicaciones' => [
+                ['account_receivable_id' => $accountReceivable->id, 'amount' => $amount],
+            ],
+            'destinos' => collect($request->input('parts'))->map(fn ($p) => [
+                'bolsillo_id' => $p['bolsillo_id'],
+                'amount' => (float) $p['amount'],
+                'reference' => $p['reference'] ?? null,
+            ])->filter(fn ($d) => $d['amount'] > 0)->values()->all(),
+        ];
+
+        try {
+            $comprobanteIngresoService->crearComprobante($store, Auth::id(), $data);
+            return redirect()->route('stores.accounts-receivables.show', [$store, $accountReceivable])->with('success', 'Cobro registrado correctamente. El dinero se ha ingresado a caja y el saldo de la cuenta se ha actualizado.');
+        } catch (\Exception $e) {
+            return redirect()->route('stores.accounts-receivables.show', [$store, $accountReceivable])->with('error', $e->getMessage())->withInput();
+        }
+    }
+
+    // ==================== COMPROBANTES DE INGRESO ====================
+
+    public function comprobantesIngreso(Store $store, \App\Services\ComprobanteIngresoService $comprobanteIngresoService, Request $request)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        session(['current_store_id' => $store->id]);
+
+        $filtros = [
+            'type' => $request->get('type'),
+            'customer_id' => $request->get('customer_id'),
+        ];
+        $comprobantes = $comprobanteIngresoService->listar($store, $filtros);
+
+        return view('stores.comprobantes-ingreso', compact('store', 'comprobantes'));
+    }
+
+    public function createComprobanteIngreso(Store $store)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        session(['current_store_id' => $store->id]);
+
+        $bolsillos = \App\Models\Bolsillo::deTienda($store->id)->activos()->orderBy('name')->get();
+        $cuentasPendientes = \App\Models\AccountReceivable::deTienda($store->id)
+            ->whereIn('status', [\App\Models\AccountReceivable::STATUS_PENDIENTE, \App\Models\AccountReceivable::STATUS_PARCIAL])
+            ->with(['invoice', 'customer'])
+            ->orderBy('created_at')
+            ->get();
+
+        return view('stores.comprobante-ingreso-crear', compact('store', 'bolsillos', 'cuentasPendientes'));
+    }
+
+    public function storeComprobanteIngreso(Store $store, Request $request, \App\Services\ComprobanteIngresoService $comprobanteIngresoService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+
+        $request->validate([
+            'date' => ['required', 'date'],
+            'notes' => ['nullable', 'string', 'max:500'],
+            'type' => ['required', 'in:INGRESO_MANUAL,COBRO_CUENTA'],
+            'account_receivable_id' => ['nullable', 'required_if:type,COBRO_CUENTA', 'exists:accounts_receivable,id'],
+            'amount' => ['nullable', 'required_if:type,COBRO_CUENTA', 'numeric', 'min:0.01'],
+            'parts' => ['required', 'array', 'min:1'],
+            'parts.*.bolsillo_id' => ['required', 'exists:bolsillos,id'],
+            'parts.*.amount' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        $amount = (float) ($request->input('amount') ?? 0);
+        $parts = $request->input('parts', []);
+        $sumaPartes = collect($parts)->sum(fn ($p) => (float) ($p['amount'] ?? 0));
+
+        if ($request->input('type') === 'COBRO_CUENTA') {
+            if (abs($sumaPartes - $amount) > 0.01) {
+                return redirect()->back()->withInput()->with('error', 'La suma de los bolsillos debe coincidir con el monto a cobrar.');
+            }
+            $ar = \App\Models\AccountReceivable::where('id', $request->account_receivable_id)->where('store_id', $store->id)->firstOrFail();
+            if ($amount > (float) $ar->balance) {
+                return redirect()->back()->withInput()->with('error', 'El monto no puede ser mayor al saldo pendiente de la cuenta.');
+            }
+            $data = [
+                'date' => $request->date,
+                'notes' => $request->notes,
+                'type' => 'COBRO_CUENTA',
+                'aplicaciones' => [['account_receivable_id' => $ar->id, 'amount' => $amount]],
+                'destinos' => collect($parts)->map(fn ($p) => ['bolsillo_id' => $p['bolsillo_id'], 'amount' => (float) $p['amount'], 'reference' => $p['reference'] ?? null])->filter(fn ($d) => $d['amount'] > 0)->values()->all(),
+            ];
+        } else {
+            if ($sumaPartes <= 0) {
+                return redirect()->back()->withInput()->with('error', 'Indique al menos un bolsillo con monto mayor a cero.');
+            }
+            $data = [
+                'date' => $request->date,
+                'notes' => $request->notes,
+                'type' => 'INGRESO_MANUAL',
+                'destinos' => collect($parts)->map(fn ($p) => ['bolsillo_id' => $p['bolsillo_id'], 'amount' => (float) $p['amount'], 'reference' => $p['reference'] ?? null])->filter(fn ($d) => $d['amount'] > 0)->values()->all(),
+            ];
+        }
+
+        try {
+            $comprobante = $comprobanteIngresoService->crearComprobante($store, Auth::id(), $data);
+            return redirect()->route('stores.comprobantes-ingreso.show', [$store, $comprobante])->with('success', 'Comprobante de ingreso creado correctamente.');
+        } catch (\Exception $e) {
+            return redirect()->back()->withInput()->with('error', $e->getMessage());
+        }
+    }
+
+    public function showComprobanteIngreso(Store $store, \App\Models\ComprobanteIngreso $comprobanteIngreso, \App\Services\ComprobanteIngresoService $comprobanteIngresoService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        if ($comprobanteIngreso->store_id !== $store->id) {
+            abort(404);
+        }
+        session(['current_store_id' => $store->id]);
+
+        $comprobanteIngreso = $comprobanteIngresoService->obtener($store, $comprobanteIngreso->id);
+
+        return view('stores.comprobante-ingreso-detalle', compact('store', 'comprobanteIngreso'));
     }
 
     // ==================== COMPROBANTES DE EGRESO ====================

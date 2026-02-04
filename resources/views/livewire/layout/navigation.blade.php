@@ -47,8 +47,12 @@ new class extends Component
                             {{ __('Productos') }}
                         </x-nav-link>
 
-                        <x-nav-link :href="route('stores.cajas', $store)" :active="request()->routeIs('stores.cajas*') || request()->routeIs('stores.activos*') || request()->routeIs('stores.accounts-payables*') || request()->routeIs('stores.comprobantes-egreso*') || request()->routeIs('stores.invoices*') || request()->routeIs('stores.purchases*')" wire:navigate>
+                        <x-nav-link :href="route('stores.cajas', $store)" :active="request()->routeIs('stores.cajas*') || request()->routeIs('stores.activos*') || request()->routeIs('stores.accounts-payables*') || request()->routeIs('stores.accounts-receivables*') || request()->routeIs('stores.comprobantes-egreso*') || request()->routeIs('stores.comprobantes-ingreso*') || request()->routeIs('stores.invoices*') || request()->routeIs('stores.purchases*')" wire:navigate>
                             {{ __('Financiero') }}
+                        </x-nav-link>
+
+                        <x-nav-link :href="route('stores.ventas.carrito', $store)" :active="request()->routeIs('stores.ventas*')" wire:navigate>
+                            {{ __('Ventas') }}
                         </x-nav-link>
 
                         {{-- Botón de Salir (Volver al panel general) --}}
@@ -111,9 +115,10 @@ new class extends Component
             @php
                 $inPersonas = request()->routeIs('stores.customers*') || request()->routeIs('stores.workers*');
                 $inProductos = request()->routeIs('stores.products*') || request()->routeIs('stores.categories*') || request()->routeIs('stores.attribute-groups*') || request()->routeIs('stores.inventario*') || request()->routeIs('stores.proveedores*') || request()->routeIs('stores.product-purchases*');
-                $inFinanciero = request()->routeIs('stores.cajas*') || request()->routeIs('stores.activos*') || request()->routeIs('stores.accounts-payables*') || request()->routeIs('stores.comprobantes-egreso*') || request()->routeIs('stores.invoices*') || request()->routeIs('stores.purchases*');
+                $inFinanciero = request()->routeIs('stores.cajas*') || request()->routeIs('stores.activos*') || request()->routeIs('stores.accounts-payables*') || request()->routeIs('stores.accounts-receivables*') || request()->routeIs('stores.comprobantes-egreso*') || request()->routeIs('stores.comprobantes-ingreso*') || request()->routeIs('stores.invoices*') || request()->routeIs('stores.purchases*');
+                $inVentas = request()->routeIs('stores.ventas*');
             @endphp
-            @if($inPersonas || $inProductos || $inFinanciero)
+            @if($inPersonas || $inProductos || $inFinanciero || $inVentas)
                 <div class="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
                     <div class="flex gap-1 py-2 overflow-x-auto">
                         @if($inPersonas)
@@ -160,8 +165,19 @@ new class extends Component
                             <a href="{{ route('stores.comprobantes-egreso.index', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.comprobantes-egreso*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
                                 {{ __('Comprobantes de egreso') }}
                             </a>
+                            <a href="{{ route('stores.accounts-receivables', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.accounts-receivables*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
+                                {{ __('Cuentas por cobrar') }}
+                            </a>
+                            <a href="{{ route('stores.comprobantes-ingreso.index', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.comprobantes-ingreso*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
+                                {{ __('Comprobantes de ingreso') }}
+                            </a>
                             <a href="{{ route('stores.invoices', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.invoices*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
                                 {{ __('Facturas') }}
+                            </a>
+                        @endif
+                        @if($inVentas)
+                            <a href="{{ route('stores.ventas.carrito', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.ventas.carrito*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
+                                {{ __('Carrito') }}
                             </a>
                         @endif
                     </div>
@@ -224,8 +240,18 @@ new class extends Component
                 <x-responsive-nav-link :href="route('stores.comprobantes-egreso.index', $store)" :active="request()->routeIs('stores.comprobantes-egreso*')" wire:navigate>
                     {{ __('Comprobantes de egreso') }}
                 </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('stores.accounts-receivables', $store)" :active="request()->routeIs('stores.accounts-receivables*')" wire:navigate>
+                    {{ __('Cuentas por cobrar') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('stores.comprobantes-ingreso.index', $store)" :active="request()->routeIs('stores.comprobantes-ingreso*')" wire:navigate>
+                    {{ __('Comprobantes de ingreso') }}
+                </x-responsive-nav-link>
                 <x-responsive-nav-link :href="route('stores.invoices', $store)" :active="request()->routeIs('stores.invoices*')" wire:navigate>
                     {{ __('Facturas') }}
+                </x-responsive-nav-link>
+                <div class="px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">{{ __('Ventas') }}</div>
+                <x-responsive-nav-link :href="route('stores.ventas.carrito', $store)" :active="request()->routeIs('stores.ventas*')" wire:navigate>
+                    {{ __('Carrito') }}
                 </x-responsive-nav-link>
                 <div class="border-t border-gray-200 dark:border-gray-600 my-2"></div>
                 <x-responsive-nav-link :href="route('dashboard')" wire:navigate class="text-red-500">

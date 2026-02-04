@@ -46,9 +46,15 @@ class Invoice extends Model
         return $this->belongsTo(Store::class); 
     }
     
-    public function customer() 
-    { 
-        return $this->belongsTo(Customer::class); 
+    public function customer()
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
+    /** Cuenta por cobrar asociada (1:1) si la factura es a crédito (PENDING/PARTIAL). */
+    public function accountReceivable()
+    {
+        return $this->hasOne(AccountReceivable::class);
     }
 
     // --- SCOPES ---
