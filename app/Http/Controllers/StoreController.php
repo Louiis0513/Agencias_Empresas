@@ -107,11 +107,26 @@ class StoreController extends Controller
         session(['current_store_id' => $store->id]);
 
         $products = $store->products()
-            ->with(['category', 'attributeValues.attribute', 'batches.batchItems', 'productItems'])
+            ->with('category')
             ->orderBy('name')
             ->get();
 
         return view('stores.productos', compact('store', 'products'));
+    }
+
+    public function showProduct(Store $store, \App\Models\Product $product)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        if ($product->store_id !== $store->id) {
+            abort(404);
+        }
+        session(['current_store_id' => $store->id]);
+
+        $product->load(['category', 'productItems', 'batches.batchItems']);
+
+        return view('stores.producto-detalle', compact('store', 'product'));
     }
 
     public function destroyProduct(Store $store, \App\Models\Product $product, ProductService $productService)

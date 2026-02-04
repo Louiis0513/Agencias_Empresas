@@ -27,6 +27,7 @@ Route::middleware(['auth', 'verified'])->prefix('tienda/{store:slug}')->name('st
     Route::get('/productos/compras', [StoreController::class, 'productPurchases'])->name('product-purchases');
     Route::get('/productos/compras/crear', [StoreController::class, 'createProductPurchase'])->name('product-purchases.create');
     Route::post('/productos/compras', [StoreController::class, 'storeProductPurchase'])->name('product-purchases.store');
+    Route::get('/productos/{product}', [StoreController::class, 'showProduct'])->name('products.show');
     Route::delete('/productos/{product}', [StoreController::class, 'destroyProduct'])->name('products.destroy');
 
     Route::get('/categorias', [StoreController::class, 'categories'])->name('categories');
