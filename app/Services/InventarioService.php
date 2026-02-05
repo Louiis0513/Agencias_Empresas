@@ -256,11 +256,14 @@ class InventarioService
                         if ($existingItems->has($key)) {
                             $existingItems->get($key)->increment('quantity', $qty);
                         } else {
+                            $price = isset($itemData['price']) && $itemData['price'] !== '' && $itemData['price'] !== null
+                                ? (float) $itemData['price'] : null;
                             $newItem = BatchItem::create([
                                 'batch_id'  => $batch->id,
                                 'quantity'  => $qty,
                                 'unit_cost' => $unitCost,
                                 'features'  => $features,
+                                'price'     => $price,
                             ]);
                             $existingItems->put($key, $newItem);
                         }

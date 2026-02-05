@@ -124,9 +124,46 @@ class StoreController extends Controller
         }
         session(['current_store_id' => $store->id]);
 
-        $product->load(['category', 'productItems', 'batches.batchItems']);
+        $product->load(['category.attributes.options', 'productItems', 'batches.batchItems', 'allowedVariantOptions']);
 
         return view('stores.producto-detalle', compact('store', 'product'));
+    }
+
+    /**
+     * Actualiza las opciones de atributos permitidas para variantes de este producto (lista blanca).
+     * Solo se aceptan option_ids que pertenezcan a atributos de la categoría del producto.
+     */
+    public function updateProductVariantOptions(Store $store, \App\Models\Product $product, Request $request)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        if ($product->store_id !== $store->id) {
+            abort(404);
+        }
+
+        $product->load('category.attributes');
+        $categoryAttributeIds = $product->category?->attributes?->pluck('id') ?? collect();
+
+        $request->validate([
+            'attribute_option_ids' => ['nullable', 'array'],
+            'attribute_option_ids.*' => [
+                'integer',
+                'exists:attribute_options,id',
+                function ($attribute, $value, $fail) use ($categoryAttributeIds) {
+                    $opt = \App\Models\AttributeOption::find($value);
+                    if (! $opt || ! $categoryAttributeIds->contains($opt->attribute_id)) {
+                        $fail('La opción no pertenece a un atributo de la categoría del producto.');
+                    }
+                },
+            ],
+        ]);
+
+        $ids = array_values(array_unique(array_map('intval', $request->input('attribute_option_ids', []))));
+        $product->allowedVariantOptions()->sync($ids);
+
+        return redirect()->route('stores.products.show', [$store, $product])
+            ->with('success', 'Variantes permitidas actualizadas. En compras solo se podrán elegir estas opciones.');
     }
 
     public function destroyProduct(Store $store, \App\Models\Product $product, ProductService $productService)
@@ -895,6 +932,11 @@ class StoreController extends Controller
     /**
      * Atributos de la categoría del producto (para compra de productos serializados: cantidad, atributos, costo).
      */
+    /**
+     * Atributos de la categoría del producto con sus opciones (para variantes).
+     * Si el producto tiene "variantes permitidas" configuradas, solo se devuelven esas opciones;
+     * si no, todas las opciones del atributo (para no bloquear productos aún no configurados).
+     */
     public function productCategoryAttributes(Store $store, \App\Models\Product $product)
     {
         if (! Auth::user()->stores->contains($store->id)) {
@@ -904,8 +946,28 @@ class StoreController extends Controller
             abort(404);
         }
 
-        $product->load(['category.attributes' => fn ($q) => $q->orderByPivot('position')]);
-        $attributes = $product->category?->attributes?->map(fn ($a) => ['id' => $a->id, 'name' => $a->name])->values() ?? [];
+        $product->load([
+            'category.attributes' => fn ($q) => $q->orderByPivot('position'),
+            'allowedVariantOptions',
+        ]);
+
+        $categoryAttributes = $product->category?->attributes ?? collect();
+        $allowedOptionIds = $product->allowedVariantOptions->pluck('id')->all();
+
+        $attributes = $categoryAttributes->map(function ($attr) use ($product) {
+            $attr->load('options');
+            $options = $attr->options;
+            // Si el producto tiene variantes permitidas para este atributo, solo esas opciones
+            $allowedForThisAttr = $product->allowedVariantOptions->where('attribute_id', $attr->id)->pluck('id');
+            if ($allowedForThisAttr->isNotEmpty()) {
+                $options = $options->whereIn('id', $allowedForThisAttr->all());
+            }
+            return [
+                'id' => $attr->id,
+                'name' => $attr->name,
+                'options' => $options->map(fn ($o) => ['id' => $o->id, 'value' => $o->value])->values()->all(),
+            ];
+        })->values()->all();
 
         return response()->json(['attributes' => $attributes]);
     }
@@ -1058,6 +1120,7 @@ class StoreController extends Controller
     /**
      * Convierte detalles de compra de productos al formato esperado por PurchaseService.
      * Filas con serial_items: quantity = número de unidades, unit_cost = subtotal/quantity.
+     * Filas con batch_items: quantity = suma de cantidades, unit_cost = promedio ponderado, se guarda batch_items.
      */
     protected function normalizeProductPurchaseDetails(array $rawDetails): array
     {
@@ -1085,6 +1148,39 @@ class StoreController extends Controller
                     'quantity' => $qty,
                     'unit_cost' => $qty > 0 ? round($subtotal / $qty, 2) : 0,
                     'serial_items' => $itemsForStorage,
+                ];
+            } elseif (! empty($d['batch_items']) && is_array($d['batch_items'])) {
+                $batchItems = $d['batch_items'];
+                $totalQty = 0;
+                $subtotal = 0;
+                $itemsForStorage = [];
+                foreach ($batchItems as $item) {
+                    $qty = (int) ($item['quantity'] ?? 0);
+                    if ($qty < 1) {
+                        continue;
+                    }
+                    $unitCost = (float) ($item['unit_cost'] ?? 0);
+                    $totalQty += $qty;
+                    $subtotal += $qty * $unitCost;
+                    $features = $item['features'] ?? null;
+                    if (is_array($features)) {
+                        $features = array_filter($features, fn ($v) => $v !== '' && $v !== null);
+                    }
+                    $itemsForStorage[] = [
+                        'quantity' => $qty,
+                        'unit_cost' => $unitCost,
+                        'price' => isset($item['price']) && $item['price'] !== '' ? (float) $item['price'] : null,
+                        'features' => ! empty($features) ? $features : null,
+                    ];
+                }
+                $normalized[] = [
+                    'item_type' => 'INVENTARIO',
+                    'product_id' => $d['product_id'] ?? null,
+                    'activo_id' => null,
+                    'description' => $d['description'] ?? '',
+                    'quantity' => $totalQty,
+                    'unit_cost' => $totalQty > 0 ? round($subtotal / $totalQty, 2) : 0,
+                    'batch_items' => $itemsForStorage,
                 ];
             } else {
                 $normalized[] = [

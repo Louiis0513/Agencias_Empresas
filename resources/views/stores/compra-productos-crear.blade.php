@@ -169,6 +169,28 @@
             detailRow.querySelector('.detail-subtotal').textContent = total.toFixed(2);
         }
 
+        function compraProductosUpdateBatchTotals(detailRow) {
+            var batchRow = detailRow.nextElementSibling;
+            if (!batchRow || !batchRow.classList.contains('batch-details-row')) return;
+            var container = batchRow.querySelector('.batch-items-container');
+            if (!container) return;
+            var items = container.querySelectorAll('.batch-item');
+            if (items.length === 0) return;
+            var totalQty = 0;
+            var totalCost = 0;
+            items.forEach(function(item) {
+                var qty = parseInt(item.querySelector('.batch-item-qty').value, 10) || 0;
+                var cost = parseFloat(item.querySelector('.batch-item-cost').value) || 0;
+                totalQty += qty;
+                totalCost += qty * cost;
+            });
+            var qtyInput = detailRow.querySelector('.detail-qty');
+            var costInput = detailRow.querySelector('.detail-cost');
+            if (qtyInput) qtyInput.value = totalQty;
+            if (costInput) costInput.value = totalQty > 0 ? (totalCost / totalQty).toFixed(2) : '0';
+            detailRow.querySelector('.detail-subtotal').textContent = totalCost.toFixed(2);
+        }
+
         function compraProductosSelection() {
             return {
                 paymentStatus: @json(old('payment_status', 'PENDIENTE')),
@@ -192,6 +214,7 @@
                     if (isSerialized) {
                         row.setAttribute('data-product-type', 'serialized');
                         const next = row.nextElementSibling;
+                        if (next && next.classList.contains('batch-details-row')) next.remove();
                         if (!next || !next.classList.contains('serial-details-row')) {
                             window.compraProductosCreateSerialDetailsRowUnidades(rowId, detail.id, row);
                         }
@@ -202,13 +225,18 @@
                         compraProductosUpdateSerialQtyAndSubtotal(row);
                     } else {
                         row.setAttribute('data-product-type', 'batch');
-                        const next = row.nextElementSibling;
+                        let next = row.nextElementSibling;
                         if (next && next.classList.contains('serial-details-row')) next.remove();
+                        next = row.nextElementSibling;
+                        if (!next || !next.classList.contains('batch-details-row')) {
+                            window.compraProductosCreateBatchDetailsRow(rowId, detail.id, row);
+                        }
                         row.querySelector('.detail-qty').classList.remove('hidden');
                         row.querySelector('.detail-serial-qty').classList.add('hidden').textContent = '';
                         row.querySelector('.detail-cost').classList.remove('hidden');
                         row.querySelector('.detail-serial-dash').classList.add('hidden');
                         compraProductosUpdateSubtotal(row);
+                        compraProductosUpdateBatchTotals(row);
                     }
                     const errDiv = document.querySelector('.compra-productos-validation-error');
                     if (errDiv) errDiv.classList.add('hidden');
@@ -376,6 +404,145 @@
 
             window.compraProductosCreateSerialDetailsRowUnidades = createSerialDetailsRowUnidades;
 
+            function createBatchDetailsRow(rowId, productId, detailRow) {
+                const tr = document.createElement('tr');
+                tr.className = 'batch-details-row bg-gray-50 dark:bg-gray-900/50';
+                tr.setAttribute('data-parent-row-id', rowId);
+                tr.setAttribute('data-product-id', productId);
+                tr.innerHTML = `
+                    <td colspan="5" class="px-3 py-3 border-t border-gray-200 dark:border-gray-700">
+                        <div class="space-y-4 text-sm">
+                            <div class="p-2 rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                                <p class="text-sm font-medium text-amber-800 dark:text-amber-200">Variantes del lote (opcional)</p>
+                                <p class="mt-0.5 text-xs text-amber-700 dark:text-amber-300">Elige en los desplegables solo las opciones definidas para este producto (configura «Variantes permitidas» en el detalle del producto). Cantidad, costo y precio de venta por variante.</p>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="font-semibold text-gray-700 dark:text-gray-200">Variantes (atributos, cantidad, costo, precio venta)</span>
+                                <button type="button" class="btn-add-batch-variant text-indigo-600 hover:underline text-sm">+ Agregar variante</button>
+                            </div>
+                            <div class="batch-items-container space-y-3"></div>
+                        </div>
+                    </td>
+                `;
+                detailRow.insertAdjacentElement('afterend', tr);
+                const container = tr.querySelector('.batch-items-container');
+                const form = document.getElementById('form-compra-productos');
+                const urlTemplate = form.getAttribute('data-atributos-url');
+                const url = urlTemplate.replace(/\/0\/atributos-categoria/, '/' + productId + '/atributos-categoria');
+                fetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        const attrs = data.attributes || [];
+                        function addBatchVariant(index) {
+                            const div = document.createElement('div');
+                            div.className = 'batch-item border rounded-lg p-4 space-y-3 bg-gray-50 dark:bg-gray-900/30 border-gray-200 dark:border-gray-700';
+                            div.setAttribute('data-batch-index', index);
+                            let attrsHtml = '';
+                            attrs.forEach(function(attr) {
+                                const options = attr.options || [];
+                                let opts = '<option value="">—</option>';
+                                options.forEach(function(opt) {
+                                    opts += '<option value="' + escapeHtml(opt.value) + '">' + escapeHtml(opt.value) + '</option>';
+                                });
+                                attrsHtml += `
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">${escapeHtml(attr.name)}</label>
+                                        <select class="batch-attr-feature w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" data-attr-id="${attr.id}" name="details[${rowId}][batch_items][${index}][features][${attr.id}]">${opts}</select>
+                                    </div>
+                                `;
+                            });
+                            div.innerHTML = `
+                                <div class="flex justify-between items-center batch-item-header">
+                                    <span class="text-sm font-semibold text-gray-600 dark:text-gray-300">Variante #${index + 1}</span>
+                                    <button type="button" class="btn-remove-batch-variant text-red-600 hover:underline text-sm">Eliminar</button>
+                                </div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Cantidad</label>
+                                        <input type="number" min="1" class="batch-item-qty w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" value="1" name="details[${rowId}][batch_items][${index}][quantity]">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Costo unit. (€)</label>
+                                        <input type="number" step="0.01" min="0" class="batch-item-cost w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" value="0" name="details[${rowId}][batch_items][${index}][unit_cost]">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Precio venta (€, opcional)</label>
+                                        <input type="number" step="0.01" min="0" class="batch-item-price w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" placeholder="—" name="details[${rowId}][batch_items][${index}][price]">
+                                    </div>
+                                </div>
+                                ${attrs.length ? '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">' + attrsHtml + '</div>' : ''}
+                            `;
+                            container.appendChild(div);
+                            div.querySelectorAll('.batch-item-qty, .batch-item-cost, .batch-item-price').forEach(function(inp) {
+                                inp.addEventListener('input', function() { compraProductosUpdateBatchTotals(detailRow); });
+                            });
+                            const removeBtn = div.querySelector('.btn-remove-batch-variant');
+                            if (removeBtn) {
+                                removeBtn.addEventListener('click', function() {
+                                    div.remove();
+                                    renumberBatchItems(container, rowId, attrs);
+                                    compraProductosUpdateBatchTotals(detailRow);
+                                });
+                            }
+                        }
+                        tr.querySelector('.btn-add-batch-variant').addEventListener('click', function() {
+                            const n = container.querySelectorAll('.batch-item').length;
+                            addBatchVariant(n);
+                            renumberBatchItems(container, rowId, attrs);
+                            compraProductosUpdateBatchTotals(detailRow);
+                        });
+                    })
+                    .catch(function() {
+                        tr.querySelector('.batch-items-container').innerHTML = '<p class="text-xs text-amber-600 dark:text-amber-400">No se pudieron cargar los atributos. Puedes agregar variantes con cantidad, costo y precio.</p>';
+                        tr.querySelector('.btn-add-batch-variant').addEventListener('click', function() {
+                            const container = tr.querySelector('.batch-items-container');
+                            const p = container.querySelector('p');
+                            if (p) p.remove();
+                            const n = container.querySelectorAll('.batch-item').length;
+                            const div = document.createElement('div');
+                            div.className = 'batch-item border rounded-lg p-4 space-y-3 bg-gray-50 dark:bg-gray-900/30';
+                            div.innerHTML = `
+                                <div class="flex justify-between"><span class="text-sm font-semibold">Variante #${n + 1}</span><button type="button" class="btn-remove-batch-variant text-red-600 hover:underline text-sm">Eliminar</button></div>
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    <div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Cantidad</label><input type="number" min="1" class="batch-item-qty w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" value="1" name="details[${rowId}][batch_items][${n}][quantity]"></div>
+                                    <div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Costo unit. (€)</label><input type="number" step="0.01" min="0" class="batch-item-cost w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" value="0" name="details[${rowId}][batch_items][${n}][unit_cost]"></div>
+                                    <div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Precio venta (€)</label><input type="number" step="0.01" min="0" class="batch-item-price w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" name="details[${rowId}][batch_items][${n}][price]"></div>
+                                </div>
+                            `;
+                            container.appendChild(div);
+                            div.querySelectorAll('.batch-item-qty, .batch-item-cost, .batch-item-price').forEach(function(inp) {
+                                inp.addEventListener('input', function() { compraProductosUpdateBatchTotals(detailRow); });
+                            });
+                            div.querySelector('.btn-remove-batch-variant').addEventListener('click', function() {
+                                div.remove();
+                                compraProductosUpdateBatchTotals(detailRow);
+                            });
+                            compraProductosUpdateBatchTotals(detailRow);
+                        });
+                    });
+            }
+
+            window.compraProductosCreateBatchDetailsRow = createBatchDetailsRow;
+
+            function renumberBatchItems(container, rowId, attrs) {
+                const items = container.querySelectorAll('.batch-item');
+                items.forEach(function(item, i) {
+                    item.setAttribute('data-batch-index', String(i));
+                    const qty = item.querySelector('.batch-item-qty');
+                    const cost = item.querySelector('.batch-item-cost');
+                    const price = item.querySelector('.batch-item-price');
+                    if (qty) qty.name = 'details[' + rowId + '][batch_items][' + i + '][quantity]';
+                    if (cost) cost.name = 'details[' + rowId + '][batch_items][' + i + '][unit_cost]';
+                    if (price) price.name = 'details[' + rowId + '][batch_items][' + i + '][price]';
+                    item.querySelectorAll('.batch-attr-feature').forEach(function(inp) {
+                        const attrId = inp.getAttribute('data-attr-id');
+                        if (attrId) inp.name = 'details[' + rowId + '][batch_items][' + i + '][features][' + attrId + ']';
+                    });
+                    const header = item.querySelector('.batch-item-header span');
+                    if (header) header.textContent = 'Variante #' + (i + 1);
+                });
+            }
+
             function toggleSerialRemoveButtons(container) {
                 const items = container.querySelectorAll('.serial-item');
                 const showRemove = items.length > 1;
@@ -467,6 +634,26 @@
                             });
                         }
                     }
+                    const batchRow = row.nextElementSibling && row.nextElementSibling.classList.contains('batch-details-row') ? row.nextElementSibling : null;
+                    if (batchRow) {
+                        batchRow.setAttribute('data-parent-row-id', String(i));
+                        const batchContainer = batchRow.querySelector('.batch-items-container');
+                        if (batchContainer) {
+                            const batchItems = batchContainer.querySelectorAll('.batch-item');
+                            batchItems.forEach(function(item, j) {
+                                const qty = item.querySelector('.batch-item-qty');
+                                const cost = item.querySelector('.batch-item-cost');
+                                const price = item.querySelector('.batch-item-price');
+                                if (qty) qty.name = 'details[' + i + '][batch_items][' + j + '][quantity]';
+                                if (cost) cost.name = 'details[' + i + '][batch_items][' + j + '][unit_cost]';
+                                if (price) price.name = 'details[' + i + '][batch_items][' + j + '][price]';
+                                item.querySelectorAll('.batch-attr-feature').forEach(function(inp) {
+                                    const attrId = inp.getAttribute('data-attr-id');
+                                    if (attrId) inp.name = 'details[' + i + '][batch_items][' + j + '][features][' + attrId + ']';
+                                });
+                            });
+                        }
+                    }
                 });
             }
 
@@ -485,8 +672,8 @@
                 if (btnChange) {
                     btnChange.addEventListener('click', function() {
                         row.setAttribute('data-product-type', 'batch');
-                        const next = row.nextElementSibling;
-                        if (next && next.classList.contains('serial-details-row')) next.remove();
+                        let next = row.nextElementSibling;
+                        if (next && (next.classList.contains('serial-details-row') || next.classList.contains('batch-details-row'))) next.remove();
                         row.querySelector('.product-id-input').value = '';
                         row.querySelector('.item-description-input').value = '';
                         row.querySelector('.item-selected-name').textContent = '';
@@ -505,8 +692,8 @@
                 if (removeBtn) {
                     removeBtn.addEventListener('click', function() {
                         if (tbody.querySelectorAll('.detail-row').length > 1) {
-                            const next = row.nextElementSibling;
-                            if (next && next.classList.contains('serial-details-row')) next.remove();
+                            let next = row.nextElementSibling;
+                            if (next && (next.classList.contains('serial-details-row') || next.classList.contains('batch-details-row'))) next.remove();
                             row.remove();
                             renumberRows();
                         }

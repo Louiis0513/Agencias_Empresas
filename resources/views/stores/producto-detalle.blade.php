@@ -135,6 +135,42 @@
 
             {{-- Inventario: por lotes = batches + batch_items --}}
             @if($product->isBatch())
+                {{-- Variantes permitidas: define qué opciones se podrán elegir al comprar --}}
+                @if($product->category && $product->category->attributes->isNotEmpty())
+                    <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                            <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">Variantes permitidas</h3>
+                            <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Marca las opciones que tendrá este producto. En compras solo se podrá elegir entre estas (evita escribir "S" o "Small" a mano). Si no marcas ninguna, se permiten todas las opciones de la categoría.</p>
+                        </div>
+                        <form method="POST" action="{{ route('stores.productos.variant-options.update', [$store, $product]) }}" class="p-6">
+                            @csrf
+                            @method('PUT')
+                            <div class="space-y-4">
+                                @foreach($product->category->attributes as $attr)
+                                    <div>
+                                        <span class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ $attr->name }}</span>
+                                        <div class="flex flex-wrap gap-3">
+                                            @foreach($attr->options as $opt)
+                                                <label class="inline-flex items-center">
+                                                    <input type="checkbox" name="attribute_option_ids[]" value="{{ $opt->id }}"
+                                                           {{ $product->allowedVariantOptions->contains('id', $opt->id) ? 'checked' : '' }}
+                                                           class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 shadow-sm focus:ring-indigo-500">
+                                                    <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">{{ $opt->value }}</span>
+                                                </label>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                            <div class="mt-4">
+                                <button type="submit" class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800">
+                                    Guardar variantes permitidas
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                @endif
+
                 <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg overflow-hidden">
                     <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                         <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">Lotes y variantes</h3>

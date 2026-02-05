@@ -72,6 +72,16 @@ class Product extends Model
         return $this->hasMany(Batch::class);
     }
 
+    /**
+     * Opciones de atributos permitidas para variantes de este producto (lotes/serial).
+     * Si está vacío para un atributo, en compras se muestran todas las opciones de la categoría.
+     */
+    public function allowedVariantOptions()
+    {
+        return $this->belongsToMany(AttributeOption::class, 'product_attribute_options')
+            ->withTimestamps();
+    }
+
     public function proveedores()
     {
         return $this->belongsToMany(Proveedor::class, 'producto_proveedor')

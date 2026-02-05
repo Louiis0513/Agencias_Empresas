@@ -59,10 +59,41 @@
                             @endforeach
                         </select>
                         <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                            La categoría define qué atributos tendrá el producto; los valores se asignan al dar entrada (seriales o lotes).
+                            La categoría define qué atributos tendrá el producto. Marca abajo las variantes (opciones) que tendrá este producto.
                         </p>
                         <x-input-error :messages="$errors->get('category_id')" class="mt-1" />
                     </div>
+
+                    {{-- Variantes del producto: marcar qué opciones de cada atributo tendrá (1 o varias) --}}
+                    @if($this->selectedCategory && $this->selectedCategory->attributes->isNotEmpty())
+                        <div class="rounded-lg border border-gray-200 dark:border-gray-600 p-4 bg-gray-50 dark:bg-gray-900/40">
+                            <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ __('Variantes de este producto') }}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                                {{ __('Marca las opciones que tendrá este producto. Si es una sola variante, marca una; si son varias (ej. tallas S, M, L), marca todas. En compras solo podrás elegir entre estas.') }}
+                            </p>
+                            <div class="space-y-4">
+                                @foreach($this->selectedCategory->attributes as $attr)
+                                    <div>
+                                        <span class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ $attr->name }}</span>
+                                        <div class="flex flex-wrap gap-3">
+                                            @foreach($attr->options as $opt)
+                                                <label class="inline-flex items-center">
+                                                    <input type="checkbox"
+                                                           wire:model="attribute_option_ids"
+                                                           value="{{ $opt->id }}"
+                                                           class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 shadow-sm focus:ring-indigo-500">
+                                                    <span class="ml-2 text-sm text-gray-600 dark:text-gray-400">{{ $opt->value }}</span>
+                                                </label>
+                                            @endforeach
+                                        </div>
+                                        @if($attr->options->isEmpty())
+                                            <p class="text-xs text-amber-600 dark:text-amber-400">Sin opciones. Añade opciones en Categorías → {{ $this->selectedCategory->name }} → Atributos.</p>
+                                        @endif
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
                 @else
                     <div class="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-4">
                         <p class="text-sm text-amber-800 dark:text-amber-200">

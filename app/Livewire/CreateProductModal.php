@@ -35,6 +35,9 @@ class CreateProductModal extends Component
     /** @var array<int, string> Valores de atributos: [attribute_id => value] */
     public array $attribute_values = [];
 
+    /** IDs de opciones de atributos permitidas para este producto (variantes: Talla S, M, L, etc.). */
+    public array $attribute_option_ids = [];
+
     #[On('open-create-product-from-compra')]
     public function setCompraRowId(string $rowId = ''): void
     {
@@ -137,6 +140,7 @@ class CreateProductModal extends Component
     public function updatedCategoryId(): void
     {
         $this->attribute_values = [];
+        $this->attribute_option_ids = [];
         $cat = $this->getSelectedCategoryProperty();
         if ($cat) {
             foreach ($cat->attributes as $attr) {
@@ -203,7 +207,7 @@ class CreateProductModal extends Component
             abort(403, 'No tienes permiso para crear productos en esta tienda.');
         }
 
-        // Solo se crea el producto con categoría; los atributos se asignan al dar entrada (seriales/lotes).
+        // Crear producto; si es por lotes y se eligieron variantes, guardar opciones permitidas.
         try {
             $product = $service->createProduct($store, [
                 'type' => $this->type,
@@ -224,11 +228,20 @@ class CreateProductModal extends Component
             return;
         }
 
+        if ($product->isBatch() && ! empty($this->attribute_option_ids)) {
+            $categoryAttributeIds = $product->category->attributes->pluck('id')->toArray();
+            $validIds = \App\Models\AttributeOption::whereIn('id', $this->attribute_option_ids)
+                ->whereIn('attribute_id', $categoryAttributeIds)
+                ->pluck('id')
+                ->toArray();
+            $product->allowedVariantOptions()->sync($validIds);
+        }
+
         $compraRowId = $this->compraRowId;
 
         $this->reset([
             'name', 'barcode', 'sku', 'category_id', 'location',
-            'type', 'is_active', 'attribute_values', 'compraRowId',
+            'type', 'is_active', 'attribute_values', 'attribute_option_ids', 'compraRowId',
         ]);
         $this->resetValidation();
 

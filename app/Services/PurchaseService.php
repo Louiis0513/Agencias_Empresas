@@ -169,13 +169,32 @@ class PurchaseService
                             'serial_items' => $serialItems,
                         ]));
                     } elseif ($product->isBatch()) {
+                        $batchItems = $detail->batch_items ?? null;
+                        if (! empty($batchItems) && is_array($batchItems)) {
+                            $items = [];
+                            foreach ($batchItems as $bi) {
+                                $qty = (int) ($bi['quantity'] ?? 0);
+                                if ($qty < 1) {
+                                    continue;
+                                }
+                                $items[] = [
+                                    'quantity' => $qty,
+                                    'cost' => (float) ($bi['unit_cost'] ?? 0),
+                                    'unit_cost' => (float) ($bi['unit_cost'] ?? 0),
+                                    'price' => isset($bi['price']) && $bi['price'] !== null ? (float) $bi['price'] : null,
+                                    'features' => $bi['features'] ?? null,
+                                ];
+                            }
+                        } else {
+                            $items = [
+                                ['quantity' => $detail->quantity, 'cost' => (float) $detail->unit_cost, 'unit_cost' => (float) $detail->unit_cost, 'features' => null],
+                            ];
+                        }
                         $this->inventarioService->registrarMovimiento($store, $userId, array_merge($baseDatos, [
                             'unit_cost' => (float) $detail->unit_cost,
                             'batch_data' => [
                                 'reference' => $reference,
-                                'items' => [
-                                    ['quantity' => $detail->quantity, 'cost' => (float) $detail->unit_cost],
-                                ],
+                                'items' => $items,
                             ],
                         ]));
                     }
@@ -344,6 +363,11 @@ class PurchaseService
             }, $d['serial_items']));
         }
 
+        $batchItems = null;
+        if (! empty($d['batch_items']) && is_array($d['batch_items'])) {
+            $batchItems = array_values($d['batch_items']);
+        }
+
         return PurchaseDetail::create([
             'purchase_id' => $purchase->id,
             'product_id' => $productId,
@@ -354,6 +378,7 @@ class PurchaseService
             'unit_cost' => $unitCost,
             'subtotal' => $subtotal,
             'serial_items' => $serialItems,
+            'batch_items' => $batchItems,
         ]);
     }
 

@@ -19,6 +19,7 @@ class PurchaseDetail extends Model
         'unit_cost',
         'subtotal',
         'serial_items',
+        'batch_items',
     ];
 
     protected $casts = [
@@ -26,6 +27,7 @@ class PurchaseDetail extends Model
         'unit_cost' => 'decimal:2',
         'subtotal' => 'decimal:2',
         'serial_items' => 'array',
+        'batch_items' => 'array',
     ];
 
     public const TYPE_INVENTARIO = 'INVENTARIO';
