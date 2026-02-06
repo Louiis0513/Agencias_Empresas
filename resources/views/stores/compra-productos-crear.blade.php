@@ -11,6 +11,7 @@
     </x-slot>
 
     @livewire('select-item-modal', ['storeId' => $store->id, 'itemType' => 'INVENTARIO'])
+    @livewire('select-batch-variant-modal', ['storeId' => $store->id])
     @livewire('create-product-modal', ['storeId' => $store->id, 'fromPurchase' => true])
 
     <div class="py-12" x-data="compraProductosSelection()">
@@ -21,7 +22,8 @@
 
             <form method="POST" action="{{ route('stores.product-purchases.store', $store) }}" class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg p-6" id="form-compra-productos"
                   data-atributos-url="{{ route('stores.productos.atributos-categoria', [$store, 0]) }}"
-                  x-on:item-selected.window="onItemSelected($event.detail)">
+                  x-on:item-selected.window="onItemSelected($event.detail)"
+                  x-on:batch-variant-selected.window="onBatchVariantSelected($event.detail)">
                 @csrf
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -82,7 +84,7 @@
                                         $cost = (float) ($d['unit_cost'] ?? 0);
                                         $subtotal = $qty * $cost;
                                     @endphp
-                                    <tr class="detail-row" data-row-id="{{ $i }}" data-product-type="batch">
+                                    <tr class="detail-row" data-row-id="{{ $i }}" data-product-type="simple">
                                         <td class="px-3 py-2">
                                             <input type="hidden" name="details[{{ $i }}][item_type]" value="INVENTARIO">
                                             <div class="item-select-wrapper">
@@ -192,54 +194,157 @@
         }
 
         function compraProductosSelection() {
+            // Función auxiliar para escapar HTML
+            function escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+            
             return {
                 paymentStatus: @json(old('payment_status', 'PENDIENTE')),
                 onItemSelected(detail) {
                     if (detail.type !== 'INVENTARIO') return;
                     const row = document.querySelector(`#details-body-productos .detail-row[data-row-id="${detail.rowId}"]`);
                     if (!row) return;
+                    
+                    const productType = detail.productType || 'simple';
+                    const rowId = detail.rowId;
+                    const productId = detail.id;
+                    const productName = detail.name;
+
+                    // Guardar información del producto en la fila
+                    row.setAttribute('data-product-id', productId);
+                    row.setAttribute('data-product-type', productType);
+                    
                     const productInput = row.querySelector('.product-id-input');
                     const descInput = row.querySelector('.item-description-input');
                     const nameSpan = row.querySelector('.item-selected-name');
-                    if (productInput) productInput.value = detail.id;
-                    if (descInput) descInput.value = detail.name;
-                    if (nameSpan) nameSpan.textContent = detail.name;
+                    if (productInput) productInput.value = productId;
+                    if (descInput) descInput.value = productName;
+                    if (nameSpan) nameSpan.textContent = productName;
+                    
                     const btnSelect = row.querySelector('.btn-select-item');
                     const btnChange = row.querySelector('.btn-change-item');
                     if (btnSelect) btnSelect.classList.add('hidden');
                     if (btnChange) btnChange.classList.remove('hidden');
 
-                    const isSerialized = detail.productType === 'serialized';
-                    const rowId = detail.rowId;
-                    if (isSerialized) {
+                    // Limpiar filas expandidas anteriores
+                    let next = row.nextElementSibling;
+                    if (next && (next.classList.contains('serial-details-row') || next.classList.contains('batch-details-row'))) {
+                        next.remove();
+                    }
+
+                    // Manejar según el tipo de producto
+                    if (productType === 'simple') {
+                        // Productos simples: solo cantidad y costo (como está actualmente)
+                        row.querySelector('.detail-qty').classList.remove('hidden');
+                        row.querySelector('.detail-serial-qty').classList.add('hidden');
+                        row.querySelector('.detail-cost').classList.remove('hidden');
+                        row.querySelector('.detail-serial-dash').classList.add('hidden');
+                        compraProductosUpdateSubtotal(row);
+                    } else if (productType === 'batch') {
+                        // Productos batch: abrir modal para seleccionar variante
+                        Livewire.dispatch('open-select-batch-variant', {
+                            productId: productId,
+                            rowId: rowId,
+                            productName: productName
+                        });
+                    } else if (productType === 'serialized') {
+                        // Productos serializados: mostrar campos para atributos, serie y costo
                         row.setAttribute('data-product-type', 'serialized');
-                        const next = row.nextElementSibling;
-                        if (next && next.classList.contains('batch-details-row')) next.remove();
-                        if (!next || !next.classList.contains('serial-details-row')) {
-                            window.compraProductosCreateSerialDetailsRowUnidades(rowId, detail.id, row);
+                        if (!row.nextElementSibling || !row.nextElementSibling.classList.contains('serial-details-row')) {
+                            window.compraProductosCreateSerialDetailsRowUnidades(rowId, productId, row);
                         }
                         row.querySelector('.detail-qty').classList.add('hidden');
                         row.querySelector('.detail-serial-qty').classList.remove('hidden');
                         row.querySelector('.detail-cost').classList.add('hidden');
                         row.querySelector('.detail-serial-dash').classList.remove('hidden');
                         compraProductosUpdateSerialQtyAndSubtotal(row);
-                    } else {
-                        row.setAttribute('data-product-type', 'batch');
-                        let next = row.nextElementSibling;
-                        if (next && next.classList.contains('serial-details-row')) next.remove();
-                        next = row.nextElementSibling;
-                        if (!next || !next.classList.contains('batch-details-row')) {
-                            window.compraProductosCreateBatchDetailsRow(rowId, detail.id, row);
-                        }
-                        row.querySelector('.detail-qty').classList.remove('hidden');
-                        row.querySelector('.detail-serial-qty').classList.add('hidden').textContent = '';
-                        row.querySelector('.detail-cost').classList.remove('hidden');
-                        row.querySelector('.detail-serial-dash').classList.add('hidden');
-                        compraProductosUpdateSubtotal(row);
-                        compraProductosUpdateBatchTotals(row);
                     }
+                    
                     const errDiv = document.querySelector('.compra-productos-validation-error');
                     if (errDiv) errDiv.classList.add('hidden');
+                },
+                onBatchVariantSelected(detail) {
+                    const row = document.querySelector(`#details-body-productos .detail-row[data-row-id="${detail.rowId}"]`);
+                    if (!row) return;
+                    
+                    const rowId = detail.rowId;
+                    const productId = detail.productId;
+                    const variantFeatures = detail.variantFeatures || {};
+                    
+                    // Guardar la variante seleccionada en la fila
+                    row.setAttribute('data-variant-features', JSON.stringify(variantFeatures));
+                    
+                    // Limpiar filas expandidas anteriores
+                    let next = row.nextElementSibling;
+                    if (next && (next.classList.contains('serial-details-row') || next.classList.contains('batch-details-row'))) {
+                        next.remove();
+                    }
+                    
+                    // Crear fila de detalles para batch con la variante seleccionada
+                    const batchRow = document.createElement('tr');
+                    batchRow.className = 'batch-details-row bg-gray-50 dark:bg-gray-900/50';
+                    batchRow.setAttribute('data-parent-row-id', rowId);
+                    batchRow.setAttribute('data-product-id', productId);
+                    
+                    // Crear el HTML para mostrar la variante seleccionada y permitir ingresar cantidad, costo y precio
+                    let variantDisplay = '';
+                    for (const [attrId, value] of Object.entries(variantFeatures)) {
+                        variantDisplay += `<span class="inline-block px-2 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-200 rounded text-xs mr-2 mb-1">${escapeHtml(String(value))}</span>`;
+                    }
+                    
+                    batchRow.innerHTML = `
+                        <td colspan="5" class="px-3 py-3 border-t border-gray-200 dark:border-gray-700">
+                            <div class="space-y-4 text-sm">
+                                <div class="p-2 rounded bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800">
+                                    <p class="text-sm font-medium text-indigo-800 dark:text-indigo-200">Variante seleccionada</p>
+                                    <p class="mt-1 text-xs text-indigo-700 dark:text-indigo-300">${variantDisplay || 'Sin atributos'}</p>
+                                </div>
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Cantidad</label>
+                                        <input type="number" min="1" class="batch-item-qty w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" value="1" name="details[${rowId}][batch_items][0][quantity]">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Costo unit. (€)</label>
+                                        <input type="number" step="0.01" min="0" class="batch-item-cost w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" value="0" name="details[${rowId}][batch_items][0][unit_cost]">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Precio venta (€, opcional)</label>
+                                        <input type="number" step="0.01" min="0" class="batch-item-price w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" placeholder="—" name="details[${rowId}][batch_items][0][price]">
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    `;
+                    
+                    // Agregar inputs hidden para las features de la variante
+                    const container = batchRow.querySelector('td');
+                    for (const [attrId, value] of Object.entries(variantFeatures)) {
+                        const featuresInput = document.createElement('input');
+                        featuresInput.type = 'hidden';
+                        featuresInput.name = `details[${rowId}][batch_items][0][features][${attrId}]`;
+                        featuresInput.value = value;
+                        container.appendChild(featuresInput);
+                    }
+                    
+                    row.insertAdjacentElement('afterend', batchRow);
+                    
+                    // Vincular eventos para actualizar totales
+                    batchRow.querySelectorAll('.batch-item-qty, .batch-item-cost, .batch-item-price').forEach(function(inp) {
+                        inp.addEventListener('input', function() { compraProductosUpdateBatchTotals(row); });
+                    });
+                    
+                    // Ocultar cantidad y costo en la fila principal, se mostrarán los totales
+                    row.querySelector('.detail-qty').classList.remove('hidden');
+                    row.querySelector('.detail-serial-qty').classList.add('hidden');
+                    row.querySelector('.detail-cost').classList.remove('hidden');
+                    row.querySelector('.detail-serial-dash').classList.add('hidden');
+                    
+                    // Actualizar totales iniciales
+                    compraProductosUpdateBatchTotals(row);
                 }
             };
         }
@@ -404,6 +509,10 @@
 
             window.compraProductosCreateSerialDetailsRowUnidades = createSerialDetailsRowUnidades;
 
+            // DESHABILITADO: Esta función permitía crear variantes nuevas libremente.
+            // Ahora solo se pueden seleccionar variantes existentes del producto mediante el modal SelectBatchVariantModal.
+            // Se mantiene comentada por referencia, pero no se debe usar.
+            /*
             function createBatchDetailsRow(rowId, productId, detailRow) {
                 const tr = document.createElement('tr');
                 tr.className = 'batch-details-row bg-gray-50 dark:bg-gray-900/50';
@@ -521,8 +630,9 @@
                         });
                     });
             }
+            */
 
-            window.compraProductosCreateBatchDetailsRow = createBatchDetailsRow;
+            // window.compraProductosCreateBatchDetailsRow = createBatchDetailsRow; // DESHABILITADO
 
             function renumberBatchItems(container, rowId, attrs) {
                 const items = container.querySelectorAll('.batch-item');
@@ -671,12 +781,17 @@
                 }
                 if (btnChange) {
                     btnChange.addEventListener('click', function() {
-                        row.setAttribute('data-product-type', 'batch');
+                        row.setAttribute('data-product-type', 'simple');
+                        row.removeAttribute('data-product-id');
+                        row.removeAttribute('data-variant-features');
                         let next = row.nextElementSibling;
                         if (next && (next.classList.contains('serial-details-row') || next.classList.contains('batch-details-row'))) next.remove();
                         row.querySelector('.product-id-input').value = '';
                         row.querySelector('.item-description-input').value = '';
                         row.querySelector('.item-selected-name').textContent = '';
+                        // Eliminar input hidden de variant_features si existe
+                        const featuresInput = row.querySelector('input[name*="[variant_features]"]');
+                        if (featuresInput) featuresInput.remove();
                         row.querySelector('.detail-qty').value = '1';
                         row.querySelector('.detail-qty').classList.remove('hidden');
                         row.querySelector('.detail-serial-qty').classList.add('hidden').textContent = '';
@@ -708,7 +823,7 @@
                 const tr = document.createElement('tr');
                 tr.className = 'detail-row';
                 tr.setAttribute('data-row-id', String(idx));
-                tr.setAttribute('data-product-type', 'batch');
+                tr.setAttribute('data-product-type', 'simple');
                 tr.innerHTML = createRowHtml(idx);
                 tbody.appendChild(tr);
                 renumberRows();

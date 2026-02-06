@@ -53,7 +53,7 @@ class SelectItemModal extends Component
                 'name' => $p->name,
                 'code' => $p->sku ?? null,
                 'type' => 'INVENTARIO',
-                'product_type' => $p->type ?? 'batch',
+                'product_type' => $p->type ?? 'simple',
             ]);
         }
 

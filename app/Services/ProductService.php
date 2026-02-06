@@ -356,43 +356,122 @@ class ProductService
     }
 
     /**
-     * Crear batch y batch_items desde variantes con stock inicial.
+     * Crear batch y batch_items desde variantes.
+     * Crea batch_items para TODAS las variantes definidas, incluso si tienen cantidad 0,
+     * para que estén disponibles al comprar productos.
      * Usa InventarioService para registrar los movimientos y controlar el stock.
      */
     protected function createBatchFromVariants(Product $product, Store $store, array $variants, ?int $userId = null): void
     {
-        $variantsWithStock = array_filter($variants, fn ($v) => ! empty($v['has_stock']) && ! empty($v['stock_initial']) && (int) $v['stock_initial'] > 0);
-        
-        if (empty($variantsWithStock) || ! $userId) {
+        if (empty($variants) || ! $userId) {
             return;
         }
 
-        // Agrupar variantes por número de lote (si tienen el mismo batch_number, van al mismo batch)
-        $batchesByNumber = [];
-        foreach ($variantsWithStock as $variant) {
-            $batchNumber = $variant['batch_number'] ?? 'L-' . date('Ymd');
-            if (! isset($batchesByNumber[$batchNumber])) {
-                $batchesByNumber[$batchNumber] = [
-                    'batch_number' => $batchNumber,
-                    'expiration_date' => null,
-                    'items' => [],
-                ];
+        // Filtrar variantes que tienen atributos definidos (no vacíos)
+        $variantsWithAttributes = array_filter($variants, function ($v) {
+            $attributeValues = $v['attribute_values'] ?? [];
+            foreach ($attributeValues as $value) {
+                if ($value !== '' && $value !== null && $value !== '0') {
+                    return true; // Tiene al menos un atributo con valor
+                }
             }
-            // Tomar la fecha de vencimiento de la primera variante con fecha
-            if (empty($batchesByNumber[$batchNumber]['expiration_date']) && ! empty($variant['expiration_date'])) {
-                $batchesByNumber[$batchNumber]['expiration_date'] = $variant['expiration_date'];
-            }
-            $batchesByNumber[$batchNumber]['items'][] = $variant;
+            return false;
+        });
+
+        if (empty($variantsWithAttributes)) {
+            return;
         }
+
+        // Separar variantes con stock y sin stock
+        $variantsWithStock = array_filter($variantsWithAttributes, fn ($v) => ! empty($v['has_stock']) && ! empty($v['stock_initial']) && (int) $v['stock_initial'] > 0);
+        $variantsWithoutStock = array_filter($variantsWithAttributes, fn ($v) => empty($v['has_stock']) || empty($v['stock_initial']) || (int) $v['stock_initial'] <= 0);
 
         $inventarioService = app(\App\Services\InventarioService::class);
 
-        foreach ($batchesByNumber as $batchData) {
-            // Preparar items en el formato que espera InventarioService
-            $batchItems = [];
-            $totalQuantity = 0;
+        // 1. Crear movimiento de entrada para variantes CON stock inicial
+        if (! empty($variantsWithStock)) {
+            // Agrupar variantes por número de lote (si tienen el mismo batch_number, van al mismo batch)
+            $batchesByNumber = [];
+            foreach ($variantsWithStock as $variant) {
+                $batchNumber = $variant['batch_number'] ?? 'L-' . date('Ymd');
+                if (! isset($batchesByNumber[$batchNumber])) {
+                    $batchesByNumber[$batchNumber] = [
+                        'batch_number' => $batchNumber,
+                        'expiration_date' => null,
+                        'items' => [],
+                    ];
+                }
+                // Tomar la fecha de vencimiento de la primera variante con fecha
+                if (empty($batchesByNumber[$batchNumber]['expiration_date']) && ! empty($variant['expiration_date'])) {
+                    $batchesByNumber[$batchNumber]['expiration_date'] = $variant['expiration_date'];
+                }
+                $batchesByNumber[$batchNumber]['items'][] = $variant;
+            }
 
-            foreach ($batchData['items'] as $variant) {
+            foreach ($batchesByNumber as $batchData) {
+                // Preparar items en el formato que espera InventarioService
+                $batchItems = [];
+                $totalQuantity = 0;
+
+                foreach ($batchData['items'] as $variant) {
+                    $features = [];
+                    foreach ($variant['attribute_values'] ?? [] as $attrId => $value) {
+                        if ($value !== '' && $value !== null && $value !== '0') {
+                            $features[$attrId] = $value;
+                        }
+                    }
+
+                    $quantity = (int) ($variant['stock_initial'] ?? 0);
+                    $totalQuantity += $quantity;
+
+                    $itemData = [
+                        'quantity' => $quantity,
+                        'cost' => (float) ($variant['cost'] ?? 0),
+                        'features' => ! empty($features) ? $features : null,
+                    ];
+                    
+                    if (! empty($variant['price'])) {
+                        $itemData['price'] = (float) $variant['price'];
+                    }
+
+                    $batchItems[] = $itemData;
+                }
+
+                // Registrar movimiento de entrada a través de InventarioService
+                // Esto creará el Batch, BatchItems y actualizará el stock del producto
+                $inventarioService->registrarMovimiento($store, $userId, [
+                    'product_id' => $product->id,
+                    'type' => \App\Models\MovimientoInventario::TYPE_ENTRADA,
+                    'quantity' => $totalQuantity,
+                    'description' => 'Stock inicial al crear producto por lote',
+                    'batch_data' => [
+                        'reference' => $batchData['batch_number'],
+                        'expiration_date' => $batchData['expiration_date'] ?: null,
+                        'items' => $batchItems,
+                    ],
+                ]);
+            }
+        }
+
+        // 2. Crear batch_items con cantidad 0 para variantes SIN stock inicial
+        // Esto permite que las variantes estén disponibles al comprar productos
+        if (! empty($variantsWithoutStock)) {
+            // Usar un lote especial para variantes sin stock inicial
+            $batchReference = 'VAR-' . date('Ymd');
+            
+            // Buscar o crear el batch para variantes sin stock
+            $batch = \App\Models\Batch::firstOrCreate(
+                [
+                    'store_id'   => $store->id,
+                    'product_id' => $product->id,
+                    'reference'  => $batchReference,
+                ],
+                [
+                    'expiration_date' => null,
+                ]
+            );
+
+            foreach ($variantsWithoutStock as $variant) {
                 $features = [];
                 foreach ($variant['attribute_values'] ?? [] as $attrId => $value) {
                     if ($value !== '' && $value !== null && $value !== '0') {
@@ -400,35 +479,27 @@ class ProductService
                     }
                 }
 
-                $quantity = (int) ($variant['stock_initial'] ?? 0);
-                $totalQuantity += $quantity;
-
-                $itemData = [
-                    'quantity' => $quantity,
-                    'cost' => (float) ($variant['cost'] ?? 0),
-                    'features' => ! empty($features) ? $features : null,
-                ];
-                
-                if (! empty($variant['price'])) {
-                    $itemData['price'] = (float) $variant['price'];
+                if (empty($features)) {
+                    continue; // Saltar variantes sin atributos definidos
                 }
 
-                $batchItems[] = $itemData;
-            }
+                // Verificar si ya existe un batch_item con estas features
+                $normalizedKey = \App\Services\InventarioService::normalizeFeaturesForComparison($features);
+                $existingItem = $batch->batchItems()->get()->first(function ($bi) use ($normalizedKey) {
+                    return \App\Services\InventarioService::normalizeFeaturesForComparison($bi->features) === $normalizedKey;
+                });
 
-            // Registrar movimiento de entrada a través de InventarioService
-            // Esto creará el Batch, BatchItems y actualizará el stock del producto
-            $inventarioService->registrarMovimiento($store, $userId, [
-                'product_id' => $product->id,
-                'type' => \App\Models\MovimientoInventario::TYPE_ENTRADA,
-                'quantity' => $totalQuantity,
-                'description' => 'Stock inicial al crear producto por lote',
-                'batch_data' => [
-                    'reference' => $batchData['batch_number'],
-                    'expiration_date' => $batchData['expiration_date'] ?: null,
-                    'items' => $batchItems,
-                ],
-            ]);
+                if (! $existingItem) {
+                    // Crear batch_item con cantidad 0
+                    \App\Models\BatchItem::create([
+                        'batch_id'  => $batch->id,
+                        'quantity'  => 0,
+                        'unit_cost' => (float) ($variant['cost'] ?? 0),
+                        'price'     => ! empty($variant['price']) ? (float) $variant['price'] : null,
+                        'features'  => $features,
+                    ]);
+                }
+            }
         }
 
         // Actualizar costo ponderado después de que InventarioService haya actualizado el stock
