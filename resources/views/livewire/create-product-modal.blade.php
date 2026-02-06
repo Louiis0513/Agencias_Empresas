@@ -117,16 +117,29 @@
                         <x-input-error :messages="$errors->get('location')" class="mt-1" />
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                        <x-input-label for="price" value="{{ __('Precio') }}" />
+                        <x-text-input wire:model="price" id="price" class="block mt-1 w-full" type="number" step="0.01" min="0" placeholder="0.00" />
+                        <x-input-error :messages="$errors->get('price')" class="mt-1" />
+                    </div>
+
+                    <div class="flex items-center">
+                        <input wire:model.live="has_initial_stock" id="has_initial_stock" type="checkbox" class="rounded border-gray-300 dark:border-gray-700 text-indigo-600 shadow-sm focus:ring-indigo-500">
+                        <x-input-label for="has_initial_stock" value="{{ __('Tiene stock inicial') }}" class="ml-2" />
+                    </div>
+
+                    <div x-show="$wire.has_initial_stock"
+                         x-transition:enter="transition ease-out duration-200"
+                         x-transition:enter-start="opacity-0"
+                         x-transition:enter-end="opacity-100"
+                         x-transition:leave="transition ease-in duration-150"
+                         x-transition:leave-start="opacity-100"
+                         x-transition:leave-end="opacity-0"
+                         class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <x-input-label for="cost" value="{{ __('Costo') }}" />
                             <x-text-input wire:model="cost" id="cost" class="block mt-1 w-full" type="number" step="0.01" min="0" placeholder="0.00" />
                             <x-input-error :messages="$errors->get('cost')" class="mt-1" />
-                        </div>
-                        <div>
-                            <x-input-label for="price" value="{{ __('Precio') }}" />
-                            <x-text-input wire:model="price" id="price" class="block mt-1 w-full" type="number" step="0.01" min="0" placeholder="0.00" />
-                            <x-input-error :messages="$errors->get('price')" class="mt-1" />
                         </div>
                         <div>
                             <x-input-label for="stock" value="{{ __('Stock inicial') }}" />
@@ -254,12 +267,31 @@
                                                 @endforeach
                                             </div>
 
-                                            {{-- Precio, Costo, Stock inicial --}}
-                                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-                                                <div>
-                                                    <x-input-label for="variant-{{ $index }}-price" value="{{ __('Precio') }}" />
-                                                    <x-text-input wire:model="variants.{{ $index }}.price" id="variant-{{ $index }}-price" class="block mt-1 w-full" type="number" step="0.01" min="0" placeholder="0.00" />
-                                                </div>
+                                            {{-- Precio (siempre visible) --}}
+                                            <div class="mb-4">
+                                                <x-input-label for="variant-{{ $index }}-price" value="{{ __('Precio') }}" />
+                                                <x-text-input wire:model="variants.{{ $index }}.price" id="variant-{{ $index }}-price" class="block mt-1 w-full" type="number" step="0.01" min="0" placeholder="0.00" />
+                                            </div>
+
+                                            {{-- Checkbox para stock inicial --}}
+                                            <div class="mb-4">
+                                                <label class="flex items-center gap-2">
+                                                    <input type="checkbox"
+                                                           wire:model.live="variants.{{ $index }}.has_stock"
+                                                           class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 shadow-sm focus:ring-indigo-500">
+                                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Tiene stock inicial</span>
+                                                </label>
+                                            </div>
+
+                                            {{-- Costo y Stock inicial (solo si tiene stock) --}}
+                                            <div x-show="$wire.variants[{{ $index }}].has_stock ?? false"
+                                                 x-transition:enter="transition ease-out duration-200"
+                                                 x-transition:enter-start="opacity-0"
+                                                 x-transition:enter-end="opacity-100"
+                                                 x-transition:leave="transition ease-in duration-150"
+                                                 x-transition:leave-start="opacity-100"
+                                                 x-transition:leave-end="opacity-0"
+                                                 class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                                                 <div>
                                                     <x-input-label for="variant-{{ $index }}-cost" value="{{ __('Costo') }}" />
                                                     <x-text-input wire:model="variants.{{ $index }}.cost" id="variant-{{ $index }}-cost" class="block mt-1 w-full" type="number" step="0.01" min="0" placeholder="0.00" />
@@ -271,18 +303,23 @@
                                             </div>
 
                                             {{-- Número de lote y Fecha de vencimiento (solo si hay stock inicial) --}}
-                                            @if(!empty($variant['stock_initial']) && (int)$variant['stock_initial'] > 0)
-                                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-gray-200 dark:border-gray-600">
-                                                    <div>
-                                                        <x-input-label for="variant-{{ $index }}-batch" value="{{ __('Número de lote') }}" />
-                                                        <x-text-input wire:model="variants.{{ $index }}.batch_number" id="variant-{{ $index }}-batch" class="block mt-1 w-full" type="text" placeholder="Ej: L-001" />
-                                                    </div>
-                                                    <div>
-                                                        <x-input-label for="variant-{{ $index }}-expiration" value="{{ __('Fecha de vencimiento') }}" />
-                                                        <x-text-input wire:model="variants.{{ $index }}.expiration_date" id="variant-{{ $index }}-expiration" class="block mt-1 w-full" type="date" />
-                                                    </div>
+                                            <div x-show="($wire.variants[{{ $index }}].has_stock ?? false) && ($wire.variants[{{ $index }}].stock_initial > 0)"
+                                                 x-transition:enter="transition ease-out duration-200"
+                                                 x-transition:enter-start="opacity-0"
+                                                 x-transition:enter-end="opacity-100"
+                                                 x-transition:leave="transition ease-in duration-150"
+                                                 x-transition:leave-start="opacity-100"
+                                                 x-transition:leave-end="opacity-0"
+                                                 class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-gray-200 dark:border-gray-600">
+                                                <div>
+                                                    <x-input-label for="variant-{{ $index }}-batch" value="{{ __('Número de lote') }}" />
+                                                    <x-text-input wire:model="variants.{{ $index }}.batch_number" id="variant-{{ $index }}-batch" class="block mt-1 w-full" type="text" placeholder="Ej: L-001" />
                                                 </div>
-                                            @endif
+                                                <div>
+                                                    <x-input-label for="variant-{{ $index }}-expiration" value="{{ __('Fecha de vencimiento') }}" />
+                                                    <x-text-input wire:model="variants.{{ $index }}.expiration_date" id="variant-{{ $index }}-expiration" class="block mt-1 w-full" type="date" />
+                                                </div>
+                                            </div>
                                         </div>
                                     @endforeach
                                 </div>

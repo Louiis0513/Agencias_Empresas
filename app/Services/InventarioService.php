@@ -133,17 +133,45 @@ class InventarioService
                 ->lockForUpdate()
                 ->firstOrFail();
 
+            $type = $datos['type'];
+            $quantity = (int) $datos['quantity'];
+            if ($quantity < 1) {
+                throw new Exception('La cantidad debe ser al menos 1.');
+            }
+
+            // Productos simples: solo actualizar stock y crear movimiento
+            if ($product->type === 'simple' || empty($product->type)) {
+                if ($type === MovimientoInventario::TYPE_ENTRADA) {
+                    $product->increment('stock', $quantity);
+                } else {
+                    if ($product->stock < $quantity) {
+                        throw new Exception(
+                            "Stock insuficiente en «{$product->name}». Actual: {$product->stock}, solicitado: {$quantity}."
+                        );
+                    }
+                    $product->decrement('stock', $quantity);
+                }
+                
+                $mov = MovimientoInventario::create([
+                    'store_id' => $store->id,
+                    'user_id' => $userId,
+                    'product_id' => $product->id,
+                    'purchase_id' => $datos['purchase_id'] ?? null,
+                    'type' => $type,
+                    'quantity' => $quantity,
+                    'description' => $datos['description'] ?? null,
+                    'unit_cost' => $datos['unit_cost'] ?? null,
+                ]);
+
+                return $mov;
+            }
+
+            // Productos serializados o por lotes: lógica existente
             $allowedTypes = [MovimientoInventario::PRODUCT_TYPE_SERIALIZED, MovimientoInventario::PRODUCT_TYPE_BATCH];
             if (! in_array($product->type, $allowedTypes)) {
                 throw new Exception(
                     "El producto «{$product->name}» no es apto para inventario. Solo productos tipo «serialized» o «batch» tienen movimientos."
                 );
-            }
-
-            $type = $datos['type'];
-            $quantity = (int) $datos['quantity'];
-            if ($quantity < 1) {
-                throw new Exception('La cantidad debe ser al menos 1.');
             }
 
             $isSerialized = $product->isSerialized();

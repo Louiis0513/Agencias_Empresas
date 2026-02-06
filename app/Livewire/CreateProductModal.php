@@ -31,6 +31,8 @@ class CreateProductModal extends Component
     /** Tipo de producto: simple, batch o serialized */
     public string $type = 'simple';
     public bool $is_active = true;
+    /** Para productos simples: indica si hay stock inicial */
+    public bool $has_initial_stock = false;
 
     /** @var array<int, string> Valores de atributos: [attribute_id => value] */
     public array $attribute_values = [];
@@ -236,6 +238,7 @@ class CreateProductModal extends Component
             'stock_initial' => '',
             'batch_number' => '',
             'expiration_date' => '',
+            'has_stock' => false,
         ];
 
         foreach ($category->attributes as $attr) {
@@ -368,6 +371,11 @@ class CreateProductModal extends Component
         $stock = 0;
         $attributeValues = [];
 
+        $price = 0;
+        $cost = 0;
+        $stock = 0;
+        $attributeValues = [];
+
         if ($this->type === 'simple') {
             $price = (float) ($this->price !== '' ? $this->price : 0);
             $cost = (float) ($this->cost !== '' ? $this->cost : 0);
@@ -376,7 +384,7 @@ class CreateProductModal extends Component
         }
 
         try {
-            $product = $service->createProduct($store, [
+            $productData = [
                 'type' => $this->type,
                 'name' => $this->name,
                 'barcode' => $this->barcode ?: null,
@@ -388,32 +396,30 @@ class CreateProductModal extends Component
                 'location' => $this->location ?: null,
                 'is_active' => $this->is_active,
                 'attribute_values' => $attributeValues,
-            ]);
+            ];
+
+            // Para productos simples: indicar si tiene stock inicial
+            if ($this->type === 'simple') {
+                $productData['has_initial_stock'] = $this->has_initial_stock && $stock > 0;
+            }
+
+            // Para productos tipo batch: añadir variantes y opciones permitidas
+            if ($this->type === MovimientoInventario::PRODUCT_TYPE_BATCH) {
+                $productData['variants'] = $this->variants;
+                $productData['attribute_option_ids'] = $this->attribute_option_ids;
+            }
+
+            // Para productos tipo serialized: añadir unidades serializadas
+            if ($this->type === MovimientoInventario::PRODUCT_TYPE_SERIALIZED) {
+                $productData['serializedItems'] = $this->serializedItems;
+            }
+
+            $userId = Auth::id();
+            $product = $service->createProduct($store, $productData, $userId);
         } catch (\Exception $e) {
             $this->addError('category_id', $e->getMessage());
 
             return;
-        }
-
-        if ($product->isBatch()) {
-            // Guardar opciones permitidas de variantes (si se seleccionaron)
-            if (! empty($this->attribute_option_ids)) {
-                $categoryAttributeIds = $product->category->attributes->pluck('id')->toArray();
-                $validIds = \App\Models\AttributeOption::whereIn('id', $this->attribute_option_ids)
-                    ->whereIn('attribute_id', $categoryAttributeIds)
-                    ->pluck('id')
-                    ->toArray();
-                $product->allowedVariantOptions()->sync($validIds);
-            }
-
-            // Si hay variantes con stock inicial, crear el lote y batch_items
-            if (! empty($this->variants)) {
-                $this->createBatchFromVariants($product, $store);
-            }
-        }
-
-        if ($product->isSerialized() && ! empty($this->serializedItems)) {
-            $this->createSerializedItems($product, $store);
         }
 
         $compraRowId = $this->compraRowId;
@@ -421,13 +427,14 @@ class CreateProductModal extends Component
         $this->reset([
             'name', 'barcode', 'sku', 'category_id', 'location',
             'type', 'is_active', 'attribute_values', 'attribute_option_ids', 'compraRowId',
-            'price', 'cost', 'stock', 'variants', 'serializedItems',
+            'price', 'cost', 'stock', 'variants', 'serializedItems', 'has_initial_stock',
         ]);
         $this->price = '0';
         $this->cost = '0';
         $this->stock = '0';
         $this->variants = [];
         $this->serializedItems = [];
+        $this->has_initial_stock = false;
         $this->resetValidation();
 
         if ($this->fromPurchase) {
@@ -441,123 +448,6 @@ class CreateProductModal extends Component
         return redirect()->route('stores.products', $store);
     }
 
-    /**
-     * Crear ProductItems desde las unidades serializadas.
-     */
-    protected function createSerializedItems(\App\Models\Product $product, Store $store): void
-    {
-        $reference = 'INI-' . date('Y');
-        $totalStock = 0;
-        $totalCost = 0;
-
-        foreach ($this->serializedItems as $item) {
-            $serial = trim($item['serial_number'] ?? '');
-            if (empty($serial)) {
-                continue;
-            }
-
-            $features = [];
-            foreach ($item['attribute_values'] ?? [] as $attrId => $value) {
-                if ($value !== '' && $value !== null && $value !== '0') {
-                    $features[$attrId] = $value;
-                }
-            }
-
-            $productItemData = [
-                'store_id' => $store->id,
-                'product_id' => $product->id,
-                'serial_number' => $serial,
-                'cost' => (float) ($item['cost'] ?? 0),
-                'status' => \App\Models\ProductItem::STATUS_AVAILABLE,
-                'batch' => $reference,
-                'features' => ! empty($features) ? $features : null,
-            ];
-            
-            if (! empty($item['price'])) {
-                $productItemData['price'] = (float) $item['price'];
-            }
-            
-            \App\Models\ProductItem::create($productItemData);
-
-            $totalStock++;
-            $totalCost += (float) ($item['cost'] ?? 0);
-        }
-
-        // Actualizar stock del producto
-        if ($totalStock > 0) {
-            $product->increment('stock', $totalStock);
-            
-            // Actualizar costo ponderado
-            $items = \App\Models\ProductItem::where('product_id', $product->id)
-                ->where('store_id', $product->store_id)
-                ->where('status', \App\Models\ProductItem::STATUS_AVAILABLE)
-                ->get();
-            $totalCostAll = $items->sum('cost');
-            $qty = $items->count();
-            $product->cost = $qty > 0 ? (float) round($totalCostAll / $qty, 2) : 0.0;
-            $product->save();
-        }
-    }
-
-    /**
-     * Crear batch y batch_items desde las variantes con stock inicial.
-     */
-    protected function createBatchFromVariants(\App\Models\Product $product, Store $store): void
-    {
-        $variantsWithStock = array_filter($this->variants, fn ($v) => ! empty($v['stock_initial']) && (int) $v['stock_initial'] > 0);
-        
-        if (empty($variantsWithStock)) {
-            return;
-        }
-
-        // Agrupar variantes por número de lote (si tienen el mismo batch_number, van al mismo batch)
-        $batchesByNumber = [];
-        foreach ($variantsWithStock as $variant) {
-            $batchNumber = $variant['batch_number'] ?? 'L-' . date('Ymd');
-            if (! isset($batchesByNumber[$batchNumber])) {
-                $batchesByNumber[$batchNumber] = [
-                    'batch_number' => $batchNumber,
-                    'expiration_date' => null,
-                    'items' => [],
-                ];
-            }
-            // Tomar la fecha de vencimiento de la primera variante con fecha
-            if (empty($batchesByNumber[$batchNumber]['expiration_date']) && ! empty($variant['expiration_date'])) {
-                $batchesByNumber[$batchNumber]['expiration_date'] = $variant['expiration_date'];
-            }
-            $batchesByNumber[$batchNumber]['items'][] = $variant;
-        }
-
-        foreach ($batchesByNumber as $batchData) {
-            $batch = \App\Models\Batch::create([
-                'store_id' => $store->id,
-                'product_id' => $product->id,
-                'reference' => $batchData['batch_number'],
-                'expiration_date' => $batchData['expiration_date'] ?: null,
-            ]);
-
-            foreach ($batchData['items'] as $variant) {
-                $features = [];
-                foreach ($variant['attribute_values'] as $attrId => $value) {
-                    if ($value !== '' && $value !== null && $value !== '0') {
-                        $features[$attrId] = $value;
-                    }
-                }
-
-                \App\Models\BatchItem::create([
-                    'batch_id' => $batch->id,
-                    'quantity' => (int) ($variant['stock_initial'] ?? 0),
-                    'unit_cost' => (float) ($variant['cost'] ?? 0),
-                    'price' => ! empty($variant['price']) ? (float) $variant['price'] : null,
-                    'features' => ! empty($features) ? $features : null,
-                ]);
-            }
-
-            // Actualizar stock del producto
-            $totalStock = $batch->batchItems()->sum('quantity');
-            $product->increment('stock', $totalStock);
-        }
-    }
 
     public function render()
     {
