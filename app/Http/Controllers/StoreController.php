@@ -261,19 +261,24 @@ class StoreController extends Controller
         }
 
         $request->validate([
-            'attribute_ids' => 'nullable|array',
-            'attribute_ids.*' => 'exists:attributes,id',
+            'attribute_group_ids' => 'nullable|array',
+            'attribute_group_ids.*' => 'exists:attribute_groups,id',
         ]);
 
         try {
-            $attributeIds = $request->input('attribute_ids', []) ?: [];
-            $positions = $request->input('positions', []);
-            $requiredFlags = $request->input('required', []);
+            $attributeGroupIds = $request->input('attribute_group_ids', []) ?: [];
+            // Solo grupos de esta tienda
+            $attributeGroupIds = array_values(array_filter(array_map('intval', $attributeGroupIds)));
+            $validGroupIds = \App\Models\AttributeGroup::where('store_id', $store->id)
+                ->whereIn('id', $attributeGroupIds)
+                ->pluck('id')
+                ->all();
+            $attributeGroupIds = array_values(array_intersect($attributeGroupIds, $validGroupIds));
 
-            $attributeService->assignAttributesToCategory($category, $attributeIds, $positions, $requiredFlags ?? []);
+            $attributeService->assignGroupsToCategory($category, $attributeGroupIds);
 
             return redirect()->route('stores.category.attributes', [$store, $category])
-                ->with('success', 'Atributos asignados correctamente.');
+                ->with('success', 'Grupos de atributos asignados correctamente.');
         } catch (\Exception $e) {
             return redirect()->route('stores.category.attributes', [$store, $category])
                 ->with('error', $e->getMessage());

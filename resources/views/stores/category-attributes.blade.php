@@ -12,8 +12,6 @@
         </div>
     </x-slot>
 
-    <livewire:create-attribute-modal :store-id="$store->id" />
-
     <div class="py-12" x-data>
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
             
@@ -30,82 +28,88 @@
                 </div>
             @endif
 
-            {{-- Botón crear atributo --}}
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6">
-                    <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">
-                            Atributos Disponibles en la Tienda
-                        </h3>
-                        <button type="button"
-                                x-on:click="$dispatch('open-modal', 'create-attribute')"
-                                class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 focus:bg-indigo-700 active:bg-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150">
-                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                            </svg>
-                            Crear Atributo
-                        </button>
-                    </div>
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
+                        Grupos de atributos
+                    </h3>
 
                     @php
                         $hasAnyAttribute = $storeAttributeGroups->sum(fn ($g) => $g->attributes->count()) > 0;
                     @endphp
                     @if($hasAnyAttribute)
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                            Asigna <strong>grupos de atributos</strong> a esta categoría. La categoría tendrá todos los atributos del grupo; si un atributo es requerido, ya quedó definido al crear el atributo en el grupo.
+                        </p>
                         <form method="POST" action="{{ route('stores.category.attributes.assign', [$store, $category]) }}">
                             @csrf
-                            <div class="space-y-6">
+                            <div class="space-y-3">
                                 @foreach($storeAttributeGroups as $group)
                                     @if($group->attributes->isEmpty())
                                         @continue
                                     @endif
-                                    <div>
-                                        <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">{{ $group->name }}</h4>
-                                        <div class="space-y-3">
-                                            @foreach($group->attributes as $attribute)
-                                                @php
-                                                    $isAssigned = $categoryAttributes->contains('id', $attribute->id);
-                                                    $pivot = $isAssigned ? $categoryAttributes->firstWhere('id', $attribute->id)->pivot : null;
-                                                    $defaultRequired = $attribute->pivot->is_required ?? false;
-                                                @endphp
-                                                <label class="flex items-start space-x-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
-                                                    <input type="checkbox"
-                                                           name="attribute_ids[]"
-                                                           value="{{ $attribute->id }}"
-                                                           {{ $isAssigned ? 'checked' : '' }}
-                                                           class="mt-1 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
-                                                    <div class="flex-1">
-                                                        <div class="flex items-center justify-between">
-                                                            <div>
-                                                                <span class="font-medium text-gray-900 dark:text-gray-100">{{ $attribute->name }}</span>
-                                                                <span class="ml-2 text-xs text-gray-500 dark:text-gray-400">({{ $attribute->type }})</span>
-                                                                @if($defaultRequired)
-                                                                    <span class="ml-2 text-xs text-amber-600 dark:text-amber-400">requerido en grupo</span>
-                                                                @endif
-                                                            </div>
-                                                            <label class="flex items-center text-sm">
-                                                                <input type="checkbox"
-                                                                       name="required[{{ $attribute->id }}]"
-                                                                       value="1"
-                                                                       {{ ($pivot && $pivot->is_required) || $defaultRequired ? 'checked' : '' }}
-                                                                       class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
-                                                                <span class="ml-2 text-gray-600 dark:text-gray-400">Requerido</span>
-                                                            </label>
-                                                        </div>
+                                    @php
+                                        $categoryAttrIds = $categoryAttributes->pluck('id')->all();
+                                        $groupAttrIds = $group->attributes->pluck('id')->all();
+                                        $groupFullyAssigned = count($groupAttrIds) > 0 && count(array_intersect($groupAttrIds, $categoryAttrIds)) === count($groupAttrIds);
+                                        $totalInGroup = $group->attributes->count();
+                                    @endphp
+                                    <div x-data="{ open: false }"
+                                         class="border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden bg-gray-50/50 dark:bg-gray-800/50">
+                                        <div class="flex items-center gap-4 px-4 py-3">
+                                            <label class="flex items-center gap-3 cursor-pointer shrink-0">
+                                                <input type="checkbox"
+                                                       name="attribute_group_ids[]"
+                                                       value="{{ $group->id }}"
+                                                       {{ $groupFullyAssigned ? 'checked' : '' }}
+                                                       class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700">
+                                                <span class="font-semibold text-gray-800 dark:text-gray-200">Incluir grupo «{{ $group->name }}» en la categoría</span>
+                                            </label>
+                                            <button type="button"
+                                                    @click="open = !open"
+                                                    class="ml-auto flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+                                                <span x-text="open ? 'Ocultar' : 'Ver atributos'">Ver atributos</span>
+                                                <span class="text-gray-400 dark:text-gray-500">({{ $totalInGroup }})</span>
+                                                <svg class="w-5 h-5 shrink-0 transition-transform"
+                                                     :class="{ 'rotate-180': open }"
+                                                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                        <div x-show="open"
+                                             x-transition:enter="transition ease-out duration-200"
+                                             x-transition:enter-start="opacity-0"
+                                             x-transition:enter-end="opacity-100"
+                                             x-transition:leave="transition ease-in duration-150"
+                                             x-transition:leave-start="opacity-100"
+                                             x-transition:leave-end="opacity-0"
+                                             class="border-t border-gray-200 dark:border-gray-600">
+                                            <div class="p-4 pt-3 space-y-2 bg-white dark:bg-gray-800">
+                                                <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Atributos de este grupo (definidos al crear el atributo en el grupo):</p>
+                                                @foreach($group->attributes as $attribute)
+                                                    @php
+                                                        $requiredInGroup = $attribute->pivot->is_required ?? false;
+                                                    @endphp
+                                                    <div class="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50/50 dark:bg-gray-700/30">
+                                                        <span class="font-medium text-gray-900 dark:text-gray-100">{{ $attribute->name }}</span>
+                                                        <span class="text-xs text-gray-500 dark:text-gray-400">({{ $attribute->type }})</span>
+                                                        @if($requiredInGroup)
+                                                            <span class="px-2 py-0.5 text-xs font-medium rounded bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">Requerido</span>
+                                                        @endif
                                                         @if($attribute->isSelectType() && $attribute->options->count() > 0)
-                                                            <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                                                                Opciones: {{ $attribute->options->pluck('value')->join(', ') }}
-                                                            </div>
+                                                            <span class="text-xs text-gray-500 dark:text-gray-400">Opciones: {{ $attribute->options->pluck('value')->join(', ') }}</span>
                                                         @endif
                                                     </div>
-                                                </label>
-                                            @endforeach
+                                                @endforeach
+                                            </div>
                                         </div>
                                     </div>
                                 @endforeach
                             </div>
                             <div class="mt-6 flex justify-end">
                                 <x-primary-button type="submit">
-                                    Guardar Atributos
+                                    Guardar grupos asignados
                                 </x-primary-button>
                             </div>
                         </form>

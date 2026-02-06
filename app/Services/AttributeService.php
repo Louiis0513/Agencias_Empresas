@@ -259,20 +259,18 @@ class AttributeService
     }
 
     /**
-     * Asignar atributos a una categoría.
+     * Asignar atributos a una categoría (por lista de ids; usado internamente).
      */
     public function assignAttributesToCategory(Category $category, array $attributeIds, array $positions = [], array $requiredFlags = []): void
     {
         DB::transaction(function () use ($category, $attributeIds, $positions, $requiredFlags) {
-            // Eliminar asignaciones existentes
             $category->attributes()->detach();
 
-            // Asignar nuevos atributos
             foreach ($attributeIds as $index => $attributeId) {
                 if ($attributeId) {
                     $attributeId = (int) $attributeId;
                     $isRequired = isset($requiredFlags[$attributeId]) && $requiredFlags[$attributeId] == '1';
-                    
+
                     $category->attributes()->attach($attributeId, [
                         'is_required' => $isRequired,
                         'position' => $positions[$index] ?? $index,
@@ -280,6 +278,42 @@ class AttributeService
                 }
             }
         });
+    }
+
+    /**
+     * Asignar grupos de atributos a una categoría.
+     * La categoría queda con todos los atributos de los grupos seleccionados.
+     * is_required y position de cada atributo se toman del grupo (donde el usuario ya los definió).
+     */
+    public function assignGroupsToCategory(Category $category, array $attributeGroupIds): void
+    {
+        $storeId = $category->store_id;
+
+        $groups = AttributeGroup::where('store_id', $storeId)
+            ->whereIn('id', $attributeGroupIds)
+            ->with(['attributes' => fn ($q) => $q->orderByPivot('position')])
+            ->orderBy('position')
+            ->get();
+
+        $attributeIds = [];
+        $positions = [];
+        $requiredFlags = [];
+        $positionIndex = 0;
+        $seenIds = [];
+
+        foreach ($groups as $group) {
+            foreach ($group->attributes as $attribute) {
+                if (in_array($attribute->id, $seenIds, true)) {
+                    continue;
+                }
+                $seenIds[] = $attribute->id;
+                $attributeIds[] = $attribute->id;
+                $positions[] = $positionIndex++;
+                $requiredFlags[$attribute->id] = $attribute->pivot->is_required ? '1' : '0';
+            }
+        }
+
+        $this->assignAttributesToCategory($category, $attributeIds, $positions, $requiredFlags);
     }
 
     /**
