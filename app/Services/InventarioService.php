@@ -558,7 +558,7 @@ class InventarioService
     public function buscarProductosInventario(Store $store, string $term, int $limit = 15): \Illuminate\Support\Collection
     {
         $query = Product::where('store_id', $store->id)
-            ->whereIn('type', [MovimientoInventario::PRODUCT_TYPE_SERIALIZED, MovimientoInventario::PRODUCT_TYPE_BATCH])
+            ->whereIn('type', ['simple', MovimientoInventario::PRODUCT_TYPE_SERIALIZED, MovimientoInventario::PRODUCT_TYPE_BATCH])
             ->where('is_active', true);
 
         if (strlen(trim($term)) >= 2) {
