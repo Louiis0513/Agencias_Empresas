@@ -48,6 +48,7 @@
                             </span>
                         </dd>
                     </div>
+                    @if(!$product->isBatch())
                     <div>
                         <dt class="text-xs font-medium text-gray-500 dark:text-gray-400">Precio</dt>
                         <dd class="mt-0.5 text-sm text-gray-900 dark:text-gray-100">{{ number_format($product->price, 2) }} €</dd>
@@ -56,8 +57,207 @@
                         <dt class="text-xs font-medium text-gray-500 dark:text-gray-400">Costo (ref.)</dt>
                         <dd class="mt-0.5 text-sm text-gray-900 dark:text-gray-100">{{ number_format($product->cost, 2) }} €</dd>
                     </div>
+                    @endif
                 </dl>
             </div>
+
+            {{-- Tabla de variantes (solo producto por lote): Variante, Stock, Costo, Precio, Ver detalles --}}
+            @if($product->isBatch())
+                @php
+                    $attrById = $product->category?->attributes?->keyBy('id') ?? collect();
+                    $variantesParaTabla = collect();
+                    foreach ($product->batches as $batch) {
+                        foreach ($batch->batchItems as $bi) {
+                            $features = is_array($bi->features ?? null) ? $bi->features : [];
+                            ksort($features);
+                            $key = json_encode($features);
+                            if (!$variantesParaTabla->has($key)) {
+                                $variantesParaTabla->put($key, (object) [
+                                    'features' => $bi->features ?? [],
+                                    'total_quantity' => 0,
+                                    'total_cost' => 0,
+                                    'price' => null,
+                                    'movimientos' => [],
+                                ]);
+                            }
+                            $obj = $variantesParaTabla->get($key);
+                            $obj->total_quantity += (int) $bi->quantity;
+                            $obj->total_cost += (float) $bi->quantity * (float) ($bi->unit_cost ?? 0);
+                            if ($obj->price === null && $bi->price !== null) {
+                                $obj->price = $bi->price;
+                            }
+                            $obj->movimientos[] = (object) [
+                                'reference' => $batch->reference,
+                                'expiration_date' => $batch->expiration_date,
+                                'created_at' => $batch->created_at,
+                                'quantity' => (int) $bi->quantity,
+                                'unit_cost' => (float) ($bi->unit_cost ?? 0),
+                            ];
+                        }
+                    }
+                    $variantesParaTabla = $variantesParaTabla->values()->map(function ($v) use ($attrById) {
+                        $v->costo_promedio = $v->total_quantity > 0 ? $v->total_cost / $v->total_quantity : 0;
+                        $label = '';
+                        if (!empty($v->features) && is_array($v->features)) {
+                            $parts = collect($v->features)->map(function ($val, $k) use ($attrById) {
+                                $attr = $attrById->get((int) $k) ?? $attrById->get((string) $k);
+                                $name = $attr ? $attr->name : (string) $k;
+                                return $name . ': ' . $val;
+                            })->values();
+                            $label = $parts->implode(', ');
+                        } else {
+                            $label = '—';
+                        }
+                        $v->label = $label;
+                        return $v;
+                    });
+                @endphp
+                <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">Variantes del producto</h3>
+                                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Cada variante tiene su propio stock, costo y precio. Usa «Ver detalles» para modificar o gestionar.</p>
+                            </div>
+                            @if($product->category && $product->category->attributes->isNotEmpty())
+                                <button type="button"
+                                        onclick="window.dispatchEvent(new CustomEvent('open-modal', { detail: 'crear-variantes-lote', bubbles: true }))"
+                                        class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 focus:bg-indigo-700 active:bg-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition ease-in-out duration-150">
+                                    Crear nueva variante
+                                </button>
+                            @endif
+                        </div>
+                    </div>
+                    @if($variantesParaTabla->isEmpty())
+                        <div class="p-6 text-center text-sm text-gray-500 dark:text-gray-400">Aún no hay variantes en inventario.</div>
+                    @else
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                <thead class="bg-gray-50 dark:bg-gray-900">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Variante</th>
+                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Stock</th>
+                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Costo</th>
+                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Precio</th>
+                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                                    @foreach($variantesParaTabla as $vp)
+                                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                            <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">{{ $vp->label }}</td>
+                                            <td class="px-4 py-3 text-right text-sm text-gray-900 dark:text-gray-100">{{ $vp->total_quantity }}</td>
+                                            <td class="px-4 py-3 text-right text-sm text-gray-500 dark:text-gray-400">{{ number_format($vp->costo_promedio, 2) }} €</td>
+                                            <td class="px-4 py-3 text-right text-sm text-gray-900 dark:text-gray-100">
+                                                @if($vp->price !== null && (float)$vp->price > 0)
+                                                    {{ number_format((float) $vp->price, 2) }} €
+                                                @else
+                                                    <span class="text-gray-400 dark:text-gray-500">—</span>
+                                                @endif
+                                            </td>
+                                            <td class="px-4 py-3 text-right">
+                                                <button type="button"
+                                                        onclick="window.dispatchEvent(new CustomEvent('open-modal', { detail: 'detalle-variante-{{ $loop->index }}', bubbles: true }))"
+                                                        class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium text-sm">
+                                                    Ver detalles
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
+                </div>
+
+                {{-- Modal Ver detalles por variante: vista tipo producto simple + movimientos de inventario --}}
+                @foreach($variantesParaTabla as $vp)
+                    <x-modal name="detalle-variante-{{ $loop->index }}" focusable maxWidth="4xl">
+                        <div class="p-6">
+                            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Detalle de la variante</h2>
+                            {{-- Resumen como producto simple: Variante, Stock, Costo, Precio, Ubicación --}}
+                            <dl class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6 p-4 bg-gray-50 dark:bg-gray-900/40 rounded-lg">
+                                <div>
+                                    <dt class="text-xs font-medium text-gray-500 dark:text-gray-400">Variante</dt>
+                                    <dd class="mt-0.5 text-sm font-medium text-gray-900 dark:text-gray-100">{{ $vp->label }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-xs font-medium text-gray-500 dark:text-gray-400">Stock</dt>
+                                    <dd class="mt-0.5 text-sm text-gray-900 dark:text-gray-100">{{ $vp->total_quantity }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-xs font-medium text-gray-500 dark:text-gray-400">Costo</dt>
+                                    <dd class="mt-0.5 text-sm text-gray-900 dark:text-gray-100">{{ number_format($vp->costo_promedio, 2) }} €</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-xs font-medium text-gray-500 dark:text-gray-400">Precio</dt>
+                                    <dd class="mt-0.5 text-sm text-gray-900 dark:text-gray-100">
+                                        @if($vp->price !== null && (float)$vp->price > 0)
+                                            {{ number_format((float) $vp->price, 2) }} €
+                                        @else
+                                            <span class="text-gray-400 dark:text-gray-500">—</span>
+                                        @endif
+                                    </dd>
+                                </div>
+                                <div>
+                                    <dt class="text-xs font-medium text-gray-500 dark:text-gray-400">Ubicación</dt>
+                                    <dd class="mt-0.5 text-sm text-gray-900 dark:text-gray-100">{{ $product->location ?? '—' }}</dd>
+                                </div>
+                            </dl>
+                            {{-- Movimientos de inventario de esta variante (ingresos por lote: coste, fecha caducidad) --}}
+                            <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Movimientos de inventario</h3>
+                            @if(empty($vp->movimientos))
+                                <p class="text-sm text-gray-500 dark:text-gray-400">No hay movimientos registrados para esta variante.</p>
+                            @else
+                                <div class="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+                                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+                                        <thead class="bg-gray-50 dark:bg-gray-900">
+                                            <tr>
+                                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Fecha</th>
+                                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Referencia lote</th>
+                                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Cantidad</th>
+                                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Costo unit.</th>
+                                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Fecha caducidad</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                                            @foreach($vp->movimientos as $mov)
+                                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                                    <td class="px-4 py-3 whitespace-nowrap text-gray-700 dark:text-gray-300">{{ $mov->created_at->format('d/m/Y H:i') }}</td>
+                                                    <td class="px-4 py-3 whitespace-nowrap text-gray-900 dark:text-gray-100">{{ $mov->reference }}</td>
+                                                    <td class="px-4 py-3 text-right text-gray-900 dark:text-gray-100">{{ $mov->quantity }}</td>
+                                                    <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ number_format($mov->unit_cost, 2) }} €</td>
+                                                    <td class="px-4 py-3 whitespace-nowrap text-gray-700 dark:text-gray-300">
+                                                        @if($mov->expiration_date)
+                                                            {{ $mov->expiration_date->format('d/m/Y') }}
+                                                        @else
+                                                            <span class="text-gray-400 dark:text-gray-500">—</span>
+                                                        @endif
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            @endif
+                            <div class="mt-6 flex justify-end gap-3">
+                                @if($product->category && $product->category->attributes->isNotEmpty())
+                                    <button type="button"
+                                            x-on:click="$dispatch('close-modal', 'detalle-variante-{{ $loop->index }}'); window.dispatchEvent(new CustomEvent('open-modal', { detail: 'modificar-variante-{{ $loop->index }}', bubbles: true }))"
+                                            class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800">
+                                        Editar variante
+                                    </button>
+                                @endif
+                                <button type="button"
+                                        x-on:click="$dispatch('close-modal', 'detalle-variante-{{ $loop->index }}')"
+                                        class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-sm font-medium rounded-md hover:bg-gray-300 dark:hover:bg-gray-600">
+                                    Cerrar
+                                </button>
+                            </div>
+                        </div>
+                    </x-modal>
+                @endforeach
+            @endif
 
             {{-- Inventario: serializado = product_items --}}
             @if($product->type === 'serialized' || $product->isSerialized())
@@ -170,131 +370,7 @@
                         }
                         $uniqueVariants = $uniqueVariants->values();
                     @endphp
-                    <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg overflow-hidden">
-                        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                            <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">Variantes permitidas</h3>
-                            <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Marca las opciones que tendrá este producto. En compras solo se podrá elegir entre estas (evita escribir "S" o "Small" a mano). Si no marcas ninguna, se permiten todas las opciones de la categoría.</p>
-                        </div>
-                        <form method="POST" action="{{ route('stores.productos.variant-options.update', [$store, $product]) }}" class="p-6">
-                            @csrf
-                            @method('PUT')
-                            <div class="space-y-4">
-                                @foreach($product->category->attributes as $attr)
-                                    <div>
-                                        <span class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ $attr->name }}</span>
-                                        <div class="flex flex-wrap gap-3">
-                                            @foreach($attr->options as $opt)
-                                                <label class="inline-flex items-center">
-                                                    <input type="checkbox" name="attribute_option_ids[]" value="{{ $opt->id }}"
-                                                           {{ $product->allowedVariantOptions->contains('id', $opt->id) ? 'checked' : '' }}
-                                                           class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 shadow-sm focus:ring-indigo-500">
-                                                    <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">{{ $opt->value }}</span>
-                                                </label>
-                                            @endforeach
-                                        </div>
-                                    </div>
-                                @endforeach
-                            </div>
-                            <div class="mt-4 flex flex-wrap items-center gap-3">
-                                <button type="button"
-                                        onclick="window.dispatchEvent(new CustomEvent('open-modal', { detail: 'detalles-variantes-lote', bubbles: true }))"
-                                        class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800">
-                                    Detalles
-                                </button>
-                                <button type="submit" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-sm font-medium rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800">
-                                    Guardar variantes permitidas
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-
-                    {{-- Modal Detalles: datos del producto y tabla de variantes existentes por lote --}}
-                    <x-modal name="detalles-variantes-lote" focusable maxWidth="4xl">
-                        <div class="p-6">
-                            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Detalles del producto y variantes</h2>
-                            <dl class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6 p-4 bg-gray-50 dark:bg-gray-900/40 rounded-lg">
-                                <div>
-                                    <dt class="text-xs font-medium text-gray-500 dark:text-gray-400">Nombre</dt>
-                                    <dd class="mt-0.5 text-sm font-medium text-gray-900 dark:text-gray-100">{{ $product->name }}</dd>
-                                </div>
-                                <div>
-                                    <dt class="text-xs font-medium text-gray-500 dark:text-gray-400">SKU</dt>
-                                    <dd class="mt-0.5 text-sm text-gray-900 dark:text-gray-100">{{ $product->sku ?? '—' }}</dd>
-                                </div>
-                                <div>
-                                    <dt class="text-xs font-medium text-gray-500 dark:text-gray-400">Código de barras</dt>
-                                    <dd class="mt-0.5 text-sm text-gray-900 dark:text-gray-100">{{ $product->barcode ?? '—' }}</dd>
-                                </div>
-                                <div>
-                                    <dt class="text-xs font-medium text-gray-500 dark:text-gray-400">Estado</dt>
-                                    <dd class="mt-0.5">
-                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ $product->is_active ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300' }}">
-                                            {{ $product->is_active ? 'Activo' : 'Inactivo' }}
-                                        </span>
-                                    </dd>
-                                </div>
-                            </dl>
-                            <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Variantes del producto</h3>
-                            @if($uniqueVariants->isEmpty())
-                                <p class="text-sm text-gray-500 dark:text-gray-400">Aún no hay variantes en inventario.</p>
-                            @else
-                                <div class="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
-                                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
-                                        <thead class="bg-gray-50 dark:bg-gray-900">
-                                            <tr>
-                                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Variante / Atributos</th>
-                                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Total en inventario</th>
-                                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Acciones</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                                            @foreach($uniqueVariants as $uv)
-                                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
-                                                    <td class="px-4 py-3 text-gray-700 dark:text-gray-300">
-                                                        @if(!empty($uv->features) && is_array($uv->features))
-                                                            @php
-                                                                $parts = collect($uv->features)->map(function ($v, $k) use ($attrById) {
-                                                                    $attr = $attrById->get((int) $k) ?? $attrById->get((string) $k);
-                                                                    $name = $attr ? $attr->name : (string) $k;
-                                                                    return $name . ': ' . $v;
-                                                                })->values();
-                                                            @endphp
-                                                            {{ $parts->implode(', ') }}
-                                                            <span class="text-gray-500 dark:text-gray-400 text-xs ml-1">({{ $uv->total_quantity }} uds)</span>
-                                                        @else
-                                                            —
-                                                        @endif
-                                                    </td>
-                                                    <td class="px-4 py-3 text-right text-gray-900 dark:text-gray-100">{{ $uv->total_quantity }} uds</td>
-                                                    <td class="px-4 py-3 text-right">
-                                                        <button type="button"
-                                                                onclick="window.dispatchEvent(new CustomEvent('open-modal', { detail: 'modificar-variante-{{ $loop->index }}', bubbles: true }))"
-                                                                class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 text-sm font-medium">
-                                                            Modificar
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            @endforeach
-                                        </tbody>
-                                    </table>
-                                </div>
-                            @endif
-                            <div class="mt-6 flex flex-wrap gap-3 justify-end">
-                                <button type="button"
-                                        onclick="window.dispatchEvent(new CustomEvent('open-modal', { detail: 'crear-variantes-lote', bubbles: true }))"
-                                        class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800">
-                                    Crear variantes
-                                </button>
-                                <button type="button"
-                                        x-on:click="$dispatch('close-modal', 'detalles-variantes-lote')"
-                                        class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-sm font-medium rounded-md hover:bg-gray-300 dark:hover:bg-gray-600">
-                                    Cerrar
-                                </button>
-                            </div>
-                        </div>
-                    </x-modal>
-
-                    {{-- Modal Modificar variante (uno por variante única): prellenar atributos de la categoría y permitir abrir Crear variantes --}}
+                    {{-- Modal Modificar variante (uno por variante única): prellenar atributos de la categoría --}}
                     @foreach($uniqueVariants as $uv)
                         <x-modal name="modificar-variante-{{ $loop->index }}" focusable maxWidth="2xl">
                             <div class="p-6">
