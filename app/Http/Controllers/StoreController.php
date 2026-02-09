@@ -124,7 +124,7 @@ class StoreController extends Controller
         }
         session(['current_store_id' => $store->id]);
 
-        $product->load(['category.attributes.options', 'productItems', 'batches.batchItems', 'allowedVariantOptions']);
+        $product->load(['category.attributes.options', 'productItems', 'batches.batchItems', 'allowedVariantOptions', 'attributeValues.attribute']);
 
         return view('stores.producto-detalle', compact('store', 'product'));
     }

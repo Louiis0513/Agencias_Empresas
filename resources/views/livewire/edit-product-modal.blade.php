@@ -1,11 +1,11 @@
 <div x-on:open-edit-product-modal.window="$wire.loadProduct($event.detail.id || $event.detail)">
     <x-modal name="edit-product" focusable maxWidth="md">
-        <form wire:submit="update" class="p-6">
-            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">
+        <form wire:submit="update" class="p-6 bg-white dark:bg-gray-800">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 pb-2 border-b border-gray-200 dark:border-gray-600">
                 {{ __('Editar producto') }}
             </h2>
-            <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                {{ __('Modifica nombre, precio y ubicación del producto.') }}
+            <p class="mt-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                {{ __('Modifica nombre, precio, ubicación y atributos del producto.') }}
             </p>
 
             <div class="mt-6 space-y-4">
@@ -26,6 +26,62 @@
                     <x-text-input wire:model="location" id="edit_location" class="block mt-1 w-full" type="text" placeholder="Ej: Estantería A2" />
                     <x-input-error :messages="$errors->get('location')" class="mt-1" />
                 </div>
+
+                @if($category && $category->attributes->isNotEmpty())
+                    <div class="rounded-lg border-2 border-gray-300 dark:border-gray-600 p-5 bg-white dark:bg-gray-800 shadow-sm">
+                        <p class="text-base font-bold text-gray-900 dark:text-white mb-4 pb-2 border-b-2 border-gray-300 dark:border-gray-600">{{ __('Atributos de la categoría') }}</p>
+                        <div class="space-y-4">
+                            @foreach($category->attributes as $attr)
+                                @php
+                                    $val = $attribute_values[$attr->id] ?? ($attr->type === 'boolean' ? '0' : '');
+                                @endphp
+                                @if($attr->type === 'text')
+                                    <div>
+                                        <x-input-label for="edit-attr-{{ $attr->id }}" value="{{ $attr->name }}" class="dark:text-white font-semibold" />
+                                        <x-text-input wire:model="attribute_values.{{ $attr->id }}" id="edit-attr-{{ $attr->id }}" class="block mt-1 w-full" type="text" />
+                                        <x-input-error :messages="$errors->get('attribute_values.' . $attr->id)" class="mt-1" />
+                                    </div>
+                                @elseif($attr->type === 'number')
+                                    <div>
+                                        <x-input-label for="edit-attr-{{ $attr->id }}" value="{{ $attr->name }}" class="dark:text-white font-semibold" />
+                                        <x-text-input wire:model="attribute_values.{{ $attr->id }}" id="edit-attr-{{ $attr->id }}" class="block mt-1 w-full" type="number" step="any" />
+                                        <x-input-error :messages="$errors->get('attribute_values.' . $attr->id)" class="mt-1" />
+                                    </div>
+                                @elseif($attr->type === 'select')
+                                    <div>
+                                        <x-input-label for="edit-attr-{{ $attr->id }}" value="{{ $attr->name }}" class="dark:text-white font-semibold" />
+                                        <select wire:model="attribute_values.{{ $attr->id }}"
+                                                id="edit-attr-{{ $attr->id }}"
+                                                class="block mt-1 w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                                            <option value="">{{ __('Selecciona') }}</option>
+                                            @foreach($attr->options as $opt)
+                                                <option value="{{ $opt->value }}">{{ $opt->value }}</option>
+                                            @endforeach
+                                        </select>
+                                        <x-input-error :messages="$errors->get('attribute_values.' . $attr->id)" class="mt-1" />
+                                    </div>
+                                @elseif($attr->type === 'boolean')
+                                    <div>
+                                        <label class="flex items-center gap-2">
+                                            <input type="checkbox"
+                                                   wire:model.live="attribute_values.{{ $attr->id }}"
+                                                   value="1"
+                                                   class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 shadow-sm focus:ring-indigo-500">
+                                            <span class="text-sm font-semibold text-gray-900 dark:text-white">{{ $attr->name }}</span>
+                                        </label>
+                                        <x-input-error :messages="$errors->get('attribute_values.' . $attr->id)" class="mt-1" />
+                                    </div>
+                                @else
+                                    <div>
+                                        <x-input-label for="edit-attr-{{ $attr->id }}" value="{{ $attr->name }}" class="dark:text-white font-semibold" />
+                                        <x-text-input wire:model="attribute_values.{{ $attr->id }}" id="edit-attr-{{ $attr->id }}" class="block mt-1 w-full" type="text" />
+                                        <x-input-error :messages="$errors->get('attribute_values.' . $attr->id)" class="mt-1" />
+                                    </div>
+                                @endif
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
             </div>
 
             <div class="mt-6 flex justify-end gap-3">

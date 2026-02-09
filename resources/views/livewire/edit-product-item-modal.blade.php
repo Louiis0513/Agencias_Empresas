@@ -1,10 +1,10 @@
 <div x-on:open-edit-product-item-modal.window="$wire.loadProductItem($event.detail?.id ?? $event.detail)">
     <x-modal name="edit-product-item" focusable maxWidth="md">
-        <form wire:submit="update" class="p-6">
-            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">
+        <form wire:submit="update" class="p-6 bg-white dark:bg-gray-800">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 pb-2 border-b border-gray-200 dark:border-gray-600">
                 {{ __('Modificar unidad serializada') }}
             </h2>
-            <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+            <p class="mt-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                 {{ __('Edita precio de venta, estado, número de serie o atributos.') }}
             </p>
 
@@ -32,16 +32,24 @@
                     <x-input-error :messages="$errors->get('status')" class="mt-1" />
                 </div>
 
-                <div>
-                    <x-input-label for="item_features" value="{{ __('Atributos') }}" />
-                    <textarea wire:model="featuresText"
-                              id="item_features"
-                              rows="4"
-                              class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                              placeholder="Una línea por atributo:&#10;color: Rojo&#10;memoria: 128GB"></textarea>
-                    <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Formato: clave: valor (una por línea).</p>
-                    <x-input-error :messages="$errors->get('featuresText')" class="mt-1" />
-                </div>
+                @if($attributes->isNotEmpty())
+                    <div>
+                        <x-input-label value="{{ __('Atributos') }}" />
+                        <div class="mt-2 space-y-3">
+                            @foreach($attributes as $attribute)
+                                <div>
+                                    <x-input-label for="attr_{{ $attribute->id }}" value="{{ $attribute->name }}" />
+                                    <x-text-input wire:model="attributeValues.{{ $attribute->id }}" 
+                                                  id="attr_{{ $attribute->id }}" 
+                                                  class="block mt-1 w-full" 
+                                                  type="text" 
+                                                  placeholder="{{ __('Valor del atributo') }}" />
+                                    <x-input-error :messages="$errors->get('attributeValues.' . $attribute->id)" class="mt-1" />
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
             </div>
 
             <div class="mt-6 flex justify-end gap-3">

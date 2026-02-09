@@ -73,7 +73,6 @@
                                             </td>
                                             <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
                                                 <a href="{{ route('stores.products.show', [$store, $product]) }}" class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 mr-3">Detalles</a>
-                                                <button type="button" x-on:click="$dispatch('open-edit-product-modal', { id: {{ $product->id }} })" class="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300 mr-3">Editar</button>
                                                 <form method="POST" action="{{ route('stores.products.destroy', [$store, $product]) }}" onsubmit="return confirm('¿Estás seguro de eliminar el producto «{{ $product->name }}»?');" class="inline">
                                                     @csrf
                                                     @method('DELETE')

@@ -73,7 +73,7 @@ class EditProductModal extends Component
             $this->attribute_values = [];
             $category = Category::where('id', $this->category_id)
                 ->where('store_id', $store->id)
-                ->with(['attributes'])
+                ->with(['attributes.options'])
                 ->first();
             if ($category) {
                 foreach ($category->attributes as $attr) {
@@ -105,6 +105,12 @@ class EditProductModal extends Component
 
         $normalized = [];
         foreach ($this->attribute_values as $attrId => $val) {
+            // Para booleanos, incluir tanto '1' como '0'
+            if (is_string($val) && ($val === '0' || $val === '1')) {
+                $normalized[$attrId] = $val;
+                continue;
+            }
+            // Para otros tipos, omitir valores vacíos
             if ($val === null || $val === '') {
                 continue;
             }
@@ -131,8 +137,28 @@ class EditProductModal extends Component
             ->with('success', 'Producto actualizado correctamente.');
     }
 
+    public function getCategoryProperty()
+    {
+        if (!$this->category_id) {
+            return null;
+        }
+        
+        $store = $this->getStoreProperty();
+        if (!$store) {
+            return null;
+        }
+        
+        return Category::where('id', $this->category_id)
+            ->where('store_id', $store->id)
+            ->with(['attributes.options'])
+            ->first();
+    }
+
     public function render()
     {
-        return view('livewire.edit-product-modal');
+        $category = $this->getCategoryProperty();
+        return view('livewire.edit-product-modal', [
+            'category' => $category,
+        ]);
     }
 }

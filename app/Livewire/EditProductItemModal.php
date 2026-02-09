@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Models\Product;
 use App\Models\ProductItem;
 use App\Models\Store;
 use Illuminate\Validation\Rule;
@@ -16,8 +17,8 @@ class EditProductItemModal extends Component
     public string $serial_number = '';
     public string $price = '';
     public string $status = 'AVAILABLE';
-    /** Atributos como texto "clave: valor" uno por línea */
-    public string $featuresText = '';
+    /** Array asociativo: [attribute_id => value] */
+    public array $attributeValues = [];
 
     protected function rules(): array
     {
@@ -36,13 +37,21 @@ class EditProductItemModal extends Component
             ],
             'price' => ['nullable', 'numeric', 'min:0'],
             'status' => ['required', 'string', 'in:AVAILABLE,SOLD,RESERVED,DEFECTIVE'],
-            'featuresText' => ['nullable', 'string'],
+            'attributeValues.*' => ['nullable', 'string'],
         ];
     }
 
     public function getStoreProperty(): ?Store
     {
         return Store::find($this->storeId);
+    }
+
+    public function getProductProperty(): ?Product
+    {
+        return Product::where('id', $this->productId)
+            ->where('store_id', $this->storeId)
+            ->with(['category.attributes'])
+            ->first();
     }
 
     public function loadProductItem($id = null): void
@@ -74,13 +83,20 @@ class EditProductItemModal extends Component
         $this->serial_number = $item->serial_number;
         $this->price = $item->price !== null ? (string) $item->price : '';
         $this->status = $item->status ?? ProductItem::STATUS_AVAILABLE;
-        $this->featuresText = '';
-        if (! empty($item->features) && is_array($item->features)) {
-            $lines = [];
-            foreach ($item->features as $k => $v) {
-                $lines[] = $k . ': ' . (is_string($v) ? $v : json_encode($v));
+        
+        // Cargar valores de atributos desde features del item
+        $this->attributeValues = [];
+        $product = $this->getProductProperty();
+        if ($product && $product->category && $product->category->attributes) {
+            foreach ($product->category->attributes as $attribute) {
+                $attrId = (string) $attribute->id;
+                // Buscar el valor en features del item (puede estar como string o int)
+                $value = null;
+                if (!empty($item->features) && is_array($item->features)) {
+                    $value = $item->features[$attrId] ?? $item->features[$attribute->id] ?? null;
+                }
+                $this->attributeValues[$attrId] = $value !== null ? (string) $value : '';
             }
-            $this->featuresText = implode("\n", $lines);
         }
 
         $this->resetValidation();
@@ -101,16 +117,12 @@ class EditProductItemModal extends Component
             ->where('product_id', $this->productId)
             ->firstOrFail();
 
+        // Convertir attributeValues a formato features (usando ID numérico como clave)
         $features = [];
-        $lines = array_filter(array_map('trim', explode("\n", $this->featuresText)));
-        foreach ($lines as $line) {
-            if (str_contains($line, ':')) {
-                [$key, $value] = explode(':', $line, 2);
-                $key = trim($key);
-                $value = trim($value);
-                if ($key !== '') {
-                    $features[$key] = $value;
-                }
+        foreach ($this->attributeValues as $attrId => $value) {
+            $value = trim($value);
+            if ($value !== '') {
+                $features[(int) $attrId] = $value;
             }
         }
 
@@ -118,7 +130,7 @@ class EditProductItemModal extends Component
             'serial_number' => trim($this->serial_number),
             'price' => $this->price !== '' ? (float) $this->price : null,
             'status' => $this->status,
-            'features' => $features ?: null,
+            'features' => !empty($features) ? $features : null,
         ]);
 
         $this->dispatch('close-modal', 'edit-product-item');
@@ -127,6 +139,11 @@ class EditProductItemModal extends Component
 
     public function render()
     {
-        return view('livewire.edit-product-item-modal');
+        $product = $this->getProductProperty();
+        $attributes = $product && $product->category ? $product->category->attributes : collect();
+        
+        return view('livewire.edit-product-item-modal', [
+            'attributes' => $attributes,
+        ]);
     }
 }
