@@ -374,9 +374,24 @@
                             <x-input-error :messages="$errors->get('category_id')" class="mt-1" />
                         </div>
 
-                        {{-- Unidades serializadas --}}
+                        {{-- ¿Tiene stock inicial? (igual que en Simple) --}}
                         @if($this->selectedCategory && $this->selectedCategory->attributes->isNotEmpty())
-                            <div class="rounded-lg border border-gray-200 dark:border-gray-600 p-4 bg-gray-50 dark:bg-gray-900/40">
+                            <div class="flex items-center">
+                                <input wire:model.live="has_initial_stock" id="has_initial_stock_serial" type="checkbox" class="rounded border-gray-300 dark:border-gray-700 text-indigo-600 shadow-sm focus:ring-indigo-500">
+                                <x-input-label for="has_initial_stock_serial" value="{{ __('Tiene stock inicial') }}" class="ml-2" />
+                            </div>
+                        @endif
+
+                        {{-- Unidades serializadas (solo si eligió "Tiene stock inicial") --}}
+                        @if($this->selectedCategory && $this->selectedCategory->attributes->isNotEmpty())
+                            <div x-show="$wire.has_initial_stock"
+                                 x-transition:enter="transition ease-out duration-200"
+                                 x-transition:enter-start="opacity-0"
+                                 x-transition:enter-end="opacity-100"
+                                 x-transition:leave="transition ease-in duration-150"
+                                 x-transition:leave-start="opacity-100"
+                                 x-transition:leave-end="opacity-0"
+                                 class="rounded-lg border border-gray-200 dark:border-gray-600 p-4 bg-gray-50 dark:bg-gray-900/40">
                                 <div class="flex items-center justify-between mb-4">
                                     <p class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Stock inicial') }}</p>
                                     <button type="button"
@@ -391,7 +406,7 @@
 
                                 @if(empty($serializedItems))
                                     <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                                        Selecciona una categoría para que aparezca automáticamente la primera unidad.
+                                        Haz clic en «Añadir stock» para agregar unidades con número de serie.
                                     </p>
                                 @endif
 

@@ -31,7 +31,7 @@ class CreateProductModal extends Component
     /** Tipo de producto: simple, batch o serialized */
     public string $type = 'simple';
     public bool $is_active = true;
-    /** Para productos simples: indica si hay stock inicial */
+    /** Para productos simples y serializados: indica si tiene stock inicial */
     public bool $has_initial_stock = false;
 
     /** @var array<int, string> Valores de atributos: [attribute_id => value] */
@@ -112,10 +112,16 @@ class CreateProductModal extends Component
         }
 
         if ($this->type === MovimientoInventario::PRODUCT_TYPE_SERIALIZED) {
-            $rules['serializedItems'] = ['required', 'array', 'min:1'];
-            $rules['serializedItems.*.serial_number'] = ['required', 'string', 'max:255'];
-            $rules['serializedItems.*.price'] = ['nullable', 'numeric', 'min:0'];
-            $rules['serializedItems.*.cost'] = ['nullable', 'numeric', 'min:0'];
+            // Sin stock inicial: permitir array vacío (required falla con [] en Laravel).
+            // Con stock inicial: obligatorio y al menos un ítem.
+            $rules['serializedItems'] = $this->has_initial_stock
+                ? ['required', 'array', 'min:1']
+                : ['array'];
+            if ($this->has_initial_stock) {
+                $rules['serializedItems.*.serial_number'] = ['required', 'string', 'max:255'];
+                $rules['serializedItems.*.price'] = ['nullable', 'numeric', 'min:0'];
+                $rules['serializedItems.*.cost'] = ['nullable', 'numeric', 'min:0'];
+            }
         }
 
         return $rules;
@@ -187,10 +193,7 @@ class CreateProductModal extends Component
                 $this->addVariant();
             }
             
-            // Si es tipo Serializado, agregar automáticamente la primera unidad
-            if ($this->type === MovimientoInventario::PRODUCT_TYPE_SERIALIZED) {
-                $this->addSerializedItem();
-            }
+            // Serializado: no se agrega unidad automáticamente; el usuario marca "Tiene stock inicial" y añade unidades si quiere
         }
         $this->resetValidation();
     }
@@ -210,14 +213,22 @@ class CreateProductModal extends Component
             }
         }
         
-        // Si cambia a tipo Serializado y ya hay una categoría seleccionada, agregar automáticamente la primera unidad
-        if ($this->type === MovimientoInventario::PRODUCT_TYPE_SERIALIZED && $this->category_id) {
-            $cat = $this->getSelectedCategoryProperty();
-            if ($cat && $cat->attributes->isNotEmpty()) {
-                $this->addSerializedItem();
-            }
+        // Serializado: no se agrega unidad automáticamente; el usuario marca "Tiene stock inicial" y añade unidades si quiere
+        if ($this->type === MovimientoInventario::PRODUCT_TYPE_SERIALIZED) {
+            $this->has_initial_stock = false;
         }
         
+        $this->resetValidation();
+    }
+
+    /**
+     * Si en serializado se desmarca "Tiene stock inicial", vaciar la lista de unidades para no enviar datos residuales.
+     */
+    public function updatedHasInitialStock($value): void
+    {
+        if ($this->type === MovimientoInventario::PRODUCT_TYPE_SERIALIZED && ! $value) {
+            $this->serializedItems = [];
+        }
         $this->resetValidation();
     }
 
@@ -347,6 +358,11 @@ class CreateProductModal extends Component
         if ($this->type === 'simple') {
             $this->normalizeBooleanAttributes();
         }
+
+        // Serializado sin stock inicial: asegurar que no enviamos datos residuales y que el servicio recibe un array
+        if ($this->type === MovimientoInventario::PRODUCT_TYPE_SERIALIZED && ! $this->has_initial_stock) {
+            $this->serializedItems = [];
+        }
         
         // Validar números de serie únicos para productos serializados
         if ($this->type === MovimientoInventario::PRODUCT_TYPE_SERIALIZED && ! empty($this->serializedItems)) {
@@ -409,9 +425,9 @@ class CreateProductModal extends Component
                 $productData['attribute_option_ids'] = $this->attribute_option_ids;
             }
 
-            // Para productos tipo serialized: añadir unidades serializadas
+            // Para productos tipo serialized: siempre enviar array de unidades (vacío si no hay stock inicial)
             if ($this->type === MovimientoInventario::PRODUCT_TYPE_SERIALIZED) {
-                $productData['serializedItems'] = $this->serializedItems;
+                $productData['serializedItems'] = is_array($this->serializedItems) ? $this->serializedItems : [];
             }
 
             $userId = Auth::id();
@@ -445,7 +461,8 @@ class CreateProductModal extends Component
             return;
         }
 
-        return redirect()->route('stores.products', $store);
+        session()->flash('success', __('Producto creado correctamente.'));
+        return redirect()->route('stores.products', ['store' => $store]);
     }
 
 

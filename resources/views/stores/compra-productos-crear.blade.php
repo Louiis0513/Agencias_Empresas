@@ -1,11 +1,17 @@
+@php
+    $purchase = $purchase ?? null;
+    $detailsForEdit = $detailsForEdit ?? [];
+    $editing = $purchase && $purchase instanceof \App\Models\Purchase;
+    $formAction = $editing ? route('stores.purchases.update', [$store, $purchase]) : route('stores.product-purchases.store', $store);
+@endphp
 <x-app-layout>
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-                Nueva Compra de Productos - {{ $store->name }}
+                {{ $editing ? 'Editar compra' : 'Nueva Compra de Productos' }} - {{ $store->name }}
             </h2>
-            <a href="{{ route('stores.product-purchases', $store) }}" class="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
-                ← Volver a Compra de productos
+            <a href="{{ $editing ? route('stores.purchases.show', [$store, $purchase]) : route('stores.product-purchases', $store) }}" class="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+                ← {{ $editing ? 'Volver a compra' : 'Volver a Compra de productos' }}
             </a>
         </div>
     </x-slot>
@@ -16,15 +22,20 @@
 
     <div class="py-12" x-data="compraProductosSelection()">
         <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
+            @if(!$editing)
             <p class="mb-4 text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/30 border border-gray-200 dark:border-gray-700 rounded-lg px-4 py-3">
                 La compra se guardará como borrador. Podrás editarla o aprobarla después desde el listado de compras de productos.
             </p>
+            @endif
 
-            <form method="POST" action="{{ route('stores.product-purchases.store', $store) }}" class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg p-6" id="form-compra-productos"
+            <form method="POST" action="{{ $formAction }}" class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg p-6" id="form-compra-productos"
                   data-atributos-url="{{ route('stores.productos.atributos-categoria', [$store, 0]) }}"
                   x-on:item-selected.window="onItemSelected($event.detail)"
                   x-on:batch-variant-selected.window="onBatchVariantSelected($event.detail)">
                 @csrf
+                @if($editing)
+                    @method('PUT')
+                @endif
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                     <div>
@@ -32,28 +43,28 @@
                         <select name="proveedor_id" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
                             <option value="">Sin proveedor</option>
                             @foreach($proveedores as $prov)
-                                <option value="{{ $prov->id }}" {{ old('proveedor_id') == $prov->id ? 'selected' : '' }}>{{ $prov->nombre }}</option>
+                                <option value="{{ $prov->id }}" {{ old('proveedor_id', $editing ? $purchase->proveedor_id : null) == $prov->id ? 'selected' : '' }}>{{ $prov->nombre }}</option>
                             @endforeach
                         </select>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Forma de Pago</label>
                         <select name="payment_status" x-model="paymentStatus" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
-                            <option value="PAGADO">Contado (Pagado)</option>
-                            <option value="PENDIENTE">A Crédito (Pendiente)</option>
+                            <option value="PAGADO" {{ old('payment_status', $editing ? $purchase->payment_status : 'PAGADO') == 'PAGADO' ? 'selected' : '' }}>Contado (Pagado)</option>
+                            <option value="PENDIENTE" {{ old('payment_status', $editing ? $purchase->payment_status : null) == 'PENDIENTE' ? 'selected' : '' }}>A Crédito (Pendiente)</option>
                         </select>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nº Factura Externa</label>
-                        <input type="text" name="invoice_number" value="{{ old('invoice_number') }}" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" placeholder="Ej: F-001-0001234">
+                        <input type="text" name="invoice_number" value="{{ old('invoice_number', $editing ? $purchase->invoice_number : '') }}" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" placeholder="Ej: F-001-0001234">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha Factura Externa</label>
-                        <input type="date" name="invoice_date" value="{{ old('invoice_date') }}" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                        <input type="date" name="invoice_date" value="{{ old('invoice_date', $editing && $purchase->invoice_date ? $purchase->invoice_date->format('Y-m-d') : '') }}" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
                     </div>
                     <div x-show="paymentStatus === 'PENDIENTE'" x-transition>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha de vencimiento de la factura</label>
-                        <input type="date" name="due_date" value="{{ old('due_date') }}" x-bind:required="paymentStatus === 'PENDIENTE'" x-bind:disabled="paymentStatus !== 'PENDIENTE'" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" placeholder="Cuando vence la cuenta por pagar">
+                        <input type="date" name="due_date" value="{{ old('due_date', $editing && $purchase->due_date ? $purchase->due_date->format('Y-m-d') : '') }}" x-bind:required="paymentStatus === 'PENDIENTE'" x-bind:disabled="paymentStatus !== 'PENDIENTE'" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" placeholder="Cuando vence la cuenta por pagar">
                         <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Solo para compras a crédito. Cuándo vence el pago.</p>
                     </div>
                 </div>
@@ -78,19 +89,28 @@
                             <tbody id="details-body-productos" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                                 @php
                                     $defaultDetail = ['item_type' => 'INVENTARIO', 'product_id' => '', 'description' => '', 'quantity' => 1, 'unit_cost' => 0];
-                                    $oldDetails = array_values(old('details', [$defaultDetail]));
+                                    $oldDetails = old('details');
+                                    if ($oldDetails !== null) {
+                                        $oldDetails = array_values($oldDetails);
+                                    } elseif ($editing && !empty($detailsForEdit)) {
+                                        $oldDetails = $detailsForEdit;
+                                    } else {
+                                        $oldDetails = [$defaultDetail];
+                                    }
                                     if (empty($oldDetails)) {
                                         $oldDetails = [$defaultDetail];
                                     }
                                 @endphp
                                 @foreach($oldDetails as $i => $d)
                                     @php
+                                        $d = is_array($d) ? $d : (array) $d;
                                         $hasItem = !empty(trim($d['description'] ?? '')) || !empty($d['product_id'] ?? '');
                                         $qty = (int) ($d['quantity'] ?? 1);
                                         $cost = (float) ($d['unit_cost'] ?? 0);
                                         $subtotal = $qty * $cost;
+                                        $productType = $d['product_type'] ?? 'simple';
                                     @endphp
-                                    <tr class="detail-row" data-row-id="{{ $i }}" data-product-type="simple">
+                                    <tr class="detail-row" data-row-id="{{ $i }}" data-product-type="{{ $productType }}" @if(!empty($d['product_id'])) data-product-id="{{ $d['product_id'] }}" @endif>
                                         <td class="px-3 py-2">
                                             <input type="hidden" name="details[{{ $i }}][item_type]" value="INVENTARIO">
                                             <div class="item-select-wrapper">
@@ -123,6 +143,59 @@
                                             <button type="button" class="remove-row text-red-600 hover:text-red-800 text-sm">Quitar</button>
                                         </td>
                                     </tr>
+                                    @if($editing && !empty($d['serial_items']) && is_array($d['serial_items']))
+                                        {{-- Fila de unidades serializadas: debe enviarse al guardar para no perder los seriales al editar --}}
+                                        <tr class="serial-details-row bg-gray-50 dark:bg-gray-900/50" data-parent-row-id="{{ $i }}" data-product-id="{{ $d['product_id'] ?? '' }}">
+                                            <td colspan="6" class="px-3 py-3 border-t border-gray-200 dark:border-gray-700">
+                                                <div class="space-y-4 text-sm">
+                                                    <div class="p-2 rounded bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800">
+                                                        <p class="text-sm font-medium text-indigo-800 dark:text-indigo-200">Unidades serializadas (edición)</p>
+                                                        <p class="mt-0.5 text-xs text-indigo-700 dark:text-indigo-300">Cada unidad con su número de serie y costo. Se envían al guardar para que la aprobación no falle.</p>
+                                                    </div>
+                                                    <div class="flex items-center justify-between">
+                                                        <span class="font-semibold text-gray-700 dark:text-gray-200">Unidades (serial + costo)</span>
+                                                        <button type="button" class="btn-add-serial-unit text-indigo-600 hover:underline text-sm">+ Agregar unidad</button>
+                                                    </div>
+                                                    <div class="serial-items-container space-y-3">
+                                                        @foreach($d['serial_items'] as $j => $unit)
+                                                            @php
+                                                                $unit = is_array($unit) ? $unit : (array) $unit;
+                                                                $sn = $unit['serial_number'] ?? '';
+                                                                $uc = (float) ($unit['cost'] ?? 0);
+                                                                $feats = $unit['features'] ?? [];
+                                                            @endphp
+                                                            <div class="serial-item border rounded-lg p-4 space-y-3 bg-gray-50 dark:bg-gray-900/30 border-gray-200 dark:border-gray-700" data-serial-index="{{ $j }}">
+                                                                <div class="flex justify-between items-center serial-item-header">
+                                                                    <span class="text-sm font-semibold text-gray-600 dark:text-gray-300">Unidad #{{ $j + 1 }}</span>
+                                                                    <button type="button" class="btn-remove-serial text-red-600 hover:underline text-sm">Eliminar</button>
+                                                                </div>
+                                                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                                    <div>
+                                                                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Número de serie (IMEI, etc.)</label>
+                                                                        <input type="text" class="serial-number w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" placeholder="Ej: IMEI-123456789" name="details[{{ $i }}][serial_items][{{ $j }}][serial_number]" value="{{ old('details.'.$i.'.serial_items.'.$j.'.serial_number', $sn) }}">
+                                                                    </div>
+                                                                    <div>
+                                                                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Costo de esta unidad (€)</label>
+                                                                        <input type="number" step="0.01" min="0" class="serial-cost w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" placeholder="0.00" name="details[{{ $i }}][serial_items][{{ $j }}][cost]" value="{{ old('details.'.$i.'.serial_items.'.$j.'.cost', $uc) }}">
+                                                                    </div>
+                                                                </div>
+                                                                @if(!empty($feats))
+                                                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                                        @foreach($feats as $attrId => $attrVal)
+                                                                            <div>
+                                                                                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Atributo {{ $attrId }}</label>
+                                                                                <input type="text" class="serial-attr-feature w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" data-attr-id="{{ $attrId }}" name="details[{{ $i }}][serial_items][{{ $j }}][features][{{ $attrId }}]" value="{{ is_scalar($attrVal) ? $attrVal : '' }}">
+                                                                            </div>
+                                                                        @endforeach
+                                                                    </div>
+                                                                @endif
+                                                            </div>
+                                                        @endforeach
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    @endif
                                 @endforeach
                             </tbody>
                         </table>
@@ -138,11 +211,11 @@
                 </div>
 
                 <div class="flex justify-end gap-3">
-                    <a href="{{ route('stores.product-purchases', $store) }}" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600">
+                    <a href="{{ $editing ? route('stores.purchases.show', [$store, $purchase]) : route('stores.product-purchases', $store) }}" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600">
                         Cancelar
                     </a>
                     <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800">
-                        Guardar como borrador
+                        {{ $editing ? 'Guardar cambios' : 'Guardar como borrador' }}
                     </button>
                 </div>
             </form>
@@ -218,7 +291,7 @@
             }
             
             return {
-                paymentStatus: @json(old('payment_status', 'PENDIENTE')),
+                paymentStatus: @json(old('payment_status', $editing ? $purchase->payment_status : 'PENDIENTE')),
                 onItemSelected(detail) {
                     if (detail.type !== 'INVENTARIO') return;
                     const row = document.querySelector(`#details-body-productos .detail-row[data-row-id="${detail.rowId}"]`);
@@ -844,6 +917,73 @@
 
             document.getElementById('add-row-productos').addEventListener('click', addRow);
             tbody.querySelectorAll('.detail-row').forEach(bindRowEvents);
+
+            // Filas seriales pre-renderizadas (edición): enlazar eventos para actualizar subtotal y eliminar unidad
+            document.querySelectorAll('#details-body-productos .serial-details-row').forEach(function(serialRow) {
+                const parentRow = serialRow.previousElementSibling;
+                if (!parentRow || !parentRow.classList.contains('detail-row')) return;
+                const rowId = parentRow.getAttribute('data-row-id');
+                const container = serialRow.querySelector('.serial-items-container');
+                if (!container) return;
+                container.querySelectorAll('.serial-item').forEach(function(item) {
+                    const costInp = item.querySelector('.serial-cost');
+                    if (costInp) costInp.addEventListener('input', function() { updateSerialQtyAndSubtotal(parentRow); });
+                    const removeBtn = item.querySelector('.btn-remove-serial');
+                    if (removeBtn) {
+                        removeBtn.addEventListener('click', function() {
+                            const items = container.querySelectorAll('.serial-item');
+                            if (items.length > 1) {
+                                item.remove();
+                                container.querySelectorAll('.serial-item').forEach(function(it, j) {
+                                    const sn = it.querySelector('.serial-number');
+                                    const sc = it.querySelector('.serial-cost');
+                                    if (sn) sn.name = 'details[' + rowId + '][serial_items][' + j + '][serial_number]';
+                                    if (sc) sc.name = 'details[' + rowId + '][serial_items][' + j + '][cost]';
+                                    it.querySelectorAll('.serial-attr-feature').forEach(function(inp) {
+                                        const attrId = inp.getAttribute('data-attr-id');
+                                        if (attrId) inp.name = 'details[' + rowId + '][serial_items][' + j + '][features][' + attrId + ']';
+                                    });
+                                    var h = it.querySelector('.serial-item-header span');
+                                    if (h) h.textContent = 'Unidad #' + (j + 1);
+                                });
+                                updateSerialQtyAndSubtotal(parentRow);
+                            }
+                        });
+                    }
+                });
+                const addBtn = serialRow.querySelector('.btn-add-serial-unit');
+                if (addBtn) {
+                    addBtn.addEventListener('click', function() {
+                        const j = container.querySelectorAll('.serial-item').length;
+                        const div = document.createElement('div');
+                        div.className = 'serial-item border rounded-lg p-4 space-y-3 bg-gray-50 dark:bg-gray-900/30 border-gray-200 dark:border-gray-700';
+                        div.setAttribute('data-serial-index', j);
+                        div.innerHTML = '<div class="flex justify-between items-center serial-item-header"><span class="text-sm font-semibold text-gray-600 dark:text-gray-300">Unidad #' + (j + 1) + '</span><button type="button" class="btn-remove-serial text-red-600 hover:underline text-sm">Eliminar</button></div><div class="grid grid-cols-1 sm:grid-cols-2 gap-3"><div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Número de serie</label><input type="text" class="serial-number w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" name="details[' + rowId + '][serial_items][' + j + '][serial_number]"></div><div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Costo (€)</label><input type="number" step="0.01" min="0" class="serial-cost w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" name="details[' + rowId + '][serial_items][' + j + '][cost]" value="0"></div></div>';
+                        container.appendChild(div);
+                        div.querySelector('.serial-cost').addEventListener('input', function() { updateSerialQtyAndSubtotal(parentRow); });
+                        div.querySelector('.btn-remove-serial').addEventListener('click', function() {
+                            if (container.querySelectorAll('.serial-item').length > 1) {
+                                div.remove();
+                                container.querySelectorAll('.serial-item').forEach(function(it, jj) {
+                                    var sn = it.querySelector('.serial-number');
+                                    var sc = it.querySelector('.serial-cost');
+                                    if (sn) sn.name = 'details[' + rowId + '][serial_items][' + jj + '][serial_number]';
+                                    if (sc) sc.name = 'details[' + rowId + '][serial_items][' + jj + '][cost]';
+                                    it.querySelectorAll('.serial-attr-feature').forEach(function(inp) {
+                                        var attrId = inp.getAttribute('data-attr-id');
+                                        if (attrId) inp.name = 'details[' + rowId + '][serial_items][' + jj + '][features][' + attrId + ']';
+                                    });
+                                    var h = it.querySelector('.serial-item-header span');
+                                    if (h) h.textContent = 'Unidad #' + (jj + 1);
+                                });
+                                updateSerialQtyAndSubtotal(parentRow);
+                            }
+                        });
+                        updateSerialQtyAndSubtotal(parentRow);
+                    });
+                }
+                updateSerialQtyAndSubtotal(parentRow);
+            });
         });
     </script>
 </x-app-layout>

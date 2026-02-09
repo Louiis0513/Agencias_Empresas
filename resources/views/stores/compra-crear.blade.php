@@ -1,11 +1,16 @@
+@php
+    $purchase = $purchase ?? null;
+    $editingActivos = $purchase && $purchase instanceof \App\Models\Purchase;
+    $formActionActivos = $editingActivos ? route('stores.purchases.update', [$store, $purchase]) : route('stores.purchases.store', $store);
+@endphp
 <x-app-layout>
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-                Nueva Compra de Activos - {{ $store->name }}
+                {{ $editingActivos ? 'Editar compra' : 'Nueva Compra de Activos' }} - {{ $store->name }}
             </h2>
-            <a href="{{ route('stores.purchases', $store) }}" class="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
-                ← Volver a Compra de activos
+            <a href="{{ $editingActivos ? route('stores.purchases.show', [$store, $purchase]) : route('stores.purchases', $store) }}" class="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+                ← {{ $editingActivos ? 'Volver a compra' : 'Volver a Compra de activos' }}
             </a>
         </div>
     </x-slot>
@@ -13,7 +18,7 @@
     @livewire('select-item-modal', ['storeId' => $store->id, 'itemType' => 'ACTIVO_FIJO'])
     @livewire('create-activo-modal', ['storeId' => $store->id, 'fromPurchase' => true])
 
-    <div class="py-12" x-data="compraItemSelection({ paymentStatus: '{{ old('payment_status', 'PAGADO') }}' })">
+    <div class="py-12" x-data="compraItemSelection({ paymentStatus: '{{ old('payment_status', $editingActivos ? $purchase->payment_status : 'PAGADO') }}' })">
         <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
             @if(session('error'))
                 <div class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
@@ -54,9 +59,12 @@
                 <button type="button" class="absolute top-2 right-2 text-red-600 hover:text-red-800" onclick="this.parentElement.classList.add('hidden')" aria-label="Cerrar">×</button>
             </div>
 
-            <form method="POST" action="{{ route('stores.purchases.store', $store) }}" class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg p-6"
+            <form method="POST" action="{{ $formActionActivos }}" class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg p-6"
                   x-on:item-selected.window="onItemSelected($event.detail)">
                 @csrf
+                @if($editingActivos)
+                    @method('PUT')
+                @endif
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                     <div>
@@ -64,24 +72,24 @@
                         <select name="proveedor_id" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
                             <option value="">Sin proveedor</option>
                             @foreach($proveedores as $prov)
-                                <option value="{{ $prov->id }}" {{ old('proveedor_id') == $prov->id ? 'selected' : '' }}>{{ $prov->nombre }}</option>
+                                <option value="{{ $prov->id }}" {{ old('proveedor_id', $editingActivos ? $purchase->proveedor_id : null) == $prov->id ? 'selected' : '' }}>{{ $prov->nombre }}</option>
                             @endforeach
                         </select>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Forma de Pago</label>
-                        <select name="payment_status" x-model="paymentStatus" x-init="paymentStatus = @js(old('payment_status', 'PAGADO'))" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
-                            <option value="PAGADO" {{ old('payment_status', 'PAGADO') == 'PAGADO' ? 'selected' : '' }}>Contado (Pagado)</option>
-                            <option value="PENDIENTE" {{ old('payment_status') == 'PENDIENTE' ? 'selected' : '' }}>A Crédito (Pendiente)</option>
+                        <select name="payment_status" x-model="paymentStatus" x-init="paymentStatus = @js(old('payment_status', $editingActivos ? $purchase->payment_status : 'PAGADO'))" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                            <option value="PAGADO" {{ old('payment_status', $editingActivos ? $purchase->payment_status : 'PAGADO') == 'PAGADO' ? 'selected' : '' }}>Contado (Pagado)</option>
+                            <option value="PENDIENTE" {{ old('payment_status', $editingActivos ? $purchase->payment_status : null) == 'PENDIENTE' ? 'selected' : '' }}>A Crédito (Pendiente)</option>
                         </select>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nº Factura Externa</label>
-                        <input type="text" name="invoice_number" value="{{ old('invoice_number') }}" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" placeholder="Ej: F-001-0001234" required>
+                        <input type="text" name="invoice_number" value="{{ old('invoice_number', $editingActivos ? $purchase->invoice_number : '') }}" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" placeholder="Ej: F-001-0001234" required>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha Factura Externa</label>
-                        <input type="date" name="invoice_date" value="{{ old('invoice_date') }}" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" required>
+                        <input type="date" name="invoice_date" value="{{ old('invoice_date', $editingActivos && $purchase->invoice_date ? $purchase->invoice_date->format('Y-m-d') : '') }}" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" required>
                     </div>
                 </div>
 
@@ -104,12 +112,26 @@
                             <tbody id="details-body" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                                 @php
                                     $defaultDetail = ['item_type' => 'ACTIVO_FIJO', 'product_id' => '', 'activo_id' => '', 'description' => '', 'quantity' => 1, 'unit_cost' => 0];
-                                    $oldDetails = array_values(old('details', [$defaultDetail]));
-                                    if (empty($oldDetails)) {
-                                        $oldDetails = [$defaultDetail];
+                                    $oldDetailsActivos = old('details');
+                                    if ($oldDetailsActivos !== null) {
+                                        $oldDetailsActivos = array_values($oldDetailsActivos);
+                                    } elseif ($editingActivos && $purchase->details->isNotEmpty()) {
+                                        $oldDetailsActivos = $purchase->details->map(fn($d) => [
+                                            'item_type' => 'ACTIVO_FIJO',
+                                            'product_id' => '',
+                                            'activo_id' => $d->activo_id,
+                                            'description' => $d->description,
+                                            'quantity' => $d->quantity,
+                                            'unit_cost' => $d->unit_cost,
+                                        ])->values()->all();
+                                    } else {
+                                        $oldDetailsActivos = [$defaultDetail];
+                                    }
+                                    if (empty($oldDetailsActivos)) {
+                                        $oldDetailsActivos = [$defaultDetail];
                                     }
                                 @endphp
-                                @foreach($oldDetails as $i => $d)
+                                @foreach($oldDetailsActivos as $i => $d)
                                     @php
                                         $hasItem = !empty(trim($d['description'] ?? '')) || !empty($d['activo_id'] ?? '');
                                         $qty = (int) ($d['quantity'] ?? 1);
@@ -156,16 +178,16 @@
 
                 <div class="mb-6 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700" x-show="paymentStatus === 'PENDIENTE'" x-transition>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Fecha de vencimiento de la factura</label>
-                    <input type="date" name="due_date" value="{{ old('due_date') }}" :required="paymentStatus === 'PENDIENTE'" :disabled="paymentStatus !== 'PENDIENTE'" class="w-full max-w-xs rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" placeholder="Cuando vence la cuenta por pagar">
+                    <input type="date" name="due_date" value="{{ old('due_date', $editingActivos && $purchase->due_date ? $purchase->due_date->format('Y-m-d') : '') }}" :required="paymentStatus === 'PENDIENTE'" :disabled="paymentStatus !== 'PENDIENTE'" class="w-full max-w-xs rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" placeholder="Cuando vence la cuenta por pagar">
                     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Indica cuándo vence el pago según la factura real o acuerdos con el proveedor.</p>
                 </div>
 
                 <div class="flex justify-end gap-3">
-                    <a href="{{ route('stores.purchases', $store) }}" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600">
+                    <a href="{{ $editingActivos ? route('stores.purchases.show', [$store, $purchase]) : route('stores.purchases', $store) }}" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600">
                         Cancelar
                     </a>
                     <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700" id="btn-submit-compra">
-                        Guardar Compra (Borrador)
+                        {{ $editingActivos ? 'Guardar cambios' : 'Guardar Compra (Borrador)' }}
                     </button>
                 </div>
             </form>

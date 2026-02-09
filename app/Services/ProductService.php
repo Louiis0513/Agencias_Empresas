@@ -44,7 +44,8 @@ class ProductService
             $attributeValues = $data['attribute_values'] ?? [];
             $proveedorIds = $data['proveedor_ids'] ?? null;
             $variants = $data['variants'] ?? null;
-            $serializedItems = $data['serializedItems'] ?? null;
+            // Serializado: normalizar a array (vacío si no hay stock inicial)
+            $serializedItems = isset($data['serializedItems']) && is_array($data['serializedItems']) ? $data['serializedItems'] : [];
             $attributeOptionIds = $data['attribute_option_ids'] ?? null;
             $hasInitialStock = $data['has_initial_stock'] ?? false;
             $simpleInitialStockQty = 0;
@@ -118,8 +119,8 @@ class ProductService
                 }
             }
 
-            // Para productos tipo serialized: crear ProductItems si hay unidades
-            if ($product->isSerialized() && $serializedItems !== null && ! empty($serializedItems) && $userId) {
+            // Para productos tipo serialized: crear ProductItems solo si hay unidades (stock inicial)
+            if ($product->isSerialized() && ! empty($serializedItems) && $userId) {
                 $this->createSerializedItems($product, $store, $serializedItems, $userId);
             }
 
