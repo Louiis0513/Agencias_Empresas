@@ -5,7 +5,7 @@
                 Seleccionar {{ $itemType === 'INVENTARIO' ? 'Producto (Inventario)' : 'Activo Fijo' }}
             </h2>
             <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                Busca y selecciona un {{ $itemType === 'INVENTARIO' ? 'producto' : 'activo' }} de la tabla, o crea uno nuevo si aún no existe.
+                Busca y selecciona un {{ $itemType === 'INVENTARIO' ? 'producto' : 'activo' }} de la tabla{{ $itemType === 'ACTIVO_FIJO' ? ', o crea uno nuevo si aún no existe' : '' }}.
             </p>
 
             <div class="mt-4 flex gap-3">
@@ -15,21 +15,15 @@
                            placeholder="Buscar por nombre, SKU o código (mín. 2 letras)..."
                            class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
                 </div>
+                @if($itemType === 'ACTIVO_FIJO')
                 <div>
-                    @if($itemType === 'INVENTARIO')
-                        <button type="button"
-                                wire:click="openCreateProduct"
-                                class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm font-medium">
-                            Producto nuevo – Crear
-                        </button>
-                    @else
-                        <button type="button"
-                                wire:click="openCreateActivo"
-                                class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm font-medium">
-                            Activo nuevo – Crear
-                        </button>
-                    @endif
+                    <button type="button"
+                            wire:click="openCreateActivo"
+                            class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm font-medium">
+                        Activo nuevo – Crear
+                    </button>
                 </div>
+                @endif
             </div>
 
             <div class="mt-4 overflow-auto max-h-80 border border-gray-200 dark:border-gray-600 rounded-md">
@@ -58,9 +52,9 @@
                             <tr>
                                 <td colspan="3" class="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
                                     @if(strlen(trim($search)) >= 2)
-                                        No se encontraron resultados para "{{ $search }}". Prueba con otro término o crea uno nuevo.
+                                        No se encontraron resultados para "{{ $search }}".{{ $itemType === 'ACTIVO_FIJO' ? ' Prueba con otro término o crea uno nuevo.' : ' Prueba con otro término o crea el producto desde la vista de Productos.' }}
                                     @else
-                                        Escribe al menos 2 letras para buscar, o crea un {{ $itemType === 'INVENTARIO' ? 'producto' : 'activo' }} nuevo.
+                                        Escribe al menos 2 letras para buscar{{ $itemType === 'ACTIVO_FIJO' ? ', o crea un activo nuevo' : '' }}.
                                     @endif
                                 </td>
                             </tr>

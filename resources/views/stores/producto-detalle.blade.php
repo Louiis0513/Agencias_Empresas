@@ -5,14 +5,12 @@
                 {{ $product->name }} - {{ $store->name }}
             </h2>
             <div class="flex items-center gap-3">
-                @if(!$product->isBatch() && !$product->isSerialized())
-                    <button type="button" 
-                            x-data
-                            @click="window.dispatchEvent(new CustomEvent('open-edit-product-modal', { detail: { id: {{ $product->id }} }, bubbles: true }))" 
-                            class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 focus:bg-indigo-700 active:bg-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150">
-                        Editar producto
-                    </button>
-                @endif
+                <button type="button" 
+                        x-data
+                        @click="window.dispatchEvent(new CustomEvent('open-edit-product-modal', { detail: { id: {{ $product->id }} }, bubbles: true }))" 
+                        class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 focus:bg-indigo-700 active:bg-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150">
+                    Editar producto
+                </button>
                 <a href="{{ route('stores.products', $store) }}" class="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
                     ← Volver a Productos
                 </a>

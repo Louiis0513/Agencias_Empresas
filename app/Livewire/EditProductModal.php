@@ -14,6 +14,9 @@ class EditProductModal extends Component
     public int $storeId;
     public ?int $productId = null;
 
+    /** 'simple' | 'batch' | 'serialized' - define qué campos mostrar en el formulario */
+    public string $productType = 'simple';
+
     public string $name = '';
     public string $price = '0';
     public string $location = '';
@@ -66,13 +69,14 @@ class EditProductModal extends Component
             ->first();
 
         if ($product) {
+            $this->productType = $product->isBatch() ? 'batch' : ($product->isSerialized() ? 'serialized' : 'simple');
             $this->name = $product->name;
             $this->price = (string) $product->price;
             $this->location = $product->location ?? '';
             $this->is_active = (bool) $product->is_active;
             $this->category_id = $product->category_id ? (string) $product->category_id : null;
 
-            // Mantener attribute_values para reenviarlos al guardar (no se editan en este modal)
+            // Mantener attribute_values para reenviarlos al guardar (solo se usan en productos simple)
             $this->attribute_values = [];
             $category = Category::where('id', $this->category_id)
                 ->where('store_id', $store->id)
@@ -95,7 +99,16 @@ class EditProductModal extends Component
 
     public function update(ProductService $service)
     {
-        $this->validate();
+        $isSimple = $this->productType === 'simple';
+
+        if ($isSimple) {
+            $this->validate();
+        } else {
+            $this->validate([
+                'name' => ['required', 'string', 'min:1', 'max:255'],
+                'location' => ['nullable', 'string', 'max:255'],
+            ]);
+        }
 
         $store = $this->getStoreProperty();
         if (! $store || ! Auth::user()->stores->contains($store->id)) {
@@ -120,21 +133,37 @@ class EditProductModal extends Component
             $normalized[$attrId] = is_bool($val) || $val === true || $val === '1' || $val === 1 || $val === 'true' ? '1' : (string) $val;
         }
 
+        $data = [
+            'name' => $this->name,
+            'location' => $this->location ?: null,
+        ];
+
+        if ($isSimple) {
+            $data['price'] = (float) $this->price;
+            $data['is_active'] = $this->is_active;
+            $data['category_id'] = $this->category_id;
+            $data['attribute_values'] = $normalized;
+        } else {
+            // Para batch/serialized: preservar attribute_values actuales (no modificar)
+            $product = Product::where('id', $this->productId)->where('store_id', $store->id)->with('attributeValues')->first();
+            if ($product) {
+                $data['category_id'] = $product->category_id;
+                $existingAttrs = [];
+                foreach ($product->attributeValues as $av) {
+                    $existingAttrs[$av->attribute_id] = $av->value;
+                }
+                $data['attribute_values'] = $existingAttrs;
+            }
+        }
+
         try {
-            $service->updateProduct($store, $this->productId, [
-                'name' => $this->name,
-                'price' => (float) $this->price,
-                'location' => $this->location ?: null,
-                'is_active' => $this->is_active,
-                'category_id' => $this->category_id,
-                'attribute_values' => $normalized,
-            ]);
+            $service->updateProduct($store, $this->productId, $data);
         } catch (\Exception $e) {
             $this->addError('name', $e->getMessage());
             return;
         }
 
-        $this->reset(['name', 'price', 'location', 'is_active', 'category_id', 'attribute_values', 'productId']);
+        $this->reset(['name', 'price', 'location', 'is_active', 'category_id', 'attribute_values', 'productId', 'productType']);
         $this->resetValidation();
 
         return redirect()->route('stores.products', $store)

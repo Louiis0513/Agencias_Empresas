@@ -5,7 +5,11 @@
                 {{ __('Editar producto') }}
             </h2>
             <p class="mt-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                {{ __('Modifica nombre, precio, ubicación y atributos del producto.') }}
+                @if($productType === 'simple')
+                    {{ __('Modifica nombre, precio, ubicación y atributos del producto.') }}
+                @else
+                    {{ __('Modifica el nombre y la ubicación del producto. Los precios y atributos se gestionan por variante/unidad.') }}
+                @endif
             </p>
 
             <div class="mt-6 space-y-4">
@@ -15,11 +19,13 @@
                     <x-input-error :messages="$errors->get('name')" class="mt-1" />
                 </div>
 
+                @if($productType === 'simple')
                 <div>
                     <x-input-label for="edit_price" value="{{ __('Precio (€)') }}" />
                     <x-text-input wire:model="price" id="edit_price" class="block mt-1 w-full" type="number" step="0.01" min="0" placeholder="0.00" />
                     <x-input-error :messages="$errors->get('price')" class="mt-1" />
                 </div>
+                @endif
 
                 <div>
                     <x-input-label for="edit_location" value="{{ __('Ubicación') }}" />
@@ -27,6 +33,7 @@
                     <x-input-error :messages="$errors->get('location')" class="mt-1" />
                 </div>
 
+                @if($productType === 'simple')
                 <div>
                     <label class="flex items-center gap-2">
                         <input type="checkbox" wire:model="is_active" value="1"
@@ -91,6 +98,7 @@
                             @endforeach
                         </div>
                     </div>
+                @endif
                 @endif
             </div>
 
