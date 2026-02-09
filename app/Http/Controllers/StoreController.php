@@ -1176,6 +1176,7 @@ class StoreController extends Controller
                         'unit_cost' => $unitCost,
                         'price' => isset($item['price']) && $item['price'] !== '' ? (float) $item['price'] : null,
                         'features' => ! empty($features) ? $features : null,
+                        'expiration_date' => isset($item['expiration_date']) && $item['expiration_date'] !== '' ? $item['expiration_date'] : null,
                     ];
                 }
                 $normalized[] = [

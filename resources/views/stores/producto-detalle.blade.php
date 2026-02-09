@@ -28,7 +28,7 @@
                             @elseif($product->isBatch())
                                 Por lotes ({{ $product->type }})
                             @else
-                                {{ $product->type ?? 'Simple' }}
+                                Simple (sin variantes; en inventario por lotes de compra)
                             @endif
                         </dd>
                     </div>
@@ -233,14 +233,55 @@
                 </div>
             @endif
 
-            @if(!$product->isSerialized() && !$product->isBatch())
+            {{-- Inventario: simple = también por lotes (cada compra = un lote con cantidad y costo) --}}
+            @if(($product->type === 'simple' || empty($product->type)) && $product->batches->isNotEmpty())
+                <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                        <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">Lotes (entradas por compra)</h3>
+                        <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Producto simple: cada lote es una entrada (compra). Se muestra la referencia y el costo al que llegó.</p>
+                    </div>
+                    <div class="divide-y divide-gray-200 dark:divide-gray-700">
+                        @foreach($product->batches as $batch)
+                            <div class="p-6">
+                                <div class="flex flex-wrap items-center gap-2 mb-3">
+                                    <span class="font-medium text-gray-900 dark:text-gray-100">{{ $batch->reference }}</span>
+                                    @if($batch->expiration_date)
+                                        <span class="text-xs text-amber-600 dark:text-amber-400">Vence: {{ $batch->expiration_date->format('d/m/Y') }}</span>
+                                    @endif
+                                    <span class="text-xs text-gray-500 dark:text-gray-400">Total: {{ $batch->batchItems->sum('quantity') }} uds</span>
+                                </div>
+                                <div class="overflow-x-auto">
+                                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+                                        <thead class="bg-gray-50 dark:bg-gray-900">
+                                            <tr>
+                                                <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Cantidad</th>
+                                                <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Costo unit.</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                                            @foreach($batch->batchItems as $bi)
+                                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                                    <td class="px-3 py-2 text-right text-gray-900 dark:text-gray-100">{{ $bi->quantity }}</td>
+                                                    <td class="px-3 py-2 text-right text-gray-500 dark:text-gray-400">{{ number_format($bi->unit_cost, 2) }} €</td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+
+            @if(!$product->isSerialized() && !$product->isBatch() && ($product->type !== 'simple' && $product->type !== null && $product->type !== ''))
                 <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg p-6">
                     <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">Este producto no tiene control de inventario por unidades (serializado o por lotes).</p>
-                    @if(empty($product->type))
-                        <p class="text-xs text-amber-600 dark:text-amber-400">
-                            <strong>Nota:</strong> El producto no tiene tipo asignado. Si debería ser serializado, edita el producto y selecciona el tipo "Serializado".
-                        </p>
-                    @endif
+                </div>
+            @endif
+            @if(($product->type === 'simple' || empty($product->type)) && $product->batches->isEmpty())
+                <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg p-6">
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Producto simple. Aún no hay lotes en inventario (entradas por compra).</p>
                 </div>
             @endif
         </div>

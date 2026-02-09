@@ -88,10 +88,11 @@ class Product extends Model
             ->withTimestamps();
     }
 
-    /** Indica si el producto tiene control de inventario (serializado o por lotes). */
+    /** Indica si el producto tiene control de inventario (simple, serializado o por lotes). */
     public function isProductoInventario(): bool
     {
-        return in_array($this->type, [MovimientoInventario::PRODUCT_TYPE_SERIALIZED, MovimientoInventario::PRODUCT_TYPE_BATCH], true);
+        return in_array($this->type, ['simple', MovimientoInventario::PRODUCT_TYPE_SERIALIZED, MovimientoInventario::PRODUCT_TYPE_BATCH], true)
+            || empty($this->type);
     }
 
     /** Indica si el producto es serializado (cada unidad en product_items). */

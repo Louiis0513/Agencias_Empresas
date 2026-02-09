@@ -70,6 +70,7 @@
                                     <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Producto</th>
                                     <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Cantidad</th>
                                     <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Costo Unit.</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Caducidad</th>
                                     <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Subtotal</th>
                                     <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400"></th>
                                 </tr>
@@ -114,6 +115,7 @@
                                             <span class="detail-serial-dash hidden">—</span>
                                             <span class="detail-batch-cost text-sm text-gray-700 dark:text-gray-300 hidden"></span>
                                         </td>
+                                        <td class="px-3 py-2 detail-expiration-cell text-sm text-gray-500 dark:text-gray-400">—</td>
                                         <td class="px-3 py-2">
                                             <span class="detail-subtotal text-sm font-medium">{{ number_format($subtotal, 2) }}</span>
                                         </td>
@@ -327,6 +329,19 @@
                         }
                     }
                     
+                    // Fecha de caducidad opcional (solo para lote)
+                    const expCell = row.querySelector('.detail-expiration-cell');
+                    if (expCell) {
+                        expCell.textContent = '';
+                        expCell.classList.remove('text-gray-500', 'dark:text-gray-400');
+                        const expInput = document.createElement('input');
+                        expInput.type = 'date';
+                        expInput.className = 'detail-batch-expiration w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm';
+                        expInput.name = `details[${rowId}][batch_items][0][expiration_date]`;
+                        expInput.placeholder = 'Opcional';
+                        expCell.appendChild(expInput);
+                    }
+                    
                     compraProductosUpdateSubtotal(row);
                 }
             };
@@ -361,6 +376,7 @@
                         <span class="detail-serial-dash hidden">—</span>
                         <span class="detail-batch-cost text-sm text-gray-700 dark:text-gray-300 hidden"></span>
                     </td>
+                    <td class="px-3 py-2 detail-expiration-cell text-sm text-gray-500 dark:text-gray-400">—</td>
                     <td class="px-3 py-2">
                         <span class="detail-subtotal text-sm font-medium">0.00</span>
                     </td>
@@ -376,7 +392,7 @@
                 tr.setAttribute('data-parent-row-id', rowId);
                 tr.setAttribute('data-product-id', productId);
                 tr.innerHTML = `
-                    <td colspan="5" class="px-3 py-3 border-t border-gray-200 dark:border-gray-700">
+                    <td colspan="6" class="px-3 py-3 border-t border-gray-200 dark:border-gray-700">
                         <div class="space-y-4 text-sm">
                             <div class="p-2 rounded bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800">
                                 <p class="text-sm font-medium text-indigo-800 dark:text-indigo-200">Referencia de compra/origen</p>
@@ -504,7 +520,7 @@
                 tr.setAttribute('data-parent-row-id', rowId);
                 tr.setAttribute('data-product-id', productId);
                 tr.innerHTML = `
-                    <td colspan="5" class="px-3 py-3 border-t border-gray-200 dark:border-gray-700">
+                    <td colspan="6" class="px-3 py-3 border-t border-gray-200 dark:border-gray-700">
                         <div class="space-y-4 text-sm">
                             <div class="p-2 rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
                                 <p class="text-sm font-medium text-amber-800 dark:text-amber-200">Variantes del lote (opcional)</p>
@@ -715,6 +731,8 @@
                             var m = inp.name.match(/\[features\]\[([^\]]+)\]$/);
                             if (m) inp.name = 'details[' + i + '][batch_items][0][features][' + m[1] + ']';
                         });
+                        var expInp = row.querySelector('.detail-batch-expiration');
+                        if (expInp) expInp.name = 'details[' + i + '][batch_items][0][expiration_date]';
                     }
 
                     const serialRow = row.nextElementSibling && row.nextElementSibling.classList.contains('serial-details-row') ? row.nextElementSibling : null;
@@ -781,6 +799,8 @@
                         const featuresInput = row.querySelector('input[name*="[variant_features]"]');
                         if (featuresInput) featuresInput.remove();
                         row.querySelectorAll('input[name*="[batch_items]"]').forEach(function(inp) { inp.remove(); });
+                        var expCell = row.querySelector('.detail-expiration-cell');
+                        if (expCell) { expCell.textContent = '—'; expCell.classList.add('text-gray-500', 'dark:text-gray-400'); }
                         var qtyInput = row.querySelector('.detail-qty');
                         var costInput = row.querySelector('.detail-cost');
                         if (qtyInput) { qtyInput.value = '1'; qtyInput.name = 'details[' + rowId + '][quantity]'; qtyInput.classList.remove('hidden'); }

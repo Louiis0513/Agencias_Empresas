@@ -91,6 +91,11 @@ class InventarioService
      * Batch: SUM(qty × unit_cost) / total_qty de todos los batch_items.
      * Serializado: promedio de cost de los product_items disponibles.
      */
+    /**
+     * Recalcula el costo ponderado del producto desde la fuente de verdad.
+     * Serializado: promedio de cost de los product_items disponibles.
+     * Batch y simple: SUM(qty × unit_cost) / total_qty de todos los batch_items (simples usan Batch sin variantes).
+     */
     public function actualizarCostoPonderado(Product $product): void
     {
         if ($product->isSerialized()) {
@@ -100,7 +105,7 @@ class InventarioService
                 ->get();
             $total = $items->sum('cost');
             $qty = $items->count();
-        } elseif ($product->isBatch()) {
+        } elseif ($product->isBatch() || $product->type === 'simple' || empty($product->type)) {
             $total = BatchItem::whereHas('batch', function ($q) use ($product) {
                 $q->where('product_id', $product->id)->where('store_id', $product->store_id);
             })->get()->sum(fn (BatchItem $bi) => $bi->quantity * (float) $bi->unit_cost);
@@ -139,28 +144,80 @@ class InventarioService
                 throw new Exception('La cantidad debe ser al menos 1.');
             }
 
-            // Productos simples: solo actualizar stock y crear movimiento
+            // Productos simples: sin variantes, pero en inventario se tratan como lote (Batch + BatchItem)
+            // para trazabilidad por compra y costo real (ponderado por entradas).
             if ($product->type === 'simple' || empty($product->type)) {
+                $unitCost = isset($datos['unit_cost']) && $datos['unit_cost'] !== '' && $datos['unit_cost'] !== null
+                    ? (float) $datos['unit_cost']
+                    : 0.0;
+
                 if ($type === MovimientoInventario::TYPE_ENTRADA) {
-                    $product->increment('stock', $quantity);
-                } else {
-                    if ($product->stock < $quantity) {
-                        throw new Exception(
-                            "Stock insuficiente en «{$product->name}». Actual: {$product->stock}, solicitado: {$quantity}."
-                        );
+                    $reference = trim($datos['reference'] ?? '');
+                    if ($reference === '') {
+                        $reference = 'INI-' . date('Y');
                     }
-                    $product->decrement('stock', $quantity);
+                    $batch = Batch::firstOrCreate(
+                        [
+                            'store_id'   => $store->id,
+                            'product_id' => $product->id,
+                            'reference'  => $reference,
+                        ],
+                        ['expiration_date' => null]
+                    );
+                    BatchItem::create([
+                        'batch_id'  => $batch->id,
+                        'quantity'  => $quantity,
+                        'unit_cost' => $unitCost,
+                        'features'  => null,
+                        'price'     => null,
+                    ]);
+                } else {
+                    $batchItemId = $datos['batch_item_id'] ?? null;
+                    if ($batchItemId) {
+                        $batchItem = BatchItem::where('id', $batchItemId)
+                            ->whereHas('batch', fn ($q) => $q->where('store_id', $store->id)->where('product_id', $product->id))
+                            ->firstOrFail();
+                        if ($batchItem->quantity < $quantity) {
+                            throw new Exception(
+                                "Stock insuficiente en «{$product->name}». En este lote: {$batchItem->quantity}, solicitado: {$quantity}."
+                            );
+                        }
+                        $batchItem->decrement('quantity', $quantity);
+                    } else {
+                        $batchItems = BatchItem::whereHas('batch', fn ($q) => $q->where('store_id', $store->id)->where('product_id', $product->id))
+                            ->where('quantity', '>', 0)
+                            ->with('batch')
+                            ->get()
+                            ->sortBy(fn (BatchItem $bi) => $bi->batch->created_at->format('Y-m-d H:i:s') . '-' . $bi->id);
+                        $remaining = $quantity;
+                        foreach ($batchItems as $bi) {
+                            if ($remaining <= 0) {
+                                break;
+                            }
+                            $take = min($bi->quantity, $remaining);
+                            $bi->decrement('quantity', $take);
+                            $remaining -= $take;
+                        }
+                        if ($remaining > 0) {
+                            throw new Exception(
+                                "Stock insuficiente en «{$product->name}». Solicitado: {$quantity}."
+                            );
+                        }
+                    }
                 }
-                
+
+                $this->actualizarStock($product, $type, $quantity);
+                $this->actualizarCostoPonderado($product);
+
                 $mov = MovimientoInventario::create([
-                    'store_id' => $store->id,
-                    'user_id' => $userId,
-                    'product_id' => $product->id,
+                    'store_id'    => $store->id,
+                    'user_id'     => $userId,
+                    'product_id'  => $product->id,
                     'purchase_id' => $datos['purchase_id'] ?? null,
-                    'type' => $type,
-                    'quantity' => $quantity,
+                    'type'        => $type,
+                    'quantity'    => $quantity,
                     'description' => $datos['description'] ?? null,
-                    'unit_cost' => $datos['unit_cost'] ?? null,
+                    'unit_cost'   => $unitCost,
                 ]);
 
                 return $mov;
@@ -365,7 +422,7 @@ class InventarioService
             );
         }
 
-        if ($product->isBatch()) {
+        if ($product->isBatch() || $product->type === 'simple' || empty($product->type)) {
             // FIFO: batch_items con stock, ordenados por antigüedad del lote (batch.created_at)
             $batchItems = BatchItem::where('quantity', '>', 0)
                 ->whereHas('batch', function ($q) use ($store, $productId) {
@@ -382,19 +439,19 @@ class InventarioService
                 }
                 $take = min($batchItem->quantity, $remaining);
                 $this->registrarMovimiento($store, $userId, [
-                    'product_id'   => $productId,
-                    'type'         => MovimientoInventario::TYPE_SALIDA,
-                    'quantity'     => $take,
-                    'description'  => $description,
+                    'product_id'    => $productId,
+                    'type'          => MovimientoInventario::TYPE_SALIDA,
+                    'quantity'      => $take,
+                    'description'   => $description,
                     'batch_item_id' => $batchItem->id,
-                    'unit_cost'    => $batchItem->unit_cost,
+                    'unit_cost'     => $batchItem->unit_cost,
                 ], []);
                 $remaining -= $take;
             }
 
             if ($remaining > 0) {
                 throw new Exception(
-                    "Stock insuficiente en «{$product->name}» (por lotes). No hay suficiente en los lotes disponibles. Solicitado: {$quantity}."
+                    "Stock insuficiente en «{$product->name}». No hay suficiente en los lotes disponibles. Solicitado: {$quantity}."
                 );
             }
         } else {

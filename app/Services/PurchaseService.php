@@ -115,10 +115,9 @@ class PurchaseService
     }
 
     /**
-     * Aprueba una compra: suma inventario (INVENTARIO) y confirma.
-     * Si es contado (PAGADO), requiere paymentData para registrar el pago en caja.
-     */
-    /**
+     * Aprueba una compra: valida, marca como aprobada, registra movimientos de inventario/activos y crea cuenta por pagar.
+     * Orden: validar → estado APROBADO → movimientos → cuenta por pagar (y pago si contado).
+     *
      * @param  array<int, array<string>>|null  $serialsByDetailId  Para ACTIVO_FIJO serializado: [detailId => ['S/N1','S/N2']]
      */
     public function aprobarCompra(Store $store, int $purchaseId, int $userId, ?AccountPayableService $accountPayableService = null, ?array $paymentData = null, ?array $serialsByDetailId = null): Purchase
@@ -133,98 +132,117 @@ class PurchaseService
                 throw new Exception('Solo se pueden aprobar compras en estado BORRADOR.');
             }
 
-            if ($purchase->payment_status === Purchase::PAYMENT_PAGADO) {
-                if (! $accountPayableService || ! $paymentData || empty($paymentData['parts'])) {
-                    throw new Exception('Para compras de contado debe indicar de qué bolsillo(s) se paga.');
-                }
-                $accountPayable = $this->crearCuentaPorPagar($purchase);
-                $accountPayableService->registrarPago($store, $accountPayable->id, $userId, $paymentData);
-            } elseif ($purchase->payment_status === Purchase::PAYMENT_PENDIENTE) {
-                $this->crearCuentaPorPagar($purchase);
-            }
+            $this->validarCompraParaAprobar($store, $purchase, $accountPayableService, $paymentData, $serialsByDetailId);
 
             $purchase->update(['status' => Purchase::STATUS_APROBADO]);
 
-            foreach ($purchase->details as $detail) {
-                if ($detail->isInventario() && $detail->product_id) {
-                    $product = $detail->product;
-                    if (! $product) {
-                        continue;
-                    }
-                    $reference = "Compra #{$purchase->id}";
-                    $baseDatos = [
-                        'product_id' => $product->id,
-                        'type' => \App\Models\MovimientoInventario::TYPE_ENTRADA,
-                        'quantity' => $detail->quantity,
-                        'description' => "{$reference} - {$detail->description}",
-                        'purchase_id' => $purchase->id,
-                    ];
-                    if ($product->isSerialized()) {
-                        $serialItems = $detail->serial_items ?? [];
-                        if (empty($serialItems)) {
-                            throw new Exception("El producto «{$product->name}» es serializado. La compra en borrador debe incluir los números de serie por unidad. Edita la compra y añade las unidades con su serial.");
-                        }
-                        $this->inventarioService->registrarMovimiento($store, $userId, array_merge($baseDatos, [
-                            'reference' => $reference,
-                            'serial_items' => $serialItems,
-                        ]));
-                    } elseif ($product->isBatch()) {
-                        $batchItems = $detail->batch_items ?? null;
-                        if (! empty($batchItems) && is_array($batchItems)) {
-                            $items = [];
-                            foreach ($batchItems as $bi) {
-                                $qty = (int) ($bi['quantity'] ?? 0);
-                                if ($qty < 1) {
-                                    continue;
-                                }
-                                $items[] = [
-                                    'quantity' => $qty,
-                                    'cost' => (float) ($bi['unit_cost'] ?? 0),
-                                    'unit_cost' => (float) ($bi['unit_cost'] ?? 0),
-                                    'price' => isset($bi['price']) && $bi['price'] !== null ? (float) $bi['price'] : null,
-                                    'features' => $bi['features'] ?? null,
-                                ];
-                            }
-                        } else {
-                            $items = [
-                                ['quantity' => $detail->quantity, 'cost' => (float) $detail->unit_cost, 'unit_cost' => (float) $detail->unit_cost, 'features' => null],
-                            ];
-                        }
-                        $this->inventarioService->registrarMovimiento($store, $userId, array_merge($baseDatos, [
-                            'unit_cost' => (float) $detail->unit_cost,
-                            'batch_data' => [
-                                'reference' => $reference,
-                                'items' => $items,
-                            ],
-                        ]));
-                    }
-                }
-                if ($detail->isActivoFijo() && $detail->activo_id) {
-                    $activo = $detail->activo;
-                    $purchaseDate = $purchase->invoice_date ?? $purchase->created_at;
-                    if ($activo && $activo->isSerializado()) {
-                        if (! empty($activo->serial_number) && $activo->quantity === 0) {
-                            $this->activoService->registrarEntrada($store, $detail->activo_id, $detail->quantity, (float) $detail->unit_cost, $userId, $purchase->id, "Compra #{$purchase->id}");
-                            $this->activoService->actualizarActivoDesdeCompra($store, $detail->activo_id, $purchaseDate);
-                        } else {
-                            $serials = $serialsByDetailId[$detail->id] ?? [];
-                            if (count($serials) !== $detail->quantity) {
-                                throw new Exception("El activo «{$activo->name}» es serializado. Debes indicar {$detail->quantity} número(s) de serie.");
-                            }
-                            $instances = $this->activoService->crearInstanciasSerializadas($store, $detail->activo_id, $serials, (float) $detail->unit_cost, $userId, $purchase->id, "Compra #{$purchase->id}");
-                            foreach ($instances as $inst) {
-                                $this->activoService->actualizarActivoDesdeCompra($store, $inst->id, $purchaseDate);
-                            }
-                        }
-                    } else {
-                        $this->activoService->registrarEntrada($store, $detail->activo_id, $detail->quantity, (float) $detail->unit_cost, $userId, $purchase->id, "Compra #{$purchase->id}");
-                        $this->activoService->actualizarActivoDesdeCompra($store, $detail->activo_id, $purchaseDate);
-                    }
-                }
+            $this->registrarMovimientosPorAprobacion($store, $purchase, $userId, $serialsByDetailId);
+
+            if ($purchase->payment_status === Purchase::PAYMENT_PENDIENTE) {
+                $this->crearCuentaPorPagar($purchase);
+            } elseif ($purchase->payment_status === Purchase::PAYMENT_PAGADO) {
+                $accountPayable = $this->crearCuentaPorPagar($purchase);
+                $accountPayableService->registrarPago($store, $accountPayable->id, $userId, $paymentData);
             }
 
             return $purchase->fresh()->load(['details.product', 'details.activo', 'proveedor', 'user']);
         });
+    }
+
+    /**
+     * Registra los movimientos de inventario y entradas de activos derivados de una compra aprobada.
+     *
+     * @param  array<int, array<string>>|null  $serialsByDetailId  Para ACTIVO_FIJO serializado: [detailId => ['S/N1','S/N2']]
+     */
+    protected function registrarMovimientosPorAprobacion(Store $store, Purchase $purchase, int $userId, ?array $serialsByDetailId = null): void
+    {
+        $reference = "Compra #{$purchase->id}";
+
+        foreach ($purchase->details as $detail) {
+            if ($detail->isInventario() && $detail->product_id) {
+                $product = $detail->product;
+                if (! $product) {
+                    continue;
+                }
+                $baseDatos = [
+                    'product_id' => $product->id,
+                    'type' => \App\Models\MovimientoInventario::TYPE_ENTRADA,
+                    'quantity' => $detail->quantity,
+                    'description' => "{$reference} - {$detail->description}",
+                    'purchase_id' => $purchase->id,
+                ];
+                if ($product->isSerialized()) {
+                    $serialItems = $detail->serial_items ?? [];
+                    if (empty($serialItems)) {
+                        throw new Exception("El producto «{$product->name}» es serializado. La compra debe incluir los números de serie por unidad.");
+                    }
+                    $this->inventarioService->registrarMovimiento($store, $userId, array_merge($baseDatos, [
+                        'reference' => $reference,
+                        'serial_items' => $serialItems,
+                    ]));
+                } elseif ($product->type === 'simple' || empty($product->type)) {
+                    $this->inventarioService->registrarMovimiento($store, $userId, array_merge($baseDatos, [
+                        'unit_cost' => (float) $detail->unit_cost,
+                        'reference' => $reference,
+                    ]));
+                } elseif ($product->isBatch()) {
+                    $batchItems = $detail->batch_items ?? null;
+                    if (! empty($batchItems) && is_array($batchItems)) {
+                        $items = [];
+                        foreach ($batchItems as $bi) {
+                            $qty = (int) ($bi['quantity'] ?? 0);
+                            if ($qty < 1) {
+                                continue;
+                            }
+                            $items[] = [
+                                'quantity' => $qty,
+                                'cost' => (float) ($bi['unit_cost'] ?? 0),
+                                'unit_cost' => (float) ($bi['unit_cost'] ?? 0),
+                                'price' => isset($bi['price']) && $bi['price'] !== null ? (float) $bi['price'] : null,
+                                'features' => $bi['features'] ?? null,
+                            ];
+                        }
+                    } else {
+                        $items = [
+                            ['quantity' => $detail->quantity, 'cost' => (float) $detail->unit_cost, 'unit_cost' => (float) $detail->unit_cost, 'features' => null],
+                        ];
+                    }
+                    $batchExpiration = isset($batchItems[0]['expiration_date']) && $batchItems[0]['expiration_date'] !== '' && $batchItems[0]['expiration_date'] !== null
+                        ? $batchItems[0]['expiration_date']
+                        : null;
+                    $this->inventarioService->registrarMovimiento($store, $userId, array_merge($baseDatos, [
+                        'unit_cost' => (float) $detail->unit_cost,
+                        'batch_data' => [
+                            'reference' => $reference,
+                            'expiration_date' => $batchExpiration,
+                            'items' => $items,
+                        ],
+                    ]));
+                }
+            }
+            if ($detail->isActivoFijo() && $detail->activo_id) {
+                $activo = $detail->activo;
+                $purchaseDate = $purchase->invoice_date ?? $purchase->created_at;
+                if ($activo && $activo->isSerializado()) {
+                    if (! empty($activo->serial_number) && $activo->quantity === 0) {
+                        $this->activoService->registrarEntrada($store, $detail->activo_id, $detail->quantity, (float) $detail->unit_cost, $userId, $purchase->id, $reference);
+                        $this->activoService->actualizarActivoDesdeCompra($store, $detail->activo_id, $purchaseDate);
+                    } else {
+                        $serials = $serialsByDetailId[$detail->id] ?? [];
+                        if (count($serials) !== $detail->quantity) {
+                            throw new Exception("El activo «{$activo->name}» es serializado. Debes indicar {$detail->quantity} número(s) de serie.");
+                        }
+                        $instances = $this->activoService->crearInstanciasSerializadas($store, $detail->activo_id, $serials, (float) $detail->unit_cost, $userId, $purchase->id, $reference);
+                        foreach ($instances as $inst) {
+                            $this->activoService->actualizarActivoDesdeCompra($store, $inst->id, $purchaseDate);
+                        }
+                    }
+                } else {
+                    $this->activoService->registrarEntrada($store, $detail->activo_id, $detail->quantity, (float) $detail->unit_cost, $userId, $purchase->id, $reference);
+                    $this->activoService->actualizarActivoDesdeCompra($store, $detail->activo_id, $purchaseDate);
+                }
+            }
+        }
     }
 
     /**
@@ -281,6 +299,80 @@ class PurchaseService
             ->where('store_id', $store->id)
             ->with(['details.product', 'details.activo', 'proveedor', 'user', 'accountPayable'])
             ->firstOrFail();
+    }
+
+    /**
+     * Valida que la compra esté lista para aprobar (datos coherentes, pago si contado, seriales si aplica).
+     * Lanzar antes de cambiar estado y de registrar movimientos.
+     *
+     * @param  array<int, array<string>>|null  $serialsByDetailId  Para ACTIVO_FIJO serializado: [detailId => ['S/N1','S/N2']]
+     */
+    protected function validarCompraParaAprobar(Store $store, Purchase $purchase, ?AccountPayableService $accountPayableService, ?array $paymentData, ?array $serialsByDetailId): void
+    {
+        $details = $purchase->details;
+        $hasValidDetail = false;
+        foreach ($details as $d) {
+            $desc = trim($d->description ?? '');
+            if ($desc !== '' || $d->product_id || $d->activo_id) {
+                $hasValidDetail = true;
+                break;
+            }
+        }
+        if (! $hasValidDetail) {
+            $validator = Validator::make([], []);
+            $validator->errors()->add('details', 'La compra debe tener al menos un producto o bien en el detalle.');
+            throw new ValidationException($validator);
+        }
+
+        if ($purchase->payment_status === Purchase::PAYMENT_PENDIENTE) {
+            $rules = [
+                'due_date' => ['required', 'date', 'after_or_equal:invoice_date'],
+            ];
+            Validator::make(
+                ['due_date' => $purchase->due_date, 'invoice_date' => $purchase->invoice_date],
+                $rules,
+                [
+                    'due_date.required' => 'La fecha de vencimiento de la factura es obligatoria cuando la compra es a crédito.',
+                    'due_date.after_or_equal' => 'La fecha de vencimiento no puede ser anterior a la fecha de la factura.',
+                ]
+            )->validate();
+        }
+
+        if ($purchase->payment_status === Purchase::PAYMENT_PAGADO) {
+            if (! $accountPayableService || ! $paymentData || empty($paymentData['parts'])) {
+                throw new Exception('Para compras de contado debe indicar de qué bolsillo(s) se paga.');
+            }
+            $sumaPartes = collect($paymentData['parts'])->sum(fn ($p) => (float) ($p['amount'] ?? 0));
+            if (abs($sumaPartes - (float) $purchase->total) > 0.01) {
+                $validator = Validator::make([], []);
+                $validator->errors()->add('parts', "La suma de los montos ({$sumaPartes}) debe coincidir con el total de la compra ({$purchase->total}).");
+                throw new ValidationException($validator);
+            }
+        }
+
+        foreach ($details as $detail) {
+            if ($detail->isInventario() && $detail->product_id) {
+                $product = $detail->product;
+                if (! $product) {
+                    continue;
+                }
+                if ($product->isSerialized()) {
+                    $serialItems = $detail->serial_items ?? [];
+                    if (empty($serialItems) || ! is_array($serialItems)) {
+                        throw new Exception("El producto «{$product->name}» es serializado. La compra debe incluir los números de serie por unidad. Edita la compra y añade las unidades con su serial.");
+                    }
+                }
+            }
+            if ($detail->isActivoFijo() && $detail->activo_id) {
+                $activo = $detail->activo;
+                if ($activo && $activo->isSerializado() && (empty($activo->serial_number) || $activo->quantity > 0)) {
+                    $serials = $serialsByDetailId[$detail->id] ?? [];
+                    if (count($serials) !== $detail->quantity) {
+                        throw new Exception("El activo «{$activo->name}» es serializado. Debes indicar {$detail->quantity} número(s) de serie.");
+                    }
+                }
+            }
+        }
     }
 
     /**
