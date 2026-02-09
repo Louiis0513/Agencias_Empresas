@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Models\Batch;
+use App\Models\BatchItem;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\ProductAttributeValue;
@@ -269,6 +271,213 @@ class ProductService
     }
 
     /**
+     * Añade variantes a un producto por lote ya existente.
+     * Misma estructura de variantes que en creación: attribute_values, opcional price, cost, has_stock, stock_initial, batch_number, expiration_date.
+     * Variantes con stock inicial generan movimiento de entrada; variantes sin stock se crean con cantidad 0 en un lote VAR-.
+     *
+     * @param int|null $userId ID del usuario (necesario si hay variantes con stock para el movimiento)
+     */
+    public function addVariantsToProduct(Store $store, Product $product, array $variants, ?int $userId = null): void
+    {
+        if (! $product->isBatch()) {
+            throw new Exception('Solo se pueden añadir variantes a productos por lote.');
+        }
+
+        $product->load('category.attributes');
+        $category = $product->category;
+        if (! $category || $category->attributes->isEmpty()) {
+            throw new Exception('El producto debe tener una categoría con atributos para añadir variantes.');
+        }
+
+        $this->validateRequiredAttributesInVariants($category, $variants);
+
+        $variantsWithAttributes = array_filter($variants, function ($v) {
+            $attributeValues = $v['attribute_values'] ?? [];
+            foreach ($attributeValues as $value) {
+                if ($value !== '' && $value !== null && $value !== '0') {
+                    return true;
+                }
+            }
+            return false;
+        });
+
+        if (empty($variantsWithAttributes)) {
+            return;
+        }
+
+        $variantsWithStock = array_filter($variantsWithAttributes, fn ($v) => ! empty($v['has_stock']) && ! empty($v['stock_initial']) && (int) $v['stock_initial'] > 0);
+        $variantsWithoutStock = array_filter($variantsWithAttributes, fn ($v) => empty($v['has_stock']) || empty($v['stock_initial']) || (int) $v['stock_initial'] <= 0);
+
+        $inventarioService = app(InventarioService::class);
+
+        if (! empty($variantsWithStock) && $userId) {
+            $batchesByNumber = [];
+            foreach ($variantsWithStock as $variant) {
+                $batchNumber = $variant['batch_number'] ?? 'L-' . date('Ymd');
+                if (! isset($batchesByNumber[$batchNumber])) {
+                    $batchesByNumber[$batchNumber] = [
+                        'batch_number' => $batchNumber,
+                        'expiration_date' => null,
+                        'items' => [],
+                    ];
+                }
+                if (empty($batchesByNumber[$batchNumber]['expiration_date']) && ! empty($variant['expiration_date'])) {
+                    $batchesByNumber[$batchNumber]['expiration_date'] = $variant['expiration_date'];
+                }
+                $batchesByNumber[$batchNumber]['items'][] = $variant;
+            }
+
+            foreach ($batchesByNumber as $batchData) {
+                $batchItems = [];
+                $totalQuantity = 0;
+                foreach ($batchData['items'] as $variant) {
+                    $features = $this->extractFeaturesFromVariant($variant);
+                    $quantity = (int) ($variant['stock_initial'] ?? 0);
+                    $totalQuantity += $quantity;
+                    $itemData = [
+                        'quantity' => $quantity,
+                        'cost' => (float) ($variant['cost'] ?? 0),
+                        'features' => ! empty($features) ? $features : null,
+                    ];
+                    if (! empty($variant['price'])) {
+                        $itemData['price'] = (float) $variant['price'];
+                    }
+                    $batchItems[] = $itemData;
+                }
+
+                $inventarioService->registrarMovimiento($store, $userId, [
+                    'product_id' => $product->id,
+                    'type' => \App\Models\MovimientoInventario::TYPE_ENTRADA,
+                    'quantity' => $totalQuantity,
+                    'description' => 'Añadir variantes a producto por lote',
+                    'batch_data' => [
+                        'reference' => $batchData['batch_number'],
+                        'expiration_date' => $batchData['expiration_date'] ?: null,
+                        'items' => $batchItems,
+                    ],
+                ]);
+            }
+        }
+
+        if (! empty($variantsWithoutStock)) {
+            $batchReference = 'VAR-' . date('Ymd');
+            $batch = Batch::firstOrCreate(
+                [
+                    'store_id'   => $store->id,
+                    'product_id' => $product->id,
+                    'reference'  => $batchReference,
+                ],
+                ['expiration_date' => null]
+            );
+
+            foreach ($variantsWithoutStock as $variant) {
+                $features = $this->extractFeaturesFromVariant($variant);
+                if (empty($features)) {
+                    continue;
+                }
+                $normalizedKey = InventarioService::normalizeFeaturesForComparison($features);
+                $existingItem = $batch->batchItems()->get()->first(function ($bi) use ($normalizedKey) {
+                    return InventarioService::normalizeFeaturesForComparison($bi->features) === $normalizedKey;
+                });
+                if (! $existingItem) {
+                    BatchItem::create([
+                        'batch_id'  => $batch->id,
+                        'quantity'  => 0,
+                        'unit_cost' => (float) ($variant['cost'] ?? 0),
+                        'price'     => ! empty($variant['price']) ? (float) $variant['price'] : null,
+                        'features'  => $features,
+                    ]);
+                }
+            }
+        }
+
+        // No actualizamos costo ponderado aquí: estas operaciones son de variantes y precios al público.
+        // Si se añadió stock, InventarioService::registrarMovimiento ya actualizó el costo.
+    }
+
+    /**
+     * Actualiza los atributos (features) y opcionalmente el precio al público de una variante en todos los lotes donde aparece.
+     * Todas las filas de inventario (BatchItem) con las features antiguas pasan a tener las features nuevas (y precio si se indica).
+     * Si en un mismo lote ya existe un ítem con las nuevas features, se suman las cantidades y se elimina el ítem actualizado.
+     *
+     * @param array $oldFeatures Ej: ['1' => 'Rojo', '2' => 'M']
+     * @param array $newFeatures Ej: ['1' => 'Azul', '2' => 'M'] o con nuevo atributo ['1' => 'Rojo', '2' => 'M', '3' => 'Liso']
+     * @param float|null $price Precio al público para la variante (actualiza todos los ítems afectados)
+     */
+    public function updateVariantFeatures(Store $store, Product $product, array $oldFeatures, array $newFeatures, ?float $price = null): void
+    {
+        if (! $product->isBatch()) {
+            throw new Exception('Solo se pueden editar variantes en productos por lote.');
+        }
+
+        $product->load('category.attributes');
+        $category = $product->category;
+        if (! $category || $category->attributes->isEmpty()) {
+            throw new Exception('El producto debe tener una categoría con atributos.');
+        }
+
+        // Validar que newFeatures cumplan atributos requeridos de la categoría
+        $this->validateRequiredAttributes($category, $newFeatures);
+
+        $oldKey = InventarioService::normalizeFeaturesForComparison($oldFeatures);
+        $newKey = InventarioService::normalizeFeaturesForComparison($newFeatures);
+        $featuresChanged = $oldKey !== $newKey;
+
+        $batches = $product->batches()->where('store_id', $store->id)->get();
+
+        foreach ($batches as $batch) {
+            $itemsWithOldFeatures = $batch->batchItems()->get()->filter(function (BatchItem $bi) use ($oldKey) {
+                return InventarioService::normalizeFeaturesForComparison($bi->features) === $oldKey;
+            });
+
+            $existingWithNewFeatures = $featuresChanged ? $batch->batchItems()->get()->first(function (BatchItem $bi) use ($newKey) {
+                return InventarioService::normalizeFeaturesForComparison($bi->features) === $newKey;
+            }) : null;
+
+            foreach ($itemsWithOldFeatures as $item) {
+                $updateData = [];
+                if ($featuresChanged) {
+                    $updateData['features'] = $newFeatures;
+                }
+                if ($price !== null) {
+                    $updateData['price'] = $price;
+                }
+
+                if ($featuresChanged && $existingWithNewFeatures && $existingWithNewFeatures->id !== $item->id) {
+                    if ($price !== null) {
+                        $existingWithNewFeatures->update(['price' => $price]);
+                    }
+                    $existingWithNewFeatures->increment('quantity', $item->quantity);
+                    $item->delete();
+                } else {
+                    if (! empty($updateData)) {
+                        $item->update($updateData);
+                    }
+                    if ($featuresChanged) {
+                        $existingWithNewFeatures = $item;
+                    }
+                }
+            }
+        }
+
+        // No actualizamos costo ponderado: solo cambiamos atributos/precio al público de la variante.
+    }
+
+    /**
+     * Extrae features (atributo_id => valor) de un array de variante, filtrando vacíos.
+     */
+    protected function extractFeaturesFromVariant(array $variant): array
+    {
+        $features = [];
+        foreach ($variant['attribute_values'] ?? [] as $attrId => $value) {
+            if ($value !== '' && $value !== null && $value !== '0') {
+                $features[$attrId] = $value;
+            }
+        }
+        return $features;
+    }
+
+    /**
      * Busca productos de la tienda por término (nombre, SKU, código de barras).
      */
     public function buscarProductos(Store $store, string $termino, array $excluirIds = []): \Illuminate\Database\Eloquent\Collection
@@ -415,13 +624,7 @@ class ProductService
                 $totalQuantity = 0;
 
                 foreach ($batchData['items'] as $variant) {
-                    $features = [];
-                    foreach ($variant['attribute_values'] ?? [] as $attrId => $value) {
-                        if ($value !== '' && $value !== null && $value !== '0') {
-                            $features[$attrId] = $value;
-                        }
-                    }
-
+                    $features = $this->extractFeaturesFromVariant($variant);
                     $quantity = (int) ($variant['stock_initial'] ?? 0);
                     $totalQuantity += $quantity;
 
@@ -473,13 +676,7 @@ class ProductService
             );
 
             foreach ($variantsWithoutStock as $variant) {
-                $features = [];
-                foreach ($variant['attribute_values'] ?? [] as $attrId => $value) {
-                    if ($value !== '' && $value !== null && $value !== '0') {
-                        $features[$attrId] = $value;
-                    }
-                }
-
+                $features = $this->extractFeaturesFromVariant($variant);
                 if (empty($features)) {
                     continue; // Saltar variantes sin atributos definidos
                 }

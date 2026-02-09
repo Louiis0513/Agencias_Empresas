@@ -29,6 +29,8 @@ Route::middleware(['auth', 'verified'])->prefix('tienda/{store:slug}')->name('st
     Route::post('/productos/compras', [StoreController::class, 'storeProductPurchase'])->name('product-purchases.store');
     Route::get('/productos/{product}', [StoreController::class, 'showProduct'])->name('products.show');
     Route::put('/productos/{product}/variantes-permitidas', [StoreController::class, 'updateProductVariantOptions'])->name('productos.variant-options.update');
+    Route::put('/productos/{product}/variante', [StoreController::class, 'updateVariant'])->name('productos.variant.update');
+    Route::post('/productos/{product}/variantes', [StoreController::class, 'storeVariants'])->name('productos.variants.store');
     Route::delete('/productos/{product}', [StoreController::class, 'destroyProduct'])->name('products.destroy');
 
     Route::get('/categorias', [StoreController::class, 'categories'])->name('categories');

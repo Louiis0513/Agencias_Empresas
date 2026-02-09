@@ -166,6 +166,106 @@ class StoreController extends Controller
             ->with('success', 'Variantes permitidas actualizadas. En compras solo se podrán elegir estas opciones.');
     }
 
+    /**
+     * Actualiza una variante del producto (atributos y/o precio al público) usando ProductService::updateVariantFeatures.
+     */
+    public function updateVariant(Store $store, \App\Models\Product $product, Request $request, ProductService $productService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        if ($product->store_id !== $store->id) {
+            abort(404);
+        }
+
+        $product->load('category.attributes');
+        $category = $product->category;
+        if (! $category || $category->attributes->isEmpty()) {
+            return redirect()->route('stores.products.show', [$store, $product])
+                ->with('error', 'El producto debe tener una categoría con atributos.');
+        }
+
+        $oldFeatures = array_filter(
+            $request->input('old_attribute_values', []),
+            fn ($v) => $v !== null && $v !== ''
+        );
+        $rawNew = $request->input('attribute_values', []);
+        $newFeatures = [];
+        foreach ($category->attributes as $attr) {
+            $v = $rawNew[$attr->id] ?? ($attr->type === 'boolean' ? '0' : null);
+            if ($v === null || $v === '') {
+                continue;
+            }
+            $newFeatures[$attr->id] = $v;
+        }
+
+        $price = $request->input('price');
+        $priceValue = null;
+        if ($price !== null && $price !== '') {
+            $priceValue = (float) $price;
+        }
+
+        try {
+            $productService->updateVariantFeatures($store, $product, $oldFeatures, $newFeatures, $priceValue);
+        } catch (\Exception $e) {
+            return redirect()->route('stores.products.show', [$store, $product])
+                ->with('error', $e->getMessage());
+        }
+
+        return redirect()->route('stores.products.show', [$store, $product])
+            ->with('success', 'Variante actualizada correctamente.');
+    }
+
+    /**
+     * Crea una o más variantes nuevas para el producto por lote (ProductService::addVariantsToProduct).
+     */
+    public function storeVariants(Store $store, \App\Models\Product $product, Request $request, ProductService $productService)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        if ($product->store_id !== $store->id) {
+            abort(404);
+        }
+
+        $product->load('category.attributes');
+        $category = $product->category;
+        if (! $category || $category->attributes->isEmpty()) {
+            return redirect()->route('stores.products.show', [$store, $product])
+                ->with('error', 'El producto debe tener una categoría con atributos.');
+        }
+
+        $rawAttributeValues = $request->input('attribute_values', []);
+        $attributeValues = [];
+        foreach ($category->attributes as $attr) {
+            $v = $rawAttributeValues[$attr->id] ?? ($attr->type === 'boolean' ? '0' : null);
+            if ($v === null && $attr->type !== 'boolean') {
+                continue;
+            }
+            $attributeValues[$attr->id] = $v ?? '0';
+        }
+
+        $variant = [
+            'attribute_values' => $attributeValues,
+            'price'            => $request->input('price') !== '' && $request->input('price') !== null ? (float) $request->input('price') : null,
+            'has_stock'        => $request->boolean('has_stock'),
+            'stock_initial'    => $request->input('stock_initial'),
+            'cost'             => $request->input('cost'),
+            'batch_number'     => $request->input('batch_number'),
+            'expiration_date'  => $request->input('expiration_date') ?: null,
+        ];
+
+        try {
+            $productService->addVariantsToProduct($store, $product, [$variant], Auth::id());
+        } catch (\Exception $e) {
+            return redirect()->route('stores.products.show', [$store, $product])
+                ->with('error', $e->getMessage());
+        }
+
+        return redirect()->route('stores.products.show', [$store, $product])
+            ->with('success', 'Variante creada correctamente.');
+    }
+
     public function destroyProduct(Store $store, \App\Models\Product $product, ProductService $productService)
     {
         if (! Auth::user()->stores->contains($store->id)) {
