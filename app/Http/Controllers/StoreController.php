@@ -205,8 +205,10 @@ class StoreController extends Controller
             $priceValue = (float) $price;
         }
 
+        $isActive = $request->boolean('is_active');
+
         try {
-            $productService->updateVariantFeatures($store, $product, $oldFeatures, $newFeatures, $priceValue);
+            $productService->updateVariantFeatures($store, $product, $oldFeatures, $newFeatures, $priceValue, $isActive);
         } catch (\Exception $e) {
             return redirect()->route('stores.products.show', [$store, $product])
                 ->with('error', $e->getMessage());
@@ -1461,7 +1463,8 @@ class StoreController extends Controller
             abort(404);
         }
         if (! $purchase->isBorrador()) {
-            return redirect()->route('stores.purchases.show', [$store, $purchase])
+            $route = $purchase->isProducto() ? 'stores.purchases.show' : 'stores.purchases.show';
+            return redirect()->route($route, [$store, $purchase])
                 ->with('error', 'Solo se pueden editar compras en estado BORRADOR.');
         }
 
@@ -1520,7 +1523,8 @@ class StoreController extends Controller
 
             try {
                 $purchaseService->actualizarCompra($store, $purchase->id, $request->all());
-                return redirect()->route('stores.purchases.show', [$store, $purchase])->with('success', 'Compra actualizada correctamente.');
+                $route = $purchase->isProducto() ? 'stores.purchases.show' : 'stores.purchases.show';
+                return redirect()->route($route, [$store, $purchase])->with('success', 'Compra actualizada correctamente.');
             } catch (\Exception $e) {
                 return redirect()->back()->withInput()->with('error', $e->getMessage());
             }
@@ -1548,7 +1552,10 @@ class StoreController extends Controller
 
         try {
             $purchaseService->actualizarCompra($store, $purchase->id, $request->all());
-            return redirect()->route('stores.purchases.show', [$store, $purchase])->with('success', 'Compra actualizada correctamente.');
+            // Recargar la compra para obtener el tipo actualizado
+            $purchase->refresh();
+            $route = $purchase->isProducto() ? 'stores.purchases.show' : 'stores.purchases.show';
+            return redirect()->route($route, [$store, $purchase])->with('success', 'Compra actualizada correctamente.');
         } catch (ValidationException $e) {
             throw $e;
         } catch (\Exception $e) {
@@ -1597,9 +1604,15 @@ class StoreController extends Controller
 
         try {
             $purchaseService->aprobarCompra($store, $purchase->id, Auth::id(), $accountPayableService, $paymentData, $serialsByDetailId);
-            return redirect()->route('stores.purchases.show', [$store, $purchase])->with('success', 'Compra aprobada. Inventario actualizado.');
+            // Recargar la compra para obtener el tipo actualizado
+            $purchase->refresh();
+            $route = $purchase->isProducto() ? 'stores.purchases.show' : 'stores.purchases.show';
+            return redirect()->route($route, [$store, $purchase])->with('success', 'Compra aprobada. Inventario actualizado.');
         } catch (\Exception $e) {
-            return redirect()->route('stores.purchases.show', [$store, $purchase])->with('error', $e->getMessage());
+            // Recargar la compra para obtener el tipo actualizado
+            $purchase->refresh();
+            $route = $purchase->isProducto() ? 'stores.purchases.show' : 'stores.purchases.show';
+            return redirect()->route($route, [$store, $purchase])->with('error', $e->getMessage());
         }
     }
 
@@ -1614,9 +1627,13 @@ class StoreController extends Controller
 
         try {
             $purchaseService->anularCompra($store, $purchase->id);
-            return redirect()->route('stores.purchases', $store)->with('success', 'Compra anulada.');
+            // Determinar la ruta correcta según el tipo de compra
+            $route = $purchase->isProducto() ? 'stores.product-purchases' : 'stores.purchases';
+            return redirect()->route($route, $store)->with('success', 'Compra anulada.');
         } catch (\Exception $e) {
-            return redirect()->route('stores.purchases', $store)->with('error', $e->getMessage());
+            // Determinar la ruta correcta según el tipo de compra
+            $route = $purchase->isProducto() ? 'stores.product-purchases' : 'stores.purchases';
+            return redirect()->route($route, $store)->with('error', $e->getMessage());
         }
     }
 

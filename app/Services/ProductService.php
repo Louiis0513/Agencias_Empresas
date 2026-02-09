@@ -396,15 +396,16 @@ class ProductService
     }
 
     /**
-     * Actualiza los atributos (features) y opcionalmente el precio al público de una variante en todos los lotes donde aparece.
-     * Todas las filas de inventario (BatchItem) con las features antiguas pasan a tener las features nuevas (y precio si se indica).
+     * Actualiza los atributos (features), precio al público y/o estado activo de una variante en todos los lotes donde aparece.
+     * Todas las filas de inventario (BatchItem) con las features antiguas pasan a tener las features nuevas (y precio/is_active si se indica).
      * Si en un mismo lote ya existe un ítem con las nuevas features, se suman las cantidades y se elimina el ítem actualizado.
      *
      * @param array $oldFeatures Ej: ['1' => 'Rojo', '2' => 'M']
      * @param array $newFeatures Ej: ['1' => 'Azul', '2' => 'M'] o con nuevo atributo ['1' => 'Rojo', '2' => 'M', '3' => 'Liso']
      * @param float|null $price Precio al público para la variante (actualiza todos los ítems afectados)
+     * @param bool|null $isActive Estado activo de la variante (null = no cambiar)
      */
-    public function updateVariantFeatures(Store $store, Product $product, array $oldFeatures, array $newFeatures, ?float $price = null): void
+    public function updateVariantFeatures(Store $store, Product $product, array $oldFeatures, array $newFeatures, ?float $price = null, ?bool $isActive = null): void
     {
         if (! $product->isBatch()) {
             throw new Exception('Solo se pueden editar variantes en productos por lote.');
@@ -416,12 +417,14 @@ class ProductService
             throw new Exception('El producto debe tener una categoría con atributos.');
         }
 
-        // Validar que newFeatures cumplan atributos requeridos de la categoría
-        $this->validateRequiredAttributes($category, $newFeatures);
-
         $oldKey = InventarioService::normalizeFeaturesForComparison($oldFeatures);
         $newKey = InventarioService::normalizeFeaturesForComparison($newFeatures);
         $featuresChanged = $oldKey !== $newKey;
+
+        // Solo validar atributos requeridos cuando cambiamos las features
+        if ($featuresChanged) {
+            $this->validateRequiredAttributes($category, $newFeatures);
+        }
 
         $batches = $product->batches()->where('store_id', $store->id)->get();
 
@@ -442,10 +445,20 @@ class ProductService
                 if ($price !== null) {
                     $updateData['price'] = $price;
                 }
+                if ($isActive !== null) {
+                    $updateData['is_active'] = $isActive;
+                }
 
                 if ($featuresChanged && $existingWithNewFeatures && $existingWithNewFeatures->id !== $item->id) {
+                    $existingUpdate = [];
                     if ($price !== null) {
-                        $existingWithNewFeatures->update(['price' => $price]);
+                        $existingUpdate['price'] = $price;
+                    }
+                    if ($isActive !== null) {
+                        $existingUpdate['is_active'] = $isActive;
+                    }
+                    if (! empty($existingUpdate)) {
+                        $existingWithNewFeatures->update($existingUpdate);
                     }
                     $existingWithNewFeatures->increment('quantity', $item->quantity);
                     $item->delete();

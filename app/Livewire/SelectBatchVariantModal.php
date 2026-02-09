@@ -86,6 +86,9 @@ class SelectBatchVariantModal extends Component
             
         foreach ($batches as $batch) {
             foreach ($batch->batchItems as $batchItem) {
+                if (! ($batchItem->is_active ?? true)) {
+                    continue;
+                }
                 // Normalizar features
                 $normalizedFeatures = [];
                 

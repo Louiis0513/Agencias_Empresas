@@ -43,11 +43,35 @@ new class extends Component
                             {{ __('Personas') }}
                         </x-nav-link>
 
-                        <x-nav-link :href="route('stores.products', $store)" :active="request()->routeIs('stores.products*') || request()->routeIs('stores.categories*') || request()->routeIs('stores.attribute-groups*') || request()->routeIs('stores.inventario*') || request()->routeIs('stores.proveedores*')" wire:navigate>
+                        @php
+                            // Verificar si purchases.show es de productos para el navbar principal
+                            $isProductPurchaseMain = false;
+                            if (request()->routeIs('stores.purchases.show')) {
+                                $purchaseMain = request()->route('purchase');
+                                if ($purchaseMain && method_exists($purchaseMain, 'isProducto')) {
+                                    $isProductPurchaseMain = $purchaseMain->isProducto();
+                                } elseif (request()->header('referer') && str_contains(request()->header('referer'), '/productos/compras')) {
+                                    $isProductPurchaseMain = true;
+                                }
+                            }
+                        @endphp
+                        <x-nav-link :href="route('stores.products', $store)" :active="request()->routeIs('stores.products*') || request()->routeIs('stores.categories*') || request()->routeIs('stores.attribute-groups*') || request()->routeIs('stores.inventario*') || request()->routeIs('stores.proveedores*') || request()->routeIs('stores.product-purchases*') || (request()->routeIs('stores.purchases.show') && $isProductPurchaseMain)" wire:navigate>
                             {{ __('Productos') }}
                         </x-nav-link>
 
-                        <x-nav-link :href="route('stores.cajas', $store)" :active="request()->routeIs('stores.cajas*') || request()->routeIs('stores.activos*') || request()->routeIs('stores.accounts-payables*') || request()->routeIs('stores.accounts-receivables*') || request()->routeIs('stores.comprobantes-egreso*') || request()->routeIs('stores.comprobantes-ingreso*') || request()->routeIs('stores.invoices*') || request()->routeIs('stores.purchases*')" wire:navigate>
+                        @php
+                            // Verificar si purchases.show es de productos
+                            $isProductPurchaseNav = false;
+                            if (request()->routeIs('stores.purchases.show')) {
+                                $purchaseNav = request()->route('purchase');
+                                if ($purchaseNav && method_exists($purchaseNav, 'isProducto')) {
+                                    $isProductPurchaseNav = $purchaseNav->isProducto();
+                                } elseif (request()->header('referer') && str_contains(request()->header('referer'), '/productos/compras')) {
+                                    $isProductPurchaseNav = true;
+                                }
+                            }
+                        @endphp
+                        <x-nav-link :href="route('stores.cajas', $store)" :active="(request()->routeIs('stores.cajas*') || request()->routeIs('stores.activos*') || request()->routeIs('stores.accounts-payables*') || request()->routeIs('stores.accounts-receivables*') || request()->routeIs('stores.comprobantes-egreso*') || request()->routeIs('stores.comprobantes-ingreso*') || request()->routeIs('stores.invoices*') || (request()->routeIs('stores.purchases*') && !$isProductPurchaseNav)) && !request()->routeIs('stores.product-purchases*')" wire:navigate>
                             {{ __('Financiero') }}
                         </x-nav-link>
 
@@ -113,9 +137,21 @@ new class extends Component
         {{-- Sub-navbar (Personas, Productos, Financiero) --}}
         @if($store ?? null)
             @php
+                // Verificar si estamos en purchases.show y si es una compra de productos
+                $isProductPurchase = false;
+                if (request()->routeIs('stores.purchases.show')) {
+                    $purchase = request()->route('purchase');
+                    if ($purchase && method_exists($purchase, 'isProducto')) {
+                        $isProductPurchase = $purchase->isProducto();
+                    } elseif (request()->header('referer') && str_contains(request()->header('referer'), '/productos/compras')) {
+                        // Fallback: verificar referer si viene de compras de productos
+                        $isProductPurchase = true;
+                    }
+                }
+                
                 $inPersonas = request()->routeIs('stores.customers*') || request()->routeIs('stores.workers*');
-                $inProductos = request()->routeIs('stores.products*') || request()->routeIs('stores.categories*') || request()->routeIs('stores.attribute-groups*') || request()->routeIs('stores.inventario*') || request()->routeIs('stores.proveedores*') || request()->routeIs('stores.product-purchases*');
-                $inFinanciero = request()->routeIs('stores.cajas*') || request()->routeIs('stores.activos*') || request()->routeIs('stores.accounts-payables*') || request()->routeIs('stores.accounts-receivables*') || request()->routeIs('stores.comprobantes-egreso*') || request()->routeIs('stores.comprobantes-ingreso*') || request()->routeIs('stores.invoices*') || request()->routeIs('stores.purchases*');
+                $inProductos = request()->routeIs('stores.products*') || request()->routeIs('stores.categories*') || request()->routeIs('stores.attribute-groups*') || request()->routeIs('stores.inventario*') || request()->routeIs('stores.proveedores*') || request()->routeIs('stores.product-purchases*') || (request()->routeIs('stores.purchases.show') && $isProductPurchase);
+                $inFinanciero = (request()->routeIs('stores.cajas*') || request()->routeIs('stores.activos*') || request()->routeIs('stores.accounts-payables*') || request()->routeIs('stores.accounts-receivables*') || request()->routeIs('stores.comprobantes-egreso*') || request()->routeIs('stores.comprobantes-ingreso*') || request()->routeIs('stores.invoices*') || (request()->routeIs('stores.purchases*') && !$isProductPurchase)) && !request()->routeIs('stores.product-purchases*');
                 $inVentas = request()->routeIs('stores.ventas*');
             @endphp
             @if($inPersonas || $inProductos || $inFinanciero || $inVentas)
@@ -145,12 +181,12 @@ new class extends Component
                             <a href="{{ route('stores.proveedores', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.proveedores*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
                                 {{ __('Proveedores') }}
                             </a>
-                            <a href="{{ route('stores.product-purchases', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.product-purchases*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
+                            <a href="{{ route('stores.product-purchases', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.product-purchases*') || (request()->routeIs('stores.purchases.show') && $isProductPurchase) ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
                                 {{ __('Compra de productos') }}
                             </a>
                         @endif
                         @if($inFinanciero)
-                            <a href="{{ route('stores.purchases', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.purchases*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
+                            <a href="{{ route('stores.purchases', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ (request()->routeIs('stores.purchases*') && !$isProductPurchase) ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
                                 {{ __('Compra de activos') }}
                             </a>
                             <a href="{{ route('stores.cajas', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.cajas*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">

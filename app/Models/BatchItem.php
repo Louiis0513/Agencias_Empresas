@@ -15,6 +15,7 @@ class BatchItem extends Model
         'features',
         'unit_cost',
         'price',
+        'is_active',
     ];
 
     protected $casts = [
@@ -22,6 +23,7 @@ class BatchItem extends Model
         'unit_cost' => 'decimal:2',
         'price' => 'decimal:2',
         'features' => 'array',
+        'is_active' => 'boolean',
     ];
 
     public function batch()

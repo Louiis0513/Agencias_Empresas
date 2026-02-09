@@ -186,6 +186,9 @@ class InventarioService
                     } else {
                         $batchItems = BatchItem::whereHas('batch', fn ($q) => $q->where('store_id', $store->id)->where('product_id', $product->id))
                             ->where('quantity', '>', 0)
+                            ->where(function ($q) {
+                                $q->where('is_active', true)->orWhereNull('is_active');
+                            })
                             ->with('batch')
                             ->get()
                             ->sortBy(fn (BatchItem $bi) => $bi->batch->created_at->format('Y-m-d H:i:s') . '-' . $bi->id);
@@ -423,10 +426,13 @@ class InventarioService
         }
 
         if ($product->isBatch() || $product->type === 'simple' || empty($product->type)) {
-            // FIFO: batch_items con stock, ordenados por antigüedad del lote (batch.created_at)
+            // FIFO: batch_items activos con stock, ordenados por antigüedad del lote (batch.created_at)
             $batchItems = BatchItem::where('quantity', '>', 0)
                 ->whereHas('batch', function ($q) use ($store, $productId) {
                     $q->where('store_id', $store->id)->where('product_id', $productId);
+                })
+                ->where(function ($q) {
+                    $q->where('is_active', true)->orWhereNull('is_active');
                 })
                 ->with('batch')
                 ->get()

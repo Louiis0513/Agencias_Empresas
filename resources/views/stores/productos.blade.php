@@ -72,12 +72,7 @@
                                                 </span>
                                             </td>
                                             <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
-                                                <a href="{{ route('stores.products.show', [$store, $product]) }}" class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 mr-3">Detalles</a>
-                                                <form method="POST" action="{{ route('stores.products.destroy', [$store, $product]) }}" onsubmit="return confirm('¿Estás seguro de eliminar el producto «{{ $product->name }}»?');" class="inline">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit" class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300">Eliminar</button>
-                                                </form>
+                                                <a href="{{ route('stores.products.show', [$store, $product]) }}" class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300">Detalles</a>
                                             </td>
                                         </tr>
                                     @endforeach

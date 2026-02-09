@@ -52,6 +52,7 @@
                         <dt class="text-xs font-medium text-gray-500 dark:text-gray-400">Ubicación</dt>
                         <dd class="mt-0.5 text-sm text-gray-900 dark:text-gray-100">{{ $product->location ?? '—' }}</dd>
                     </div>
+                    @if(!$product->isBatch())
                     <div>
                         <dt class="text-xs font-medium text-gray-500 dark:text-gray-400">Estado</dt>
                         <dd class="mt-0.5">
@@ -60,6 +61,7 @@
                             </span>
                         </dd>
                     </div>
+                    @endif
                     @if(!$product->isBatch() && !$product->isSerialized())
                     <div>
                         <dt class="text-xs font-medium text-gray-500 dark:text-gray-400">Precio</dt>
@@ -106,6 +108,7 @@
                                     'total_cost' => 0,
                                     'price' => null,
                                     'movimientos' => [],
+                                    'is_active' => $bi->is_active ?? true,
                                 ]);
                             }
                             $obj = $variantesParaTabla->get($key);
@@ -113,6 +116,9 @@
                             $obj->total_cost += (float) $bi->quantity * (float) ($bi->unit_cost ?? 0);
                             if ($obj->price === null && $bi->price !== null) {
                                 $obj->price = $bi->price;
+                            }
+                            if (!isset($obj->is_active)) {
+                                $obj->is_active = $bi->is_active ?? true;
                             }
                             $obj->movimientos[] = (object) [
                                 'reference' => $batch->reference,
@@ -167,6 +173,7 @@
                                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Stock</th>
                                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Costo</th>
                                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Precio</th>
+                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Estado</th>
                                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Acción</th>
                                     </tr>
                                 </thead>
@@ -182,6 +189,11 @@
                                                 @else
                                                     <span class="text-gray-400 dark:text-gray-500">—</span>
                                                 @endif
+                                            </td>
+                                            <td class="px-4 py-3 text-right">
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ ($vp->is_active ?? true) ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300' }}">
+                                                    {{ ($vp->is_active ?? true) ? 'Activo' : 'Inactivo' }}
+                                                </span>
                                             </td>
                                             <td class="px-4 py-3 text-right">
                                                 <button type="button"
@@ -448,6 +460,7 @@
                                     'features' => $bi->features ?? [],
                                     'total_quantity' => 0,
                                     'price' => null,
+                                    'is_active' => $bi->is_active ?? true,
                                 ]);
                             }
                             $uniqueVariants->get($key)->total_quantity += (int) $bi->quantity;
@@ -510,6 +523,17 @@
                                     <div class="pt-3 border-t border-gray-200 dark:border-gray-600">
                                         <x-input-label for="mod-var-{{ $loop->index }}-price" value="{{ __('Precio al público') }}" class="dark:text-white font-semibold" />
                                         <x-text-input name="price" id="mod-var-{{ $loop->index }}-price" class="block mt-1 w-full" type="number" step="0.01" min="0" placeholder="0.00" value="{{ $uv->price !== null && $uv->price !== '' ? number_format((float) $uv->price, 2, '.', '') : '' }}" />
+                                    </div>
+                                    {{-- Estado activo de la variante --}}
+                                    <div class="pt-3">
+                                        <label class="flex items-center gap-2">
+                                            <input type="hidden" name="is_active" value="0">
+                                            <input type="checkbox" name="is_active" value="1"
+                                                   {{ ($uv->is_active ?? true) ? 'checked' : '' }}
+                                                   class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 shadow-sm focus:ring-indigo-500">
+                                            <span class="text-sm font-semibold text-gray-900 dark:text-white">{{ __('Activo') }}</span>
+                                        </label>
+                                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ __('Las variantes inactivas no aparecerán al vender ni en compras.') }}</p>
                                     </div>
                                     <div class="mt-6 flex flex-wrap gap-3 justify-end pt-4">
                                         <button type="button"
@@ -617,55 +641,6 @@
                     </x-modal>
                 @endif
 
-                <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg overflow-hidden">
-                    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                        <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">Lotes y variantes</h3>
-                        <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Cada lote agrupa variantes (atributos) con cantidad y costo.</p>
-                    </div>
-                    @if($product->batches->isEmpty())
-                        <div class="p-6 text-center text-sm text-gray-500 dark:text-gray-400">No hay lotes en inventario.</div>
-                    @else
-                        <div class="divide-y divide-gray-200 dark:divide-gray-700">
-                            @foreach($product->batches as $batch)
-                                <div class="p-6">
-                                    <div class="flex flex-wrap items-center gap-2 mb-3">
-                                        <span class="font-medium text-gray-900 dark:text-gray-100">{{ $batch->reference }}</span>
-                                        @if($batch->expiration_date)
-                                            <span class="text-xs text-amber-600 dark:text-amber-400">Vence: {{ $batch->expiration_date->format('d/m/Y') }}</span>
-                                        @endif
-                                        <span class="text-xs text-gray-500 dark:text-gray-400">Total: {{ $batch->batchItems->sum('quantity') }} uds</span>
-                                    </div>
-                                    <div class="overflow-x-auto">
-                                        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
-                                            <thead class="bg-gray-50 dark:bg-gray-900">
-                                                <tr>
-                                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Variante / Atributos</th>
-                                                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Cantidad</th>
-                                                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Costo unit.</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                                                @foreach($batch->batchItems as $bi)
-                                                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
-                                                        <td class="px-3 py-2 text-gray-700 dark:text-gray-300">
-                                                            @if(!empty($bi->features) && is_array($bi->features))
-                                                                {{ collect($bi->features)->map(fn($v, $k) => "{$k}: {$v}")->implode(', ') }}
-                                                            @else
-                                                                —
-                                                            @endif
-                                                        </td>
-                                                        <td class="px-3 py-2 text-right text-gray-900 dark:text-gray-100">{{ $bi->quantity }}</td>
-                                                        <td class="px-3 py-2 text-right text-gray-500 dark:text-gray-400">{{ number_format($bi->unit_cost, 2) }} €</td>
-                                                    </tr>
-                                                @endforeach
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            @endforeach
-                        </div>
-                    @endif
-                </div>
             @endif
 
             {{-- Inventario: simple = también por lotes (cada compra = un lote con cantidad y costo) --}}
