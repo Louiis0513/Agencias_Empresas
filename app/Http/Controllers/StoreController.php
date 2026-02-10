@@ -1269,17 +1269,24 @@ class StoreController extends Controller
                     $unitCost = (float) ($item['unit_cost'] ?? 0);
                     $totalQty += $qty;
                     $subtotal += $qty * $unitCost;
-                    $features = $item['features'] ?? null;
-                    if (is_array($features)) {
-                        $features = array_filter($features, fn ($v) => $v !== '' && $v !== null);
-                    }
-                    $itemsForStorage[] = [
+                    $itemForStorage = [
                         'quantity' => $qty,
                         'unit_cost' => $unitCost,
                         'price' => isset($item['price']) && $item['price'] !== '' ? (float) $item['price'] : null,
-                        'features' => ! empty($features) ? $features : null,
                         'expiration_date' => isset($item['expiration_date']) && $item['expiration_date'] !== '' ? $item['expiration_date'] : null,
                     ];
+                    // Preferir batch_item_id: el backend obtendrá features desde el BatchItem
+                    if (! empty($item['batch_item_id'])) {
+                        $itemForStorage['batch_item_id'] = (int) $item['batch_item_id'];
+                    } else {
+                        // Retrocompatibilidad: borradores antiguos con features
+                        $features = $item['features'] ?? null;
+                        if (is_array($features)) {
+                            $features = array_filter($features, fn ($v) => $v !== '' && $v !== null);
+                        }
+                        $itemForStorage['features'] = ! empty($features) ? $features : null;
+                    }
+                    $itemsForStorage[] = $itemForStorage;
                 }
                 $normalized[] = [
                     'item_type' => 'INVENTARIO',

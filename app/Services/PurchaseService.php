@@ -194,12 +194,23 @@ class PurchaseService
                             if ($qty < 1) {
                                 continue;
                             }
+                            $features = $bi['features'] ?? null;
+                            // Si viene batch_item_id, obtener features desde el BatchItem (fuente de verdad)
+                            if (! empty($bi['batch_item_id'])) {
+                                $sourceItem = \App\Models\BatchItem::where('id', $bi['batch_item_id'])
+                                    ->whereHas('batch', fn ($q) => $q->where('product_id', $product->id)->where('store_id', $store->id))
+                                    ->first();
+                                if (! $sourceItem) {
+                                    throw new Exception("La variante seleccionada (ID {$bi['batch_item_id']}) no existe o no pertenece al producto «{$product->name}».");
+                                }
+                                $features = $sourceItem->features;
+                            }
                             $items[] = [
                                 'quantity' => $qty,
                                 'cost' => (float) ($bi['unit_cost'] ?? 0),
                                 'unit_cost' => (float) ($bi['unit_cost'] ?? 0),
                                 'price' => isset($bi['price']) && $bi['price'] !== null ? (float) $bi['price'] : null,
-                                'features' => $bi['features'] ?? null,
+                                'features' => $features,
                             ];
                         }
                     } else {

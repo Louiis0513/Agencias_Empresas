@@ -451,8 +451,7 @@
                         $uniqueVariants = collect();
                         foreach ($batchItemsFlat as $bi) {
                             $features = is_array($bi->features ?? null) ? $bi->features : [];
-                            ksort($features);
-                            $key = json_encode($features);
+                            $key = \App\Services\InventarioService::normalizeFeaturesForComparison($features);
                             if (!$uniqueVariants->has($key)) {
                                 $uniqueVariants->put($key, (object) [
                                     'features' => $bi->features ?? [],

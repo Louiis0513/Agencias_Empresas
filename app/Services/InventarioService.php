@@ -17,14 +17,25 @@ class InventarioService
     /**
      * Normaliza features (array o null) a string para comparar variantes en lotes.
      * Misma variante (ej. talla S) da el mismo key aunque el orden de claves cambie.
+     *
+     * Convierte claves y valores a string para evitar diferencias por tipo (int vs string)
+     * que causarían duplicados al crear batch_items desde compras vs creación de producto.
      */
     public static function normalizeFeaturesForComparison(?array $features): string
     {
         if ($features === null || $features === []) {
             return '';
         }
-        ksort($features);
-        return json_encode($features);
+        $normalized = [];
+        foreach ($features as $k => $v) {
+            if ($v === '' || $v === null) {
+                continue;
+            }
+            $key = is_numeric($k) ? (string) (int) $k : (string) $k;
+            $normalized[$key] = (string) $v;
+        }
+        ksort($normalized, SORT_STRING);
+        return json_encode($normalized);
     }
 
     /**

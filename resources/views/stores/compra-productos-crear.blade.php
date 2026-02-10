@@ -105,17 +105,28 @@
                                     @php
                                         $d = is_array($d) ? $d : (array) $d;
                                         $hasItem = !empty(trim($d['description'] ?? '')) || !empty($d['product_id'] ?? '');
-                                        $qty = (int) ($d['quantity'] ?? 1);
-                                        $cost = (float) ($d['unit_cost'] ?? 0);
+                                        $bi0 = $d['batch_items'][0] ?? [];
+                                        $isBatchRow = !empty($d['batch_items']) && (!empty($bi0['batch_item_id']) || !empty($bi0['features']));
+                                        $qty = $isBatchRow ? (int) ($bi0['quantity'] ?? 1) : (int) ($d['quantity'] ?? 1);
+                                        $cost = $isBatchRow ? (float) ($bi0['unit_cost'] ?? 0) : (float) ($d['unit_cost'] ?? 0);
                                         $subtotal = $qty * $cost;
                                         $productType = $d['product_type'] ?? 'simple';
+                                        $batchItemId = $bi0['batch_item_id'] ?? null;
+                                        $batchExpiration = $bi0['expiration_date'] ?? '';
                                     @endphp
-                                    <tr class="detail-row" data-row-id="{{ $i }}" data-product-type="{{ $productType }}" @if(!empty($d['product_id'])) data-product-id="{{ $d['product_id'] }}" @endif>
+                                    <tr class="detail-row" data-row-id="{{ $i }}" data-product-type="{{ $productType }}" @if(!empty($d['product_id'])) data-product-id="{{ $d['product_id'] }}" @endif @if($isBatchRow) data-is-batch="1" @if($batchItemId) data-batch-item-id="{{ $batchItemId }}" @endif @endif>
                                         <td class="px-3 py-2">
                                             <input type="hidden" name="details[{{ $i }}][item_type]" value="INVENTARIO">
                                             <div class="item-select-wrapper">
                                                 <input type="hidden" name="details[{{ $i }}][product_id]" class="product-id-input" value="{{ $d['product_id'] ?? '' }}">
                                                 <input type="hidden" name="details[{{ $i }}][description]" class="item-description-input" value="{{ $d['description'] ?? '' }}">
+                                                @if($isBatchRow && $batchItemId)
+                                                    <input type="hidden" name="details[{{ $i }}][batch_items][0][batch_item_id]" value="{{ $batchItemId }}">
+                                                @elseif($isBatchRow && !empty($bi0['features']))
+                                                    @foreach($bi0['features'] ?? [] as $attrId => $val)
+                                                        <input type="hidden" name="details[{{ $i }}][batch_items][0][features][{{ $attrId }}]" value="{{ $val }}">
+                                                    @endforeach
+                                                @endif
                                                 <span class="item-selected-name text-sm text-gray-700 dark:text-gray-300 block mb-1 min-h-[1.25rem]">{{ $d['description'] ?? '' }}</span>
                                                 <button type="button" class="btn-select-item {{ $hasItem ? 'hidden' : '' }} px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
                                                     Seleccionar
@@ -126,16 +137,30 @@
                                             </div>
                                         </td>
                                         <td class="px-3 py-2 detail-qty-cell">
-                                            <input type="number" name="details[{{ $i }}][quantity]" value="{{ $qty }}" min="1" class="detail-qty w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
+                                            @if($isBatchRow)
+                                                <input type="number" name="details[{{ $i }}][batch_items][0][quantity]" value="{{ $qty }}" min="1" class="detail-qty w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
+                                            @else
+                                                <input type="number" name="details[{{ $i }}][quantity]" value="{{ $qty }}" min="1" class="detail-qty w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
+                                            @endif
                                             <span class="detail-serial-qty text-sm text-gray-600 dark:text-gray-400 hidden"></span>
                                             <span class="detail-batch-qty text-sm text-gray-700 dark:text-gray-300 hidden"></span>
                                         </td>
                                         <td class="px-3 py-2 detail-cost-cell">
-                                            <input type="number" name="details[{{ $i }}][unit_cost]" value="{{ $cost }}" min="0" step="0.01" class="detail-cost w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
+                                            @if($isBatchRow)
+                                                <input type="number" name="details[{{ $i }}][batch_items][0][unit_cost]" value="{{ $cost }}" min="0" step="0.01" class="detail-cost w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
+                                            @else
+                                                <input type="number" name="details[{{ $i }}][unit_cost]" value="{{ $cost }}" min="0" step="0.01" class="detail-cost w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
+                                            @endif
                                             <span class="detail-serial-dash hidden">—</span>
                                             <span class="detail-batch-cost text-sm text-gray-700 dark:text-gray-300 hidden"></span>
                                         </td>
-                                        <td class="px-3 py-2 detail-expiration-cell text-sm text-gray-500 dark:text-gray-400">—</td>
+                                        <td class="px-3 py-2 detail-expiration-cell text-sm {{ $isBatchRow ? '' : 'text-gray-500 dark:text-gray-400' }}">
+                                            @if($isBatchRow)
+                                                <input type="date" class="detail-batch-expiration w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" name="details[{{ $i }}][batch_items][0][expiration_date]" value="{{ $batchExpiration }}" placeholder="Opcional">
+                                            @else
+                                                —
+                                            @endif
+                                        </td>
                                         <td class="px-3 py-2">
                                             <span class="detail-subtotal text-sm font-medium">{{ number_format($subtotal, 2) }}</span>
                                         </td>
@@ -361,13 +386,14 @@
                     
                     const rowId = detail.rowId;
                     const productName = detail.productName || row.querySelector('.item-selected-name')?.textContent || '';
-                    const variantFeatures = detail.variantFeatures || {};
-                    const variantSummary = Object.values(variantFeatures).map(v => String(v)).join(', ');
+                    const batchItemId = detail.batchItemId;
+                    const displayName = detail.displayName || '';
                     
-                    row.setAttribute('data-variant-features', JSON.stringify(variantFeatures));
+                    row.setAttribute('data-batch-item-id', String(batchItemId));
+                    row.setAttribute('data-is-batch', '1');
                     
-                    // Producto + variante en la primera columna (ej. "Pantene — 200ml, Risados")
-                    const descText = variantSummary ? productName + ' — ' + variantSummary : productName;
+                    // Producto + variante en la primera columna (ej. "Blusa — US: 8, Color: Rojo")
+                    const descText = displayName ? productName + ' — ' + displayName : productName;
                     const nameSpan = row.querySelector('.item-selected-name');
                     const descInput = row.querySelector('.item-description-input');
                     if (nameSpan) nameSpan.textContent = descText;
@@ -389,17 +415,16 @@
                     if (qtyInput) { qtyInput.classList.remove('hidden'); qtyInput.name = `details[${rowId}][batch_items][0][quantity]`; qtyInput.value = '1'; }
                     if (costInput) { costInput.classList.remove('hidden'); costInput.name = `details[${rowId}][batch_items][0][unit_cost]`; costInput.value = '0'; }
                     
-                    // Hidden para la variante (el backend espera batch_items[0][features])
+                    // Hidden para batch_item_id: el backend obtendrá los datos desde el BatchItem
                     const wrapper = row.querySelector('.item-select-wrapper');
                     if (wrapper) {
+                        row.querySelectorAll('input[name*="[batch_items][0][batch_item_id]"]').forEach(function(inp) { inp.remove(); });
                         row.querySelectorAll('input[name*="[batch_items][0][features]"]').forEach(function(inp) { inp.remove(); });
-                        for (const [attrId, value] of Object.entries(variantFeatures)) {
-                            const hid = document.createElement('input');
-                            hid.type = 'hidden';
-                            hid.name = `details[${rowId}][batch_items][0][features][${attrId}]`;
-                            hid.value = value;
-                            wrapper.appendChild(hid);
-                        }
+                        const hid = document.createElement('input');
+                        hid.type = 'hidden';
+                        hid.name = `details[${rowId}][batch_items][0][batch_item_id]`;
+                        hid.value = batchItemId;
+                        wrapper.appendChild(hid);
                     }
                     
                     // Fecha de caducidad opcional (solo para lote)
@@ -796,10 +821,12 @@
                     if (descInput) descInput.name = 'details[' + i + '][description]';
                     const qtyInput = row.querySelector('.detail-qty');
                     const costInput = row.querySelector('.detail-cost');
-                    const isBatch = row.hasAttribute('data-variant-features');
+                    const isBatch = row.hasAttribute('data-is-batch');
                     if (qtyInput) qtyInput.name = isBatch ? 'details[' + i + '][batch_items][0][quantity]' : 'details[' + i + '][quantity]';
                     if (costInput) costInput.name = isBatch ? 'details[' + i + '][batch_items][0][unit_cost]' : 'details[' + i + '][unit_cost]';
                     if (isBatch) {
+                        const batchItemIdInp = row.querySelector('input[name*="[batch_items][0][batch_item_id]"]');
+                        if (batchItemIdInp) batchItemIdInp.name = 'details[' + i + '][batch_items][0][batch_item_id]';
                         row.querySelectorAll('input[name*="[batch_items][0][features]"]').forEach(function(inp) {
                             var m = inp.name.match(/\[features\]\[([^\]]+)\]$/);
                             if (m) inp.name = 'details[' + i + '][batch_items][0][features][' + m[1] + ']';
@@ -863,7 +890,8 @@
                         const rowId = row.getAttribute('data-row-id');
                         row.setAttribute('data-product-type', 'simple');
                         row.removeAttribute('data-product-id');
-                        row.removeAttribute('data-variant-features');
+                        row.removeAttribute('data-batch-item-id');
+                        row.removeAttribute('data-is-batch');
                         let next = row.nextElementSibling;
                         if (next && (next.classList.contains('serial-details-row') || next.classList.contains('batch-details-row'))) next.remove();
                         row.querySelector('.product-id-input').value = '';

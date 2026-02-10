@@ -107,9 +107,10 @@ class SelectBatchVariantModal extends Component
                 if (!empty($normalizedFeatures)) {
                     $normalizedKey = InventarioService::normalizeFeaturesForComparison($normalizedFeatures);
                     
-                    // Agrupar por variante única (si ya existe, no duplicar)
+                    // Agrupar por variante única (si ya existe, no duplicar). Guardamos batch_item_id para enviar al formulario.
                     if (! isset($variantsMap[$normalizedKey])) {
                         $variantsMap[$normalizedKey] = [
+                            'batch_item_id' => $batchItem->id,
                             'features' => $normalizedFeatures,
                             'display_name' => $this->formatVariantDisplayName($normalizedFeatures),
                         ];
@@ -145,11 +146,10 @@ class SelectBatchVariantModal extends Component
             return;
         }
 
-        // Buscar la variante seleccionada
+        // Buscar la variante seleccionada (selectedVariantId es el batch_item_id)
         $selectedVariant = null;
         foreach ($this->existingVariants as $variant) {
-            $normalizedKey = InventarioService::normalizeFeaturesForComparison($variant['features']);
-            if ($normalizedKey === $this->selectedVariantId) {
+            if ((string) $variant['batch_item_id'] === (string) $this->selectedVariantId) {
                 $selectedVariant = $variant;
                 break;
             }
@@ -160,12 +160,13 @@ class SelectBatchVariantModal extends Component
             return;
         }
 
-        // Despachar evento con la variante seleccionada
-        $this->dispatch('batch-variant-selected', 
+        // Despachar evento con batch_item_id; el backend obtendrá los datos desde el BatchItem
+        $this->dispatch('batch-variant-selected',
             rowId: $this->rowId,
             productId: $this->productId,
             productName: $this->productName,
-            variantFeatures: $selectedVariant['features']
+            batchItemId: $selectedVariant['batch_item_id'],
+            displayName: $selectedVariant['display_name'],
         );
 
         $this->dispatch('close-modal', 'select-batch-variant');

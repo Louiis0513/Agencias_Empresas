@@ -13,13 +13,10 @@
 
             <div class="mt-4">
                 @forelse($existingVariants as $index => $variant)
-                    @php
-                        $variantKey = \App\Services\InventarioService::normalizeFeaturesForComparison($variant['features']);
-                    @endphp
                     <label class="flex items-center p-4 border-2 border-gray-200 dark:border-gray-600 rounded-lg mb-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:border-indigo-300 dark:hover:border-indigo-500 transition-colors has-[:checked]:bg-indigo-50 dark:has-[:checked]:bg-indigo-900/30 has-[:checked]:border-indigo-500 dark:has-[:checked]:border-indigo-400">
                         <input type="radio" 
                                wire:model="selectedVariantId" 
-                               value="{{ $variantKey }}"
+                               value="{{ $variant['batch_item_id'] }}"
                                class="mr-3 text-indigo-600 focus:ring-indigo-500">
                         <span class="text-base font-medium text-gray-900 dark:text-gray-100">
                             {{ $variant['display_name'] }}
