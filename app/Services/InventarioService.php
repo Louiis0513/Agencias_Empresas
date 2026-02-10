@@ -274,7 +274,7 @@ class InventarioService
                         if ($exists) {
                             throw new Exception("El serial «{$serial}» ya existe en el inventario.");
                         }
-                        ProductItem::create([
+                        $productItemData = [
                             'store_id'        => $store->id,
                             'product_id'      => $product->id,
                             'serial_number'   => $serial,
@@ -283,7 +283,11 @@ class InventarioService
                             'batch'           => $reference,
                             'expiration_date' => $row['expiration_date'] ?? null,
                             'features'        => $row['features'] ?? null,
-                        ]);
+                        ];
+                        if (isset($row['price']) && $row['price'] !== '' && $row['price'] !== null) {
+                            $productItemData['price'] = (float) $row['price'];
+                        }
+                        ProductItem::create($productItemData);
                     }
                 } else {
                     $serials = array_values(array_filter(array_map('trim', $serialNumbers)));

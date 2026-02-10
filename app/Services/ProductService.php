@@ -550,9 +550,13 @@ class ProductService
                 }
             }
 
+            $price = isset($item['price']) && $item['price'] !== '' && $item['price'] !== null
+                ? (float) $item['price']
+                : null;
             $serialItems[] = [
                 'serial_number' => $serial,
                 'cost' => (float) ($item['cost'] ?? 0),
+                'price' => $price,
                 'features' => ! empty($features) ? $features : null,
                 'expiration_date' => $item['expiration_date'] ?? null,
             ];
