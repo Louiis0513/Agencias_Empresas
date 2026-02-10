@@ -1178,7 +1178,7 @@ class StoreController extends Controller
         ]);
 
         $rawDetails = $request->input('details', []);
-        $normalized = $this->normalizeProductPurchaseDetails($rawDetails);
+        $normalized = $this->normalizeProductPurchaseDetails($rawDetails, $store);
 
         \Illuminate\Support\Facades\Validator::make(
             ['details' => $normalized] + $request->only(['due_date', 'invoice_date']),
@@ -1226,36 +1226,62 @@ class StoreController extends Controller
 
     /**
      * Convierte detalles de compra de productos al formato esperado por PurchaseService.
-     * Filas con serial_items: quantity = número de unidades, unit_cost = subtotal/quantity.
-     * Filas con batch_items: quantity = suma de cantidades, unit_cost = promedio ponderado, se guarda batch_items.
+     * Serial_items: una fila por unidad (Opción A) con descripción Producto — Serial — Atributos.
+     * Batch_items: quantity = suma de cantidades, unit_cost = promedio ponderado, se guarda batch_items.
      */
-    protected function normalizeProductPurchaseDetails(array $rawDetails): array
+    protected function normalizeProductPurchaseDetails(array $rawDetails, \App\Models\Store $store): array
     {
         $normalized = [];
         foreach ($rawDetails as $d) {
             $serialItems = $d['serial_items'] ?? null;
             if (is_array($serialItems) && count($serialItems) > 0) {
-                $subtotal = 0;
-                $itemsForStorage = [];
+                $productId = $d['product_id'] ?? null;
+                $product = $productId
+                    ? \App\Models\Product::where('id', $productId)->where('store_id', $store->id)->with('category.attributes')->first()
+                    : null;
+                $productName = $product?->name ?? ($d['description'] ?? 'Producto');
+                $attrById = $product?->category?->attributes?->keyBy('id') ?? collect();
+
                 foreach ($serialItems as $unit) {
+                    $serial = trim($unit['serial_number'] ?? '');
+                    if ($serial === '') {
+                        continue;
+                    }
                     $cost = (float) ($unit['cost'] ?? 0);
-                    $subtotal += $cost;
-                    $itemsForStorage[] = [
-                        'serial_number' => trim($unit['serial_number'] ?? ''),
+                    $features = $unit['features'] ?? [];
+                    if (is_array($features)) {
+                        $features = array_filter($features, fn ($v) => $v !== '' && $v !== null);
+                    } else {
+                        $features = [];
+                    }
+                    $parts = [];
+                    foreach ($features as $attrId => $val) {
+                        $attr = $attrById->get((int) $attrId) ?? $attrById->get((string) $attrId);
+                        $attrName = $attr?->name ?? "Atributo {$attrId}";
+                        $parts[] = "{$attrName}: {$val}";
+                    }
+                    $attrsStr = implode(', ', $parts);
+                    $description = $attrsStr !== '' ? "{$productName} — {$serial} — {$attrsStr}" : "{$productName} — {$serial}";
+
+                    $unitForStorage = [
+                        'serial_number' => $serial,
                         'cost' => $cost,
-                        'features' => $unit['features'] ?? null,
+                        'features' => ! empty($features) ? $features : null,
+                    ];
+                    if (isset($unit['price']) && $unit['price'] !== '' && $unit['price'] !== null) {
+                        $unitForStorage['price'] = (float) $unit['price'];
+                    }
+
+                    $normalized[] = [
+                        'item_type' => 'INVENTARIO',
+                        'product_id' => $productId,
+                        'activo_id' => null,
+                        'description' => $description,
+                        'quantity' => 1,
+                        'unit_cost' => $cost,
+                        'serial_items' => [$unitForStorage],
                     ];
                 }
-                $qty = count($serialItems);
-                $normalized[] = [
-                    'item_type' => 'INVENTARIO',
-                    'product_id' => $d['product_id'] ?? null,
-                    'activo_id' => null,
-                    'description' => $d['description'] ?? '',
-                    'quantity' => $qty,
-                    'unit_cost' => $qty > 0 ? round($subtotal / $qty, 2) : 0,
-                    'serial_items' => $itemsForStorage,
-                ];
             } elseif (! empty($d['batch_items']) && is_array($d['batch_items'])) {
                 $batchItems = $d['batch_items'];
                 $totalQty = 0;
@@ -1492,7 +1518,7 @@ class StoreController extends Controller
             ]);
 
             $rawDetails = $request->input('details', []);
-            $normalized = $this->normalizeProductPurchaseDetails($rawDetails);
+            $normalized = $this->normalizeProductPurchaseDetails($rawDetails, $store);
 
             \Illuminate\Support\Facades\Validator::make(
                 ['details' => $normalized] + $request->only(['due_date', 'invoice_date']),

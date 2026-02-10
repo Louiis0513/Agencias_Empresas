@@ -107,7 +107,11 @@
                                         $hasItem = !empty(trim($d['description'] ?? '')) || !empty($d['product_id'] ?? '');
                                         $bi0 = $d['batch_items'][0] ?? [];
                                         $isBatchRow = !empty($d['batch_items']) && (!empty($bi0['batch_item_id']) || !empty($bi0['features']));
+                                        $isSerialRow = !empty($d['serial_items']) && is_array($d['serial_items']);
                                         $qty = $isBatchRow ? (int) ($bi0['quantity'] ?? 1) : (int) ($d['quantity'] ?? 1);
+                                        if ($isSerialRow) {
+                                            $qty = count($d['serial_items']);
+                                        }
                                         $cost = $isBatchRow ? (float) ($bi0['unit_cost'] ?? 0) : (float) ($d['unit_cost'] ?? 0);
                                         $subtotal = $qty * $cost;
                                         $productType = $d['product_type'] ?? 'simple';
@@ -137,7 +141,10 @@
                                             </div>
                                         </td>
                                         <td class="px-3 py-2 detail-qty-cell">
-                                            @if($isBatchRow)
+                                            @if($isSerialRow)
+                                                <input type="hidden" name="details[{{ $i }}][quantity]" value="{{ $qty }}" class="detail-qty">
+                                                <span class="detail-serial-qty text-sm text-gray-700 dark:text-gray-300">{{ $qty }}</span>
+                                            @elseif($isBatchRow)
                                                 <input type="number" name="details[{{ $i }}][batch_items][0][quantity]" value="{{ $qty }}" min="1" class="detail-qty w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
                                             @else
                                                 <input type="number" name="details[{{ $i }}][quantity]" value="{{ $qty }}" min="1" class="detail-qty w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
