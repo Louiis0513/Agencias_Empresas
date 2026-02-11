@@ -1,0 +1,36 @@
+<div>
+    <x-modal name="create-role" focusable maxWidth="lg">
+        <form wire:submit="save" class="p-6">
+            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">
+                {{ __('Crear nuevo rol') }}
+            </h2>
+            <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                {{ __('Ej: Cajero, Vendedor, Administrador. Luego podrás asignar permisos a este rol.') }}
+            </p>
+
+            <div class="mt-6">
+                <x-input-label for="role_name" value="{{ __('Nombre del rol') }}" />
+                <x-text-input wire:model="name"
+                              id="role_name"
+                              class="block mt-1 w-full"
+                              type="text"
+                              placeholder="Ej: Cajero, Vendedor..."
+                              autofocus />
+                <x-input-error :messages="$errors->get('name')" class="mt-1" />
+            </div>
+
+            <div class="mt-6 flex justify-end gap-3">
+                <x-secondary-button type="button" x-on:click="$dispatch('close')">
+                    {{ __('Cancelar') }}
+                </x-secondary-button>
+                <x-primary-button type="submit" wire:loading.attr="disabled">
+                    {{ __('Crear rol') }}
+                </x-primary-button>
+            </div>
+        </form>
+
+        @if($errors->any())
+            <div x-init="$dispatch('open-modal', 'create-role')"></div>
+        @endif
+    </x-modal>
+</div>

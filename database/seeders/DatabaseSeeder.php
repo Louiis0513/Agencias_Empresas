@@ -36,7 +36,11 @@ class DatabaseSeeder extends Seeder
         ]);
 
 
-        // 2. CREAR EL USUARIO DE PRUEBA (ASIGNADO AL PLAN)
+        // 2. PERMISOS DEL MÓDULO DE TIENDA
+        // ---------------------------------------------------
+        $this->call(PermissionSeeder::class);
+
+        // 3. CREAR EL USUARIO DE PRUEBA (ASIGNADO AL PLAN)
         // ---------------------------------------------------
         User::factory()->create([
             'name' => 'Luis Javier Correa', // Puse tu nombre para que se vea bien

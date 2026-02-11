@@ -20,8 +20,18 @@ Route::middleware(['auth', 'verified'])->prefix('tienda/{store:slug}')->name('st
     Route::get('/', [StoreController::class, 'show'])->name('dashboard');
 
     Route::get('/trabajadores', [StoreController::class, 'workers'])->name('workers');
-    
+    Route::get('/trabajadores/crear', [StoreController::class, 'createWorker'])->name('workers.create');
+    Route::post('/trabajadores', [StoreController::class, 'storeWorker'])->name('workers.store');
+    Route::get('/trabajadores/{user}/editar', [StoreController::class, 'editWorker'])->name('workers.edit');
+    Route::put('/trabajadores/{user}', [StoreController::class, 'updateWorker'])->name('workers.update');
+    Route::delete('/trabajadores/{user}', [StoreController::class, 'destroyWorker'])->name('workers.destroy');
+
     Route::get('/roles', [StoreController::class, 'roles'])->name('roles');
+    Route::get('/roles/{role}/permisos', [StoreController::class, 'rolePermissions'])->name('roles.permissions');
+    Route::post('/roles/{role}/permisos', [StoreController::class, 'updateRolePermissions'])->name('roles.permissions.update');
+    Route::post('/roles', [StoreController::class, 'storeRole'])->name('roles.store');
+    Route::put('/roles/{role}', [StoreController::class, 'updateRole'])->name('roles.update');
+    Route::delete('/roles/{role}', [StoreController::class, 'destroyRole'])->name('roles.destroy');
 
     Route::get('/productos', [StoreController::class, 'products'])->name('products');
     Route::get('/productos/compras', [StoreController::class, 'productPurchases'])->name('product-purchases');

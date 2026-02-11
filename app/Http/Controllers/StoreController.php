@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Store;
 use App\Models\Category;
+use App\Models\User;
 use App\Services\CategoryService;
 use App\Services\AttributeService;
 use App\Services\ProductService;
@@ -15,6 +16,7 @@ use App\Services\ActivoService;
 use App\Services\InventarioService;
 use App\Services\PurchaseService;
 use App\Services\AccountPayableService;
+use App\Services\StorePermissionService;
 use App\Http\Requests\StoreCustomerRequest;
 use App\Http\Requests\StoreInvoiceRequest;
 use App\Http\Requests\StoreProveedorRequest;
@@ -40,12 +42,12 @@ class StoreController extends Controller
         return view('stores.dashboard', compact('store'));
     }
 
-    public function workers(Store $store)
+    public function workers(Store $store, StorePermissionService $permission)
     {
-        // 1. SEGURIDAD: Verificar si el usuario autenticado pertenece a esta tienda
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'workers.view');
 
         // 2. Guardamos en sesión la tienda actual
         session(['current_store_id' => $store->id]);
@@ -72,18 +74,130 @@ class StoreController extends Controller
                 ];
             });
 
-        // 5. Retornamos la vista con los trabajadores
-        return view('stores.workers', compact('store', 'workers'));
+        // 5. Lista de roles para asignar (en editar trabajador)
+        $rolesList = \App\Models\Role::where('store_id', $store->id)->orderBy('name')->get();
+
+        return view('stores.workers', compact('store', 'workers', 'rolesList'));
     }
 
-    public function roles(Store $store)
+    public function createWorker(Store $store, StorePermissionService $permission)
     {
-        // 1. SEGURIDAD: Verificar si el usuario autenticado pertenece a esta tienda
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'workers.manage');
 
-        // 2. Guardamos en sesión la tienda actual
+        session(['current_store_id' => $store->id]);
+
+        $rolesList = \App\Models\Role::where('store_id', $store->id)->orderBy('name')->get();
+
+        return view('stores.worker-create', compact('store', 'rolesList'));
+    }
+
+    public function storeWorker(Store $store, Request $request, StorePermissionService $permission)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para añadir trabajadores en esta tienda.');
+        }
+        $permission->authorize($store, 'workers.manage');
+
+        $request->validate([
+            'email' => ['required', 'email', 'exists:users,email'],
+            'role_id' => ['required', 'exists:roles,id'],
+        ]);
+
+        $user = User::where('email', $request->input('email'))->firstOrFail();
+        $roleId = (int) $request->input('role_id');
+
+        if ($roleId && ! \App\Models\Role::where('id', $roleId)->where('store_id', $store->id)->exists()) {
+            return redirect()->back()->withInput()->with('error', 'El rol seleccionado no pertenece a esta tienda.');
+        }
+
+        if ($store->workers()->where('user_id', $user->id)->exists()) {
+            return redirect()->back()->withInput()->with('error', 'Ese usuario ya es trabajador de esta tienda.');
+        }
+
+        $store->workers()->attach($user->id, ['role_id' => $roleId ?: null]);
+
+        return redirect()->route('stores.workers', $store)
+            ->with('success', 'Trabajador añadido correctamente.');
+    }
+
+    public function editWorker(Store $store, User $user, StorePermissionService $permission)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        $permission->authorize($store, 'workers.manage');
+
+        $worker = $store->workers()->where('user_id', $user->id)->first();
+        if (! $worker) {
+            abort(404, 'El usuario no es trabajador de esta tienda.');
+        }
+
+        session(['current_store_id' => $store->id]);
+
+        $rolesList = \App\Models\Role::where('store_id', $store->id)->orderBy('name')->get();
+        $currentRoleId = $worker->pivot->role_id;
+
+        return view('stores.worker-edit', compact('store', 'user', 'rolesList', 'currentRoleId'));
+    }
+
+    public function updateWorker(Store $store, User $user, Request $request, StorePermissionService $permission)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para editar trabajadores en esta tienda.');
+        }
+        $permission->authorize($store, 'workers.manage');
+
+        if (! $store->workers()->where('user_id', $user->id)->exists()) {
+            abort(404);
+        }
+
+        $request->validate([
+            'role_id' => ['nullable', 'exists:roles,id'],
+        ]);
+
+        $roleId = $request->input('role_id') ?: null;
+        if ($roleId && ! \App\Models\Role::where('id', $roleId)->where('store_id', $store->id)->exists()) {
+            return redirect()->back()->with('error', 'El rol no pertenece a esta tienda.');
+        }
+
+        $store->workers()->updateExistingPivot($user->id, ['role_id' => $roleId]);
+
+        return redirect()->route('stores.workers', $store)
+            ->with('success', 'Rol del trabajador actualizado correctamente.');
+    }
+
+    public function destroyWorker(Store $store, User $user, StorePermissionService $permission)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para eliminar trabajadores en esta tienda.');
+        }
+        $permission->authorize($store, 'workers.manage');
+
+        if ($store->user_id === $user->id) {
+            return redirect()->route('stores.workers', $store)
+                ->with('error', 'No puedes quitarte a ti mismo como dueño de la tienda.');
+        }
+
+        if (! $store->workers()->where('user_id', $user->id)->exists()) {
+            abort(404);
+        }
+
+        $store->workers()->detach($user->id);
+
+        return redirect()->route('stores.workers', $store)
+            ->with('success', 'Trabajador eliminado de la tienda.');
+    }
+
+    public function roles(Store $store, StorePermissionService $permission)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        $permission->authorize($store, 'roles.view');
+
         session(['current_store_id' => $store->id]);
 
         // 3. Obtenemos los roles de la tienda con sus permisos
@@ -98,11 +212,117 @@ class StoreController extends Controller
         return view('stores.roles', compact('store', 'roles', 'allPermissions'));
     }
 
-    public function products(Store $store)
+    public function storeRole(Store $store, Request $request, StorePermissionService $permission)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para crear roles en esta tienda.');
+        }
+        $permission->authorize($store, 'roles.manage');
+
+        $request->validate([
+            'name' => ['required', 'string', 'min:1', 'max:255'],
+        ]);
+
+        \App\Models\Role::create([
+            'store_id' => $store->id,
+            'name' => $request->input('name'),
+        ]);
+
+        return redirect()->route('stores.roles', $store)
+            ->with('success', 'Rol creado correctamente.');
+    }
+
+    public function updateRole(Store $store, \App\Models\Role $role, Request $request, StorePermissionService $permission)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para editar roles en esta tienda.');
+        }
+        $permission->authorize($store, 'roles.manage');
+
+        if ($role->store_id !== $store->id) {
+            abort(404);
+        }
+
+        $request->validate([
+            'name' => ['required', 'string', 'min:1', 'max:255'],
+        ]);
+
+        $role->update(['name' => $request->input('name')]);
+
+        return redirect()->route('stores.roles', $store)
+            ->with('success', 'Rol actualizado correctamente.');
+    }
+
+    public function destroyRole(Store $store, \App\Models\Role $role, StorePermissionService $permission)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para eliminar roles en esta tienda.');
+        }
+        $permission->authorize($store, 'roles.manage');
+
+        if ($role->store_id !== $store->id) {
+            abort(404);
+        }
+
+        // Quitar el rol a los trabajadores que lo tenían asignado
+        \DB::table('store_user')->where('store_id', $store->id)->where('role_id', $role->id)->update(['role_id' => null]);
+
+        $role->permissions()->detach();
+        $role->delete();
+
+        return redirect()->route('stores.roles', $store)
+            ->with('success', 'Rol eliminado correctamente.');
+    }
+
+    public function rolePermissions(Store $store, \App\Models\Role $role, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'roles.manage');
+
+        if ($role->store_id !== $store->id) {
+            abort(404);
+        }
+
+        session(['current_store_id' => $store->id]);
+
+        $role->load('permissions');
+        $allPermissions = \App\Models\Permission::orderBy('name')->get();
+        $workersWithRole = $store->workers()->wherePivot('role_id', $role->id)->get();
+
+        return view('stores.role-permissions', compact('store', 'role', 'allPermissions', 'workersWithRole'));
+    }
+
+    public function updateRolePermissions(Store $store, \App\Models\Role $role, Request $request, StorePermissionService $permission)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para gestionar permisos en esta tienda.');
+        }
+        $permission->authorize($store, 'roles.manage');
+
+        if ($role->store_id !== $store->id) {
+            abort(404);
+        }
+
+        $request->validate([
+            'permission_ids' => ['nullable', 'array'],
+            'permission_ids.*' => ['exists:permissions,id'],
+        ]);
+
+        $permissionIds = $request->input('permission_ids', []) ?: [];
+        $role->permissions()->sync($permissionIds);
+
+        return redirect()->route('stores.roles.permissions', [$store, $role])
+            ->with('success', 'Permisos actualizados correctamente.');
+    }
+
+    public function products(Store $store, StorePermissionService $permission)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        $permission->authorize($store, 'products.view');
 
         session(['current_store_id' => $store->id]);
 
@@ -114,11 +334,12 @@ class StoreController extends Controller
         return view('stores.productos', compact('store', 'products'));
     }
 
-    public function showProduct(Store $store, \App\Models\Product $product)
+    public function showProduct(Store $store, \App\Models\Product $product, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'products.view');
         if ($product->store_id !== $store->id) {
             abort(404);
         }
@@ -268,11 +489,12 @@ class StoreController extends Controller
             ->with('success', 'Variante creada correctamente.');
     }
 
-    public function destroyProduct(Store $store, \App\Models\Product $product, ProductService $productService)
+    public function destroyProduct(Store $store, \App\Models\Product $product, ProductService $productService, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'products.destroy');
 
         if ($product->store_id !== $store->id) {
             abort(404);
@@ -288,11 +510,12 @@ class StoreController extends Controller
         }
     }
 
-    public function categories(Store $store, CategoryService $categoryService)
+    public function categories(Store $store, CategoryService $categoryService, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'categories.view');
 
         session(['current_store_id' => $store->id]);
 
@@ -305,11 +528,12 @@ class StoreController extends Controller
         return view('stores.categorias', compact('store', 'categoryTree', 'categoriesFlat'));
     }
 
-    public function destroyCategory(Store $store, \App\Models\Category $category, CategoryService $categoryService)
+    public function destroyCategory(Store $store, \App\Models\Category $category, CategoryService $categoryService, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'categories.destroy');
 
         try {
             $categoryService->deleteCategory($store, $category->id);
@@ -321,11 +545,12 @@ class StoreController extends Controller
         }
     }
 
-    public function showCategory(Store $store, Category $category)
+    public function showCategory(Store $store, Category $category, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'categories.view');
 
         if ($category->store_id !== $store->id) {
             abort(404);
@@ -339,11 +564,12 @@ class StoreController extends Controller
         return view('stores.category-show', compact('store', 'category', 'products'));
     }
 
-    public function attributeGroups(Store $store, AttributeService $attributeService)
+    public function attributeGroups(Store $store, AttributeService $attributeService, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'attribute-groups.view');
 
         session(['current_store_id' => $store->id]);
 
@@ -352,11 +578,12 @@ class StoreController extends Controller
         return view('stores.attribute-groups', compact('store', 'groups'));
     }
 
-    public function categoryAttributes(Store $store, Category $category, AttributeService $attributeService)
+    public function categoryAttributes(Store $store, Category $category, AttributeService $attributeService, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'category-attributes.manage');
 
         if ($category->store_id !== $store->id) {
             abort(404);
@@ -370,11 +597,12 @@ class StoreController extends Controller
         return view('stores.category-attributes', compact('store', 'category', 'storeAttributeGroups', 'categoryAttributes'));
     }
 
-    public function assignAttributes(Store $store, Category $category, Request $request, AttributeService $attributeService)
+    public function assignAttributes(Store $store, Category $category, Request $request, AttributeService $attributeService, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'category-attributes.manage');
 
         if ($category->store_id !== $store->id) {
             abort(404);
@@ -405,11 +633,12 @@ class StoreController extends Controller
         }
     }
 
-    public function destroyAttributeGroup(Store $store, \App\Models\AttributeGroup $attributeGroup, AttributeService $attributeService)
+    public function destroyAttributeGroup(Store $store, \App\Models\AttributeGroup $attributeGroup, AttributeService $attributeService, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'attribute-groups.destroy');
         if ($attributeGroup->store_id !== $store->id) {
             abort(404);
         }
@@ -437,11 +666,12 @@ class StoreController extends Controller
 
     // ==================== FACTURAS ====================
 
-    public function invoices(Store $store, InvoiceService $invoiceService, Request $request)
+    public function invoices(Store $store, InvoiceService $invoiceService, Request $request, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'invoices.view');
 
         session(['current_store_id' => $store->id]);
 
@@ -464,11 +694,12 @@ class StoreController extends Controller
         return view('stores.facturas', compact('store', 'invoices', 'customers', 'rangoFechas'));
     }
 
-    public function showInvoice(Store $store, \App\Models\Invoice $invoice, InvoiceService $invoiceService)
+    public function showInvoice(Store $store, \App\Models\Invoice $invoice, InvoiceService $invoiceService, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'invoices.view');
 
         if ($invoice->store_id !== $store->id) {
             abort(404);
@@ -479,11 +710,12 @@ class StoreController extends Controller
         return view('stores.factura-detalle', compact('store', 'invoice'));
     }
 
-    public function storeInvoice(Store $store, StoreInvoiceRequest $request, InvoiceService $invoiceService)
+    public function storeInvoice(Store $store, StoreInvoiceRequest $request, InvoiceService $invoiceService, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'invoices.create');
 
         try {
             $invoice = $invoiceService->crearFactura($store, Auth::id(), $request->validated());
@@ -495,11 +727,12 @@ class StoreController extends Controller
         }
     }
 
-    public function voidInvoice(Store $store, \App\Models\Invoice $invoice, InvoiceService $invoiceService)
+    public function voidInvoice(Store $store, \App\Models\Invoice $invoice, InvoiceService $invoiceService, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'invoices.void');
 
         if ($invoice->store_id !== $store->id) {
             abort(404);
