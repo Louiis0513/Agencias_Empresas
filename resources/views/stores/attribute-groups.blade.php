@@ -44,14 +44,6 @@
                     </svg>
                     Crear grupo
                 </button>
-                <button type="button"
-                        x-on:click="$dispatch('open-modal', 'create-attribute')"
-                        class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700">
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                    </svg>
-                    Crear atributo
-                </button>
             </div>
 
             @if($groups->count() > 0)
@@ -62,6 +54,11 @@
                                 <h3 class="font-semibold text-gray-900 dark:text-gray-100">{{ $group->name }}</h3>
                                 <div class="flex items-center gap-2">
                                     <span class="text-sm text-gray-500">{{ $group->attributes->count() }} atributo(s)</span>
+                                    <button type="button"
+                                            x-on:click="$dispatch('open-create-attribute', { groupId: {{ $group->id }} })"
+                                            class="inline-flex items-center px-3 py-1.5 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700">
+                                        Crear atributo
+                                    </button>
                                     <button x-on:click="$dispatch('open-edit-attribute-group-modal', { id: {{ $group->id }} })"
                                             class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 text-sm">
                                         Editar
@@ -99,7 +96,7 @@
                                         @endforeach
                                     </div>
                                 @else
-                                    <p class="text-sm text-gray-500 dark:text-gray-400">Sin atributos. Crea atributos y asígnalos a este grupo.</p>
+                                    <p class="text-sm text-gray-500 dark:text-gray-400">Sin atributos. Usa el botón «Crear atributo» en la cabecera del grupo para añadir el primero.</p>
                                 @endif
                             </div>
                         </div>

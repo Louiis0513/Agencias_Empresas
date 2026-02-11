@@ -34,6 +34,7 @@ Route::middleware(['auth', 'verified'])->prefix('tienda/{store:slug}')->name('st
     Route::delete('/productos/{product}', [StoreController::class, 'destroyProduct'])->name('products.destroy');
 
     Route::get('/categorias', [StoreController::class, 'categories'])->name('categories');
+    Route::get('/categorias/{category}', [StoreController::class, 'showCategory'])->name('category.show');
     Route::delete('/categorias/{category}', [StoreController::class, 'destroyCategory'])->name('categories.destroy');
     
     // Grupos de atributos (gestión global)

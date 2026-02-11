@@ -321,6 +321,24 @@ class StoreController extends Controller
         }
     }
 
+    public function showCategory(Store $store, Category $category)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+
+        if ($category->store_id !== $store->id) {
+            abort(404);
+        }
+
+        session(['current_store_id' => $store->id]);
+
+        $category->load(['attributes' => ['options']]);
+        $products = $category->products()->orderBy('name')->get();
+
+        return view('stores.category-show', compact('store', 'category', 'products'));
+    }
+
     public function attributeGroups(Store $store, AttributeService $attributeService)
     {
         if (! Auth::user()->stores->contains($store->id)) {

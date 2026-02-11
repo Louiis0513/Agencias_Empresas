@@ -1,15 +1,20 @@
-<div>
+<div x-data
+     x-on:open-create-attribute.window="$wire.setGroupId($event.detail.groupId).then(() => $dispatch('open-modal', 'create-attribute'))">
     <x-modal name="create-attribute" focusable maxWidth="2xl">
         <form wire:submit="save" class="p-6">
             <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">
                 {{ __('Crear atributo') }}
             </h2>
             <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                {{ __('Cada atributo debe pertenecer a un grupo. Indica si es requerido u opcional dentro del grupo.') }}
+                @if($attribute_group_id)
+                    {{ __('Se añadirá al grupo:') }} <strong>{{ $this->getGroupName() }}</strong>
+                @else
+                    {{ __('Cada atributo debe pertenecer a un grupo. Indica si es requerido u opcional dentro del grupo.') }}
+                @endif
             </p>
 
             <div class="mt-6 space-y-4">
-                @if($this->groups->isNotEmpty())
+                @if($this->groups->isNotEmpty() && !$attribute_group_id)
                     <div>
                         <x-input-label for="attribute_group_id" value="{{ __('Grupo de atributos') }} *" />
                         <select wire:model="attribute_group_id"
@@ -22,7 +27,8 @@
                         </select>
                         <x-input-error :messages="$errors->get('attribute_group_id')" class="mt-1" />
                     </div>
-                @else
+                @endif
+                @if($this->groups->isEmpty())
                     <div class="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-3">
                         <p class="text-sm text-amber-800 dark:text-amber-200">
                             Crea primero un <strong>grupo de atributos</strong> en la página Grupos de atributos.

@@ -31,10 +31,15 @@
         </div>
 
         <div class="flex items-center space-x-2">
-            <a href="{{ route('stores.category.attributes', [$store, $category]) }}" 
+            <a href="{{ route('stores.category.show', [$store, $category]) }}"
                class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 text-sm font-medium">
-                Atributos
+                Ver
             </a>
+            <button type="button"
+                    class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 text-sm font-medium"
+                    x-on:click="$dispatch('open-create-subcategory', { parentId: {{ $category->id }} })">
+                Crear subcategoría
+            </button>
             <button class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 text-sm font-medium"
                     x-on:click="$dispatch('open-edit-modal', {{ $category->id }})">
                 Editar

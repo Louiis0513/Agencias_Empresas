@@ -1,11 +1,17 @@
-<div>
+<div x-data
+     x-on:open-create-category.window="$wire.clearParentId().then(() => $dispatch('open-modal', 'create-category'))"
+     x-on:open-create-subcategory.window="$wire.setParentId($event.detail.parentId).then(() => $dispatch('open-modal', 'create-category'))">
     <x-modal name="create-category" focusable maxWidth="lg">
         <form wire:submit="save" class="p-6">
             <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">
-                {{ __('Crear categoría') }}
+                {{ $parent_id ? __('Crear subcategoría') : __('Crear categoría') }}
             </h2>
             <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                {{ __('Organiza tus productos con categorías. Puedes crear subcategorías seleccionando una categoría padre.') }}
+                @if($parent_id)
+                    {{ __('Se creará dentro de:') }} <strong>{{ $this->getParentCategoryName() }}</strong>
+                @else
+                    {{ __('Organiza tus productos con categorías.') }}
+                @endif
             </p>
 
             <div class="mt-6 space-y-4">
@@ -19,24 +25,6 @@
                                   autofocus />
                     <x-input-error :messages="$errors->get('name')" class="mt-1" />
                 </div>
-
-                @if($this->store && $this->store->categories->isNotEmpty())
-                    <div>
-                        <x-input-label for="parent_id" value="{{ __('Categoría padre (opcional)') }}" />
-                        <select wire:model="parent_id" 
-                                id="parent_id" 
-                                class="block mt-1 w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
-                            <option value="">{{ __('Sin categoría padre (categoría raíz)') }}</option>
-                            @foreach($this->store->categories as $cat)
-                                <option value="{{ $cat->id }}">{{ $cat->name }}</option>
-                            @endforeach
-                        </select>
-                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                            {{ __('Deja vacío para crear una categoría principal, o selecciona una categoría existente para crear una subcategoría.') }}
-                        </p>
-                        <x-input-error :messages="$errors->get('parent_id')" class="mt-1" />
-                    </div>
-                @endif
             </div>
 
             <div class="mt-6 flex justify-end gap-3">

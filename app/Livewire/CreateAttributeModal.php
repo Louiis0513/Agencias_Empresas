@@ -57,6 +57,21 @@ class CreateAttributeModal extends Component
         return AttributeGroup::where('store_id', $store->id)->orderBy('position')->orderBy('name')->get();
     }
 
+    public function setGroupId($groupId): void
+    {
+        $this->attribute_group_id = $groupId ? (string) $groupId : null;
+    }
+
+    public function getGroupName(): ?string
+    {
+        if (! $this->attribute_group_id) {
+            return null;
+        }
+        $group = AttributeGroup::find($this->attribute_group_id);
+
+        return $group?->name;
+    }
+
     public function addOption()
     {
         $this->normalizeOptions();

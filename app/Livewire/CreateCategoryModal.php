@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Models\Category;
 use App\Models\Store;
 use App\Services\CategoryService;
 use Illuminate\Support\Facades\Auth;
@@ -14,6 +15,26 @@ class CreateCategoryModal extends Component
 
     public string $name = '';
     public ?string $parent_id = null;
+
+    public function setParentId($parentId): void
+    {
+        $this->parent_id = $parentId ? (string) $parentId : null;
+    }
+
+    public function clearParentId(): void
+    {
+        $this->parent_id = null;
+    }
+
+    public function getParentCategoryName(): ?string
+    {
+        if (! $this->parent_id) {
+            return null;
+        }
+        $category = Category::find($this->parent_id);
+
+        return $category?->name;
+    }
 
     protected function rules(): array
     {
