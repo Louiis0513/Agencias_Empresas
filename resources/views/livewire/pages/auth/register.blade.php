@@ -3,6 +3,7 @@
 use App\Models\User;
 use App\Models\Plan;
 use App\Services\CustomerService;
+use App\Services\WorkerService;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -41,6 +42,10 @@ new #[Layout('layouts.guest')] class extends Component
         // Vincular automáticamente customers existentes con el mismo email
         $customerService = app(CustomerService::class);
         $customerService->vincularCustomersExistentes($user);
+
+        // Vincular automáticamente workers (trabajadores) existentes con el mismo email
+        $workerService = app(WorkerService::class);
+        $workerService->vincularWorkersExistentes($user);
 
         Auth::login($user);
 

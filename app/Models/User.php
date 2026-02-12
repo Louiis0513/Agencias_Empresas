@@ -66,4 +66,13 @@ class User extends Authenticatable
     {
         return $this->hasMany(Customer::class);
     }
+
+    /**
+     * Relación: Un usuario puede ser trabajador en múltiples tiendas
+     * Registros de la tabla workers vinculados a este usuario
+     */
+    public function workerRecords()
+    {
+        return $this->hasMany(Worker::class);
+    }
 }

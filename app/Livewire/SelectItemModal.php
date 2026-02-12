@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Models\Store;
 use App\Services\ActivoService;
 use App\Services\InventarioService;
+use App\Services\VentaService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -20,6 +21,9 @@ class SelectItemModal extends Component
 
     public string $search = '';
 
+    /** Solo contexto venta: product_ids en el carrito como simple, para invalidar en la vista (serializado no: se puede añadir otra unidad con otro serial) */
+    public array $productIdsInCartSimple = [];
+
     public function mount(int $storeId, string $itemType = 'INVENTARIO', string $rowId = ''): void
     {
         $this->storeId = $storeId;
@@ -28,10 +32,11 @@ class SelectItemModal extends Component
     }
 
     #[On('open-select-item-for-row')]
-    public function openForRow(string $rowId = '', string $itemType = 'INVENTARIO'): void
+    public function openForRow(string $rowId = '', string $itemType = 'INVENTARIO', array $productIdsInCartSimple = []): void
     {
         $this->rowId = $rowId;
         $this->itemType = $itemType;
+        $this->productIdsInCartSimple = $productIdsInCartSimple ?? [];
         $this->search = '';
         $this->dispatch('open-modal', 'select-item-compra');
     }
@@ -44,11 +49,11 @@ class SelectItemModal extends Component
         }
 
         if ($this->itemType === 'INVENTARIO') {
-            return app(InventarioService::class)->buscarProductosInventario(
-                $store,
-                $this->search,
-                25
-            )->map(fn ($p) => [
+            // Vista de ventas (carrito): usa VentaService para independencia del flujo de compras
+            $productos = $this->rowId === 'venta'
+                ? app(VentaService::class)->buscarProductos($store, $this->search, 25)
+                : app(InventarioService::class)->buscarProductosInventario($store, $this->search, 25);
+            return $productos->map(fn ($p) => [
                 'id' => $p->id,
                 'name' => $p->name,
                 'code' => $p->sku ?? null,
@@ -72,6 +77,13 @@ class SelectItemModal extends Component
 
     public function selectItem(int $id, string $name, string $type, ?string $controlType = null, ?string $productType = null): void
     {
+        $productType = $productType ?? 'simple';
+        if ($type === 'INVENTARIO' && $this->rowId === 'venta' && $productType === 'simple' && in_array($id, $this->productIdsInCartSimple, true)) {
+            $this->addError('item', 'Este producto ya está en el carrito.');
+
+            return;
+        }
+
         $payload = [
             'rowId' => $this->rowId,
             'id' => $id,

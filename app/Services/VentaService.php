@@ -27,6 +27,11 @@ use Illuminate\Support\Facades\DB;
  *
  * 4. CajaService
  *    - Solo si la venta es de contado (PAID): registrar ingreso(s) en bolsillo(s).
+ *
+ * Funciones para el carrito de ventas:
+ * - verificadorCarrito: consulta disponibilidad (stock actual / variante / serial) vía InventarioService::stockDisponible.
+ * - validarGuardadoItemCarrito: valida antes de agregar al carrito vía InventarioService::validarStockDisponible.
+ * - buscarProductos: buscador de productos para la vista de ventas (delega en InventarioService), para usar la vista independiente de compras.
  */
 class VentaService
 {
@@ -36,6 +41,58 @@ class VentaService
         protected CajaService $cajaService,
         protected AccountReceivableService $accountReceivableService
     ) {}
+
+    /**
+     * Buscador de productos para la vista de ventas (carrito / selector de producto).
+     * Delega en InventarioService::buscarProductosInventario (productos con inventario: simple, serialized, batch).
+     * Permite usar la vista de ventas de forma independiente del flujo de compras.
+     *
+     * @return \Illuminate\Support\Collection Productos con id, name, sku, stock, cost, type
+     */
+    public function buscarProductos(Store $store, string $term, int $limit = 15): \Illuminate\Support\Collection
+    {
+        return $this->inventarioService->buscarProductosInventario($store, $term, $limit);
+    }
+
+    /**
+     * Verificador de disponibilidad para el carrito (solo consulta, no modifica inventario).
+     * Delega en InventarioService::stockDisponible para que el selector muestre el máximo correcto:
+     * - Simple: stock actual del producto.
+     * - Lote (por batch_item_id): stock de ese ítem concreto.
+     * - Serializado: disponible o no (por serial_number).
+     *
+     * @param  int|null  $batchItemId  Para producto por lote (ítem concreto), id del batch_item.
+     * @param  string|null  $serialNumber  Para producto serializado, número de serie a consultar.
+     * @return array{disponible: bool, cantidad: int, status: string|null}
+     */
+    public function verificadorCarrito(Store $store, int $productId, ?int $batchItemId = null, ?string $serialNumber = null): array
+    {
+        return $this->inventarioService->stockDisponible($store, $productId, $batchItemId, $serialNumber);
+    }
+
+    /**
+     * Verificador de disponibilidad por variante (producto lote): stock total de esa variante en todos los lotes.
+     * Delega en InventarioService::stockDisponible con variant_features (caso lote por variante).
+     *
+     * @param  array  $variantFeatures  Mapa atributo => valor (ej. ['1' => '250ml', '2' => 'Plastico'])
+     * @return array{disponible: bool, cantidad: int, status: null}
+     */
+    public function verificadorCarritoVariante(Store $store, int $productId, array $variantFeatures): array
+    {
+        return $this->inventarioService->stockDisponible($store, $productId, null, null, $variantFeatures);
+    }
+
+    /**
+     * Valida que haya stock disponible para los ítems antes de guardarlos en el carrito.
+     * Se llama al pulsar "Agregar producto al carrito". Delega en InventarioService::validarStockDisponible.
+     *
+     * @param  array  $items  Ítems en formato: product_id + quantity | product_id + batch_item_id + quantity | product_id + serial_numbers[]
+     * @throws \Exception Si algún producto no tiene stock suficiente o un serial no está disponible
+     */
+    public function validarGuardadoItemCarrito(Store $store, array $items): void
+    {
+        $this->inventarioService->validarStockDisponible($store, $items);
+    }
 
     /**
      * Venta a crédito: valida stock → crea factura PENDING → crea cuenta por cobrar (cuotas) → descuenta inventario.
@@ -61,7 +118,7 @@ class VentaService
             // 3. Cuentas por cobrar: crear la cuenta vinculada a la factura y las cuotas (valida que suma cuotas = total)
             $this->accountReceivableService->crearDesdeFactura($store, $factura, $dueDate, $cuotas);
 
-            // 4. Inventario: descontar según tipo (seriales elegidos o FIFO por cantidad)
+            // 4. Inventario: descontar según tipo (seriales, variante FIFO, o cantidad FIFO)
             foreach ($details as $item) {
                 $productId = (int) ($item['product_id'] ?? 0);
                 if ($productId < 1) {
@@ -81,13 +138,25 @@ class VentaService
                     if ($qty < 1) {
                         continue;
                     }
-                    $this->inventarioService->registrarSalidaPorCantidadFIFO(
-                        $store,
-                        $userId,
-                        $productId,
-                        $qty,
-                        'Venta a crédito Factura #' . $factura->id
-                    );
+                    $variantFeatures = $item['variant_features'] ?? null;
+                    if (is_array($variantFeatures) && ! empty($variantFeatures)) {
+                        $this->inventarioService->registrarSalidaPorVarianteFIFO(
+                            $store,
+                            $userId,
+                            $productId,
+                            $variantFeatures,
+                            $qty,
+                            'Venta a crédito Factura #' . $factura->id
+                        );
+                    } else {
+                        $this->inventarioService->registrarSalidaPorCantidadFIFO(
+                            $store,
+                            $userId,
+                            $productId,
+                            $qty,
+                            'Venta a crédito Factura #' . $factura->id
+                        );
+                    }
                 }
             }
 

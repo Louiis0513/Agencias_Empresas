@@ -1,20 +1,11 @@
 <div>
-    {{-- Búsqueda por nombre --}}
-    <div class="mb-6">
-        <label for="busquedaProducto" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Buscar producto por nombre</label>
-        <div class="mt-1 flex gap-2">
-            <input type="text"
-                   id="busquedaProducto"
-                   wire:model="busquedaProducto"
-                   wire:keydown.enter.prevent="buscarProductos"
-                   placeholder="Escribe el nombre del producto..."
-                   class="flex-1 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
-            <button type="button"
-                    wire:click="buscarProductos"
-                    class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition">
-                Buscar
-            </button>
-        </div>
+    {{-- Botón selector de productos --}}
+    <div class="mb-6 flex flex-wrap items-center gap-3">
+        <button type="button"
+                wire:click="abrirSelectorProducto"
+                class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition">
+            + Agregar producto
+        </button>
     </div>
 
     @if($errorStock)
@@ -23,74 +14,58 @@
         </div>
     @endif
 
-    {{-- Resultados de búsqueda --}}
-    @if(count($productosEncontrados) > 0)
-        <div class="mb-8">
-            <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Resultados</h3>
-            <div class="border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden">
-                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-600">
-                    <thead class="bg-gray-50 dark:bg-gray-800">
-                        <tr>
-                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Producto</th>
-                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Tipo</th>
-                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Stock / Disponibles</th>
-                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Precio</th>
-                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Cantidad</th>
-                            <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Acción</th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-600">
-                        @foreach($productosEncontrados as $p)
-                            @php
-                                $stock = (int) ($p['stock'] ?? 0);
-                                $maxQty = max(1, $stock);
-                                $isSerialized = ($p['type'] ?? '') === 'serialized';
-                            @endphp
-                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50" @if(!$isSerialized) x-data="{ qty: 1 }" @endif>
-                                <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{{ $p['name'] }}</td>
-                                <td class="px-4 py-2 text-sm">
-                                    @if($isSerialized)
-                                        <span class="px-2 py-0.5 text-xs font-medium rounded bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">Serializado</span>
-                                    @else
-                                        <span class="px-2 py-0.5 text-xs font-medium rounded bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200">Lote</span>
-                                    @endif
-                                </td>
-                                <td class="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">{{ $stock }}</td>
-                                <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{{ number_format($p['price'] ?? 0, 2) }}</td>
-                                <td class="px-4 py-2">
-                                    @if($isSerialized)
-                                        <span class="text-gray-400 dark:text-gray-500 text-sm">—</span>
-                                    @else
-                                        <input type="number"
-                                               x-model.number="qty"
-                                               min="1"
-                                               max="{{ $maxQty }}"
-                                               class="w-20 rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 text-sm">
-                                    @endif
-                                </td>
-                                <td class="px-4 py-2 text-right">
-                                    @if($isSerialized)
-                                        <button type="button"
-                                                wire:click="abrirModalUnidades({{ $p['id'] }})"
-                                                class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 text-sm font-medium">
-                                            Ver disponibles
-                                        </button>
-                                    @else
-                                        <button type="button"
-                                                @click="$wire.agregarAlCarrito({{ $p['id'] }}, Math.min(Math.max(1, qty), {{ $maxQty }}))"
-                                                class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 text-sm font-medium">
-                                            Agregar
-                                        </button>
-                                    @endif
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+    {{-- Pendiente: cantidad para producto simple --}}
+    @if($pendienteSimple)
+        <div class="mb-6 p-4 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-900/50">
+            <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Cantidad para <strong>{{ $pendienteSimple['name'] }}</strong> (máx. {{ $pendienteSimple['stock'] }})</p>
+            <div class="flex flex-wrap items-center gap-2">
+                <input type="number"
+                       wire:model="cantidadSimple"
+                       min="1"
+                       placeholder="Cantidad"
+                       class="w-24 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 text-sm">
+                <button type="button"
+                        wire:click="confirmarAgregarSimple"
+                        wire:target="confirmarAgregarSimple"
+                        class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm font-medium">
+                    Agregar al carrito
+                </button>
+                <button type="button"
+                        wire:click="cancelarPendienteSimple"
+                        class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">
+                    Cancelar
+                </button>
             </div>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Precio unit.: {{ number_format($pendienteSimple['price'] ?? 0, 2) }}</p>
         </div>
-    @elseif(!empty(trim($busquedaProducto)))
-        <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">No se encontraron productos con ese nombre.</p>
+    @endif
+
+    {{-- Pendiente: cantidad para variante (lote) --}}
+    @if($pendienteBatch)
+        <div class="mb-6 p-4 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-900/50">
+            <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Cantidad para <strong>{{ $pendienteBatch['name'] }}</strong> — {{ $pendienteBatch['variant_display_name'] }} (máx. {{ $pendienteBatch['stock'] }})
+            </p>
+            <div class="flex flex-wrap items-center gap-2">
+                <input type="number"
+                       wire:model="cantidadBatch"
+                       min="1"
+                       placeholder="Cantidad"
+                       class="w-24 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 text-sm">
+                <button type="button"
+                        wire:click="confirmarAgregarVariante"
+                        wire:target="confirmarAgregarVariante"
+                        class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm font-medium">
+                    Agregar al carrito
+                </button>
+                <button type="button"
+                        wire:click="cancelarPendienteBatch"
+                        class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">
+                    Cancelar
+                </button>
+            </div>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Precio unit.: {{ number_format($pendienteBatch['price'] ?? 0, 2) }}</p>
+        </div>
     @endif
 
     {{-- Modal: Unidades disponibles (producto serializado) --}}
@@ -195,18 +170,18 @@
         </div>
     @endif
 
-    {{-- Carrito --}}
+    {{-- Carrito (factura preliminar) --}}
     <div>
-        <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Carrito</h3>
+        <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Carrito — Factura preliminar</h3>
         @if(count($carrito) > 0)
             <div class="border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden">
                 <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-600">
                     <thead class="bg-gray-50 dark:bg-gray-800">
                         <tr>
-                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Producto</th>
-                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Tipo / Detalle</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Producto / Detalle</th>
                             <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Cantidad</th>
-                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Precio unit.</th>
+                            <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Precio unit.</th>
+                            <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Subtotal</th>
                             <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Quitar</th>
                         </tr>
                     </thead>
@@ -216,37 +191,45 @@
                                 $qty = (int) ($item['quantity'] ?? 0);
                                 $isSerialized = !empty($item['serial_numbers'] ?? []);
                                 $serialNumbers = $item['serial_numbers'] ?? [];
+                                $serialFeatures = $item['serial_features'] ?? [];
                                 $stock = (int) ($item['stock'] ?? 0);
                                 $maxQty = max(1, $stock);
                                 $prices = $item['prices'] ?? [];
-                                $precioUnitTexto = $isSerialized && !empty($prices)
-                                    ? number_format((float) $prices[0], 2)
-                                    : number_format($item['price'] ?? 0, 2);
+                                $precioUnit = $isSerialized && !empty($prices) ? (float) $prices[0] : (float) ($item['price'] ?? 0);
+                                $subtotal = $precioUnit * $qty;
+                                $tipo = $item['type'] ?? 'batch';
+                                $detalleTexto = $item['name'];
+                                if ($tipo === 'batch' && !empty($item['variant_display_name'] ?? '')) {
+                                    $detalleTexto .= ' — ' . $item['variant_display_name'];
+                                } elseif ($isSerialized) {
+                                    $detalleTexto .= ' · Serie: ' . ($serialNumbers[0] ?? '—');
+                                    if (!empty($serialFeatures[0]) && is_array($serialFeatures[0])) {
+                                        $detalleTexto .= ' (' . implode(', ', array_map(fn($k, $v) => "{$k}: {$v}", array_keys($serialFeatures[0]), $serialFeatures[0])) . ')';
+                                    }
+                                }
                             @endphp
                             <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                                <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{{ $item['name'] }}</td>
-                                <td class="px-4 py-2 text-sm">
-                                    @if($isSerialized)
-                                        <span class="px-2 py-0.5 text-xs font-medium rounded bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 mr-1">Serializado</span>
-                                        <span class="text-gray-600 dark:text-gray-400">{{ $serialNumbers[0] ?? '—' }}</span>
+                                <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">
+                                    <span class="font-medium">{{ $item['name'] }}</span>
+                                    @if($tipo === 'batch' && !empty($item['variant_display_name'] ?? ''))
+                                        <span class="block text-gray-600 dark:text-gray-400 text-xs mt-0.5">— {{ $item['variant_display_name'] }}</span>
+                                    @elseif($isSerialized)
+                                        <span class="block text-gray-600 dark:text-gray-400 text-xs mt-0.5">Serie: {{ $serialNumbers[0] ?? '—' }}</span>
+                                        @if(!empty($serialFeatures[0]) && is_array($serialFeatures[0]))
+                                            <span class="block text-gray-500 dark:text-gray-500 text-xs">{{ implode(', ', array_map(fn($k, $v) => "{$k}: {$v}", array_keys($serialFeatures[0]), $serialFeatures[0])) }}</span>
+                                        @endif
                                     @else
-                                        <span class="px-2 py-0.5 text-xs font-medium rounded bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200">Lote</span>
-                                        <span class="text-gray-500 dark:text-gray-400 text-xs">máx. {{ $stock }}</span>
+                                        <span class="block text-gray-500 dark:text-gray-400 text-xs">Simple</span>
                                     @endif
                                 </td>
                                 <td class="px-4 py-2">
-                                    @if($isSerialized)
-                                        <span class="text-sm font-medium">1</span>
-                                    @else
-                                        <input type="number"
-                                               min="1"
-                                               max="{{ $maxQty }}"
-                                               value="{{ $qty }}"
-                                               @change="$wire.actualizarCantidad({{ $item['product_id'] }}, Math.min(Math.max(1, parseInt($event.target.value) || 1), {{ $maxQty }}))"
-                                               class="w-20 rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 text-sm">
+                                    <span class="text-sm font-medium">{{ $qty }}</span>
+                                    @if(!$isSerialized)
+                                        <span class="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">Para cambiar: quitar y agregar de nuevo</span>
                                     @endif
                                 </td>
-                                <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{{ $precioUnitTexto }}</td>
+                                <td class="px-4 py-2 text-right text-sm text-gray-900 dark:text-gray-100">{{ number_format($precioUnit, 2) }}</td>
+                                <td class="px-4 py-2 text-right text-sm font-medium text-gray-900 dark:text-gray-100">{{ number_format($subtotal, 2) }}</td>
                                 <td class="px-4 py-2 text-right">
                                     <button type="button"
                                             wire:click="quitarLineaCarrito({{ $index }})"
@@ -259,8 +242,14 @@
                     </tbody>
                 </table>
             </div>
+            <div class="mt-4 flex justify-end">
+                <div class="rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 px-6 py-4 min-w-[200px]">
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Total</p>
+                    <p class="text-xl font-bold text-gray-900 dark:text-white mt-1">{{ number_format($this->carritoTotal, 2) }}</p>
+                </div>
+            </div>
         @else
-            <p class="text-sm text-gray-500 dark:text-gray-400">El carrito está vacío. Busca productos y agrégalos.</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400">El carrito está vacío. Haz clic en «Agregar producto» para seleccionar los ítems a vender.</p>
         @endif
     </div>
 </div>

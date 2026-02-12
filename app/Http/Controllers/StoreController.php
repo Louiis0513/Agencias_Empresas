@@ -17,9 +17,12 @@ use App\Services\InventarioService;
 use App\Services\PurchaseService;
 use App\Services\AccountPayableService;
 use App\Services\StorePermissionService;
+use App\Services\WorkerService;
+use App\Models\Worker;
 use App\Http\Requests\StoreCustomerRequest;
 use App\Http\Requests\StoreInvoiceRequest;
 use App\Http\Requests\StoreProveedorRequest;
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
@@ -49,35 +52,40 @@ class StoreController extends Controller
         }
         $permission->authorize($store, 'workers.view');
 
-        // 2. Guardamos en sesión la tienda actual
         session(['current_store_id' => $store->id]);
 
-        // 3. Obtenemos todos los roles de la tienda para evitar consultas N+1
-        $roles = \App\Models\Role::where('store_id', $store->id)
-            ->get()
-            ->keyBy('id');
+        $roles = \App\Models\Role::where('store_id', $store->id)->get()->keyBy('id');
 
-        // 4. Obtenemos los trabajadores de la tienda con sus roles
-        $workers = $store->workers()
-            ->get()
-            ->map(function ($worker) use ($roles) {
-                // Obtenemos el rol del pivot
-                $roleId = $worker->pivot->role_id;
-                $role = $roleId && isset($roles[$roleId]) ? $roles[$roleId] : null;
-                
-                return [
-                    'id' => $worker->id,
-                    'name' => $worker->name,
-                    'email' => $worker->email,
-                    'role' => $role ? $role->name : 'Dueño',
-                    'role_id' => $roleId,
-                ];
-            });
+        $owner = $store->owner;
+        $workersList = collect();
 
-        // 5. Lista de roles para asignar (en editar trabajador)
+        if ($owner) {
+            $workersList->push([
+                'id' => 'owner-' . $owner->id,
+                'worker_id' => null,
+                'name' => $owner->name,
+                'email' => $owner->email,
+                'role' => 'Dueño',
+                'role_id' => null,
+                'vinculado' => true,
+            ]);
+        }
+
+        foreach ($store->workerRecords()->with('role')->get() as $w) {
+            $workersList->push([
+                'id' => $w->id,
+                'worker_id' => $w->id,
+                'name' => $w->name,
+                'email' => $w->email,
+                'role' => $w->role->name ?? '-',
+                'role_id' => $w->role_id,
+                'vinculado' => $w->estaVinculado(),
+            ]);
+        }
+
         $rolesList = \App\Models\Role::where('store_id', $store->id)->orderBy('name')->get();
 
-        return view('stores.workers', compact('store', 'workers', 'rolesList'));
+        return view('stores.workers', compact('store', 'workersList', 'rolesList'));
     }
 
     public function createWorker(Store $store, StorePermissionService $permission)
@@ -85,7 +93,7 @@ class StoreController extends Controller
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
-        $permission->authorize($store, 'workers.manage');
+        $permission->authorize($store, 'workers.create');
 
         session(['current_store_id' => $store->id]);
 
@@ -94,98 +102,100 @@ class StoreController extends Controller
         return view('stores.worker-create', compact('store', 'rolesList'));
     }
 
-    public function storeWorker(Store $store, Request $request, StorePermissionService $permission)
+    public function storeWorker(Store $store, Request $request, StorePermissionService $permission, WorkerService $workerService)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para añadir trabajadores en esta tienda.');
         }
-        $permission->authorize($store, 'workers.manage');
+        $permission->authorize($store, 'workers.create');
 
         $request->validate([
-            'email' => ['required', 'email', 'exists:users,email'],
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email'],
             'role_id' => ['required', 'exists:roles,id'],
+            'phone' => ['nullable', 'string', 'max:50'],
+            'document_number' => ['nullable', 'string', 'max:50'],
+            'address' => ['nullable', 'string'],
         ]);
 
-        $user = User::where('email', $request->input('email'))->firstOrFail();
-        $roleId = (int) $request->input('role_id');
-
-        if ($roleId && ! \App\Models\Role::where('id', $roleId)->where('store_id', $store->id)->exists()) {
+        if (! \App\Models\Role::where('id', $request->role_id)->where('store_id', $store->id)->exists()) {
             return redirect()->back()->withInput()->with('error', 'El rol seleccionado no pertenece a esta tienda.');
         }
 
-        if ($store->workers()->where('user_id', $user->id)->exists()) {
-            return redirect()->back()->withInput()->with('error', 'Ese usuario ya es trabajador de esta tienda.');
+        try {
+            $workerService->createWorker($store, $request->only(['name', 'email', 'role_id', 'phone', 'document_number', 'address']));
+        } catch (Exception $e) {
+            return redirect()->back()->withInput()->with('error', $e->getMessage());
         }
-
-        $store->workers()->attach($user->id, ['role_id' => $roleId ?: null]);
 
         return redirect()->route('stores.workers', $store)
             ->with('success', 'Trabajador añadido correctamente.');
     }
 
-    public function editWorker(Store $store, User $user, StorePermissionService $permission)
+    public function editWorker(Store $store, Worker $worker, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
-        $permission->authorize($store, 'workers.manage');
+        $permission->authorize($store, 'workers.edit');
 
-        $worker = $store->workers()->where('user_id', $user->id)->first();
-        if (! $worker) {
-            abort(404, 'El usuario no es trabajador de esta tienda.');
+        if ($worker->store_id !== $store->id) {
+            abort(404, 'El trabajador no pertenece a esta tienda.');
         }
 
         session(['current_store_id' => $store->id]);
 
         $rolesList = \App\Models\Role::where('store_id', $store->id)->orderBy('name')->get();
-        $currentRoleId = $worker->pivot->role_id;
 
-        return view('stores.worker-edit', compact('store', 'user', 'rolesList', 'currentRoleId'));
+        return view('stores.worker-edit', compact('store', 'worker', 'rolesList'));
     }
 
-    public function updateWorker(Store $store, User $user, Request $request, StorePermissionService $permission)
+    public function updateWorker(Store $store, Worker $worker, Request $request, StorePermissionService $permission, WorkerService $workerService)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para editar trabajadores en esta tienda.');
         }
-        $permission->authorize($store, 'workers.manage');
+        $permission->authorize($store, 'workers.edit');
 
-        if (! $store->workers()->where('user_id', $user->id)->exists()) {
-            abort(404);
+        if ($worker->store_id !== $store->id) {
+            abort(404, 'El trabajador no pertenece a esta tienda.');
         }
 
         $request->validate([
-            'role_id' => ['nullable', 'exists:roles,id'],
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email'],
+            'role_id' => ['required', 'exists:roles,id'],
+            'phone' => ['nullable', 'string', 'max:50'],
+            'document_number' => ['nullable', 'string', 'max:50'],
+            'address' => ['nullable', 'string'],
         ]);
 
-        $roleId = $request->input('role_id') ?: null;
-        if ($roleId && ! \App\Models\Role::where('id', $roleId)->where('store_id', $store->id)->exists()) {
-            return redirect()->back()->with('error', 'El rol no pertenece a esta tienda.');
+        if (! \App\Models\Role::where('id', $request->role_id)->where('store_id', $store->id)->exists()) {
+            return redirect()->back()->withInput()->with('error', 'El rol no pertenece a esta tienda.');
         }
 
-        $store->workers()->updateExistingPivot($user->id, ['role_id' => $roleId]);
+        try {
+            $workerService->updateWorker($worker, $request->only(['name', 'email', 'role_id', 'phone', 'document_number', 'address']));
+        } catch (Exception $e) {
+            return redirect()->back()->withInput()->with('error', $e->getMessage());
+        }
 
         return redirect()->route('stores.workers', $store)
-            ->with('success', 'Rol del trabajador actualizado correctamente.');
+            ->with('success', 'Trabajador actualizado correctamente.');
     }
 
-    public function destroyWorker(Store $store, User $user, StorePermissionService $permission)
+    public function destroyWorker(Store $store, Worker $worker, StorePermissionService $permission, WorkerService $workerService)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para eliminar trabajadores en esta tienda.');
         }
-        $permission->authorize($store, 'workers.manage');
+        $permission->authorize($store, 'workers.destroy');
 
-        if ($store->user_id === $user->id) {
-            return redirect()->route('stores.workers', $store)
-                ->with('error', 'No puedes quitarte a ti mismo como dueño de la tienda.');
+        if ($worker->store_id !== $store->id) {
+            abort(404, 'El trabajador no pertenece a esta tienda.');
         }
 
-        if (! $store->workers()->where('user_id', $user->id)->exists()) {
-            abort(404);
-        }
-
-        $store->workers()->detach($user->id);
+        $workerService->deleteWorker($worker);
 
         return redirect()->route('stores.workers', $store)
             ->with('success', 'Trabajador eliminado de la tienda.');
@@ -217,7 +227,7 @@ class StoreController extends Controller
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para crear roles en esta tienda.');
         }
-        $permission->authorize($store, 'roles.manage');
+        $permission->authorize($store, 'roles.create');
 
         $request->validate([
             'name' => ['required', 'string', 'min:1', 'max:255'],
@@ -237,7 +247,7 @@ class StoreController extends Controller
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para editar roles en esta tienda.');
         }
-        $permission->authorize($store, 'roles.manage');
+        $permission->authorize($store, 'roles.edit');
 
         if ($role->store_id !== $store->id) {
             abort(404);
@@ -258,13 +268,17 @@ class StoreController extends Controller
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para eliminar roles en esta tienda.');
         }
-        $permission->authorize($store, 'roles.manage');
+        $permission->authorize($store, 'roles.destroy');
 
         if ($role->store_id !== $store->id) {
             abort(404);
         }
 
-        // Quitar el rol a los trabajadores que lo tenían asignado
+        $workersConRol = $store->workerRecords()->where('role_id', $role->id)->count();
+        if ($workersConRol > 0) {
+            return redirect()->back()->with('error', "Hay {$workersConRol} trabajador(es) con este rol. Reasígnalos a otro rol antes de eliminarlo.");
+        }
+
         \DB::table('store_user')->where('store_id', $store->id)->where('role_id', $role->id)->update(['role_id' => null]);
 
         $role->permissions()->detach();
@@ -279,7 +293,7 @@ class StoreController extends Controller
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
-        $permission->authorize($store, 'roles.manage');
+        $permission->authorize($store, 'roles.permissions');
 
         if ($role->store_id !== $store->id) {
             abort(404);
@@ -289,7 +303,7 @@ class StoreController extends Controller
 
         $role->load('permissions');
         $allPermissions = \App\Models\Permission::orderBy('name')->get();
-        $workersWithRole = $store->workers()->wherePivot('role_id', $role->id)->get();
+        $workersWithRole = $store->workerRecords()->where('role_id', $role->id)->get();
 
         return view('stores.role-permissions', compact('store', 'role', 'allPermissions', 'workersWithRole'));
     }
@@ -299,7 +313,7 @@ class StoreController extends Controller
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para gestionar permisos en esta tienda.');
         }
-        $permission->authorize($store, 'roles.manage');
+        $permission->authorize($store, 'roles.permissions');
 
         if ($role->store_id !== $store->id) {
             abort(404);
@@ -583,7 +597,7 @@ class StoreController extends Controller
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
-        $permission->authorize($store, 'category-attributes.manage');
+        $permission->authorize($store, 'category-attributes.assign');
 
         if ($category->store_id !== $store->id) {
             abort(404);
@@ -602,7 +616,7 @@ class StoreController extends Controller
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
-        $permission->authorize($store, 'category-attributes.manage');
+        $permission->authorize($store, 'category-attributes.assign');
 
         if ($category->store_id !== $store->id) {
             abort(404);
@@ -750,11 +764,12 @@ class StoreController extends Controller
 
     // ==================== PROVEEDORES ====================
 
-    public function proveedores(Store $store, ProveedorService $proveedorService, Request $request)
+    public function proveedores(Store $store, ProveedorService $proveedorService, Request $request, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'proveedores.view');
 
         session(['current_store_id' => $store->id]);
 
@@ -767,11 +782,12 @@ class StoreController extends Controller
         return view('stores.proveedores', compact('store', 'proveedores'));
     }
 
-    public function storeProveedor(Store $store, StoreProveedorRequest $request, ProveedorService $proveedorService)
+    public function storeProveedor(Store $store, StoreProveedorRequest $request, ProveedorService $proveedorService, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'proveedores.create');
 
         try {
             $data = $request->validated();
@@ -785,11 +801,12 @@ class StoreController extends Controller
         }
     }
 
-    public function updateProveedor(Store $store, \App\Models\Proveedor $proveedor, StoreProveedorRequest $request, ProveedorService $proveedorService)
+    public function updateProveedor(Store $store, \App\Models\Proveedor $proveedor, StoreProveedorRequest $request, ProveedorService $proveedorService, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'proveedores.edit');
 
         if ($proveedor->store_id !== $store->id) {
             abort(404);
@@ -807,11 +824,12 @@ class StoreController extends Controller
         }
     }
 
-    public function destroyProveedor(Store $store, \App\Models\Proveedor $proveedor, ProveedorService $proveedorService)
+    public function destroyProveedor(Store $store, \App\Models\Proveedor $proveedor, ProveedorService $proveedorService, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'proveedores.destroy');
 
         if ($proveedor->store_id !== $store->id) {
             abort(404);
@@ -829,11 +847,12 @@ class StoreController extends Controller
 
     // ==================== CLIENTES ====================
 
-    public function customers(Store $store, CustomerService $customerService, Request $request)
+    public function customers(Store $store, CustomerService $customerService, Request $request, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'customers.view');
 
         session(['current_store_id' => $store->id]);
 
@@ -846,11 +865,12 @@ class StoreController extends Controller
         return view('stores.clientes', compact('store', 'customers'));
     }
 
-    public function storeCustomer(Store $store, StoreCustomerRequest $request, CustomerService $customerService)
+    public function storeCustomer(Store $store, StoreCustomerRequest $request, CustomerService $customerService, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'customers.create');
 
         try {
             $customer = $customerService->createCustomer($store, $request->validated());
@@ -862,11 +882,12 @@ class StoreController extends Controller
         }
     }
 
-    public function updateCustomer(Store $store, \App\Models\Customer $customer, StoreCustomerRequest $request, CustomerService $customerService)
+    public function updateCustomer(Store $store, \App\Models\Customer $customer, StoreCustomerRequest $request, CustomerService $customerService, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'customers.edit');
 
         if ($customer->store_id !== $store->id) {
             abort(404);
@@ -882,11 +903,12 @@ class StoreController extends Controller
         }
     }
 
-    public function destroyCustomer(Store $store, \App\Models\Customer $customer, CustomerService $customerService)
+    public function destroyCustomer(Store $store, \App\Models\Customer $customer, CustomerService $customerService, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'customers.destroy');
 
         if ($customer->store_id !== $store->id) {
             abort(404);
@@ -904,11 +926,12 @@ class StoreController extends Controller
 
     // ==================== CAJA (suma de bolsillos) Y BOLSILLOS ====================
 
-    public function caja(Store $store, CajaService $cajaService, Request $request)
+    public function caja(Store $store, CajaService $cajaService, Request $request, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'caja.view');
         session(['current_store_id' => $store->id]);
 
         $filtros = [
@@ -921,11 +944,12 @@ class StoreController extends Controller
         return view('stores.caja', compact('store', 'bolsillos', 'totalCaja'));
     }
 
-    public function showBolsillo(Store $store, \App\Models\Bolsillo $bolsillo, CajaService $cajaService, Request $request)
+    public function showBolsillo(Store $store, \App\Models\Bolsillo $bolsillo, CajaService $cajaService, Request $request, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'caja.view');
         if ($bolsillo->store_id !== $store->id) {
             abort(404);
         }
@@ -943,11 +967,12 @@ class StoreController extends Controller
         return view('stores.bolsillo-detalle', compact('store', 'bolsillo', 'movimientos', 'bolsillosActivos'));
     }
 
-    public function storeBolsillo(Store $store, Request $request, CajaService $cajaService)
+    public function storeBolsillo(Store $store, Request $request, CajaService $cajaService, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'caja.bolsillos.create');
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'detalles' => ['nullable', 'string', 'max:1000'],
@@ -969,11 +994,12 @@ class StoreController extends Controller
         }
     }
 
-    public function updateBolsillo(Store $store, \App\Models\Bolsillo $bolsillo, Request $request, CajaService $cajaService)
+    public function updateBolsillo(Store $store, \App\Models\Bolsillo $bolsillo, Request $request, CajaService $cajaService, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'caja.bolsillos.edit');
         if ($bolsillo->store_id !== $store->id) {
             abort(404);
         }
@@ -996,11 +1022,12 @@ class StoreController extends Controller
         }
     }
 
-    public function destroyBolsillo(Store $store, \App\Models\Bolsillo $bolsillo, CajaService $cajaService)
+    public function destroyBolsillo(Store $store, \App\Models\Bolsillo $bolsillo, CajaService $cajaService, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'caja.bolsillos.destroy');
         if ($bolsillo->store_id !== $store->id) {
             abort(404);
         }
@@ -1012,11 +1039,12 @@ class StoreController extends Controller
         }
     }
 
-    public function storeMovimiento(Store $store, Request $request, CajaService $cajaService)
+    public function storeMovimiento(Store $store, Request $request, CajaService $cajaService, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'caja.movimientos.create');
         $request->validate([
             'bolsillo_id' => ['required', 'exists:bolsillos,id'],
             'type' => ['required', 'in:INCOME,EXPENSE'],
@@ -1041,11 +1069,12 @@ class StoreController extends Controller
         }
     }
 
-    public function destroyMovimiento(Store $store, \App\Models\MovimientoBolsillo $movimiento, CajaService $cajaService)
+    public function destroyMovimiento(Store $store, \App\Models\MovimientoBolsillo $movimiento, CajaService $cajaService, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'caja.movimientos.destroy');
         if ($movimiento->store_id !== $store->id) {
             abort(404);
         }
@@ -1060,11 +1089,12 @@ class StoreController extends Controller
 
     // ==================== INVENTARIO (movimientos entrada/salida productos) ====================
 
-    public function inventario(Store $store, InventarioService $inventarioService, Request $request)
+    public function inventario(Store $store, InventarioService $inventarioService, Request $request, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'inventario.view');
         session(['current_store_id' => $store->id]);
 
         $filtros = [
@@ -1080,11 +1110,12 @@ class StoreController extends Controller
         return view('stores.inventario', compact('store', 'movimientos', 'productosInventario'));
     }
 
-    public function storeMovimientoInventario(Store $store, Request $request, InventarioService $inventarioService)
+    public function storeMovimientoInventario(Store $store, Request $request, InventarioService $inventarioService, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'inventario.movimientos.create');
         $request->validate([
             'product_id'  => ['required', 'exists:products,id'],
             'type'        => ['required', 'in:ENTRADA,SALIDA'],
@@ -1368,11 +1399,12 @@ class StoreController extends Controller
     /**
      * Listado de compras de productos (inventario). Solo tipo PRODUCTO.
      */
-    public function productPurchases(Store $store, PurchaseService $purchaseService, Request $request)
+    public function productPurchases(Store $store, PurchaseService $purchaseService, Request $request, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'product-purchases.view');
         session(['current_store_id' => $store->id]);
 
         $filtros = [
@@ -1392,11 +1424,12 @@ class StoreController extends Controller
     /**
      * Vista para crear compra de productos (inventario).
      */
-    public function createProductPurchase(Store $store)
+    public function createProductPurchase(Store $store, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'product-purchases.create');
         session(['current_store_id' => $store->id]);
 
         $proveedores = \App\Models\Proveedor::deTienda($store->id)->orderBy('nombre')->get();
@@ -1408,11 +1441,12 @@ class StoreController extends Controller
      * Guarda la compra de productos como borrador.
      * Normaliza filas con serial_items (cantidad = nº unidades, costo = promedio por unidad).
      */
-    public function storeProductPurchase(Store $store, Request $request, PurchaseService $purchaseService)
+    public function storeProductPurchase(Store $store, Request $request, PurchaseService $purchaseService, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'product-purchases.create');
 
         $request->validate([
             'proveedor_id' => ['nullable', 'exists:proveedores,id'],
@@ -2190,11 +2224,12 @@ class StoreController extends Controller
 
     // ==================== COMPROBANTES DE EGRESO ====================
 
-    public function comprobantesEgreso(Store $store, \App\Services\ComprobanteEgresoService $comprobanteEgresoService, Request $request)
+    public function comprobantesEgreso(Store $store, \App\Services\ComprobanteEgresoService $comprobanteEgresoService, Request $request, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'comprobantes-egreso.view');
         session(['current_store_id' => $store->id]);
 
         $filtros = [
@@ -2207,11 +2242,12 @@ class StoreController extends Controller
         return view('stores.comprobantes-egreso', compact('store', 'comprobantes'));
     }
 
-    public function createComprobanteEgreso(Store $store)
+    public function createComprobanteEgreso(Store $store, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'comprobantes-egreso.create');
         session(['current_store_id' => $store->id]);
 
         $bolsillos = \App\Models\Bolsillo::deTienda($store->id)->activos()->orderBy('name')->get();
@@ -2251,11 +2287,12 @@ class StoreController extends Controller
         return view('stores.comprobante-egreso-crear', compact('store', 'bolsillos', 'proveedores', 'cuentasSeleccionadasInit', 'proveedorIdInit'));
     }
 
-    public function cuentasPorPagarProveedor(Request $request, Store $store, AccountPayableService $accountPayableService)
+    public function cuentasPorPagarProveedor(Request $request, Store $store, AccountPayableService $accountPayableService, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'comprobantes-egreso.create');
 
         $proveedorId = $request->get('proveedor_id');
         if (! $proveedorId) {
@@ -2281,11 +2318,12 @@ class StoreController extends Controller
         return response()->json($data);
     }
 
-    public function storeComprobanteEgreso(Store $store, Request $request, \App\Services\ComprobanteEgresoService $comprobanteEgresoService)
+    public function storeComprobanteEgreso(Store $store, Request $request, \App\Services\ComprobanteEgresoService $comprobanteEgresoService, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'comprobantes-egreso.create');
 
         // Normalizar proveedor_id vacío a null (facturas con proveedor null)
         $input = $request->all();
@@ -2330,11 +2368,12 @@ class StoreController extends Controller
         }
     }
 
-    public function showComprobanteEgreso(Store $store, \App\Models\ComprobanteEgreso $comprobanteEgreso, \App\Services\ComprobanteEgresoService $comprobanteEgresoService)
+    public function showComprobanteEgreso(Store $store, \App\Models\ComprobanteEgreso $comprobanteEgreso, \App\Services\ComprobanteEgresoService $comprobanteEgresoService, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'comprobantes-egreso.view');
         if ($comprobanteEgreso->store_id !== $store->id) {
             abort(404);
         }
@@ -2345,11 +2384,12 @@ class StoreController extends Controller
         return view('stores.comprobante-egreso-detalle', compact('store', 'comprobante', 'bolsillos'));
     }
 
-    public function editComprobanteEgreso(Store $store, \App\Models\ComprobanteEgreso $comprobanteEgreso, \App\Services\ComprobanteEgresoService $comprobanteEgresoService)
+    public function editComprobanteEgreso(Store $store, \App\Models\ComprobanteEgreso $comprobanteEgreso, \App\Services\ComprobanteEgresoService $comprobanteEgresoService, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'comprobantes-egreso.edit');
         if ($comprobanteEgreso->store_id !== $store->id) {
             abort(404);
         }
@@ -2363,11 +2403,12 @@ class StoreController extends Controller
         return view('stores.comprobante-egreso-editar', compact('store', 'comprobante'));
     }
 
-    public function updateComprobanteEgreso(Store $store, \App\Models\ComprobanteEgreso $comprobanteEgreso, Request $request, \App\Services\ComprobanteEgresoService $comprobanteEgresoService)
+    public function updateComprobanteEgreso(Store $store, \App\Models\ComprobanteEgreso $comprobanteEgreso, Request $request, \App\Services\ComprobanteEgresoService $comprobanteEgresoService, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'comprobantes-egreso.edit');
         if ($comprobanteEgreso->store_id !== $store->id) {
             abort(404);
         }
@@ -2386,11 +2427,12 @@ class StoreController extends Controller
         }
     }
 
-    public function reversarComprobanteEgreso(Store $store, \App\Models\ComprobanteEgreso $comprobanteEgreso, \App\Services\ComprobanteEgresoService $comprobanteEgresoService)
+    public function reversarComprobanteEgreso(Store $store, \App\Models\ComprobanteEgreso $comprobanteEgreso, \App\Services\ComprobanteEgresoService $comprobanteEgresoService, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'comprobantes-egreso.reversar');
         if ($comprobanteEgreso->store_id !== $store->id) {
             abort(404);
         }
@@ -2403,11 +2445,12 @@ class StoreController extends Controller
         }
     }
 
-    public function anularComprobanteEgreso(Store $store, \App\Models\ComprobanteEgreso $comprobanteEgreso, Request $request, \App\Services\ComprobanteEgresoService $comprobanteEgresoService)
+    public function anularComprobanteEgreso(Store $store, \App\Models\ComprobanteEgreso $comprobanteEgreso, Request $request, \App\Services\ComprobanteEgresoService $comprobanteEgresoService, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'comprobantes-egreso.anular');
         if ($comprobanteEgreso->store_id !== $store->id) {
             abort(404);
         }

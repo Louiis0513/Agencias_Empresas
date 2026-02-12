@@ -5,20 +5,29 @@ namespace App\Livewire;
 use App\Models\Product;
 use App\Models\ProductItem;
 use App\Models\Store;
-use App\Services\InvoiceService;
 use App\Services\InventarioService;
+use App\Services\VentaService;
 use Exception;
+use Livewire\Attributes\On;
 use Livewire\Component;
 
 class VentasCarrito extends Component
 {
     public int $storeId;
 
-    public string $busquedaProducto = '';
-    public array $productosEncontrados = [];
-    /** Carrito: líneas con product_id, name, quantity, stock?, price, type ('batch'|'serialized'), y opcional serial_numbers[] */
+    /** Carrito: líneas con product_id, name, quantity, stock?, price, type ('simple'|'batch'|'serialized'), y opcional batch_item_id, variant_display_name, serial_numbers[], serial_features[] */
     public array $carrito = [];
     public ?string $errorStock = null;
+
+    /** Pendiente: producto simple a agregar (pedir cantidad) */
+    public ?array $pendienteSimple = null;
+
+    /** Pendiente: variante de lote seleccionada (pedir cantidad) */
+    public ?array $pendienteBatch = null;
+
+    /** Cantidad a agregar (para formularios pendiente simple / batch) */
+    public int $cantidadSimple = 1;
+    public int $cantidadBatch = 1;
 
     /** Modal unidades disponibles (producto serializado) */
     public ?int $productoSerializadoId = null;
@@ -35,30 +44,112 @@ class VentasCarrito extends Component
         return Store::find($this->storeId);
     }
 
-    public function buscarProductos(InvoiceService $invoiceService): void
+    /**
+     * Abre el modal de selección de producto (contexto venta).
+     * Pasa los product_id ya en el carrito (simple y serializado) para invalidarlos en la vista.
+     */
+    public function abrirSelectorProducto(): void
     {
         $this->errorStock = null;
-        if (trim($this->busquedaProducto) === '') {
-            $this->productosEncontrados = [];
+        $this->dispatch('open-select-item-for-row', rowId: 'venta', itemType: 'INVENTARIO', productIdsInCartSimple: $this->getProductIdsInCartSimple());
+    }
+
+    /**
+     * Escucha selección de producto desde SelectItemModal. Si rowId === 'venta', deriva a simple / batch / serialized.
+     */
+    #[On('item-selected')]
+    public function onItemSelected($rowId, $id, $name, $type, $productType = null): void
+    {
+        if ($rowId !== 'venta' || $type !== 'INVENTARIO') {
             return;
         }
+        $productType = $productType ?? 'simple';
+        if ($productType === 'simple') {
+            $store = $this->getStoreProperty();
+            if (! $store) {
+                return;
+            }
+            $producto = Product::where('id', $id)->where('store_id', $store->id)->where('is_active', true)->first();
+            if (! $producto) {
+                return;
+            }
+            $disponibilidad = app(VentaService::class)->verificadorCarrito($store, (int) $producto->id);
+            $this->pendienteSimple = [
+                'product_id' => $producto->id,
+                'name' => $producto->name,
+                'price' => (float) $producto->price,
+                'stock' => (int) $disponibilidad['cantidad'],
+            ];
+            $this->pendienteBatch = null;
+            $this->cantidadSimple = 1;
+        } elseif ($productType === 'batch') {
+            $this->pendienteSimple = null;
+            $this->dispatch('open-select-batch-variant', productId: $id, rowId: 'venta', productName: $name, variantKeysInCart: $this->getVariantKeysInCartForProduct((int) $id));
+        } else {
+            $this->pendienteSimple = null;
+            $this->pendienteBatch = null;
+            $this->abrirModalUnidades((int) $id);
+        }
+    }
 
+    /**
+     * Escucha selección de variante (lote). Una fila por variante con stock total; no se muestran lotes.
+     */
+    #[On('batch-variant-selected')]
+    public function onBatchVariantSelected($rowId, $productId, $productName, $variantFeatures, $displayName, $totalStock = 0, $price = null): void
+    {
+        if ($rowId !== 'venta') {
+            return;
+        }
         $store = $this->getStoreProperty();
         if (! $store) {
             return;
         }
+        $producto = Product::where('id', $productId)->where('store_id', $store->id)->first();
+        if (! $producto) {
+            return;
+        }
+        $variantFeatures = is_array($variantFeatures) ? $variantFeatures : [];
+        $precio = $price !== null && (float) $price > 0 ? (float) $price : (float) $producto->price;
+        $stock = (int) $totalStock;
+        if ($stock < 1) {
+            $r = app(VentaService::class)->verificadorCarritoVariante($store, (int) $productId, $variantFeatures);
+            $stock = (int) $r['cantidad'];
+        }
+        $this->pendienteBatch = [
+            'product_id' => (int) $productId,
+            'name' => $productName,
+            'variant_features' => $variantFeatures,
+            'variant_display_name' => $displayName,
+            'price' => $precio,
+            'stock' => $stock,
+        ];
+        $this->pendienteSimple = null;
+        $this->cantidadBatch = 1;
+    }
 
-        $this->productosEncontrados = $invoiceService->buscarProductos($store, $this->busquedaProducto)
-            ->map(fn (Product $p) => [
-                'id' => $p->id,
-                'name' => $p->name,
-                'price' => (float) $p->price,
-                'stock' => (int) $p->stock,
-                'barcode' => $p->barcode,
-                'type' => $p->type ?? 'batch',
-            ])
-            ->values()
-            ->toArray();
+    public function cancelarPendienteSimple(): void
+    {
+        $this->pendienteSimple = null;
+    }
+
+    public function cancelarPendienteBatch(): void
+    {
+        $this->pendienteBatch = null;
+    }
+
+    public function confirmarAgregarSimple(VentaService $ventaService): void
+    {
+        $qty = max(1, (int) $this->cantidadSimple);
+        $this->agregarSimpleAlCarrito($qty, $ventaService);
+        $this->cantidadSimple = 1;
+    }
+
+    public function confirmarAgregarVariante(VentaService $ventaService): void
+    {
+        $qty = max(1, (int) $this->cantidadBatch);
+        $this->agregarVarianteAlCarrito($qty, $ventaService);
+        $this->cantidadBatch = 1;
     }
 
     /**
@@ -104,6 +195,43 @@ class VentasCarrito extends Component
             }
         }
         return array_values(array_unique($serials));
+    }
+
+    /**
+     * Product IDs que están en el carrito como tipo simple (para invalidarlos en el selector de producto).
+     */
+    protected function getProductIdsInCartSimple(): array
+    {
+        $ids = [];
+        foreach ($this->carrito as $item) {
+            if (($item['type'] ?? '') !== 'simple') {
+                continue;
+            }
+            $id = (int) ($item['product_id'] ?? 0);
+            if ($id > 0) {
+                $ids[] = $id;
+            }
+        }
+        return array_values(array_unique($ids));
+    }
+
+    /**
+     * Claves de variante (detectorDeVariantesEnLotes) ya presentes en el carrito para un producto.
+     * Se pasan al modal de variantes para invalidar/deshabilitar esas opciones en la vista.
+     */
+    protected function getVariantKeysInCartForProduct(int $productId): array
+    {
+        $keys = [];
+        foreach ($this->carrito as $item) {
+            if ((int) ($item['product_id'] ?? 0) !== $productId) {
+                continue;
+            }
+            if (empty($item['variant_features']) || ! is_array($item['variant_features'])) {
+                continue;
+            }
+            $keys[] = InventarioService::detectorDeVariantesEnLotes($item['variant_features']);
+        }
+        return array_values(array_unique($keys));
     }
 
     /**
@@ -173,7 +301,7 @@ class VentasCarrito extends Component
     /**
      * Agrega al carrito las unidades serializadas seleccionadas en el modal.
      */
-    public function agregarSerializadosAlCarrito(InventarioService $inventarioService): void
+    public function agregarSerializadosAlCarrito(): void
     {
         $this->errorStock = null;
         if ($this->productoSerializadoId === null || empty($this->serialesSeleccionados)) {
@@ -202,7 +330,7 @@ class VentasCarrito extends Component
 
         $items = [['product_id' => $productId, 'serial_numbers' => $serialNumbers]];
         try {
-            $inventarioService->validarStockDisponible($store, $items);
+            app(VentaService::class)->validarGuardadoItemCarrito($store, $items);
         } catch (Exception $e) {
             $this->errorStock = $e->getMessage();
             return;
@@ -235,7 +363,7 @@ class VentasCarrito extends Component
 
         $itemsParaValidar = $this->carritoToItemsParaValidar($carritoSimulado);
         try {
-            $inventarioService->validarStockDisponible($store, $itemsParaValidar);
+            app(VentaService::class)->validarGuardadoItemCarrito($store, $itemsParaValidar);
         } catch (Exception $e) {
             $this->errorStock = $e->getMessage();
             return;
@@ -246,6 +374,7 @@ class VentasCarrito extends Component
             $precio = $pi && $pi->price !== null && (float) $pi->price > 0
                 ? (float) $pi->price
                 : $productPrice;
+            $features = ($pi && is_array($pi->features)) ? $pi->features : [];
             $this->carrito[] = [
                 'product_id' => $productId,
                 'name' => $producto->name,
@@ -255,6 +384,7 @@ class VentasCarrito extends Component
                 'type' => 'serialized',
                 'serial_numbers' => [$serial],
                 'prices' => [$precio],
+                'serial_features' => [$features],
             ];
         }
 
@@ -262,25 +392,136 @@ class VentasCarrito extends Component
     }
 
     /**
-     * Convierte el carrito a formato [ ['product_id', 'quantity'] o ['product_id', 'serial_numbers'] ] para validar.
+     * Agrega al carrito un producto simple (solo cantidad).
+     */
+    public function agregarSimpleAlCarrito(int $quantity, VentaService $ventaService): void
+    {
+        $this->errorStock = null;
+        if (! $this->pendienteSimple) {
+            return;
+        }
+        $quantity = max(1, $quantity);
+        $store = $this->getStoreProperty();
+        if (! $store) {
+            $this->pendienteSimple = null;
+            return;
+        }
+        $productId = (int) $this->pendienteSimple['product_id'];
+        $stock = (int) $this->pendienteSimple['stock'];
+        if ($quantity > $stock) {
+            $this->errorStock = "Stock insuficiente. Disponible: {$stock}, solicitado: {$quantity}.";
+            return;
+        }
+        $carritoSimulado = $this->carrito;
+        $carritoSimulado[] = [
+            'product_id' => $productId,
+            'name' => $this->pendienteSimple['name'],
+            'quantity' => $quantity,
+            'stock' => $stock,
+            'price' => (float) $this->pendienteSimple['price'],
+            'type' => 'simple',
+        ];
+        $items = $this->carritoToItemsParaValidar($carritoSimulado);
+        try {
+            $ventaService->validarGuardadoItemCarrito($store, $items);
+        } catch (Exception $e) {
+            $this->errorStock = $e->getMessage();
+            return;
+        }
+        $this->carrito[] = [
+            'product_id' => $productId,
+            'name' => $this->pendienteSimple['name'],
+            'quantity' => $quantity,
+            'stock' => $stock,
+            'price' => (float) $this->pendienteSimple['price'],
+            'type' => 'simple',
+        ];
+        $this->pendienteSimple = null;
+    }
+
+    /**
+     * Agrega al carrito una variante de producto lote (por variante, stock total en todos los lotes).
+     */
+    public function agregarVarianteAlCarrito(int $quantity, VentaService $ventaService): void
+    {
+        $this->errorStock = null;
+        if (! $this->pendienteBatch) {
+            return;
+        }
+        $quantity = max(1, $quantity);
+        $store = $this->getStoreProperty();
+        if (! $store) {
+            $this->pendienteBatch = null;
+            return;
+        }
+        $productId = (int) $this->pendienteBatch['product_id'];
+        $variantFeatures = $this->pendienteBatch['variant_features'] ?? [];
+        $stockVariante = (int) $this->pendienteBatch['stock'];
+        if ($quantity > $stockVariante) {
+            $this->errorStock = "Stock insuficiente en esta variante. Disponible: {$stockVariante}, solicitado: {$quantity}.";
+            return;
+        }
+        $items = [['product_id' => $productId, 'variant_features' => $variantFeatures, 'quantity' => $quantity]];
+        try {
+            $ventaService->validarGuardadoItemCarrito($store, $items);
+        } catch (Exception $e) {
+            $this->errorStock = $e->getMessage();
+            return;
+        }
+        $this->carrito[] = [
+            'product_id' => $productId,
+            'name' => $this->pendienteBatch['name'],
+            'variant_features' => $variantFeatures,
+            'variant_display_name' => $this->pendienteBatch['variant_display_name'],
+            'quantity' => $quantity,
+            'stock' => $stockVariante,
+            'price' => (float) $this->pendienteBatch['price'],
+            'type' => 'batch',
+        ];
+        $this->pendienteBatch = null;
+    }
+
+    /**
+     * Convierte el carrito a formato para validar stock: product_id + quantity | variant_features + quantity | batch_item_id + quantity | serial_numbers.
      */
     protected function carritoToItemsParaValidar(array $carrito): array
     {
         $items = [];
+        $byProduct = [];
         foreach ($carrito as $row) {
             if (! empty($row['serial_numbers'])) {
                 $items[] = ['product_id' => $row['product_id'], 'serial_numbers' => $row['serial_numbers']];
+            } elseif (! empty($row['variant_features']) && is_array($row['variant_features'])) {
+                $items[] = [
+                    'product_id' => (int) ($row['product_id'] ?? 0),
+                    'variant_features' => $row['variant_features'],
+                    'quantity' => (int) ($row['quantity'] ?? 0),
+                ];
+            } elseif (! empty($row['batch_item_id'])) {
+                $items[] = [
+                    'product_id' => (int) ($row['product_id'] ?? 0),
+                    'batch_item_id' => (int) $row['batch_item_id'],
+                    'quantity' => (int) ($row['quantity'] ?? 0),
+                ];
             } else {
-                $items[] = ['product_id' => $row['product_id'], 'quantity' => (int) ($row['quantity'] ?? 0)];
+                $pid = (int) ($row['product_id'] ?? 0);
+                if ($pid > 0) {
+                    $byProduct[$pid] = ($byProduct[$pid] ?? 0) + (int) ($row['quantity'] ?? 0);
+                }
+            }
+        }
+        foreach ($byProduct as $productId => $totalQty) {
+            if ($totalQty > 0) {
+                $items[] = ['product_id' => $productId, 'quantity' => $totalQty];
             }
         }
         return $items;
     }
 
     /**
-     * Valida el carrito actual con InventarioService::validarStockDisponible.
+     * Valida el carrito actual con VentaService::validarGuardadoItemCarrito (InventarioService::validarStockDisponible).
      */
-    protected function validarCarritoConStock(InventarioService $inventarioService): bool
+    protected function validarCarritoConStock(VentaService $ventaService): bool
     {
         $this->errorStock = null;
         $store = $this->getStoreProperty();
@@ -290,7 +531,7 @@ class VentasCarrito extends Component
 
         $items = $this->carritoToItemsParaValidar($this->carrito);
         try {
-            $inventarioService->validarStockDisponible($store, $items);
+            $ventaService->validarGuardadoItemCarrito($store, $items);
             return true;
         } catch (Exception $e) {
             $this->errorStock = $e->getMessage();
@@ -298,96 +539,62 @@ class VentasCarrito extends Component
         }
     }
 
-    public function agregarAlCarrito(int $productId, int $quantity, InventarioService $inventarioService, InvoiceService $invoiceService): void
+    /**
+     * Actualiza la cantidad de una línea del carrito por su índice. Valida stock (producto o variante).
+     */
+    public function actualizarCantidadPorIndice(int $index, int $quantity): void
     {
         $this->errorStock = null;
+        if (! isset($this->carrito[$index])) {
+            return;
+        }
+        $quantity = max(0, $quantity);
+        $item = &$this->carrito[$index];
+        if (! empty($item['serial_numbers'] ?? [])) {
+            return;
+        }
+        if ($quantity === 0) {
+            array_splice($this->carrito, $index, 1);
+            $this->carrito = array_values($this->carrito);
+            return;
+        }
         $store = $this->getStoreProperty();
         if (! $store) {
             return;
         }
-
-        $quantity = max(1, $quantity);
-        $producto = Product::where('id', $productId)
-            ->where('store_id', $store->id)
-            ->where('is_active', true)
-            ->first();
-
-        if (! $producto) {
-            $this->addError('busquedaProducto', 'Producto no encontrado.');
+        $stockMax = (int) ($item['stock'] ?? 0);
+        if ($quantity > $stockMax) {
+            $this->errorStock = "Cantidad máxima disponible: {$stockMax}.";
             return;
         }
-
-        if ($producto->isSerialized()) {
-            $this->abrirModalUnidades($productId);
-            return;
-        }
-
-        $carritoSimulado = $this->carrito;
-        $existe = false;
-        foreach ($carritoSimulado as $i => $item) {
-            if ((int) $item['product_id'] === $productId && empty($item['serial_numbers'] ?? [])) {
-                $carritoSimulado[$i]['quantity'] = (int) $item['quantity'] + $quantity;
-                $existe = true;
-                break;
-            }
-        }
-        if (! $existe) {
-            $carritoSimulado[] = [
-                'product_id' => $producto->id,
-                'name' => $producto->name,
-                'quantity' => $quantity,
-                'stock' => (int) $producto->stock,
-                'price' => (float) $producto->price,
-                'type' => 'batch',
-            ];
-        }
-
-        $items = $this->carritoToItemsParaValidar($carritoSimulado);
-        try {
-            $inventarioService->validarStockDisponible($store, $items);
-        } catch (Exception $e) {
-            $this->errorStock = $e->getMessage();
-            return;
-        }
-
-        $existe = false;
-        foreach ($this->carrito as $i => $item) {
-            if ((int) $item['product_id'] === $productId && empty($item['serial_numbers'] ?? [])) {
-                $this->carrito[$i]['quantity'] = (int) $item['quantity'] + $quantity;
-                $this->carrito[$i]['stock'] = (int) $producto->stock;
-                $existe = true;
-                break;
-            }
-        }
-        if (! $existe) {
-            $this->carrito[] = [
-                'product_id' => $producto->id,
-                'name' => $producto->name,
-                'quantity' => $quantity,
-                'stock' => (int) $producto->stock,
-                'price' => (float) $producto->price,
-                'type' => 'batch',
-            ];
-        }
-    }
-
-    public function actualizarCantidad(int $productId, int $quantity): void
-    {
-        $quantity = max(0, $quantity);
-        foreach ($this->carrito as $i => $item) {
-            if ((int) $item['product_id'] === $productId && empty($item['serial_numbers'] ?? [])) {
-                if ($quantity === 0) {
-                    array_splice($this->carrito, $i, 1);
-                    $this->errorStock = null;
-                    return;
-                }
-                $cantidadAnterior = (int) $this->carrito[$i]['quantity'];
-                $this->carrito[$i]['quantity'] = $quantity;
-                if (! $this->validarCarritoConStock(app(InventarioService::class))) {
-                    $this->carrito[$i]['quantity'] = $cantidadAnterior;
-                }
+        $cantidadAnterior = (int) $item['quantity'];
+        $item['quantity'] = $quantity;
+        $ventaService = app(VentaService::class);
+        $productId = (int) $item['product_id'];
+        if (($item['type'] ?? '') === 'batch' && ! empty($item['variant_features'])) {
+            $r = $ventaService->verificadorCarritoVariante($store, $productId, $item['variant_features']);
+            if ($r['cantidad'] < $quantity) {
+                $item['quantity'] = $cantidadAnterior;
+                $this->errorStock = "Stock insuficiente en esta variante. Disponible: {$r['cantidad']}.";
                 return;
             }
+            $item['stock'] = $r['cantidad'];
+        } elseif (($item['type'] ?? '') === 'batch' && ! empty($item['batch_item_id'])) {
+            $r = $ventaService->verificadorCarrito($store, $productId, (int) $item['batch_item_id'], null);
+            if ($r['cantidad'] < $quantity) {
+                $item['quantity'] = $cantidadAnterior;
+                $this->errorStock = "Stock insuficiente en esta variante. Disponible: {$r['cantidad']}.";
+                return;
+            }
+            $item['stock'] = $r['cantidad'];
+        } else {
+            $r = $ventaService->verificadorCarrito($store, $productId, null, null);
+            if ($r['cantidad'] < $quantity) {
+                $item['quantity'] = $cantidadAnterior;
+                $this->errorStock = "Stock insuficiente. Disponible: {$r['cantidad']}.";
+                return;
+            }
+            $item['stock'] = $r['cantidad'];
         }
     }
 
@@ -401,6 +608,22 @@ class VentasCarrito extends Component
             $this->carrito = array_values($this->carrito);
             $this->errorStock = null;
         }
+    }
+
+    /**
+     * Suma de todos los subtotales del carrito (para el contenedor Total).
+     */
+    public function getCarritoTotalProperty(): float
+    {
+        $total = 0.0;
+        foreach ($this->carrito as $item) {
+            $qty = (int) ($item['quantity'] ?? 0);
+            $isSerialized = ! empty($item['serial_numbers'] ?? []);
+            $prices = $item['prices'] ?? [];
+            $precioUnit = $isSerialized && ! empty($prices) ? (float) $prices[0] : (float) ($item['price'] ?? 0);
+            $total += $precioUnit * max(1, $qty);
+        }
+        return round($total, 2);
     }
 
     public function render()

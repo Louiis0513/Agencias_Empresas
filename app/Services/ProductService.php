@@ -375,9 +375,9 @@ class ProductService
                 if (empty($features)) {
                     continue;
                 }
-                $normalizedKey = InventarioService::normalizeFeaturesForComparison($features);
+                $normalizedKey = InventarioService::detectorDeVariantesEnLotes($features);
                 $existingItem = $batch->batchItems()->get()->first(function ($bi) use ($normalizedKey) {
-                    return InventarioService::normalizeFeaturesForComparison($bi->features) === $normalizedKey;
+                    return InventarioService::detectorDeVariantesEnLotes($bi->features) === $normalizedKey;
                 });
                 if (! $existingItem) {
                     BatchItem::create([
@@ -417,8 +417,8 @@ class ProductService
             throw new Exception('El producto debe tener una categoría con atributos.');
         }
 
-        $oldKey = InventarioService::normalizeFeaturesForComparison($oldFeatures);
-        $newKey = InventarioService::normalizeFeaturesForComparison($newFeatures);
+        $oldKey = InventarioService::detectorDeVariantesEnLotes($oldFeatures);
+        $newKey = InventarioService::detectorDeVariantesEnLotes($newFeatures);
         $featuresChanged = $oldKey !== $newKey;
 
         // Solo validar atributos requeridos cuando cambiamos las features
@@ -430,11 +430,11 @@ class ProductService
 
         foreach ($batches as $batch) {
             $itemsWithOldFeatures = $batch->batchItems()->get()->filter(function (BatchItem $bi) use ($oldKey) {
-                return InventarioService::normalizeFeaturesForComparison($bi->features) === $oldKey;
+                return InventarioService::detectorDeVariantesEnLotes($bi->features) === $oldKey;
             });
 
             $existingWithNewFeatures = $featuresChanged ? $batch->batchItems()->get()->first(function (BatchItem $bi) use ($newKey) {
-                return InventarioService::normalizeFeaturesForComparison($bi->features) === $newKey;
+                return InventarioService::detectorDeVariantesEnLotes($bi->features) === $newKey;
             }) : null;
 
             foreach ($itemsWithOldFeatures as $item) {
@@ -699,9 +699,9 @@ class ProductService
                 }
 
                 // Verificar si ya existe un batch_item con estas features
-                $normalizedKey = \App\Services\InventarioService::normalizeFeaturesForComparison($features);
+                $normalizedKey = \App\Services\InventarioService::detectorDeVariantesEnLotes($features);
                 $existingItem = $batch->batchItems()->get()->first(function ($bi) use ($normalizedKey) {
-                    return \App\Services\InventarioService::normalizeFeaturesForComparison($bi->features) === $normalizedKey;
+                    return \App\Services\InventarioService::detectorDeVariantesEnLotes($bi->features) === $normalizedKey;
                 });
 
                 if (! $existingItem) {

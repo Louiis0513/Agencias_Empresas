@@ -9,7 +9,7 @@ class PermissionSeeder extends Seeder
 {
     /**
      * Permisos del módulo de tienda (administración de tienda).
-     * Slug único para verificación en código; name para mostrar en UI.
+     * Cada acción es un permiso independiente para asignación granular por rol.
      */
     public function run(): void
     {
@@ -24,7 +24,7 @@ class PermissionSeeder extends Seeder
             ['slug' => 'categories.view', 'name' => 'Ver categorías', 'description' => 'Ver listado y detalle de categorías'],
             ['slug' => 'categories.create', 'name' => 'Crear categorías', 'description' => 'Crear y editar categorías'],
             ['slug' => 'categories.destroy', 'name' => 'Eliminar categorías', 'description' => 'Eliminar categorías'],
-            ['slug' => 'category-attributes.manage', 'name' => 'Gestionar atributos de categoría', 'description' => 'Asignar grupos de atributos a categorías'],
+            ['slug' => 'category-attributes.assign', 'name' => 'Asignar atributos de categoría', 'description' => 'Asignar grupos de atributos a categorías'],
 
             // Productos
             ['slug' => 'products.view', 'name' => 'Ver productos', 'description' => 'Ver listado y detalle de productos'],
@@ -32,7 +32,9 @@ class PermissionSeeder extends Seeder
             ['slug' => 'products.edit', 'name' => 'Editar productos', 'description' => 'Modificar productos y variantes'],
             ['slug' => 'products.destroy', 'name' => 'Eliminar productos', 'description' => 'Eliminar productos'],
             ['slug' => 'product-purchases.view', 'name' => 'Ver compras de productos', 'description' => 'Ver compras/órdenes de productos'],
-            ['slug' => 'product-purchases.manage', 'name' => 'Gestionar compras de productos', 'description' => 'Crear y gestionar compras de productos'],
+            ['slug' => 'product-purchases.create', 'name' => 'Crear compras de productos', 'description' => 'Crear compras de productos'],
+            ['slug' => 'product-purchases.edit', 'name' => 'Editar compras de productos', 'description' => 'Editar compras de productos'],
+            ['slug' => 'product-purchases.destroy', 'name' => 'Eliminar compras de productos', 'description' => 'Eliminar compras de productos'],
 
             // Facturas
             ['slug' => 'invoices.view', 'name' => 'Ver facturas', 'description' => 'Ver listado y detalle de facturas'],
@@ -53,12 +55,16 @@ class PermissionSeeder extends Seeder
 
             // Caja / Bolsillos / Movimientos
             ['slug' => 'caja.view', 'name' => 'Ver caja', 'description' => 'Ver caja y bolsillos'],
-            ['slug' => 'caja.bolsillos.manage', 'name' => 'Gestionar bolsillos', 'description' => 'Crear, editar y eliminar bolsillos'],
-            ['slug' => 'caja.movimientos.manage', 'name' => 'Gestionar movimientos de caja', 'description' => 'Registrar y eliminar movimientos de caja'],
+            ['slug' => 'caja.bolsillos.create', 'name' => 'Crear bolsillos', 'description' => 'Crear nuevos bolsillos'],
+            ['slug' => 'caja.bolsillos.edit', 'name' => 'Editar bolsillos', 'description' => 'Modificar bolsillos'],
+            ['slug' => 'caja.bolsillos.destroy', 'name' => 'Eliminar bolsillos', 'description' => 'Eliminar bolsillos'],
+            ['slug' => 'caja.movimientos.create', 'name' => 'Registrar movimientos de caja', 'description' => 'Registrar entradas y salidas de caja'],
+            ['slug' => 'caja.movimientos.destroy', 'name' => 'Eliminar movimientos de caja', 'description' => 'Eliminar movimientos de caja'],
 
             // Inventario
             ['slug' => 'inventario.view', 'name' => 'Ver inventario', 'description' => 'Ver inventario de productos'],
-            ['slug' => 'inventario.movimientos.manage', 'name' => 'Gestionar movimientos de inventario', 'description' => 'Registrar entradas y salidas de inventario'],
+            ['slug' => 'inventario.movimientos.create', 'name' => 'Registrar movimientos de inventario', 'description' => 'Registrar entradas y salidas de inventario'],
+            ['slug' => 'inventario.movimientos.destroy', 'name' => 'Eliminar movimientos de inventario', 'description' => 'Eliminar movimientos de inventario'],
 
             // Activos
             ['slug' => 'activos.view', 'name' => 'Ver activos', 'description' => 'Ver listado de activos'],
@@ -86,13 +92,23 @@ class PermissionSeeder extends Seeder
 
             // Comprobantes de egreso
             ['slug' => 'comprobantes-egreso.view', 'name' => 'Ver comprobantes de egreso', 'description' => 'Ver comprobantes de egreso'],
-            ['slug' => 'comprobantes-egreso.manage', 'name' => 'Gestionar comprobantes de egreso', 'description' => 'Crear, editar, reversar y anular comprobantes de egreso'],
+            ['slug' => 'comprobantes-egreso.create', 'name' => 'Crear comprobantes de egreso', 'description' => 'Crear comprobantes de egreso'],
+            ['slug' => 'comprobantes-egreso.edit', 'name' => 'Editar comprobantes de egreso', 'description' => 'Editar comprobantes de egreso'],
+            ['slug' => 'comprobantes-egreso.reversar', 'name' => 'Reversar comprobantes de egreso', 'description' => 'Reversar comprobantes de egreso'],
+            ['slug' => 'comprobantes-egreso.anular', 'name' => 'Anular comprobantes de egreso', 'description' => 'Anular comprobantes de egreso'],
 
-            // Roles y trabajadores (solo para dueño o roles con este permiso)
+            // Roles
             ['slug' => 'roles.view', 'name' => 'Ver roles y permisos', 'description' => 'Ver roles y permisos de la tienda'],
-            ['slug' => 'roles.manage', 'name' => 'Gestionar roles y permisos', 'description' => 'Crear, editar y eliminar roles; asignar permisos'],
+            ['slug' => 'roles.create', 'name' => 'Crear roles', 'description' => 'Crear nuevos roles'],
+            ['slug' => 'roles.edit', 'name' => 'Editar roles', 'description' => 'Modificar roles'],
+            ['slug' => 'roles.destroy', 'name' => 'Eliminar roles', 'description' => 'Eliminar roles'],
+            ['slug' => 'roles.permissions', 'name' => 'Asignar permisos a roles', 'description' => 'Gestionar permisos asignados a cada rol'],
+
+            // Trabajadores
             ['slug' => 'workers.view', 'name' => 'Ver trabajadores', 'description' => 'Ver listado de trabajadores'],
-            ['slug' => 'workers.manage', 'name' => 'Gestionar trabajadores', 'description' => 'Añadir, editar y eliminar trabajadores; asignar roles'],
+            ['slug' => 'workers.create', 'name' => 'Crear trabajadores', 'description' => 'Añadir trabajadores a la tienda'],
+            ['slug' => 'workers.edit', 'name' => 'Editar trabajadores', 'description' => 'Modificar datos y rol de trabajadores'],
+            ['slug' => 'workers.destroy', 'name' => 'Eliminar trabajadores', 'description' => 'Quitar trabajadores de la tienda'],
         ];
 
         foreach ($permissions as $p) {

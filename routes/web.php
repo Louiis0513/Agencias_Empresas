@@ -22,9 +22,9 @@ Route::middleware(['auth', 'verified'])->prefix('tienda/{store:slug}')->name('st
     Route::get('/trabajadores', [StoreController::class, 'workers'])->name('workers');
     Route::get('/trabajadores/crear', [StoreController::class, 'createWorker'])->name('workers.create');
     Route::post('/trabajadores', [StoreController::class, 'storeWorker'])->name('workers.store');
-    Route::get('/trabajadores/{user}/editar', [StoreController::class, 'editWorker'])->name('workers.edit');
-    Route::put('/trabajadores/{user}', [StoreController::class, 'updateWorker'])->name('workers.update');
-    Route::delete('/trabajadores/{user}', [StoreController::class, 'destroyWorker'])->name('workers.destroy');
+    Route::get('/trabajadores/{worker}/editar', [StoreController::class, 'editWorker'])->name('workers.edit');
+    Route::put('/trabajadores/{worker}', [StoreController::class, 'updateWorker'])->name('workers.update');
+    Route::delete('/trabajadores/{worker}', [StoreController::class, 'destroyWorker'])->name('workers.destroy');
 
     Route::get('/roles', [StoreController::class, 'roles'])->name('roles');
     Route::get('/roles/{role}/permisos', [StoreController::class, 'rolePermissions'])->name('roles.permissions');

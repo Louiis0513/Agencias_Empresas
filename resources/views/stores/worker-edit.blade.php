@@ -19,31 +19,63 @@
             @endif
 
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
-                <form method="POST" action="{{ route('stores.workers.update', [$store, $user]) }}" class="p-6 space-y-4">
+                <form method="POST" action="{{ route('stores.workers.update', [$store, $worker]) }}" class="p-6 space-y-4">
                     @csrf
                     @method('PUT')
 
                     <div>
-                        <x-input-label value="{{ __('Nombre') }}" />
-                        <p class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ $user->name }}</p>
+                        <x-input-label for="name" value="{{ __('Nombre') }}" />
+                        <x-text-input id="name"
+                                      name="name"
+                                      type="text"
+                                      class="block mt-1 w-full"
+                                      :value="old('name', $worker->name)"
+                                      required />
+                        <x-input-error :messages="$errors->get('name')" class="mt-1" />
                     </div>
 
                     <div>
-                        <x-input-label value="{{ __('Email') }}" />
-                        <p class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ $user->email }}</p>
+                        <x-input-label for="email" value="{{ __('Email') }}" />
+                        <x-text-input id="email"
+                                      name="email"
+                                      type="email"
+                                      class="block mt-1 w-full"
+                                      :value="old('email', $worker->email)"
+                                      required />
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Si cambias el email y coincide con un usuario registrado, se vinculará automáticamente.</p>
+                        <x-input-error :messages="$errors->get('email')" class="mt-1" />
+                    </div>
+
+                    <div>
+                        <x-input-label for="phone" value="{{ __('Teléfono') }}" />
+                        <x-text-input id="phone"
+                                      name="phone"
+                                      type="text"
+                                      class="block mt-1 w-full"
+                                      :value="old('phone', $worker->phone)" />
+                        <x-input-error :messages="$errors->get('phone')" class="mt-1" />
+                    </div>
+
+                    <div>
+                        <x-input-label for="document_number" value="{{ __('Documento (opcional)') }}" />
+                        <x-text-input id="document_number"
+                                      name="document_number"
+                                      type="text"
+                                      class="block mt-1 w-full"
+                                      :value="old('document_number', $worker->document_number)" />
+                        <x-input-error :messages="$errors->get('document_number')" class="mt-1" />
                     </div>
 
                     <div>
                         <x-input-label for="role_id" value="{{ __('Rol en esta tienda') }}" />
                         <select id="role_id"
                                 name="role_id"
+                                required
                                 class="block mt-1 w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
-                            <option value="" {{ $currentRoleId === null ? 'selected' : '' }}>Dueño (sin rol asignado)</option>
                             @foreach($rolesList as $role)
-                                <option value="{{ $role->id }}" {{ (string) $currentRoleId === (string) $role->id ? 'selected' : '' }}>{{ $role->name }}</option>
+                                <option value="{{ $role->id }}" {{ (string) old('role_id', $worker->role_id) === (string) $role->id ? 'selected' : '' }}>{{ $role->name }}</option>
                             @endforeach
                         </select>
-                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">El dueño suele tener rol vacío. Asigna un rol para limitar permisos.</p>
                         <x-input-error :messages="$errors->get('role_id')" class="mt-1" />
                     </div>
 

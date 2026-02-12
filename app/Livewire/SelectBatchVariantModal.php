@@ -26,17 +26,21 @@ class SelectBatchVariantModal extends Component
     /** ID de la variante seleccionada */
     public ?string $selectedVariantId = null;
 
+    /** Claves de variantes que ya están en el carrito (solo contexto venta); esas opciones se muestran deshabilitadas. */
+    public array $variantKeysInCart = [];
+
     public function mount(int $storeId): void
     {
         $this->storeId = $storeId;
     }
 
     #[On('open-select-batch-variant')]
-    public function openForProduct(int $productId, string $rowId, string $productName): void
+    public function openForProduct(int $productId, string $rowId, string $productName, array $variantKeysInCart = []): void
     {
         $this->productId = $productId;
         $this->rowId = $rowId;
         $this->productName = $productName;
+        $this->variantKeysInCart = $variantKeysInCart ?? [];
         $this->selectedVariantId = null;
         $this->loadProductVariants();
         $this->dispatch('open-modal', 'select-batch-variant');
@@ -75,54 +79,49 @@ class SelectBatchVariantModal extends Component
             ];
         })->keyBy('id')->all();
 
-        // Obtener SOLO las variantes existentes de BatchItems (las que realmente se crearon)
+        // Una fila por variante (mismas features), con stock total de esa variante en todos los lotes. El carrito no necesita ver lotes.
         $variantsMap = [];
-        
-        // Cargar batches con batchItems explícitamente
+
         $batches = \App\Models\Batch::where('product_id', $product->id)
             ->where('store_id', $store->id)
             ->with('batchItems')
+            ->orderBy('created_at')
             ->get();
-            
+
         foreach ($batches as $batch) {
             foreach ($batch->batchItems as $batchItem) {
-                if (! ($batchItem->is_active ?? true)) {
+                if (! ($batchItem->is_active ?? true) || (int) $batchItem->quantity < 1) {
                     continue;
                 }
-                // Normalizar features
                 $normalizedFeatures = [];
-                
-                if ($batchItem->features !== null && is_array($batchItem->features) && !empty($batchItem->features)) {
-                    // Asegurar que las claves sean strings para la comparación
+                if ($batchItem->features !== null && is_array($batchItem->features) && ! empty($batchItem->features)) {
                     foreach ($batchItem->features as $key => $value) {
-                        // Filtrar valores vacíos, null, o '0' (excepto si es un valor válido como "0")
                         if ($value !== '' && $value !== null) {
-                            $normalizedFeatures[(string)$key] = (string)$value;
+                            $normalizedFeatures[(string) $key] = (string) $value;
                         }
                     }
                     ksort($normalizedFeatures);
                 }
-                
-                // Solo agregar si tiene features (no agregar variantes sin especificar)
-                if (!empty($normalizedFeatures)) {
-                    $normalizedKey = InventarioService::normalizeFeaturesForComparison($normalizedFeatures);
-                    
-                    // Agrupar por variante única (si ya existe, no duplicar). Guardamos batch_item_id para enviar al formulario.
-                    if (! isset($variantsMap[$normalizedKey])) {
-                        $variantsMap[$normalizedKey] = [
-                            'batch_item_id' => $batchItem->id,
-                            'features' => $normalizedFeatures,
-                            'display_name' => $this->formatVariantDisplayName($normalizedFeatures),
-                        ];
-                    }
+                if (empty($normalizedFeatures)) {
+                    continue;
+                }
+                $key = InventarioService::detectorDeVariantesEnLotes($normalizedFeatures);
+                if (! isset($variantsMap[$key])) {
+                    $variantsMap[$key] = [
+                        'variant_key'   => $key,
+                        'features'      => $normalizedFeatures,
+                        'display_name'  => $this->formatVariantDisplayName($normalizedFeatures),
+                        'quantity'      => 0,
+                        'price'         => $batchItem->price !== null && (float) $batchItem->price > 0 ? (float) $batchItem->price : null,
+                    ];
+                }
+                $variantsMap[$key]['quantity'] += (int) $batchItem->quantity;
+                if ($variantsMap[$key]['price'] === null && $batchItem->price !== null && (float) $batchItem->price > 0) {
+                    $variantsMap[$key]['price'] = (float) $batchItem->price;
                 }
             }
         }
 
-        // NO generar combinaciones automáticas - solo mostrar las variantes que realmente existen
-        // Si no hay variantes, el array estará vacío y se mostrará el mensaje correspondiente
-
-        // Convertir a array indexado para mostrar en el modal
         $this->existingVariants = array_values($variantsMap);
     }
 
@@ -141,32 +140,35 @@ class SelectBatchVariantModal extends Component
 
     public function selectVariant(): void
     {
-        if (empty($this->selectedVariantId)) {
+        // selectedVariantId es el índice (0, 1, 2...); no usar empty() porque empty(0) es true en PHP
+        if ($this->selectedVariantId === null || $this->selectedVariantId === '') {
             $this->addError('selectedVariantId', 'Debes seleccionar una variante.');
             return;
         }
 
-        // Buscar la variante seleccionada (selectedVariantId es el batch_item_id)
-        $selectedVariant = null;
-        foreach ($this->existingVariants as $variant) {
-            if ((string) $variant['batch_item_id'] === (string) $this->selectedVariantId) {
-                $selectedVariant = $variant;
-                break;
-            }
-        }
+        $idx = (int) $this->selectedVariantId;
+        $selectedVariant = $this->existingVariants[$idx] ?? null;
 
         if (! $selectedVariant) {
             $this->addError('selectedVariantId', 'La variante seleccionada no es válida.');
             return;
         }
 
-        // Despachar evento con batch_item_id; el backend obtendrá los datos desde el BatchItem
+        $variantKey = $selectedVariant['variant_key'] ?? null;
+        if ($variantKey !== null && in_array($variantKey, $this->variantKeysInCart, true)) {
+            $this->addError('selectedVariantId', 'Esta variante ya está en el carrito.');
+            return;
+        }
+
+        // Despachar por variante (stock total); el carrito no necesita saber de qué lote salen las unidades
         $this->dispatch('batch-variant-selected',
             rowId: $this->rowId,
             productId: $this->productId,
             productName: $this->productName,
-            batchItemId: $selectedVariant['batch_item_id'],
+            variantFeatures: $selectedVariant['features'],
             displayName: $selectedVariant['display_name'],
+            totalStock: (int) $selectedVariant['quantity'],
+            price: $selectedVariant['price'],
         );
 
         $this->dispatch('close-modal', 'select-batch-variant');

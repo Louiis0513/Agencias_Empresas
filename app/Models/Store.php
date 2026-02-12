@@ -20,6 +20,12 @@ class Store extends Model
                     ->withTimestamps();
     }
 
+    // Relación: Una tienda tiene muchos registros de trabajadores (tabla workers)
+    public function workerRecords()
+    {
+        return $this->hasMany(Worker::class);
+    }
+
     // Relación: Una tienda tiene muchos roles personalizados
     public function roles()
     {

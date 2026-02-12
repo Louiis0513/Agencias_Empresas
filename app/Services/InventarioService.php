@@ -15,13 +15,12 @@ use Illuminate\Support\Facades\DB;
 class InventarioService
 {
     /**
-     * Normaliza features (array o null) a string para comparar variantes en lotes.
-     * Misma variante (ej. talla S) da el mismo key aunque el orden de claves cambie.
-     *
-     * Convierte claves y valores a string para evitar diferencias por tipo (int vs string)
-     * que causarían duplicados al crear batch_items desde compras vs creación de producto.
+     * Detecta/identifica variantes en lotes: convierte features (array o null) a un string normalizado
+     * para comparar variantes. Misma variante (ej. talla S, color Rojo) da el mismo key aunque
+     * el orden de claves cambie. Convierte claves y valores a string para evitar diferencias por
+     * tipo (int vs string) que causarían duplicados al crear batch_items desde compras vs creación de producto.
      */
-    public static function normalizeFeaturesForComparison(?array $features): string
+    public static function detectorDeVariantesEnLotes(?array $features): string
     {
         if ($features === null || $features === []) {
             return '';
@@ -155,6 +154,32 @@ class InventarioService
                 throw new Exception('La cantidad debe ser al menos 1.');
             }
 
+            // Salida: validar stock disponible antes de modificar (usa validarStockDisponible → stockDisponible)
+            if ($type === MovimientoInventario::TYPE_SALIDA && $product->isProductoInventario()) {
+                $itemsToValidate = [];
+                if ($product->isSerialized()) {
+                    $serials = array_values(array_filter(array_map('trim', $serialNumbers)));
+                    if (count($serials) !== $quantity) {
+                        throw new Exception(
+                            "Producto serializado: se intentan mover {$quantity} unidades pero se enviaron " . count($serials) . " número(s) de serie."
+                        );
+                    }
+                    $itemsToValidate[] = ['product_id' => $product->id, 'serial_numbers' => $serials];
+                } elseif ($product->isBatch()) {
+                    if (empty($datos['batch_item_id'])) {
+                        throw new Exception('Para salida de un producto por lote se debe especificar el ID del ítem (variante) a descontar.');
+                    }
+                    $itemsToValidate[] = ['product_id' => $product->id, 'batch_item_id' => (int) $datos['batch_item_id'], 'quantity' => $quantity];
+                } else {
+                    $item = ['product_id' => $product->id, 'quantity' => $quantity];
+                    if (! empty($datos['batch_item_id'])) {
+                        $item['batch_item_id'] = (int) $datos['batch_item_id'];
+                    }
+                    $itemsToValidate[] = $item;
+                }
+                $this->validarStockDisponible($store, $itemsToValidate);
+            }
+
             // Productos simples: sin variantes, pero en inventario se tratan como lote (Batch + BatchItem)
             // para trazabilidad por compra y costo real (ponderado por entradas).
             if ($product->type === 'simple' || empty($product->type)) {
@@ -188,11 +213,6 @@ class InventarioService
                         $batchItem = BatchItem::where('id', $batchItemId)
                             ->whereHas('batch', fn ($q) => $q->where('store_id', $store->id)->where('product_id', $product->id))
                             ->firstOrFail();
-                        if ($batchItem->quantity < $quantity) {
-                            throw new Exception(
-                                "Stock insuficiente en «{$product->name}». En este lote: {$batchItem->quantity}, solicitado: {$quantity}."
-                            );
-                        }
                         $batchItem->decrement('quantity', $quantity);
                     } else {
                         $batchItems = BatchItem::whereHas('batch', fn ($q) => $q->where('store_id', $store->id)->where('product_id', $product->id))
@@ -211,11 +231,6 @@ class InventarioService
                             $take = min($bi->quantity, $remaining);
                             $bi->decrement('quantity', $take);
                             $remaining -= $take;
-                        }
-                        if ($remaining > 0) {
-                            throw new Exception(
-                                "Stock insuficiente en «{$product->name}». Solicitado: {$quantity}."
-                            );
                         }
                     }
                 }
@@ -291,22 +306,11 @@ class InventarioService
                     }
                 } else {
                     $serials = array_values(array_filter(array_map('trim', $serialNumbers)));
-                    if (count($serials) !== $quantity) {
-                        throw new Exception(
-                            "Producto serializado: se intentan mover {$quantity} unidades pero se enviaron " . count($serials) . " número(s) de serie."
-                        );
-                    }
                     foreach ($serials as $serial) {
                         $item = ProductItem::where('store_id', $store->id)
                             ->where('product_id', $product->id)
                             ->where('serial_number', $serial)
-                            ->first();
-                        if (! $item) {
-                            throw new Exception("El serial «{$serial}» no existe en el inventario.");
-                        }
-                        if ($item->status !== ProductItem::STATUS_AVAILABLE) {
-                            throw new Exception("El ítem con serial «{$serial}» no está disponible (Estado: {$item->status}).");
-                        }
+                            ->firstOrFail();
                         $item->update(['status' => ProductItem::STATUS_SOLD]);
                     }
                 }
@@ -344,7 +348,7 @@ class InventarioService
                     }
 
                     $existingItems = $batch->batchItems()->get()->keyBy(function (BatchItem $bi) {
-                        return self::normalizeFeaturesForComparison($bi->features);
+                        return self::detectorDeVariantesEnLotes($bi->features);
                     });
 
                     foreach ($batchInfo['items'] as $itemData) {
@@ -353,7 +357,7 @@ class InventarioService
                             continue;
                         }
                         $features = $itemData['features'] ?? null;
-                        $key = self::normalizeFeaturesForComparison($features);
+                        $key = self::detectorDeVariantesEnLotes($features);
                         $unitCost = (float) ($itemData['cost'] ?? $itemData['unit_cost'] ?? $datos['unit_cost'] ?? 0);
 
                         if ($existingItems->has($key)) {
@@ -372,18 +376,11 @@ class InventarioService
                         }
                     }
                 } else {
-                    if (empty($datos['batch_item_id'])) {
-                        throw new Exception('Para salida de un producto por lote se debe especificar el ID del ítem (variante) a descontar.');
-                    }
                     $batchItem = BatchItem::where('id', $datos['batch_item_id'])
                         ->whereHas('batch', function ($q) use ($store, $product) {
                             $q->where('store_id', $store->id)->where('product_id', $product->id);
                         })
                         ->firstOrFail();
-
-                    if ($batchItem->quantity < $quantity) {
-                        throw new Exception("Stock insuficiente en el lote/variante seleccionado. Disponible: {$batchItem->quantity}, solicitado: {$quantity}.");
-                    }
                     $batchItem->decrement('quantity', $quantity);
                 }
             }
@@ -531,11 +528,171 @@ class InventarioService
     }
 
     /**
+     * Salida por variante (producto lote): descuenta cantidad aplicando FIFO entre los BatchItems con esas features.
+     * El carrito no necesita saber de qué lote salen las unidades; se descuentan por orden de antigüedad.
+     *
+     * @param  array  $features  Mapa atributo => valor de la variante
+     * @throws Exception Si no hay stock suficiente en esa variante
+     */
+    public function registrarSalidaPorVarianteFIFO(Store $store, int $userId, int $productId, array $features, int $quantity, ?string $description = null): void
+    {
+        if ($quantity < 1) {
+            return;
+        }
+
+        $product = Product::where('id', $productId)
+            ->where('store_id', $store->id)
+            ->lockForUpdate()
+            ->firstOrFail();
+
+        if (! $product->isBatch()) {
+            throw new Exception("El producto «{$product->name}» no es por lote; no se puede usar salida por variante.");
+        }
+
+        $key = self::detectorDeVariantesEnLotes($features);
+        $batchItems = BatchItem::where('quantity', '>', 0)
+            ->whereHas('batch', fn ($q) => $q->where('store_id', $store->id)->where('product_id', $productId))
+            ->where(function ($q) {
+                $q->where('is_active', true)->orWhereNull('is_active');
+            })
+            ->with('batch')
+            ->get()
+            ->filter(fn (BatchItem $bi) => self::detectorDeVariantesEnLotes($bi->features) === $key)
+            ->sortBy(fn (BatchItem $bi) => $bi->batch->created_at->format('Y-m-d H:i:s') . '-' . $bi->id)
+            ->values();
+
+        $remaining = $quantity;
+        foreach ($batchItems as $batchItem) {
+            if ($remaining <= 0) {
+                break;
+            }
+            $take = min((int) $batchItem->quantity, $remaining);
+            $this->registrarMovimiento($store, $userId, [
+                'product_id'    => $productId,
+                'type'          => MovimientoInventario::TYPE_SALIDA,
+                'quantity'      => $take,
+                'description'   => $description,
+                'batch_item_id' => $batchItem->id,
+                'unit_cost'     => $batchItem->unit_cost,
+            ], []);
+            $remaining -= $take;
+        }
+
+        if ($remaining > 0) {
+            throw new Exception(
+                "Stock insuficiente en la variante seleccionada de «{$product->name}». Solicitado: {$quantity}."
+            );
+        }
+    }
+
+    /**
+     * Retorna el stock disponible según el tipo de producto (consulta anatómica, sin modificar inventario).
+     * Una sola función con todos los casos; sin redundancia.
+     *
+     * Casos (en orden de resolución):
+     * 1. Serializado: product_id + serial_number → product_items, disponible/status.
+     * 2. Lote por ítem concreto: product_id + batch_item_id → quantity de ese BatchItem.
+     * 3. Lote por variante (features): product_id + variant_features → suma quantity de todos los BatchItems con esas features.
+     * 4. Simple: solo product_id → campo stock de la tabla products.
+     *
+     * @param  int|null  $batchItemId  Lote: id de un BatchItem concreto (stock de ese ítem).
+     * @param  string|null  $serialNumber  Serializado: número de serie.
+     * @param  array|null  $variantFeatures  Lote: mapa atributo=>valor; retorna stock total de esa variante en todos los lotes.
+     * @return array{disponible: bool, cantidad: int, status: string|null}
+     */
+    public function stockDisponible(Store $store, int $productId, ?int $batchItemId = null, ?string $serialNumber = null, ?array $variantFeatures = null): array
+    {
+        $product = Product::where('id', $productId)
+            ->where('store_id', $store->id)
+            ->first();
+
+        if (! $product) {
+            return ['disponible' => false, 'cantidad' => 0, 'status' => null];
+        }
+
+        // Case 3: Serializado — se envía el serial, se busca en product_items y se retorna el status para saber si está disponible
+        if ($serialNumber !== null && $serialNumber !== '') {
+            if (! $product->isSerialized()) {
+                return ['disponible' => false, 'cantidad' => 0, 'status' => null];
+            }
+            $item = ProductItem::where('store_id', $store->id)
+                ->where('product_id', $product->id)
+                ->where('serial_number', trim($serialNumber))
+                ->first();
+            if (! $item) {
+                return ['disponible' => false, 'cantidad' => 0, 'status' => null];
+            }
+            $disponible = $item->status === ProductItem::STATUS_AVAILABLE;
+
+            return [
+                'disponible' => $disponible,
+                'cantidad'   => $disponible ? 1 : 0,
+                'status'     => $item->status,
+            ];
+        }
+
+        // Case 2: Lote por ítem concreto — batch_item_id → quantity de ese BatchItem
+        if ($batchItemId !== null && $batchItemId > 0) {
+            if (! $product->isBatch()) {
+                return ['disponible' => false, 'cantidad' => 0, 'status' => null];
+            }
+            $batchItem = BatchItem::where('id', $batchItemId)
+                ->whereHas('batch', fn ($q) => $q->where('store_id', $store->id)->where('product_id', $product->id))
+                ->first();
+            if (! $batchItem) {
+                return ['disponible' => false, 'cantidad' => 0, 'status' => null];
+            }
+            $cantidad = (int) $batchItem->quantity;
+
+            return [
+                'disponible' => $cantidad > 0,
+                'cantidad'   => $cantidad,
+                'status'     => null,
+            ];
+        }
+
+        // Case 3: Lote por variante (features) — suma quantity de todos los BatchItems con esas features
+        if ($variantFeatures !== null && is_array($variantFeatures) && ! empty($variantFeatures)) {
+            if (! $product->isBatch()) {
+                return ['disponible' => false, 'cantidad' => 0, 'status' => null];
+            }
+            $key = self::detectorDeVariantesEnLotes($variantFeatures);
+            $batchItems = BatchItem::whereHas('batch', fn ($q) => $q->where('store_id', $store->id)->where('product_id', $product->id))
+                ->where('quantity', '>', 0)
+                ->where(function ($q) {
+                    $q->where('is_active', true)->orWhereNull('is_active');
+                })
+                ->get();
+            $cantidad = 0;
+            foreach ($batchItems as $bi) {
+                if (self::detectorDeVariantesEnLotes($bi->features) === $key) {
+                    $cantidad += (int) $bi->quantity;
+                }
+            }
+            return [
+                'disponible' => $cantidad > 0,
+                'cantidad'   => $cantidad,
+                'status'     => null,
+            ];
+        }
+
+        // Case 4: Simple — retorna el stock de la tabla producto
+        $cantidad = (int) $product->stock;
+
+        return [
+            'disponible' => $cantidad > 0,
+            'cantidad'   => $cantidad,
+            'status'     => null,
+        ];
+    }
+
+    /**
      * Valida que haya stock disponible para todos los productos indicados.
      * Solo valida productos de inventario (serialized/batch). No modifica el inventario.
      * Para productos serializados puede recibir serial_numbers[] en lugar de quantity; entonces valida que esos seriales existan y estén disponibles.
+     * Delega en stockDisponible() para la lógica de consulta por tipo (simple, lote, serializado).
      *
-     * @param  array  $items  Lista de ítems: product_id + quantity O product_id + serial_numbers[]
+     * @param  array  $items  Lista de ítems: product_id + quantity O product_id + serial_numbers[] O product_id + batch_item_id + quantity O product_id + variant_features + quantity
      * @throws Exception Si algún producto no tiene stock suficiente o un serial no está disponible
      */
     public function validarStockDisponible(Store $store, array $items): void
@@ -560,21 +717,17 @@ class InventarioService
 
             $serialNumbers = $item['serial_numbers'] ?? null;
             if (is_array($serialNumbers) && ! empty($serialNumbers)) {
-                // Validación por seriales (producto serializado)
                 foreach ($serialNumbers as $serial) {
                     $serial = trim((string) $serial);
                     if ($serial === '') {
                         continue;
                     }
-                    $productItem = ProductItem::where('store_id', $store->id)
-                        ->where('product_id', $product->id)
-                        ->where('serial_number', $serial)
-                        ->first();
-                    if (! $productItem) {
-                        throw new Exception("El serial «{$serial}» no existe en el inventario de «{$product->name}».");
-                    }
-                    if ($productItem->status !== ProductItem::STATUS_AVAILABLE) {
-                        throw new Exception("El ítem con serial «{$serial}» no está disponible (Estado: {$productItem->status}).");
+                    $r = $this->stockDisponible($store, $productId, null, $serial);
+                    if (! $r['disponible']) {
+                        if ($r['status'] === null) {
+                            throw new Exception("El serial «{$serial}» no existe en el inventario de «{$product->name}».");
+                        }
+                        throw new Exception("El ítem con serial «{$serial}» no está disponible (Estado: {$r['status']}).");
                     }
                 }
             } else {
@@ -582,9 +735,17 @@ class InventarioService
                 if ($quantity < 1) {
                     continue;
                 }
-                if ($product->stock < $quantity) {
+                $variantFeatures = $item['variant_features'] ?? null;
+                if (is_array($variantFeatures) && ! empty($variantFeatures)) {
+                    $r = $this->stockDisponible($store, $productId, null, null, $variantFeatures);
+                } else {
+                    $batchItemId = isset($item['batch_item_id']) && $item['batch_item_id'] !== '' ? (int) $item['batch_item_id'] : null;
+                    $r = $this->stockDisponible($store, $productId, $batchItemId, null);
+                }
+                if ($r['cantidad'] < $quantity) {
+                    $actual = $r['cantidad'];
                     throw new Exception(
-                        "Stock insuficiente en «{$product->name}». Actual: {$product->stock}, solicitado: {$quantity}."
+                        "Stock insuficiente en «{$product->name}». Actual: {$actual}, solicitado: {$quantity}."
                     );
                 }
             }
@@ -619,12 +780,16 @@ class InventarioService
     }
 
     /**
-     * Productos de la tienda aptos para movimientos de inventario (serialized o batch).
+     * Productos de la tienda aptos para movimientos de inventario (simple, serialized o batch).
      */
     public function productosConInventario(Store $store): \Illuminate\Database\Eloquent\Collection
     {
         return Product::where('store_id', $store->id)
-            ->whereIn('type', [MovimientoInventario::PRODUCT_TYPE_SERIALIZED, MovimientoInventario::PRODUCT_TYPE_BATCH])
+            ->where(function ($q) {
+                $q->whereIn('type', ['simple', MovimientoInventario::PRODUCT_TYPE_SERIALIZED, MovimientoInventario::PRODUCT_TYPE_BATCH])
+                    ->orWhereNull('type')
+                    ->orWhere('type', '');
+            })
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'store_id', 'name', 'sku', 'stock', 'cost', 'type']);

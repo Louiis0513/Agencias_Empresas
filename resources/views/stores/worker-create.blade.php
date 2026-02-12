@@ -23,17 +23,48 @@
                     @csrf
 
                     <div>
-                        <x-input-label for="email" value="{{ __('Email del usuario') }}" />
+                        <x-input-label for="name" value="{{ __('Nombre') }}" />
+                        <x-text-input id="name"
+                                      name="name"
+                                      type="text"
+                                      class="block mt-1 w-full"
+                                      :value="old('name')"
+                                      required
+                                      autofocus />
+                        <x-input-error :messages="$errors->get('name')" class="mt-1" />
+                    </div>
+
+                    <div>
+                        <x-input-label for="email" value="{{ __('Email') }}" />
                         <x-text-input id="email"
                                       name="email"
                                       type="email"
                                       class="block mt-1 w-full"
                                       :value="old('email')"
                                       placeholder="correo@ejemplo.com"
-                                      required
-                                      autofocus />
-                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">El usuario debe tener una cuenta registrada en el sistema.</p>
+                                      required />
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Puedes añadir trabajadores aunque aún no tengan cuenta. Si el correo ya está registrado, quedará vinculado automáticamente. Cuando se registre con este email, se vinculará solo.</p>
                         <x-input-error :messages="$errors->get('email')" class="mt-1" />
+                    </div>
+
+                    <div>
+                        <x-input-label for="phone" value="{{ __('Teléfono') }}" />
+                        <x-text-input id="phone"
+                                      name="phone"
+                                      type="text"
+                                      class="block mt-1 w-full"
+                                      :value="old('phone')" />
+                        <x-input-error :messages="$errors->get('phone')" class="mt-1" />
+                    </div>
+
+                    <div>
+                        <x-input-label for="document_number" value="{{ __('Documento (opcional)') }}" />
+                        <x-text-input id="document_number"
+                                      name="document_number"
+                                      type="text"
+                                      class="block mt-1 w-full"
+                                      :value="old('document_number')" />
+                        <x-input-error :messages="$errors->get('document_number')" class="mt-1" />
                     </div>
 
                     <div>

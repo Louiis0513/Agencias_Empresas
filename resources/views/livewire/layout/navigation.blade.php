@@ -39,12 +39,19 @@ new class extends Component
                             {{ __('Resumen') }}
                         </x-nav-link>
 
+                        @php
+                            $canPersonas = app(\App\Services\StorePermissionService::class)->can($store, 'customers.view') || app(\App\Services\StorePermissionService::class)->can($store, 'workers.view');
+                            $canProductos = app(\App\Services\StorePermissionService::class)->can($store, 'products.view') || app(\App\Services\StorePermissionService::class)->can($store, 'categories.view') || app(\App\Services\StorePermissionService::class)->can($store, 'attribute-groups.view') || app(\App\Services\StorePermissionService::class)->can($store, 'inventario.view') || app(\App\Services\StorePermissionService::class)->can($store, 'proveedores.view') || app(\App\Services\StorePermissionService::class)->can($store, 'product-purchases.view');
+                            $canFinanciero = app(\App\Services\StorePermissionService::class)->can($store, 'caja.view') || app(\App\Services\StorePermissionService::class)->can($store, 'activos.view') || app(\App\Services\StorePermissionService::class)->can($store, 'accounts-payables.view') || app(\App\Services\StorePermissionService::class)->can($store, 'accounts-receivables.view') || app(\App\Services\StorePermissionService::class)->can($store, 'comprobantes-egreso.view') || app(\App\Services\StorePermissionService::class)->can($store, 'comprobantes-ingreso.view') || app(\App\Services\StorePermissionService::class)->can($store, 'invoices.view') || app(\App\Services\StorePermissionService::class)->can($store, 'purchases.view');
+                            $canVentas = app(\App\Services\StorePermissionService::class)->can($store, 'invoices.view');
+                        @endphp
+                        @if($canPersonas)
                         <x-nav-link :href="route('stores.customers', $store)" :active="request()->routeIs('stores.customers*') || request()->routeIs('stores.workers*')" wire:navigate>
                             {{ __('Personas') }}
                         </x-nav-link>
-
+                        @endif
+                        @if($canProductos)
                         @php
-                            // Verificar si purchases.show es de productos para el navbar principal
                             $isProductPurchaseMain = false;
                             if (request()->routeIs('stores.purchases.show')) {
                                 $purchaseMain = request()->route('purchase');
@@ -58,9 +65,9 @@ new class extends Component
                         <x-nav-link :href="route('stores.products', $store)" :active="request()->routeIs('stores.products*') || request()->routeIs('stores.categories*') || request()->routeIs('stores.attribute-groups*') || request()->routeIs('stores.inventario*') || request()->routeIs('stores.proveedores*') || request()->routeIs('stores.product-purchases*') || (request()->routeIs('stores.purchases.show') && $isProductPurchaseMain)" wire:navigate>
                             {{ __('Productos') }}
                         </x-nav-link>
-
+                        @endif
+                        @if($canFinanciero)
                         @php
-                            // Verificar si purchases.show es de productos
                             $isProductPurchaseNav = false;
                             if (request()->routeIs('stores.purchases.show')) {
                                 $purchaseNav = request()->route('purchase');
@@ -74,10 +81,12 @@ new class extends Component
                         <x-nav-link :href="route('stores.cajas', $store)" :active="(request()->routeIs('stores.cajas*') || request()->routeIs('stores.activos*') || request()->routeIs('stores.accounts-payables*') || request()->routeIs('stores.accounts-receivables*') || request()->routeIs('stores.comprobantes-egreso*') || request()->routeIs('stores.comprobantes-ingreso*') || request()->routeIs('stores.invoices*') || (request()->routeIs('stores.purchases*') && !$isProductPurchaseNav)) && !request()->routeIs('stores.product-purchases*')" wire:navigate>
                             {{ __('Financiero') }}
                         </x-nav-link>
-
+                        @endif
+                        @if($canVentas)
                         <x-nav-link :href="route('stores.ventas.carrito', $store)" :active="request()->routeIs('stores.ventas*')" wire:navigate>
                             {{ __('Ventas') }}
                         </x-nav-link>
+                        @endif
 
                         {{-- Botón de Salir (Volver al panel general) --}}
                         <div class="flex items-center ml-4 pl-4 border-l border-gray-300 dark:border-gray-600 h-6 my-auto">
@@ -158,63 +167,97 @@ new class extends Component
                 <div class="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
                     <div class="flex gap-1 py-2 overflow-x-auto">
                         @if($inPersonas)
+                            @storeCan($store, 'customers.view')
                             <a href="{{ route('stores.customers', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.customers*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
                                 {{ __('Clientes') }}
                             </a>
+                            @endstoreCan
+                            @storeCan($store, 'workers.view')
                             <a href="{{ route('stores.workers', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.workers*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
                                 {{ __('Trabajadores') }}
                             </a>
+                            @endstoreCan
                         @endif
                         @if($inProductos)
+                            @storeCan($store, 'products.view')
                             <a href="{{ route('stores.products', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.products*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
                                 {{ __('Productos') }}
                             </a>
+                            @endstoreCan
+                            @storeCan($store, 'categories.view')
                             <a href="{{ route('stores.categories', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.categories*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
                                 {{ __('Categorías') }}
                             </a>
+                            @endstoreCan
+                            @storeCan($store, 'attribute-groups.view')
                             <a href="{{ route('stores.attribute-groups', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.attribute-groups*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
                                 {{ __('Atributos') }}
                             </a>
+                            @endstoreCan
+                            @storeCan($store, 'inventario.view')
                             <a href="{{ route('stores.inventario', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.inventario*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
                                 {{ __('Inventario') }}
                             </a>
+                            @endstoreCan
+                            @storeCan($store, 'proveedores.view')
                             <a href="{{ route('stores.proveedores', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.proveedores*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
                                 {{ __('Proveedores') }}
                             </a>
+                            @endstoreCan
+                            @storeCan($store, 'product-purchases.view')
                             <a href="{{ route('stores.product-purchases', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.product-purchases*') || (request()->routeIs('stores.purchases.show') && $isProductPurchase) ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
                                 {{ __('Compra de productos') }}
                             </a>
+                            @endstoreCan
                         @endif
                         @if($inFinanciero)
+                            @storeCan($store, 'purchases.view')
                             <a href="{{ route('stores.purchases', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ (request()->routeIs('stores.purchases*') && !$isProductPurchase) ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
                                 {{ __('Compra de activos') }}
                             </a>
+                            @endstoreCan
+                            @storeCan($store, 'caja.view')
                             <a href="{{ route('stores.cajas', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.cajas*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
                                 {{ __('Caja') }}
                             </a>
+                            @endstoreCan
+                            @storeCan($store, 'activos.view')
                             <a href="{{ route('stores.activos', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.activos*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
                                 {{ __('Activos') }}
                             </a>
+                            @endstoreCan
+                            @storeCan($store, 'accounts-payables.view')
                             <a href="{{ route('stores.accounts-payables', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.accounts-payables*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
                                 {{ __('Cuentas por pagar') }}
                             </a>
+                            @endstoreCan
+                            @storeCan($store, 'comprobantes-egreso.view')
                             <a href="{{ route('stores.comprobantes-egreso.index', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.comprobantes-egreso*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
                                 {{ __('Comprobantes de egreso') }}
                             </a>
+                            @endstoreCan
+                            @storeCan($store, 'accounts-receivables.view')
                             <a href="{{ route('stores.accounts-receivables', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.accounts-receivables*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
                                 {{ __('Cuentas por cobrar') }}
                             </a>
+                            @endstoreCan
+                            @storeCan($store, 'comprobantes-ingreso.view')
                             <a href="{{ route('stores.comprobantes-ingreso.index', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.comprobantes-ingreso*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
                                 {{ __('Comprobantes de ingreso') }}
                             </a>
+                            @endstoreCan
+                            @storeCan($store, 'invoices.view')
                             <a href="{{ route('stores.invoices', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.invoices*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
                                 {{ __('Facturas') }}
                             </a>
+                            @endstoreCan
                         @endif
                         @if($inVentas)
+                            @storeCan($store, 'invoices.view')
                             <a href="{{ route('stores.ventas.carrito', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.ventas.carrito*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
                                 {{ __('Carrito') }}
                             </a>
+                            @endstoreCan
                         @endif
                     </div>
                 </div>
@@ -230,65 +273,112 @@ new class extends Component
             @endphp
 
             @if($store)
+                @php
+                    $perm = app(\App\Services\StorePermissionService::class);
+                    $canP = $perm->can($store, 'customers.view') || $perm->can($store, 'workers.view');
+                    $canProd = $perm->can($store, 'products.view') || $perm->can($store, 'categories.view') || $perm->can($store, 'attribute-groups.view') || $perm->can($store, 'inventario.view') || $perm->can($store, 'proveedores.view') || $perm->can($store, 'product-purchases.view');
+                    $canF = $perm->can($store, 'caja.view') || $perm->can($store, 'activos.view') || $perm->can($store, 'accounts-payables.view') || $perm->can($store, 'accounts-receivables.view') || $perm->can($store, 'comprobantes-egreso.view') || $perm->can($store, 'comprobantes-ingreso.view') || $perm->can($store, 'invoices.view') || $perm->can($store, 'purchases.view');
+                    $canV = $perm->can($store, 'invoices.view');
+                @endphp
                 {{-- Móvil: Menú de Tienda (agrupado) --}}
                 <x-responsive-nav-link :href="route('stores.dashboard', $store)" :active="request()->routeIs('stores.dashboard')" wire:navigate>
                     {{ __('Resumen') }}
                 </x-responsive-nav-link>
+                @if($canP)
                 <div class="px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">{{ __('Personas') }}</div>
+                @storeCan($store, 'customers.view')
                 <x-responsive-nav-link :href="route('stores.customers', $store)" :active="request()->routeIs('stores.customers*')" wire:navigate>
                     {{ __('Clientes') }}
                 </x-responsive-nav-link>
+                @endstoreCan
+                @storeCan($store, 'workers.view')
                 <x-responsive-nav-link :href="route('stores.workers', $store)" :active="request()->routeIs('stores.workers*')" wire:navigate>
                     {{ __('Trabajadores') }}
                 </x-responsive-nav-link>
+                @endstoreCan
+                @endif
+                @if($canProd)
                 <div class="px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">{{ __('Productos') }}</div>
+                @storeCan($store, 'products.view')
                 <x-responsive-nav-link :href="route('stores.products', $store)" :active="request()->routeIs('stores.products*')" wire:navigate>
                     {{ __('Productos') }}
                 </x-responsive-nav-link>
+                @endstoreCan
+                @storeCan($store, 'categories.view')
                 <x-responsive-nav-link :href="route('stores.categories', $store)" :active="request()->routeIs('stores.categories*')" wire:navigate>
                     {{ __('Categorías') }}
                 </x-responsive-nav-link>
+                @endstoreCan
+                @storeCan($store, 'attribute-groups.view')
                 <x-responsive-nav-link :href="route('stores.attribute-groups', $store)" :active="request()->routeIs('stores.attribute-groups*')" wire:navigate>
                     {{ __('Atributos') }}
                 </x-responsive-nav-link>
+                @endstoreCan
+                @storeCan($store, 'inventario.view')
                 <x-responsive-nav-link :href="route('stores.inventario', $store)" :active="request()->routeIs('stores.inventario*')" wire:navigate>
                     {{ __('Inventario') }}
                 </x-responsive-nav-link>
+                @endstoreCan
+                @storeCan($store, 'proveedores.view')
                 <x-responsive-nav-link :href="route('stores.proveedores', $store)" :active="request()->routeIs('stores.proveedores*')" wire:navigate>
                     {{ __('Proveedores') }}
                 </x-responsive-nav-link>
+                @endstoreCan
+                @storeCan($store, 'product-purchases.view')
                 <x-responsive-nav-link :href="route('stores.product-purchases', $store)" :active="request()->routeIs('stores.product-purchases*')" wire:navigate>
                     {{ __('Compra de productos') }}
                 </x-responsive-nav-link>
+                @endstoreCan
+                @endif
+                @if($canF)
                 <div class="px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">{{ __('Financiero') }}</div>
+                @storeCan($store, 'purchases.view')
                 <x-responsive-nav-link :href="route('stores.purchases', $store)" :active="request()->routeIs('stores.purchases*')" wire:navigate>
                     {{ __('Compra de activos') }}
                 </x-responsive-nav-link>
+                @endstoreCan
+                @storeCan($store, 'caja.view')
                 <x-responsive-nav-link :href="route('stores.cajas', $store)" :active="request()->routeIs('stores.cajas*')" wire:navigate>
                     {{ __('Caja') }}
                 </x-responsive-nav-link>
+                @endstoreCan
+                @storeCan($store, 'activos.view')
                 <x-responsive-nav-link :href="route('stores.activos', $store)" :active="request()->routeIs('stores.activos*')" wire:navigate>
                     {{ __('Activos') }}
                 </x-responsive-nav-link>
+                @endstoreCan
+                @storeCan($store, 'accounts-payables.view')
                 <x-responsive-nav-link :href="route('stores.accounts-payables', $store)" :active="request()->routeIs('stores.accounts-payables*')" wire:navigate>
                     {{ __('Cuentas por pagar') }}
                 </x-responsive-nav-link>
+                @endstoreCan
+                @storeCan($store, 'comprobantes-egreso.view')
                 <x-responsive-nav-link :href="route('stores.comprobantes-egreso.index', $store)" :active="request()->routeIs('stores.comprobantes-egreso*')" wire:navigate>
                     {{ __('Comprobantes de egreso') }}
                 </x-responsive-nav-link>
+                @endstoreCan
+                @storeCan($store, 'accounts-receivables.view')
                 <x-responsive-nav-link :href="route('stores.accounts-receivables', $store)" :active="request()->routeIs('stores.accounts-receivables*')" wire:navigate>
                     {{ __('Cuentas por cobrar') }}
                 </x-responsive-nav-link>
+                @endstoreCan
+                @storeCan($store, 'comprobantes-ingreso.view')
                 <x-responsive-nav-link :href="route('stores.comprobantes-ingreso.index', $store)" :active="request()->routeIs('stores.comprobantes-ingreso*')" wire:navigate>
                     {{ __('Comprobantes de ingreso') }}
                 </x-responsive-nav-link>
+                @endstoreCan
+                @storeCan($store, 'invoices.view')
                 <x-responsive-nav-link :href="route('stores.invoices', $store)" :active="request()->routeIs('stores.invoices*')" wire:navigate>
                     {{ __('Facturas') }}
                 </x-responsive-nav-link>
+                @endstoreCan
+                @endif
+                @if($canV)
                 <div class="px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">{{ __('Ventas') }}</div>
                 <x-responsive-nav-link :href="route('stores.ventas.carrito', $store)" :active="request()->routeIs('stores.ventas*')" wire:navigate>
                     {{ __('Carrito') }}
                 </x-responsive-nav-link>
+                @endif
                 <div class="border-t border-gray-200 dark:border-gray-600 my-2"></div>
                 <x-responsive-nav-link :href="route('dashboard')" wire:navigate class="text-red-500">
                     {{ __('← Salir de la Tienda') }}

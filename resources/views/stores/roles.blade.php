@@ -40,6 +40,7 @@
             </div>
 
             {{-- Botón para crear nuevo rol --}}
+            @storeCan($store, 'roles.create')
             <div class="flex justify-end">
                 <button type="button"
                         x-on:click="$dispatch('open-modal', 'create-role')"
@@ -50,6 +51,7 @@
                     Crear Nuevo Rol
                 </button>
             </div>
+            @endstoreCan
 
             {{-- Lista de roles --}}
             @if($roles->count() > 0)
@@ -68,6 +70,7 @@
                                         </p>
                                     </div>
                                     <div class="flex space-x-2">
+                                        @storeCan($store, 'roles.edit')
                                         <button type="button"
                                                 x-on:click="$dispatch('open-edit-role-modal', { id: {{ $role->id }} })"
                                                 class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
@@ -76,6 +79,8 @@
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                                             </svg>
                                         </button>
+                                        @endstoreCan
+                                        @storeCan($store, 'roles.destroy')
                                         <form method="POST" action="{{ route('stores.roles.destroy', [$store, $role]) }}" class="inline" onsubmit="return confirm('¿Eliminar este rol? Los trabajadores que lo tenían asignado quedarán sin rol.');">
                                             @csrf
                                             @method('DELETE')
@@ -85,15 +90,18 @@
                                                 </svg>
                                             </button>
                                         </form>
+                                        @endstoreCan
                                     </div>
                                 </div>
 
                                 {{-- Botón para gestionar permisos --}}
+                                @storeCan($store, 'roles.permissions')
                                 <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                                     <a href="{{ route('stores.roles.permissions', [$store, $role]) }}" class="block w-full text-sm text-center text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium">
                                         Gestionar Permisos →
                                     </a>
                                 </div>
+                                @endstoreCan
                             </div>
                         </div>
                     @endforeach

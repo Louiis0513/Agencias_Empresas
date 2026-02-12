@@ -26,6 +26,10 @@
                 @endif
             </div>
 
+            @error('item')
+                <p class="mt-2 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+            @enderror
+
             <div class="mt-4 overflow-auto max-h-80 border border-gray-200 dark:border-gray-600 rounded-md">
                 <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                     <thead class="bg-gray-50 dark:bg-gray-900 sticky top-0">
@@ -37,15 +41,30 @@
                     </thead>
                     <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                         @forelse($results as $item)
-                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
-                                <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{{ $item['name'] }}</td>
+                            @php
+                                $isInventario = ($item['type'] ?? '') === 'INVENTARIO';
+                                $productType = $item['product_type'] ?? 'simple';
+                                // Solo simple se invalida por producto; serializado puede añadir otra unidad (otro serial) desde el modal de unidades
+                                $yaEnCarrito = $rowId === 'venta' && $isInventario && $productType === 'simple' && in_array($item['id'], $productIdsInCartSimple ?? [], true);
+                            @endphp
+                            <tr class="{{ $yaEnCarrito ? 'bg-gray-100 dark:bg-gray-800/70' : 'hover:bg-gray-50 dark:hover:bg-gray-700' }}">
+                                <td class="px-4 py-2 text-sm {{ $yaEnCarrito ? 'text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-gray-100' }}">
+                                    {{ $item['name'] }}
+                                    @if($yaEnCarrito)
+                                        <span class="ml-2 text-xs font-medium text-amber-600 dark:text-amber-400">(Ya en carrito)</span>
+                                    @endif
+                                </td>
                                 <td class="px-4 py-2 text-sm text-gray-500 dark:text-gray-400 font-mono">{{ $item['code'] ?? '—' }}</td>
                                 <td class="px-4 py-2 text-right">
-                                    <button type="button"
-                                            wire:click="selectItem({{ $item['id'] }}, @js($item['name']), '{{ $item['type'] }}', @js($item['control_type'] ?? null), @js($item['product_type'] ?? null))"
-                                            class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 text-sm font-medium">
-                                        Seleccionar
-                                    </button>
+                                    @if($yaEnCarrito)
+                                        <span class="text-sm text-gray-400 dark:text-gray-500 cursor-not-allowed">Seleccionar</span>
+                                    @else
+                                        <button type="button"
+                                                wire:click="selectItem({{ $item['id'] }}, @js($item['name']), '{{ $item['type'] }}', @js($item['control_type'] ?? null), @js($item['product_type'] ?? null))"
+                                                class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 text-sm font-medium">
+                                            Seleccionar
+                                        </button>
+                                    @endif
                                 </td>
                             </tr>
                         @empty
