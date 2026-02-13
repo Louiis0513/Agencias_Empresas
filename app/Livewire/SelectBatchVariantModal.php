@@ -112,11 +112,12 @@ class SelectBatchVariantModal extends Component
                 if (! isset($variantsMap[$key])) {
                     $ventaService = app(VentaService::class);
                     $variantsMap[$key] = [
-                        'variant_key'   => $key,
-                        'features'      => $normalizedFeatures,
-                        'display_name'  => $this->formatVariantDisplayName($normalizedFeatures),
-                        'quantity'      => 0,
-                        'price'         => $ventaService->verPrecio($store, (int) $product->id, 'batch', $normalizedFeatures),
+                        'variant_key'    => $key,
+                        'features'       => $normalizedFeatures,
+                        'batch_item_id'  => $batchItem->id,
+                        'display_name'   => $this->formatVariantDisplayName($normalizedFeatures),
+                        'quantity'       => 0,
+                        'price'          => $ventaService->verPrecio($store, (int) $product->id, 'batch', $normalizedFeatures),
                     ];
                 }
                 $variantsMap[$key]['quantity'] += (int) $batchItem->quantity;
@@ -161,7 +162,8 @@ class SelectBatchVariantModal extends Component
             return;
         }
 
-        // Incluir precio para que el receptor (factura/carrito) lo muestre sin recalcular (evita desajustes por serialización de variantFeatures)
+        // Incluir batch_item_id (al final) para compras: el backend obtiene features desde el BatchItem.
+        // variantFeatures siempre va para ventas/factura; batchItemId solo lo usa compra-productos.
         $this->dispatch('batch-variant-selected',
             rowId: $this->rowId,
             productId: $this->productId,
@@ -170,6 +172,7 @@ class SelectBatchVariantModal extends Component
             displayName: $selectedVariant['display_name'],
             totalStock: (int) $selectedVariant['quantity'],
             price: (float) ($selectedVariant['price'] ?? 0),
+            batchItemId: $selectedVariant['batch_item_id'] ?? null,
         );
 
         $this->dispatch('close-modal', 'select-batch-variant');

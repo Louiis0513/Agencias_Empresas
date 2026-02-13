@@ -117,6 +117,7 @@ class ProductService
                 }
 
                 if ($variants !== null && ! empty($variants)) {
+                    $this->validateNoDuplicateVariants($variants);
                     $this->createBatchFromVariants($product, $store, $variants, $userId);
                 }
             }
@@ -474,6 +475,52 @@ class ProductService
         }
 
         // No actualizamos costo ponderado: solo cambiamos atributos/precio al público de la variante.
+    }
+
+    /**
+     * Indica si ya existe una variante con las features dadas para el producto en la tienda.
+     * Útil para Crear variantes (evitar duplicados) y Modificar variante (evitar que la nueva combinación ya exista).
+     */
+    public function variantExists(Store $store, Product $product, array $features): bool
+    {
+        if (empty($features)) {
+            return false;
+        }
+        $key = InventarioService::detectorDeVariantesEnLotes($features);
+        if ($key === '') {
+            return false;
+        }
+        $exists = BatchItem::whereHas('batch', fn ($q) => $q->where('product_id', $product->id)->where('store_id', $store->id))
+            ->get()
+            ->contains(fn (BatchItem $bi) => InventarioService::detectorDeVariantesEnLotes($bi->features) === $key);
+
+        return $exists;
+    }
+
+    /**
+     * Valida que no haya variantes duplicadas (mismas features) en el array.
+     * Útil en el formulario de crear producto cuando el usuario agrega Variante 1, Variante 2, etc.
+     *
+     * @throws Exception Si hay dos o más variantes con los mismos atributos
+     */
+    public function validateNoDuplicateVariants(array $variants): void
+    {
+        $keysSeen = [];
+        foreach ($variants as $index => $variant) {
+            $features = $this->extractFeaturesFromVariant($variant);
+            if (empty($features)) {
+                continue;
+            }
+            $key = InventarioService::detectorDeVariantesEnLotes($features);
+            if ($key === '') {
+                continue;
+            }
+            if (isset($keysSeen[$key])) {
+                $firstIndex = $keysSeen[$key];
+                throw new Exception("Tienes variantes duplicadas (con los mismos atributos). La variante #" . ($index + 1) . " es igual a la variante #" . ($firstIndex + 1) . ". Edita o elimina las redundantes antes de guardar.");
+            }
+            $keysSeen[$key] = $index;
+        }
     }
 
     /**

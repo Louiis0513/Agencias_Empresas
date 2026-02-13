@@ -394,9 +394,10 @@
                     const rowId = detail.rowId;
                     const productName = detail.productName || row.querySelector('.item-selected-name')?.textContent || '';
                     const batchItemId = detail.batchItemId;
+                    const variantFeatures = detail.variantFeatures || {};
                     const displayName = detail.displayName || '';
                     
-                    row.setAttribute('data-batch-item-id', String(batchItemId));
+                    row.setAttribute('data-batch-item-id', String(batchItemId || ''));
                     row.setAttribute('data-is-batch', '1');
                     
                     // Producto + variante en la primera columna (ej. "Blusa — US: 8, Color: Rojo")
@@ -422,16 +423,29 @@
                     if (qtyInput) { qtyInput.classList.remove('hidden'); qtyInput.name = `details[${rowId}][batch_items][0][quantity]`; qtyInput.value = '1'; }
                     if (costInput) { costInput.classList.remove('hidden'); costInput.name = `details[${rowId}][batch_items][0][unit_cost]`; costInput.value = '0'; }
                     
-                    // Hidden para batch_item_id: el backend obtendrá los datos desde el BatchItem
+                    // batch_item_id (si existe) o features: el backend necesita uno de los dos para identificar la variante al aprobar
                     const wrapper = row.querySelector('.item-select-wrapper');
                     if (wrapper) {
                         row.querySelectorAll('input[name*="[batch_items][0][batch_item_id]"]').forEach(function(inp) { inp.remove(); });
                         row.querySelectorAll('input[name*="[batch_items][0][features]"]').forEach(function(inp) { inp.remove(); });
-                        const hid = document.createElement('input');
-                        hid.type = 'hidden';
-                        hid.name = `details[${rowId}][batch_items][0][batch_item_id]`;
-                        hid.value = batchItemId;
-                        wrapper.appendChild(hid);
+                        if (batchItemId) {
+                            const hid = document.createElement('input');
+                            hid.type = 'hidden';
+                            hid.name = `details[${rowId}][batch_items][0][batch_item_id]`;
+                            hid.value = batchItemId;
+                            wrapper.appendChild(hid);
+                        } else if (variantFeatures && typeof variantFeatures === 'object') {
+                            Object.keys(variantFeatures).forEach(function(attrId) {
+                                const val = variantFeatures[attrId];
+                                if (val !== '' && val != null) {
+                                    const inp = document.createElement('input');
+                                    inp.type = 'hidden';
+                                    inp.name = `details[${rowId}][batch_items][0][features][${attrId}]`;
+                                    inp.value = val;
+                                    wrapper.appendChild(inp);
+                                }
+                            });
+                        }
                     }
                     
                     // Fecha de caducidad opcional (solo para lote)

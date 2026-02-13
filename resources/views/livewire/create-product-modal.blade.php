@@ -194,7 +194,10 @@
                         @if($this->selectedCategory && $this->selectedCategory->attributes->isNotEmpty())
                             <div class="rounded-lg border border-gray-200 dark:border-gray-600 p-4 bg-gray-50 dark:bg-gray-900/40">
                                 <div class="flex items-center justify-between mb-4">
-                                    <p class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Variantes de este producto') }}</p>
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Variantes de este producto') }}</p>
+                                        <x-input-error :messages="$errors->get('variants')" class="mt-1" />
+                                    </div>
                                     <button type="button"
                                             wire:click="addVariant"
                                             class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">

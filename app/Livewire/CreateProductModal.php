@@ -433,7 +433,8 @@ class CreateProductModal extends Component
             $userId = Auth::id();
             $product = $service->createProduct($store, $productData, $userId);
         } catch (\Exception $e) {
-            $this->addError('category_id', $e->getMessage());
+            $field = $this->type === MovimientoInventario::PRODUCT_TYPE_BATCH ? 'variants' : 'category_id';
+            $this->addError($field, $e->getMessage());
 
             return;
         }

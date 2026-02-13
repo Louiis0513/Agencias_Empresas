@@ -22,6 +22,16 @@
 
     <div class="py-12">
         <div class="max-w-6xl mx-auto sm:px-6 lg:px-8 space-y-6">
+            @if(session('success'))
+                <div class="rounded-md bg-green-50 dark:bg-green-900/20 p-4 text-sm text-green-800 dark:text-green-200">
+                    {{ session('success') }}
+                </div>
+            @endif
+            @if(session('error'))
+                <div class="rounded-md bg-red-50 dark:bg-red-900/20 p-4 text-sm text-red-800 dark:text-red-200">
+                    {{ session('error') }}
+                </div>
+            @endif
             {{-- Resumen del producto --}}
             <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg p-6">
                 <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">Datos del producto</h3>

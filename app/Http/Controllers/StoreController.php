@@ -430,7 +430,7 @@ class StoreController extends Controller
         $newFeatures = [];
         foreach ($category->attributes as $attr) {
             $v = $rawNew[$attr->id] ?? ($attr->type === 'boolean' ? '0' : null);
-            if ($v === null || $v === '') {
+            if ($v === null || $v === '' || $v === '0') {
                 continue;
             }
             $newFeatures[$attr->id] = $v;
@@ -443,6 +443,13 @@ class StoreController extends Controller
         }
 
         $isActive = $request->boolean('is_active');
+
+        $oldKey = \App\Services\InventarioService::detectorDeVariantesEnLotes($oldFeatures);
+        $newKey = \App\Services\InventarioService::detectorDeVariantesEnLotes($newFeatures);
+        if ($oldKey !== $newKey && $productService->variantExists($store, $product, $newFeatures)) {
+            return redirect()->route('stores.products.show', [$store, $product])
+                ->with('error', 'Con esas modificaciones, esa variante ya existe. Elige otra combinación de atributos.');
+        }
 
         try {
             $productService->updateVariantFeatures($store, $product, $oldFeatures, $newFeatures, $priceValue, $isActive);
@@ -493,6 +500,12 @@ class StoreController extends Controller
             'batch_number'     => $request->input('batch_number'),
             'expiration_date'  => $request->input('expiration_date') ?: null,
         ];
+
+        $features = array_filter($attributeValues, fn ($v) => $v !== '' && $v !== null && $v !== '0');
+        if ($productService->variantExists($store, $product, $features)) {
+            return redirect()->route('stores.products.show', [$store, $product])
+                ->with('error', 'Esa variante ya existe. Elige una combinación de atributos distinta.');
+        }
 
         try {
             $productService->addVariantsToProduct($store, $product, [$variant], Auth::id());
