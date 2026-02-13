@@ -39,7 +39,8 @@ class VentaService
         protected InvoiceService $invoiceService,
         protected InventarioService $inventarioService,
         protected CajaService $cajaService,
-        protected AccountReceivableService $accountReceivableService
+        protected AccountReceivableService $accountReceivableService,
+        protected ComprobanteIngresoService $comprobanteIngresoService
     ) {}
 
     /**
@@ -179,14 +180,109 @@ class VentaService
     }
 
     /**
-     * Registra una venta (factura + inventario + caja si aplica).
-     * Contado: factura PAID + inventario + caja. Crédito: usar ventaACredito().
+     * Venta al contado: valida stock → crea factura PAID (solo cabecera + detalles) → descuenta inventario → crea comprobante de ingreso (PAGO_FACTURA).
      *
-     * @param  array  $datos  customer_id, subtotal, tax, discount, total, status, details, payments (si PAID)
+     * @param  array  $datos  customer_id, subtotal, tax, discount, total, details, destinos [ ['bolsillo_id' => int, 'amount' => float], ... ]
+     * @return Invoice
+     */
+    public function registrarVentaContado(Store $store, int $userId, array $datos): Invoice
+    {
+        return DB::transaction(function () use ($store, $userId, $datos) {
+            $details = $datos['details'] ?? [];
+            $destinos = $datos['destinos'] ?? [];
+
+            if (empty($destinos)) {
+                throw new \Exception('Venta al contado requiere al menos un destino (bolsillo y monto).');
+            }
+
+            // 1. Validar stock
+            $this->inventarioService->validarStockDisponible($store, $details);
+
+            // 2. Factura PAID solo cabecera + detalles
+            $datosFactura = $datos;
+            $datosFactura['status'] = 'PAID';
+            $datosFactura['payment_method'] = count($destinos) > 1 ? 'MIXED' : 'CASH';
+            $factura = $this->invoiceService->crearFacturaSoloCabeceraYDetalles($store, $userId, $datosFactura);
+
+            // 3. Descontar inventario
+            foreach ($details as $item) {
+                $productId = (int) ($item['product_id'] ?? 0);
+                if ($productId < 1) {
+                    continue;
+                }
+                $serialNumbers = $item['serial_numbers'] ?? null;
+                if (is_array($serialNumbers) && ! empty($serialNumbers)) {
+                    $this->inventarioService->registrarSalidaPorSeriales(
+                        $store,
+                        $userId,
+                        $productId,
+                        $serialNumbers,
+                        'Venta Factura #' . $factura->id
+                    );
+                } else {
+                    $qty = (int) ($item['quantity'] ?? 0);
+                    if ($qty < 1) {
+                        continue;
+                    }
+                    $variantFeatures = $item['variant_features'] ?? null;
+                    if (is_array($variantFeatures) && ! empty($variantFeatures)) {
+                        $this->inventarioService->registrarSalidaPorVarianteFIFO(
+                            $store,
+                            $userId,
+                            $productId,
+                            $variantFeatures,
+                            $qty,
+                            'Venta Factura #' . $factura->id
+                        );
+                    } else {
+                        $this->inventarioService->registrarSalidaPorCantidadFIFO(
+                            $store,
+                            $userId,
+                            $productId,
+                            $qty,
+                            'Venta Factura #' . $factura->id
+                        );
+                    }
+                }
+            }
+
+            // 4. Comprobante de ingreso (PAGO_FACTURA) con destinos
+            $this->comprobanteIngresoService->crearComprobante($store, $userId, [
+                'invoice_id' => $factura->id,
+                'notes' => 'Pago Factura #' . $factura->id,
+                'destinos' => array_map(fn ($d) => [
+                    'bolsillo_id' => (int) ($d['bolsillo_id'] ?? 0),
+                    'amount' => (float) ($d['amount'] ?? 0),
+                    'reference' => $d['reference'] ?? null,
+                ], $destinos),
+            ]);
+
+            return $factura->fresh()->load(['details.product', 'customer', 'user']);
+        });
+    }
+
+    /**
+     * Registra una venta: orquesta factura + inventario + comprobante (contado) o cuenta por cobrar (crédito).
+     *
+     * @param  array  $datos  customer_id, subtotal, tax, discount, total, status ('PAID'|'PENDING'),
+     *                        details, payments (si PAID: [ bolsillo_id, amount, payment_method? ]), account_receivable (si PENDING)
      * @return Invoice
      */
     public function registrarVenta(Store $store, int $userId, array $datos): Invoice
     {
-        return $this->invoiceService->crearFactura($store, $userId, $datos);
+        $status = $datos['status'] ?? 'PAID';
+
+        if ($status === 'PAID') {
+            $payments = $datos['payments'] ?? [];
+            $destinos = array_values(array_map(fn ($p) => [
+                'bolsillo_id' => (int) ($p['bolsillo_id'] ?? 0),
+                'amount' => (float) ($p['amount'] ?? 0),
+                'reference' => $p['reference'] ?? null,
+            ], array_filter($payments, fn ($p) => ((float) ($p['amount'] ?? 0)) > 0)));
+            $datos['destinos'] = $destinos;
+            return $this->registrarVentaContado($store, $userId, $datos);
+        }
+
+        return $this->ventaACredito($store, $userId, $datos);
     }
 }

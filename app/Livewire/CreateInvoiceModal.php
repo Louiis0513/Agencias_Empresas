@@ -7,7 +7,6 @@ use App\Models\Store;
 use App\Models\Product;
 use App\Models\Customer;
 use App\Services\CajaService;
-use App\Services\InvoiceService;
 use App\Services\VentaService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
@@ -686,7 +685,7 @@ class CreateInvoiceModal extends Component
         return Store::find($this->storeId);
     }
 
-    public function save(InvoiceService $invoiceService)
+    public function save(VentaService $ventaService)
     {
         if ($this->saving) {
             return;
@@ -702,13 +701,13 @@ class CreateInvoiceModal extends Component
         }
 
         try {
-            $this->saveInvoice($invoiceService, $store);
+            $this->saveInvoice($ventaService, $store);
         } finally {
             $lock->release();
         }
     }
 
-    protected function saveInvoice(InvoiceService $invoiceService, ?Store $store): void
+    protected function saveInvoice(VentaService $ventaService, ?Store $store): void
     {
         // Validaciones
         if (!$this->customer_id) {
@@ -807,7 +806,7 @@ class CreateInvoiceModal extends Component
                     ];
                 }, array_filter($this->paymentParts, fn ($p) => ((float) ($p['amount'] ?? 0)) > 0));
             }
-            $invoiceService->crearFactura($store, Auth::id(), $payload);
+            $ventaService->registrarVenta($store, Auth::id(), $payload);
 
             // Resetear formulario
             $this->resetFormulario();

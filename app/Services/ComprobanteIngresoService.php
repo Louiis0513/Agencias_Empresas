@@ -31,6 +31,7 @@ class ComprobanteIngresoService
      * Crea un comprobante de ingreso.
      * - destinos: [['bolsillo_id' => int, 'amount' => float, 'reference' => ?string], ...]
      * - aplicaciones (si es cobro): [['account_receivable_id' => int, 'amount' => float], ...]
+     * - invoice_id (opcional): si viene, el comprobante es tipo PAGO_FACTURA y se asocia a la factura.
      * Si hay aplicaciones, reduce balance de cada cuenta y aplica a cuotas (FIFO por due_date).
      */
     public function crearComprobante(Store $store, int $userId, array $data): ComprobanteIngreso
@@ -38,6 +39,7 @@ class ComprobanteIngresoService
         return DB::transaction(function () use ($store, $userId, $data) {
             $destinos = $data['destinos'] ?? [];
             $aplicaciones = $data['aplicaciones'] ?? [];
+            $invoiceId = isset($data['invoice_id']) ? (int) $data['invoice_id'] : null;
 
             $totalDestinos = array_sum(array_map(fn ($d) => (float) ($d['amount'] ?? 0), $destinos));
             if ($totalDestinos <= 0) {
@@ -49,16 +51,26 @@ class ComprobanteIngresoService
                 throw new Exception("La suma de aplicaciones a cuentas por cobrar ({$totalAplicaciones}) debe coincidir con el total del ingreso ({$totalDestinos}).");
             }
 
-            $type = count($aplicaciones) > 0 ? ComprobanteIngreso::TYPE_COBRO_CUENTA : ComprobanteIngreso::TYPE_INGRESO_MANUAL;
+            $type = ComprobanteIngreso::TYPE_INGRESO_MANUAL;
             $customerId = $data['customer_id'] ?? null;
-            if ($type === ComprobanteIngreso::TYPE_COBRO_CUENTA && count($aplicaciones) === 1) {
-                $ar = AccountReceivable::where('id', $aplicaciones[0]['account_receivable_id'])->where('store_id', $store->id)->first();
-                if ($ar && ! $customerId) {
-                    $customerId = $ar->customer_id;
+
+            if ($invoiceId > 0) {
+                $type = ComprobanteIngreso::TYPE_PAGO_FACTURA;
+                $factura = Invoice::where('id', $invoiceId)->where('store_id', $store->id)->firstOrFail();
+                if ($customerId === null) {
+                    $customerId = $factura->customer_id;
+                }
+            } elseif (count($aplicaciones) > 0) {
+                $type = ComprobanteIngreso::TYPE_COBRO_CUENTA;
+                if (count($aplicaciones) === 1 && ! $customerId) {
+                    $ar = AccountReceivable::where('id', $aplicaciones[0]['account_receivable_id'])->where('store_id', $store->id)->first();
+                    if ($ar) {
+                        $customerId = $ar->customer_id;
+                    }
                 }
             }
 
-            $comprobante = ComprobanteIngreso::create([
+            $comprobanteData = [
                 'store_id' => $store->id,
                 'number' => $this->siguienteNumero($store),
                 'total_amount' => $totalDestinos,
@@ -67,7 +79,12 @@ class ComprobanteIngresoService
                 'type' => $type,
                 'customer_id' => $customerId,
                 'user_id' => $userId,
-            ]);
+            ];
+            if ($invoiceId > 0) {
+                $comprobanteData['invoice_id'] = $invoiceId;
+            }
+
+            $comprobante = ComprobanteIngreso::create($comprobanteData);
 
             foreach ($destinos as $d) {
                 $amount = (float) ($d['amount'] ?? 0);
@@ -111,15 +128,14 @@ class ComprobanteIngresoService
                 $this->aplicarCobroACuentaPorCobrar($store, $accountReceivableId, $amount);
             }
 
-            return $comprobante->load(['destinos.bolsillo', 'aplicaciones.accountReceivable']);
+            return $comprobante->load(['destinos.bolsillo', 'aplicaciones.accountReceivable', 'invoice']);
         });
     }
 
     /**
      * Crea un comprobante de ingreso por pago de factura (tipo PAGO_FACTURA).
-     * Usado cuando una factura se crea o se paga con status PAID: un solo CI con invoice_id
-     * y destinos por cada parte del pago; cada destino genera un movimiento de caja con comprobante_ingreso_id.
      *
+     * @deprecated Usar crearComprobante() con invoice_id, notes y destinos en $data.
      * @param  array  $payments  [ ['payment_method' => 'CASH'|'CARD'|'TRANSFER', 'amount' => float, 'bolsillo_id' => int ], ... ]
      */
     public function crearComprobantePorPagoFactura(Store $store, int $userId, Invoice $factura, array $payments): ComprobanteIngreso
@@ -141,41 +157,11 @@ class ComprobanteIngresoService
             throw new Exception('Debe indicar al menos un pago (bolsillo y monto mayor a cero).');
         }
 
-        return DB::transaction(function () use ($store, $userId, $factura, $destinos, $payments) {
-            $totalDestinos = array_sum(array_column($destinos, 'amount'));
-            $comprobante = ComprobanteIngreso::create([
-                'store_id' => $store->id,
-                'number' => $this->siguienteNumero($store),
-                'total_amount' => $totalDestinos,
-                'date' => now()->toDateString(),
-                'notes' => 'Pago Factura #' . $factura->id,
-                'type' => ComprobanteIngreso::TYPE_PAGO_FACTURA,
-                'customer_id' => $factura->customer_id,
-                'invoice_id' => $factura->id,
-                'user_id' => $userId,
-            ]);
-
-            foreach ($destinos as $d) {
-                $amount = (float) $d['amount'];
-                $bolsilloId = (int) $d['bolsillo_id'];
-                ComprobanteIngresoDestino::create([
-                    'comprobante_ingreso_id' => $comprobante->id,
-                    'bolsillo_id' => $bolsilloId,
-                    'amount' => $amount,
-                    'reference' => $d['reference'] ?? null,
-                ]);
-
-                $this->cajaService->registrarMovimiento($store, $userId, [
-                    'bolsillo_id' => $bolsilloId,
-                    'type' => MovimientoBolsillo::TYPE_INCOME,
-                    'amount' => $amount,
-                    'description' => 'Comprobante de ingreso ' . $comprobante->number,
-                    'comprobante_ingreso_id' => $comprobante->id,
-                ]);
-            }
-
-            return $comprobante->load(['destinos.bolsillo', 'invoice']);
-        });
+        return $this->crearComprobante($store, $userId, [
+            'invoice_id' => $factura->id,
+            'notes' => 'Pago Factura #' . $factura->id,
+            'destinos' => $destinos,
+        ]);
     }
 
     /**

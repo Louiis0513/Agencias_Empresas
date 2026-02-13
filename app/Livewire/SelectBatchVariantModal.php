@@ -91,9 +91,11 @@ class SelectBatchVariantModal extends Component
 
         foreach ($batches as $batch) {
             foreach ($batch->batchItems as $batchItem) {
-                if (! ($batchItem->is_active ?? true) || (int) $batchItem->quantity < 1) {
+                if (! ($batchItem->is_active ?? true)) {
                     continue;
                 }
+                // Incluir también variantes con cantidad 0 (sin stock inicial o ya vendidas), para que aparezcan
+                // en compra (añadir stock) y en factura/carrito; la vista ya muestra "0 uds".
                 $normalizedFeatures = [];
                 if ($batchItem->features !== null && is_array($batchItem->features) && ! empty($batchItem->features)) {
                     foreach ($batchItem->features as $key => $value) {

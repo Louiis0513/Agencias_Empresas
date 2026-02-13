@@ -721,17 +721,32 @@ class InventarioService
             return $productPrice;
         }
 
-        // Batch: precio del BatchItem con esas features o producto
+        // Batch: precio del BatchItem con esas features. Construir mapa clave→BatchItem con la misma
+        // función de clave para evitar desajustes (solo la primera variante encontraba precio).
         if ($type === 'batch' && is_array($variantFeatures) && ! empty($variantFeatures)) {
             $key = self::detectorDeVariantesEnLotes($variantFeatures);
-            $batchItem = BatchItem::whereHas('batch', fn ($q) => $q->where('store_id', $store->id)->where('product_id', $productId))
+            if ($key === '') {
+                return $productPrice;
+            }
+            $batchItems = BatchItem::whereHas('batch', fn ($q) => $q->where('store_id', $store->id)->where('product_id', $productId))
                 ->where('quantity', '>', 0)
                 ->where(function ($q) {
                     $q->where('is_active', true)->orWhereNull('is_active');
                 })
                 ->with('batch.product')
-                ->get()
-                ->first(fn (BatchItem $bi) => self::detectorDeVariantesEnLotes($bi->features) === $key);
+                ->get();
+            $keyToItem = [];
+            foreach ($batchItems as $bi) {
+                $biFeatures = $bi->features;
+                if (! is_array($biFeatures)) {
+                    $biFeatures = is_string($biFeatures) ? json_decode($biFeatures, true) : [];
+                }
+                $biKey = self::detectorDeVariantesEnLotes($biFeatures ?? []);
+                if ($biKey !== '' && ! isset($keyToItem[$biKey])) {
+                    $keyToItem[$biKey] = $bi;
+                }
+            }
+            $batchItem = $keyToItem[$key] ?? null;
             if ($batchItem) {
                 return $batchItem->getSellingPriceAttribute();
             }

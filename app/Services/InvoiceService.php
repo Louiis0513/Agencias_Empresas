@@ -6,8 +6,6 @@ use App\Models\Invoice;
 use App\Models\InvoiceDetail;
 use App\Models\Product;
 use App\Models\Store;
-use App\Services\ComprobanteIngresoService;
-use App\Services\InventarioService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -113,94 +111,44 @@ class InvoiceService
     /* -------------------------------------------------------------------------- */
 
     /**
-     * Crea una nueva factura, procesa detalles y actualiza stock.
-     * Si status = PAID y se pasa payments[], registra un ingreso por cada parte (movimiento).
-     * Si status = PENDING, no se registra movimiento.
+     * Crea una factura (solo cabecera y detalles). No modifica inventario, caja ni cuenta por cobrar.
+     * El flujo completo (validar stock, descontar inventario, comprobante de ingreso o cuenta por cobrar)
+     * lo orquesta VentaService::registrarVentaContado o VentaService::ventaACredito.
      *
      * @param Store $store Tienda
      * @param int $userId ID del usuario que crea la factura
-     * @param array $datos customer_id, subtotal, tax, discount, total, status, details, payments (solo si PAID)
-     *   payments = [ ['payment_method' => 'CASH'|'CARD'|'TRANSFER', 'amount' => float, 'bolsillo_id' => int ], ... ]
+     * @param array $datos customer_id, subtotal, tax, discount, total, status, details, payments (solo para derivar payment_method si PAID)
      * @return Invoice
      */
     public function crearFactura(Store $store, int $userId, array $datos): Invoice
     {
-        $comprobanteIngresoService = app(ComprobanteIngresoService::class);
-        $inventarioService = app(InventarioService::class);
-        $accountReceivableService = app(AccountReceivableService::class);
+        $status = $datos['status'] ?? 'PAID';
+        $payments = $datos['payments'] ?? [];
+        if ($status === 'PENDING') {
+            $payments = [];
+        }
+        $methods = array_unique(array_filter(array_column($payments, 'payment_method')));
+        $datos['payment_method'] = count($methods) > 1 ? 'MIXED' : ($methods[0] ?? ($status === 'PAID' ? 'CASH' : 'CREDIT'));
+        $datos['status'] = $status;
 
-        return DB::transaction(function () use ($store, $userId, $datos, $comprobanteIngresoService, $inventarioService, $accountReceivableService) {
-            $status = $datos['status'] ?? 'PAID';
-            $payments = $datos['payments'] ?? [];
-
-            if ($status === 'PENDING') {
-                $payments = [];
-            }
-
-            $methods = array_unique(array_column($payments, 'payment_method'));
-            $paymentMethod = count($methods) > 1 ? 'MIXED' : ($methods[0] ?? 'CASH');
-
-            // 1. Crear cabecera
-            $factura = Invoice::create([
-                'store_id'       => $store->id,
-                'user_id'        => $userId,
-                'customer_id'    => $datos['customer_id'] ?? null,
-                'subtotal'       => $datos['subtotal'],
-                'tax'            => $datos['tax'] ?? 0,
-                'discount'       => $datos['discount'] ?? 0,
-                'total'          => $datos['total'],
-                'status'         => $status,
-                'payment_method' => $paymentMethod,
-            ]);
-
-            // 2. Procesar detalles (crear líneas y validar stock)
-            foreach ($datos['details'] as $item) {
-                $this->procesarDetalle($store, $factura, $item);
-            }
-
-            // 3. Registrar salidas de inventario (FIFO: primero en entrar, primero en salir)
-            foreach ($datos['details'] as $item) {
-                $qty = (int) ($item['quantity'] ?? 0);
-                if ($qty < 1) {
-                    continue;
-                }
-                $inventarioService->registrarSalidaPorCantidadFIFO(
-                    $store,
-                    $userId,
-                    (int) $item['product_id'],
-                    $qty,
-                    'Venta Factura #' . $factura->id
-                );
-            }
-
-            // 4. Si pagada: crear comprobante de ingreso (tipo PAGO_FACTURA) y movimientos de caja desde él
-            if ($status === 'PAID' && ! empty($payments)) {
-                $comprobanteIngresoService->crearComprobantePorPagoFactura($store, $userId, $factura, $payments);
-            }
-
-            // 5. Si a crédito (PENDING): crear cuenta por cobrar y cuotas
-            if ($status === 'PENDING') {
-                $arData = $datos['account_receivable'] ?? [];
-                $dueDate = $arData['due_date'] ?? null;
-                $cuotas = $arData['cuotas'] ?? [];
-                $accountReceivableService->crearDesdeFactura($store, $factura, $dueDate, $cuotas);
-            }
-
-            return $factura->load(['details.product', 'customer', 'user', 'accountReceivable.cuotas']);
-        });
+        return $this->crearFacturaSoloCabeceraYDetalles($store, $userId, $datos);
     }
 
     /**
-     * Crea la factura en estado PENDING solo con cabecera y detalles (sin inventario, caja ni cuenta por cobrar).
-     * Pensado para ser orquestado por VentaService::ventaACredito, que se encarga de validar stock,
-     * crear la cuenta por cobrar y descontar inventario.
+     * Crea la factura solo con cabecera y detalles (sin inventario, caja ni cuenta por cobrar).
+     * Pensado para ser orquestado por VentaService: el orquestador valida stock, crea la factura aquí,
+     * descuenta inventario y, si es contado, crea el comprobante de ingreso.
      *
-     * @param  array  $datos  customer_id, subtotal, tax, discount, total, details
+     * @param  array  $datos  customer_id, subtotal, tax, discount, total, status ('PAID'|'PENDING'),
+     *                        payment_method (opcional; si PAID se puede derivar de destinos), details
      * @return Invoice
      */
-    public function crearFacturaPendienteSoloCabeceraYDetalles(Store $store, int $userId, array $datos): Invoice
+    public function crearFacturaSoloCabeceraYDetalles(Store $store, int $userId, array $datos): Invoice
     {
         return DB::transaction(function () use ($store, $userId, $datos) {
+            $status = $datos['status'] ?? 'PENDING';
+            $paymentMethod = $datos['payment_method'] ?? ($status === 'PAID' ? 'CASH' : 'CREDIT');
+
             $factura = Invoice::create([
                 'store_id'        => $store->id,
                 'user_id'         => $userId,
@@ -209,16 +157,30 @@ class InvoiceService
                 'tax'             => $datos['tax'] ?? 0,
                 'discount'        => $datos['discount'] ?? 0,
                 'total'           => $datos['total'],
-                'status'          => 'PENDING',
-                'payment_method'  => 'CREDIT',
+                'status'          => $status,
+                'payment_method'  => $paymentMethod,
             ]);
 
             foreach ($datos['details'] ?? [] as $item) {
-                $this->procesarDetalle($store, $factura, $item);
+                $this->crearDetalleSinValidarStock($store, $factura, $item);
             }
 
             return $factura->load(['details.product', 'customer', 'user']);
         });
+    }
+
+    /**
+     * Crea la factura en estado PENDING solo con cabecera y detalles (sin inventario, caja ni cuenta por cobrar).
+     * Delega en crearFacturaSoloCabeceraYDetalles con status PENDING.
+     *
+     * @param  array  $datos  customer_id, subtotal, tax, discount, total, details
+     * @return Invoice
+     */
+    public function crearFacturaPendienteSoloCabeceraYDetalles(Store $store, int $userId, array $datos): Invoice
+    {
+        $datos['status'] = 'PENDING';
+        $datos['payment_method'] = 'CREDIT';
+        return $this->crearFacturaSoloCabeceraYDetalles($store, $userId, $datos);
     }
 
     /**
@@ -383,9 +345,8 @@ class InvoiceService
     }
 
     /**
-     * Procesa un detalle de factura (crea la línea).
-     * Para productos de inventario (serialized/batch) valida stock >= quantity.
-     * La salida de inventario (FIFO) se registra en crearFactura después de crear todos los detalles.
+     * Procesa un detalle de factura (crea la línea y valida stock en producto).
+     * Legacy: ya no se usa desde crearFactura (ahora delega en crearFacturaSoloCabeceraYDetalles sin stock).
      */
     private function procesarDetalle(Store $store, Invoice $factura, array $item): void
     {
@@ -400,6 +361,29 @@ class InvoiceService
                 "Stock insuficiente en «{$producto->name}». Actual: {$producto->stock}, solicitado: {$qty}."
             );
         }
+
+        InvoiceDetail::create([
+            'invoice_id'   => $factura->id,
+            'product_id'   => $producto->id,
+            'product_name' => $producto->name,
+            'unit_price'   => $item['unit_price'],
+            'quantity'     => $qty,
+            'subtotal'     => $item['subtotal'],
+        ]);
+    }
+
+    /**
+     * Crea un detalle de factura sin validar stock. Usado por crearFacturaSoloCabeceraYDetalles;
+     * el orquestador (VentaService) es responsable de validar y descontar inventario.
+     */
+    private function crearDetalleSinValidarStock(Store $store, Invoice $factura, array $item): void
+    {
+        $producto = Product::where('id', $item['product_id'])
+            ->where('store_id', $store->id)
+            ->lockForUpdate()
+            ->firstOrFail();
+
+        $qty = (int) ($item['quantity'] ?? 0);
 
         InvoiceDetail::create([
             'invoice_id'   => $factura->id,

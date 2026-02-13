@@ -11,6 +11,7 @@ use App\Services\ProductService;
 use App\Services\CotizacionService;
 use App\Services\CustomerService;
 use App\Services\InvoiceService;
+use App\Services\VentaService;
 use App\Services\ProveedorService;
 use App\Services\CajaService;
 use App\Services\ActivoService;
@@ -776,7 +777,7 @@ class StoreController extends Controller
         return view('stores.factura-detalle', compact('store', 'invoice'));
     }
 
-    public function storeInvoice(Store $store, StoreInvoiceRequest $request, InvoiceService $invoiceService, StorePermissionService $permission)
+    public function storeInvoice(Store $store, StoreInvoiceRequest $request, VentaService $ventaService, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
@@ -784,7 +785,7 @@ class StoreController extends Controller
         $permission->authorize($store, 'invoices.create');
 
         try {
-            $invoice = $invoiceService->crearFactura($store, Auth::id(), $request->validated());
+            $ventaService->registrarVenta($store, Auth::id(), $request->validated());
             return redirect()->route('stores.invoices', $store)
                 ->with('success', 'Factura creada correctamente.');
         } catch (\Exception $e) {
