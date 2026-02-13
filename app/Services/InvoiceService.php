@@ -6,7 +6,7 @@ use App\Models\Invoice;
 use App\Models\InvoiceDetail;
 use App\Models\Product;
 use App\Models\Store;
-use App\Services\CajaService;
+use App\Services\ComprobanteIngresoService;
 use App\Services\InventarioService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -125,11 +125,11 @@ class InvoiceService
      */
     public function crearFactura(Store $store, int $userId, array $datos): Invoice
     {
-        $cajaService = app(CajaService::class);
+        $comprobanteIngresoService = app(ComprobanteIngresoService::class);
         $inventarioService = app(InventarioService::class);
         $accountReceivableService = app(AccountReceivableService::class);
 
-        return DB::transaction(function () use ($store, $userId, $datos, $cajaService, $inventarioService, $accountReceivableService) {
+        return DB::transaction(function () use ($store, $userId, $datos, $comprobanteIngresoService, $inventarioService, $accountReceivableService) {
             $status = $datos['status'] ?? 'PAID';
             $payments = $datos['payments'] ?? [];
 
@@ -173,22 +173,9 @@ class InvoiceService
                 );
             }
 
-            // 4. Si pagada: registrar un ingreso por cada parte del pago
-            foreach ($payments as $p) {
-                $amount = (float) ($p['amount'] ?? 0);
-                $bolsilloId = (int) ($p['bolsillo_id'] ?? 0);
-                $method = $p['payment_method'] ?? 'CASH';
-                if ($amount <= 0 || ! $bolsilloId) {
-                    continue;
-                }
-                $cajaService->registrarMovimiento($store, $userId, [
-                    'bolsillo_id'    => $bolsilloId,
-                    'type'           => \App\Models\MovimientoBolsillo::TYPE_INCOME,
-                    'amount'         => $amount,
-                    'payment_method' => $method,
-                    'description'    => 'Pago Factura #' . $factura->id,
-                    'invoice_id'     => $factura->id,
-                ]);
+            // 4. Si pagada: crear comprobante de ingreso (tipo PAGO_FACTURA) y movimientos de caja desde él
+            if ($status === 'PAID' && ! empty($payments)) {
+                $comprobanteIngresoService->crearComprobantePorPagoFactura($store, $userId, $factura, $payments);
             }
 
             // 5. Si a crédito (PENDING): crear cuenta por cobrar y cuotas

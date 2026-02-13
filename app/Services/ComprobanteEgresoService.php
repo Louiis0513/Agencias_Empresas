@@ -16,7 +16,8 @@ use Illuminate\Support\Facades\DB;
 class ComprobanteEgresoService
 {
     public function __construct(
-        protected CajaService $cajaService
+        protected CajaService $cajaService,
+        protected ComprobanteIngresoService $comprobanteIngresoService
     ) {}
 
     /**
@@ -133,7 +134,6 @@ class ComprobanteEgresoService
                     'bolsillo_id' => $bolsilloId,
                     'type' => MovimientoBolsillo::TYPE_EXPENSE,
                     'amount' => $amount,
-                    'payment_method' => $o['payment_method'] ?? null,
                     'description' => $descripcion,
                     'comprobante_egreso_id' => $comprobante->id,
                 ]);
@@ -203,20 +203,23 @@ class ComprobanteEgresoService
             }
 
             $concepto = "Reverso comprobante de egreso {$comprobante->number}";
-
+            $destinos = [];
             foreach ($origenes as $o) {
                 $amount = (float) ($o['amount'] ?? 0);
                 if ($amount <= 0) {
                     continue;
                 }
-                $this->cajaService->registrarMovimiento($store, $userId, [
+                $destinos[] = [
                     'bolsillo_id' => (int) $o['bolsillo_id'],
-                    'type' => MovimientoBolsillo::TYPE_INCOME,
                     'amount' => $amount,
-                    'description' => $concepto,
-                    'reversal_of_comprobante_egreso_id' => $comprobante->id,
-                ]);
+                    'reference' => $o['reference'] ?? null,
+                ];
             }
+            $this->comprobanteIngresoService->crearComprobante($store, $userId, [
+                'notes' => $concepto,
+                'destinos' => $destinos,
+                'date' => now()->toDateString(),
+            ]);
 
             foreach ($comprobante->destinos as $destino) {
                 if ($destino->isCuentaPorPagar() && $destino->account_payable_id) {

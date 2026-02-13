@@ -23,9 +23,14 @@ class CreateInvoiceModal extends Component
 
     // Cliente
     public ?int $customer_id = null;
-    public string $busquedaCliente = '';
-    public array $clientesEncontrados = [];
     public ?array $clienteSeleccionado = null; // ['id' => X, 'name' => '...', 'document_number' => '...', ...]
+
+    /** Modal buscar cliente: filtros identificados por tipo */
+    public bool $mostrarModalCliente = false;
+    public string $filtroClienteNombre = '';
+    public string $filtroClienteDocumento = '';
+    public string $filtroClienteTelefono = '';
+    public array $clientesEncontrados = [];
 
     // Productos (cada ítem: product_id, name, price, quantity, subtotal; opcional: type, variant_display_name, variant_features, serial_numbers)
     public array $productosSeleccionados = [];
@@ -165,9 +170,8 @@ class CreateInvoiceModal extends Component
     {
         $this->saving = false;
         $this->customer_id = null;
-        $this->busquedaCliente = '';
-        $this->clientesEncontrados = [];
         $this->clienteSeleccionado = null;
+        $this->cerrarModalCliente();
         $this->productosSeleccionados = [];
         $this->cerrarModalUnidadesFactura();
         $this->discountType = 'amount';
@@ -283,38 +287,71 @@ class CreateInvoiceModal extends Component
         return round($this->total - $this->totalPagado, 2);
     }
 
-    public function buscarClientes()
+    public function abrirModalCliente(): void
     {
-        if (empty($this->busquedaCliente)) {
+        $this->mostrarModalCliente = true;
+        $this->filtroClienteNombre = '';
+        $this->filtroClienteDocumento = '';
+        $this->filtroClienteTelefono = '';
+        $this->clientesEncontrados = [];
+    }
+
+    public function cerrarModalCliente(): void
+    {
+        $this->mostrarModalCliente = false;
+        $this->filtroClienteNombre = '';
+        $this->filtroClienteDocumento = '';
+        $this->filtroClienteTelefono = '';
+        $this->clientesEncontrados = [];
+    }
+
+    /** Busca clientes por filtros identificados: nombre, documento o teléfono. */
+    public function buscarClientes(): void
+    {
+        $store = $this->getStoreProperty();
+        if (! $store) {
             $this->clientesEncontrados = [];
             return;
         }
 
-        $store = $this->getStoreProperty();
-        if (!$store) {
+        $nombre = trim($this->filtroClienteNombre);
+        $documento = trim($this->filtroClienteDocumento);
+        $telefono = trim($this->filtroClienteTelefono);
+
+        if ($nombre === '' && $documento === '' && $telefono === '') {
+            $this->clientesEncontrados = [];
             return;
         }
 
-        $this->clientesEncontrados = Customer::deTienda($store->id)
-            ->buscar($this->busquedaCliente)
-            ->limit(10)
+        $query = Customer::deTienda($store->id);
+
+        if ($nombre !== '') {
+            $query->where('name', 'like', '%' . $nombre . '%');
+        }
+        if ($documento !== '') {
+            $query->where('document_number', 'like', '%' . $documento . '%');
+        }
+        if ($telefono !== '') {
+            $query->where('phone', 'like', '%' . $telefono . '%');
+        }
+
+        $this->clientesEncontrados = $query->orderBy('name')
+            ->limit(15)
             ->get()
-            ->map(function($customer) {
-                return [
-                    'id' => $customer->id,
-                    'name' => $customer->name,
-                    'document_number' => $customer->document_number,
-                    'email' => $customer->email,
-                    'phone' => $customer->phone,
-                ];
-            })
+            ->map(fn ($customer) => [
+                'id' => $customer->id,
+                'name' => $customer->name,
+                'document_number' => $customer->document_number,
+                'email' => $customer->email,
+                'phone' => $customer->phone,
+            ])
             ->toArray();
     }
 
-    public function seleccionarCliente($clienteId)
+    public function seleccionarCliente($clienteId): void
     {
         $store = $this->getStoreProperty();
-        if (!$store) {
+        if (! $store) {
             return;
         }
 
@@ -331,17 +368,15 @@ class CreateInvoiceModal extends Component
                 'email' => $cliente->email,
                 'phone' => $cliente->phone,
             ];
-            $this->busquedaCliente = '';
-            $this->clientesEncontrados = [];
+            $this->cerrarModalCliente();
         }
     }
 
-    public function limpiarCliente()
+    public function limpiarCliente(): void
     {
         $this->customer_id = null;
         $this->clienteSeleccionado = null;
-        $this->busquedaCliente = '';
-        $this->clientesEncontrados = [];
+        $this->cerrarModalCliente();
     }
 
     /** Abre el modal de selección de producto (contexto factura). */
@@ -390,9 +425,10 @@ class CreateInvoiceModal extends Component
 
     /**
      * Escucha selección de variante (lote). Añade una línea a la factura.
+     * Usa el precio enviado por el modal cuando viene (rowId factura); si no, obtiene vía InventarioService.
      */
     #[On('batch-variant-selected')]
-    public function onBatchVariantSelected($rowId, $productId, $productName, $variantFeatures, $displayName, $totalStock = 0): void
+    public function onBatchVariantSelected($rowId, $productId, $productName, $variantFeatures, $displayName, $totalStock = 0, $price = null): void
     {
         if ($rowId !== 'factura') {
             return;
@@ -406,8 +442,9 @@ class CreateInvoiceModal extends Component
             return;
         }
         $variantFeatures = is_array($variantFeatures) ? $variantFeatures : [];
-        $ventaService = app(VentaService::class);
-        $precio = $ventaService->verPrecio($store, (int) $productId, 'batch', $variantFeatures);
+        $precio = $price !== null && (float) $price >= 0
+            ? (float) $price
+            : app(VentaService::class)->verPrecio($store, (int) $productId, 'batch', $variantFeatures);
         $this->productosSeleccionados[] = [
             'product_id' => (int) $productId,
             'name' => $productName,

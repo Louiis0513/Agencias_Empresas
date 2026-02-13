@@ -20,6 +20,7 @@ class ComprobanteIngreso extends Model
         'notes',
         'type',
         'customer_id',
+        'invoice_id',
         'user_id',
         'reversed_at',
         'reversal_user_id',
@@ -33,6 +34,7 @@ class ComprobanteIngreso extends Model
 
     public const TYPE_INGRESO_MANUAL = 'INGRESO_MANUAL';
     public const TYPE_COBRO_CUENTA = 'COBRO_CUENTA';
+    public const TYPE_PAGO_FACTURA = 'PAGO_FACTURA';
 
     public function store()
     {
@@ -42,6 +44,11 @@ class ComprobanteIngreso extends Model
     public function customer()
     {
         return $this->belongsTo(Customer::class);
+    }
+
+    public function invoice()
+    {
+        return $this->belongsTo(Invoice::class);
     }
 
     public function user()

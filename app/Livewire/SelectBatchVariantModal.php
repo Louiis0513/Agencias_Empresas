@@ -159,7 +159,7 @@ class SelectBatchVariantModal extends Component
             return;
         }
 
-        // Despachar por variante (stock total); el precio se obtiene vía VentaService::verPrecio en el carrito
+        // Incluir precio para que el receptor (factura/carrito) lo muestre sin recalcular (evita desajustes por serialización de variantFeatures)
         $this->dispatch('batch-variant-selected',
             rowId: $this->rowId,
             productId: $this->productId,
@@ -167,6 +167,7 @@ class SelectBatchVariantModal extends Component
             variantFeatures: $selectedVariant['features'],
             displayName: $selectedVariant['display_name'],
             totalStock: (int) $selectedVariant['quantity'],
+            price: (float) ($selectedVariant['price'] ?? 0),
         );
 
         $this->dispatch('close-modal', 'select-batch-variant');

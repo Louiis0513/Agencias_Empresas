@@ -1091,54 +1091,6 @@ class StoreController extends Controller
         }
     }
 
-    public function storeMovimiento(Store $store, Request $request, CajaService $cajaService, StorePermissionService $permission)
-    {
-        if (! Auth::user()->stores->contains($store->id)) {
-            abort(403, 'No tienes permiso para acceder a esta tienda.');
-        }
-        $permission->authorize($store, 'caja.movimientos.create');
-        $request->validate([
-            'bolsillo_id' => ['required', 'exists:bolsillos,id'],
-            'type' => ['required', 'in:INCOME,EXPENSE'],
-            'amount' => ['required', 'numeric', 'min:0.01'],
-            'description' => ['nullable', 'string', 'max:500'],
-        ]);
-        try {
-            $bolsillo = $cajaService->obtenerBolsillo($store, (int) $request->input('bolsillo_id'));
-            $cajaService->registrarMovimiento($store, Auth::id(), [
-                'bolsillo_id' => $bolsillo->id,
-                'type' => $request->input('type'),
-                'amount' => (float) $request->input('amount'),
-                'description' => $request->input('description'),
-            ]);
-            return redirect()->route('stores.cajas.bolsillos.show', [$store, $bolsillo])->with('success', 'Movimiento registrado correctamente.');
-        } catch (\Exception $e) {
-            $bolsillo = \App\Models\Bolsillo::find($request->input('bolsillo_id'));
-            $redirect = $bolsillo && $bolsillo->store_id === $store->id
-                ? route('stores.cajas.bolsillos.show', [$store, $bolsillo])
-                : route('stores.cajas', $store);
-            return redirect()->to($redirect)->with('error', $e->getMessage());
-        }
-    }
-
-    public function destroyMovimiento(Store $store, \App\Models\MovimientoBolsillo $movimiento, CajaService $cajaService, StorePermissionService $permission)
-    {
-        if (! Auth::user()->stores->contains($store->id)) {
-            abort(403, 'No tienes permiso para acceder a esta tienda.');
-        }
-        $permission->authorize($store, 'caja.movimientos.destroy');
-        if ($movimiento->store_id !== $store->id) {
-            abort(404);
-        }
-        $bolsillo = $movimiento->bolsillo;
-        try {
-            $cajaService->eliminarMovimiento($movimiento);
-            return redirect()->route('stores.cajas.bolsillos.show', [$store, $bolsillo])->with('success', 'Movimiento eliminado correctamente.');
-        } catch (\Exception $e) {
-            return redirect()->route('stores.cajas.bolsillos.show', [$store, $bolsillo])->with('error', $e->getMessage());
-        }
-    }
-
     // ==================== INVENTARIO (movimientos entrada/salida productos) ====================
 
     public function inventario(Store $store, InventarioService $inventarioService, Request $request, StorePermissionService $permission)

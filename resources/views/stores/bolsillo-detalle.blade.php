@@ -10,8 +10,6 @@
         </div>
     </x-slot>
 
-    <livewire:create-movimiento-modal :store-id="$store->id" :bolsillo-id="$bolsillo->id" />
-
     <div class="py-12" x-data>
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             @if(session('success'))
@@ -35,10 +33,16 @@
                         @endif
                         <p class="text-xs text-indigo-600 dark:text-indigo-400">{{ $bolsillo->is_bank_account ? 'Cuenta bancaria' : 'Efectivo' }} · {{ $bolsillo->is_active ? 'Activo' : 'Inactivo' }}</p>
                     </div>
-                    <button type="button" x-on:click="$dispatch('open-modal', 'create-movimiento')" class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 font-medium">
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                        Registrar movimiento
-                    </button>
+                    <div class="flex gap-2">
+                        <a href="{{ route('stores.comprobantes-ingreso.create', $store) }}" class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 font-medium">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            Comprobante de ingreso
+                        </a>
+                        <a href="{{ route('stores.comprobantes-egreso.create', $store) }}" class="inline-flex items-center px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700 font-medium">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
+                            Comprobante de egreso
+                        </a>
+                    </div>
                 </div>
             </div>
 
@@ -75,9 +79,9 @@
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Fecha</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Tipo</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Monto</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Comprobante</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Descripción</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Usuario</th>
-                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -92,24 +96,17 @@
                                             <td class="px-4 py-3 text-sm font-semibold {{ $m->type === 'INCOME' ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300' }}">
                                                 {{ $m->type === 'INCOME' ? '+' : '-' }}${{ number_format($m->amount, 2) }}
                                             </td>
-                                            <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                                                @if($m->reversal_of_account_payable_payment_id)
-                                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 mr-1">Reversa</span>
-                                                @endif
-                                                {{ $m->description ?? '—' }}
-                                            </td>
-                                            <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{{ $m->user->name ?? '—' }}</td>
-                                            <td class="px-4 py-3 text-right text-sm">
-                                                @if($m->invoice_id || $m->account_payable_payment_id || $m->reversal_of_account_payable_payment_id)
-                                                    <span class="text-gray-400 dark:text-gray-500 text-xs" title="{{ $m->reversal_of_account_payable_payment_id ? 'Reversa de pago' : ($m->invoice_id ? 'Vinculado a factura' : 'Vinculado a pago de cuenta por pagar') }}">—</span>
+                                            <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                                @if($m->comprobanteIngreso)
+                                                    <a href="{{ route('stores.comprobantes-ingreso.show', [$store, $m->comprobanteIngreso]) }}" class="text-indigo-600 dark:text-indigo-400 hover:underline">{{ $m->comprobanteIngreso->number }}</a>
+                                                @elseif($m->comprobanteEgreso)
+                                                    <a href="{{ route('stores.comprobantes-egreso.show', [$store, $m->comprobanteEgreso]) }}" class="text-indigo-600 dark:text-indigo-400 hover:underline">{{ $m->comprobanteEgreso->number }}</a>
                                                 @else
-                                                    <form method="POST" action="{{ route('stores.cajas.movimientos.destroy', [$store, $m]) }}" class="inline" onsubmit="return confirm('¿Eliminar este movimiento? Se revertirá el efecto en el saldo.');">
-                                                        @csrf
-                                                        @method('DELETE')
-                                                        <button type="submit" class="text-red-600 dark:text-red-400 hover:underline">Eliminar</button>
-                                                    </form>
+                                                    <span class="text-gray-400 dark:text-gray-500">—</span>
                                                 @endif
                                             </td>
+                                            <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{{ $m->description ?? '—' }}</td>
+                                            <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{{ $m->comprobanteIngreso?->user?->name ?? $m->comprobanteEgreso?->user?->name ?? '—' }}</td>
                                         </tr>
                                     @endforeach
                                 </tbody>

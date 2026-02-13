@@ -60,6 +60,12 @@ class CajaService
 
     public function registrarMovimiento(Store $store, int $userId, array $datos): MovimientoBolsillo
     {
+        $comprobanteIngresoId = $datos['comprobante_ingreso_id'] ?? null;
+        $comprobanteEgresoId = $datos['comprobante_egreso_id'] ?? null;
+        if (! $comprobanteIngresoId && ! $comprobanteEgresoId) {
+            throw new Exception('Cada movimiento de caja debe estar vinculado a un Comprobante de Ingreso o de Egreso. Cree el comprobante desde el módulo correspondiente.');
+        }
+
         return DB::transaction(function () use ($store, $userId, $datos) {
             $bolsillo = Bolsillo::deTienda($store->id)
                 ->where('id', $datos['bolsillo_id'])
@@ -71,20 +77,13 @@ class CajaService
             }
 
             $mov = MovimientoBolsillo::create([
-                'store_id'                                => $store->id,
-                'bolsillo_id'                             => $bolsillo->id,
-                'invoice_id'                              => $datos['invoice_id'] ?? null,
-                'account_payable_payment_id'              => $datos['account_payable_payment_id'] ?? null,
-                'comprobante_egreso_id'                   => $datos['comprobante_egreso_id'] ?? null,
-                'comprobante_ingreso_id'                  => $datos['comprobante_ingreso_id'] ?? null,
-                'reversal_of_account_payable_payment_id'  => $datos['reversal_of_account_payable_payment_id'] ?? null,
-                'reversal_of_comprobante_egreso_id'       => $datos['reversal_of_comprobante_egreso_id'] ?? null,
-                'reversal_of_comprobante_ingreso_id'      => $datos['reversal_of_comprobante_ingreso_id'] ?? null,
-                'user_id'                                 => $userId,
-                'type'                                    => $datos['type'],
-                'amount'                                  => $datos['amount'],
-                'payment_method'                          => $datos['payment_method'] ?? null,
-                'description'                             => $datos['description'] ?? null,
+                'store_id'               => $store->id,
+                'bolsillo_id'            => $bolsillo->id,
+                'comprobante_egreso_id'   => $datos['comprobante_egreso_id'] ?? null,
+                'comprobante_ingreso_id'  => $datos['comprobante_ingreso_id'] ?? null,
+                'type'                   => $datos['type'],
+                'amount'                 => $datos['amount'],
+                'description'            => $datos['description'] ?? null,
             ]);
 
             if ($datos['type'] === MovimientoBolsillo::TYPE_INCOME) {
@@ -95,81 +94,6 @@ class CajaService
             $bolsillo->save();
 
             return $mov;
-        });
-    }
-
-    public function actualizarMovimiento(MovimientoBolsillo $movimiento, array $datos): MovimientoBolsillo
-    {
-        return DB::transaction(function () use ($movimiento, $datos) {
-            if (isset($datos['bolsillo_id']) && (int) $datos['bolsillo_id'] !== $movimiento->bolsillo_id) {
-                throw new Exception('No se puede cambiar el bolsillo de un movimiento.');
-            }
-
-            $bolsillo = $movimiento->bolsillo()->lockForUpdate()->first();
-            $nuevoTipo = $datos['type'] ?? $movimiento->type;
-            $nuevoMonto = (float) ($datos['amount'] ?? $movimiento->amount);
-
-            if ($nuevoTipo === MovimientoBolsillo::TYPE_EXPENSE) {
-                $saldoTemporal = (float) $bolsillo->saldo;
-                if ($movimiento->type === MovimientoBolsillo::TYPE_INCOME) {
-                    $saldoTemporal -= $movimiento->amount;
-                } else {
-                    $saldoTemporal += $movimiento->amount;
-                }
-                if ($saldoTemporal < $nuevoMonto) {
-                    throw new Exception('Fondos insuficientes. No se puede actualizar el movimiento.');
-                }
-            }
-
-            if ($movimiento->type === MovimientoBolsillo::TYPE_INCOME) {
-                $bolsillo->saldo -= $movimiento->amount;
-            } else {
-                $bolsillo->saldo += $movimiento->amount;
-            }
-
-            $movimiento->update([
-                'type'        => $nuevoTipo,
-                'amount'      => $nuevoMonto,
-                'description' => $datos['description'] ?? $movimiento->description,
-                'invoice_id'  => $datos['invoice_id'] ?? $movimiento->invoice_id,
-            ]);
-
-            if ($nuevoTipo === MovimientoBolsillo::TYPE_INCOME) {
-                $bolsillo->saldo += $nuevoMonto;
-            } else {
-                $bolsillo->saldo -= $nuevoMonto;
-            }
-            $bolsillo->save();
-
-            return $movimiento->fresh(['bolsillo', 'user', 'invoice']);
-        });
-    }
-
-    public function eliminarMovimiento(MovimientoBolsillo $movimiento): void
-    {
-        if ($movimiento->invoice_id) {
-            throw new Exception('No se puede eliminar este movimiento desde Caja. Está vinculado a una factura. Para reversar el cobro, hágalo desde el módulo de Facturación.');
-        }
-        if ($movimiento->account_payable_payment_id) {
-            throw new Exception('No se puede eliminar este movimiento desde Caja. Está vinculado a un pago de cuenta por pagar. Para reversar el pago, hágalo desde el detalle de la cuenta por pagar.');
-        }
-        if ($movimiento->reversal_of_account_payable_payment_id) {
-            throw new Exception('No se puede eliminar este movimiento. Es una reversa de pago. Para deshacer la reversa, contacte al administrador.');
-        }
-
-        DB::transaction(function () use ($movimiento) {
-            $bolsillo = $movimiento->bolsillo()->lockForUpdate()->first();
-
-            if ($movimiento->type === MovimientoBolsillo::TYPE_INCOME) {
-                $bolsillo->saldo -= $movimiento->amount;
-            } else {
-                $bolsillo->saldo += $movimiento->amount;
-            }
-            if ($bolsillo->saldo < 0) {
-                throw new Exception('No se puede eliminar este ingreso; el saldo quedaría negativo.');
-            }
-            $bolsillo->save();
-            $movimiento->delete();
         });
     }
 
@@ -188,7 +112,7 @@ class CajaService
     public function listarMovimientos(Store $store, array $filtros = []): \Illuminate\Contracts\Pagination\LengthAwarePaginator
     {
         $query = MovimientoBolsillo::deTienda($store->id)
-            ->with(['bolsillo:id,store_id,name,saldo,detalles', 'user:id,name', 'invoice:id,total'])
+            ->with(['bolsillo:id,store_id,name,saldo,detalles', 'comprobanteIngreso:id,number,user_id', 'comprobanteIngreso.user:id,name', 'comprobanteEgreso:id,number,user_id', 'comprobanteEgreso.user:id,name'])
             ->orderByDesc('created_at');
 
         if (!empty($filtros['bolsillo_id'])) {
