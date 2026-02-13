@@ -2,13 +2,16 @@
 
 namespace App\Livewire;
 
+use App\Models\ProductItem;
 use App\Models\Store;
 use App\Models\Product;
 use App\Models\Customer;
 use App\Services\CajaService;
 use App\Services\InvoiceService;
+use App\Services\VentaService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Livewire\Attributes\On;
 use Livewire\Component;
 
 class CreateInvoiceModal extends Component
@@ -24,10 +27,18 @@ class CreateInvoiceModal extends Component
     public array $clientesEncontrados = [];
     public ?array $clienteSeleccionado = null; // ['id' => X, 'name' => '...', 'document_number' => '...', ...]
 
-    // Productos
-    public array $productosSeleccionados = []; // [['product_id' => X, 'name' => '...', 'price' => Y, 'quantity' => Z, 'subtotal' => W], ...]
-    public string $busquedaProducto = '';
-    public array $productosEncontrados = [];
+    // Productos (cada ítem: product_id, name, price, quantity, subtotal; opcional: type, variant_display_name, variant_features, serial_numbers)
+    public array $productosSeleccionados = [];
+
+    /** Modal unidades serializadas (solo status AVAILABLE) */
+    public ?int $productoSerializadoId = null;
+    public string $productoSerializadoNombre = '';
+    public array $unidadesDisponibles = [];
+    public array $serialesSeleccionados = [];
+    public int $unidadesDisponiblesPage = 1;
+    public string $unidadesDisponiblesSearch = '';
+    public int $unidadesDisponiblesTotal = 0;
+    public int $unidadesDisponiblesPerPage = 15;
 
     // Descuentos
     public string $discountType = 'amount'; // 'amount' o 'percent'
@@ -158,8 +169,7 @@ class CreateInvoiceModal extends Component
         $this->clientesEncontrados = [];
         $this->clienteSeleccionado = null;
         $this->productosSeleccionados = [];
-        $this->busquedaProducto = '';
-        $this->productosEncontrados = [];
+        $this->cerrarModalUnidadesFactura();
         $this->discountType = 'amount';
         $this->discountValue = '0';
         $this->subtotal = 0;
@@ -334,86 +344,240 @@ class CreateInvoiceModal extends Component
         $this->clientesEncontrados = [];
     }
 
-    public function buscarProductos(InvoiceService $invoiceService)
+    /** Abre el modal de selección de producto (contexto factura). */
+    public function abrirSelectorProducto(): void
     {
-        if (empty($this->busquedaProducto)) {
-            $this->productosEncontrados = [];
-            return;
-        }
-
-        $store = $this->getStoreProperty();
-        if (!$store) {
-            return;
-        }
-
-        $this->productosEncontrados = $invoiceService->buscarProductos($store, $this->busquedaProducto)
-            ->map(function($product) {
-                return [
-                    'id' => $product->id,
-                    'name' => $product->name,
-                    'price' => (float)$product->price,
-                    'stock' => $product->stock,
-                    'barcode' => $product->barcode,
-                ];
-            })
-            ->toArray();
+        $this->dispatch('open-select-item-for-row', rowId: 'factura', itemType: 'INVENTARIO', productIdsInCartSimple: []);
     }
 
-    public function agregarProducto($productId)
+    /**
+     * Escucha selección desde SelectItemModal. rowId === 'factura' → simple / batch / serialized.
+     */
+    #[On('item-selected')]
+    public function onItemSelected($rowId, $id, $name, $type, $productType = null): void
     {
+        if ($rowId !== 'factura' || $type !== 'INVENTARIO') {
+            return;
+        }
+        $productType = $productType ?? 'simple';
         $store = $this->getStoreProperty();
-        if (!$store) {
+        if (! $store) {
             return;
         }
 
+        if ($productType === 'simple') {
+            $producto = Product::where('id', $id)->where('store_id', $store->id)->where('is_active', true)->first();
+            if (! $producto) {
+                return;
+            }
+            $ventaService = app(VentaService::class);
+            $precio = $ventaService->verPrecio($store, (int) $producto->id, 'simple');
+            $this->productosSeleccionados[] = [
+                'product_id' => $producto->id,
+                'name' => $producto->name,
+                'price' => (float) $precio,
+                'quantity' => 1,
+                'subtotal' => (float) $precio,
+                'type' => 'simple',
+            ];
+            $this->calcularTotales();
+        } elseif ($productType === 'batch') {
+            $this->dispatch('open-select-batch-variant', productId: $id, rowId: 'factura', productName: $name, variantKeysInCart: $this->getVariantKeysInFacturaParaProducto((int) $id));
+        } else {
+            $this->abrirModalUnidadesFactura((int) $id);
+        }
+    }
+
+    /**
+     * Escucha selección de variante (lote). Añade una línea a la factura.
+     */
+    #[On('batch-variant-selected')]
+    public function onBatchVariantSelected($rowId, $productId, $productName, $variantFeatures, $displayName, $totalStock = 0): void
+    {
+        if ($rowId !== 'factura') {
+            return;
+        }
+        $store = $this->getStoreProperty();
+        if (! $store) {
+            return;
+        }
+        $producto = Product::where('id', $productId)->where('store_id', $store->id)->first();
+        if (! $producto) {
+            return;
+        }
+        $variantFeatures = is_array($variantFeatures) ? $variantFeatures : [];
+        $ventaService = app(VentaService::class);
+        $precio = $ventaService->verPrecio($store, (int) $productId, 'batch', $variantFeatures);
+        $this->productosSeleccionados[] = [
+            'product_id' => (int) $productId,
+            'name' => $productName,
+            'price' => (float) $precio,
+            'quantity' => 1,
+            'subtotal' => (float) $precio,
+            'type' => 'batch',
+            'variant_features' => $variantFeatures,
+            'variant_display_name' => $displayName ?? '',
+        ];
+        $this->calcularTotales();
+    }
+
+    /** Claves de variante ya en la factura para este producto (evitar duplicar en selector). */
+    protected function getVariantKeysInFacturaParaProducto(int $productId): array
+    {
+        $keys = [];
+        foreach ($this->productosSeleccionados as $item) {
+            if ((int) ($item['product_id'] ?? 0) !== $productId) {
+                continue;
+            }
+            if (empty($item['variant_features']) || ! is_array($item['variant_features'])) {
+                continue;
+            }
+            $keys[] = \App\Services\InventarioService::detectorDeVariantesEnLotes($item['variant_features']);
+        }
+        return array_values(array_unique($keys));
+    }
+
+    /** Abre el modal de unidades disponibles para un producto serializado (solo status AVAILABLE). */
+    public function abrirModalUnidadesFactura(int $productId): void
+    {
+        $this->serialesSeleccionados = [];
+        $this->unidadesDisponiblesSearch = '';
+        $this->unidadesDisponiblesPage = 1;
+        $store = $this->getStoreProperty();
+        if (! $store) {
+            return;
+        }
         $producto = Product::where('id', $productId)
             ->where('store_id', $store->id)
             ->where('is_active', true)
             ->first();
-
-        if (!$producto) {
-            $this->addError('busquedaProducto', 'Producto no encontrado.');
+        if (! $producto || ! $producto->isSerialized()) {
             return;
         }
+        $this->productoSerializadoId = $producto->id;
+        $this->productoSerializadoNombre = $producto->name;
+        $this->cargarPaginaUnidadesDisponiblesFactura();
+    }
 
-        // Verificar si el producto ya está en la lista
-        $existe = false;
-        foreach ($this->productosSeleccionados as $key => $item) {
-            if ($item['product_id'] == $productId) {
-                // Incrementar cantidad
-                $this->productosSeleccionados[$key]['quantity']++;
-                $this->productosSeleccionados[$key]['subtotal'] = 
-                    $this->productosSeleccionados[$key]['price'] * $this->productosSeleccionados[$key]['quantity'];
-                $existe = true;
-                break;
+    /** Seriales ya en la factura para este producto (no mostrarlos de nuevo). */
+    protected function getSerialesEnFacturaParaProducto(int $productId): array
+    {
+        $serials = [];
+        foreach ($this->productosSeleccionados as $item) {
+            if ((int) ($item['product_id'] ?? 0) !== $productId) {
+                continue;
+            }
+            foreach ($item['serial_numbers'] ?? [] as $sn) {
+                $serials[] = $sn;
             }
         }
+        return array_values(array_unique($serials));
+    }
 
-        if (!$existe) {
-            // Agregar nuevo producto
+    /** Carga unidades disponibles: solo status AVAILABLE. */
+    public function cargarPaginaUnidadesDisponiblesFactura(): void
+    {
+        $store = $this->getStoreProperty();
+        if (! $store || $this->productoSerializadoId === null) {
+            return;
+        }
+        $enFactura = $this->getSerialesEnFacturaParaProducto($this->productoSerializadoId);
+        $query = ProductItem::where('store_id', $store->id)
+            ->where('product_id', $this->productoSerializadoId)
+            ->where('status', ProductItem::STATUS_AVAILABLE);
+        if (! empty($enFactura)) {
+            $query->whereNotIn('serial_number', $enFactura);
+        }
+        $search = trim($this->unidadesDisponiblesSearch);
+        if ($search !== '') {
+            $query->where('serial_number', 'like', '%' . $search . '%');
+        }
+        $this->unidadesDisponiblesTotal = $query->count();
+        $this->unidadesDisponibles = $query->orderBy('serial_number')
+            ->offset(($this->unidadesDisponiblesPage - 1) * $this->unidadesDisponiblesPerPage)
+            ->limit($this->unidadesDisponiblesPerPage)
+            ->get()
+            ->map(fn (ProductItem $item) => [
+                'id' => $item->id,
+                'serial_number' => $item->serial_number,
+                'features' => $item->features,
+            ])
+            ->values()
+            ->toArray();
+    }
+
+    public function irAPaginaUnidadesFactura(int $page): void
+    {
+        $maxPage = (int) max(1, ceil($this->unidadesDisponiblesTotal / $this->unidadesDisponiblesPerPage));
+        $this->unidadesDisponiblesPage = max(1, min($page, $maxPage));
+        $this->cargarPaginaUnidadesDisponiblesFactura();
+    }
+
+    public function updatedUnidadesDisponiblesSearch(): void
+    {
+        $this->unidadesDisponiblesPage = 1;
+        $this->cargarPaginaUnidadesDisponiblesFactura();
+    }
+
+    public function cerrarModalUnidadesFactura(): void
+    {
+        $this->productoSerializadoId = null;
+        $this->productoSerializadoNombre = '';
+        $this->unidadesDisponibles = [];
+        $this->serialesSeleccionados = [];
+        $this->unidadesDisponiblesPage = 1;
+        $this->unidadesDisponiblesSearch = '';
+        $this->unidadesDisponiblesTotal = 0;
+    }
+
+    /** Agrega a la factura las unidades serializadas seleccionadas (solo vista; una línea por serie). */
+    public function agregarSerializadosAFactura(): void
+    {
+        if ($this->productoSerializadoId === null || empty($this->serialesSeleccionados)) {
+            $this->cerrarModalUnidadesFactura();
+            return;
+        }
+        $store = $this->getStoreProperty();
+        if (! $store) {
+            $this->cerrarModalUnidadesFactura();
+            return;
+        }
+        $producto = Product::where('id', $this->productoSerializadoId)->where('store_id', $store->id)->first();
+        if (! $producto) {
+            $this->cerrarModalUnidadesFactura();
+            return;
+        }
+        $ventaService = app(VentaService::class);
+        $serialNumbers = array_values(array_filter(array_map('trim', $this->serialesSeleccionados)));
+        foreach ($serialNumbers as $serial) {
+            $precio = $ventaService->verPrecio($store, $this->productoSerializadoId, 'serialized', null, [$serial]);
             $this->productosSeleccionados[] = [
-                'product_id' => $producto->id,
+                'product_id' => $this->productoSerializadoId,
                 'name' => $producto->name,
-                'price' => (float)$producto->price,
+                'price' => (float) $precio,
                 'quantity' => 1,
-                'subtotal' => (float)$producto->price,
+                'subtotal' => (float) $precio,
+                'type' => 'serialized',
+                'serial_numbers' => [$serial],
             ];
         }
-
-        $this->busquedaProducto = '';
-        $this->productosEncontrados = [];
+        $this->cerrarModalUnidadesFactura();
         $this->calcularTotales();
     }
 
     public function actualizarCantidad($index, $cantidad)
     {
-        if (isset($this->productosSeleccionados[$index])) {
-            $cantidad = max(1, (int)$cantidad); // Mínimo 1
-            $this->productosSeleccionados[$index]['quantity'] = $cantidad;
-            $this->productosSeleccionados[$index]['subtotal'] = 
-                $this->productosSeleccionados[$index]['price'] * $cantidad;
-            $this->calcularTotales();
+        if (! isset($this->productosSeleccionados[$index])) {
+            return;
         }
+        if (($this->productosSeleccionados[$index]['type'] ?? 'simple') === 'serialized') {
+            return; // Cantidad fija 1 por serie
+        }
+        $cantidad = max(1, (int) $cantidad);
+        $this->productosSeleccionados[$index]['quantity'] = $cantidad;
+        $this->productosSeleccionados[$index]['subtotal'] =
+            $this->productosSeleccionados[$index]['price'] * $cantidad;
+        $this->calcularTotales();
     }
 
     public function eliminarProducto($index)

@@ -1,5 +1,5 @@
 <div>
-    <x-modal name="select-batch-variant" focusable maxWidth="2xl">
+    <x-modal name="select-batch-variant" focusable maxWidth="2xl" :zIndex="100">
         <div class="p-6 bg-white dark:bg-gray-800 rounded-lg">
             <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">
                 Seleccionar Variante

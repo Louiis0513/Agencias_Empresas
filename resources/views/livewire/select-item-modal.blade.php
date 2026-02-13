@@ -1,5 +1,5 @@
 <div>
-    <x-modal name="select-item-compra" focusable maxWidth="4xl">
+    <x-modal name="select-item-compra" focusable maxWidth="4xl" :zIndex="100">
         <div class="p-6">
             <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">
                 Seleccionar {{ $itemType === 'INVENTARIO' ? 'Producto (Inventario)' : 'Activo Fijo' }}

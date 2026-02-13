@@ -86,56 +86,18 @@
                     <x-input-error :messages="$errors->get('customer_id')" class="mt-1" />
                 </div>
 
-                {{-- Búsqueda de Productos --}}
+                {{-- Productos: selector por modal (simple / lote / serializado) --}}
                 <div>
-                    <x-input-label for="busquedaProducto" value="{{ __('Buscar Producto') }}" />
-                    <div class="mt-1 flex gap-2">
-                        <input type="text" 
-                               wire:model="busquedaProducto" 
-                               id="busquedaProducto" 
-                               class="flex-1 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500" 
-                               placeholder="ID, nombre o código de barras">
-                        <button type="button" 
-                                wire:click="buscarProductos" 
-                                class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
-                            Buscar
-                        </button>
-                    </div>
-                    <x-input-error :messages="$errors->get('busquedaProducto')" class="mt-1" />
-
-                    {{-- Resultados de búsqueda --}}
-                    @if(count($productosEncontrados) > 0)
-                        <div class="mt-2 border border-gray-200 dark:border-gray-700 rounded-md max-h-48 overflow-y-auto">
-                            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                                <thead class="bg-gray-50 dark:bg-gray-900">
-                                    <tr>
-                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Producto</th>
-                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Precio</th>
-                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Stock</th>
-                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Acción</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                                    @foreach($productosEncontrados as $producto)
-                                        <tr>
-                                            <td class="px-3 py-2 text-sm text-gray-900 dark:text-gray-100">{{ $producto['name'] }}</td>
-                                            <td class="px-3 py-2 text-sm text-gray-900 dark:text-gray-100">${{ number_format($producto['price'], 2) }}</td>
-                                            <td class="px-3 py-2 text-sm text-gray-900 dark:text-gray-100">{{ $producto['stock'] ?? 'N/A' }}</td>
-                                            <td class="px-3 py-2 text-sm">
-                                                <button type="button" 
-                                                        wire:click="agregarProducto({{ $producto['id'] }})"
-                                                        class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300">
-                                                    Agregar
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                    @elseif(!empty($busquedaProducto))
-                        <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">No se encontraron productos.</p>
-                    @endif
+                    <x-input-label value="{{ __('Productos en la Factura') }}" />
+                    <button type="button"
+                            wire:click="abrirSelectorProducto"
+                            class="mt-1 inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 focus:bg-indigo-700 active:bg-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                        </svg>
+                        Agregar producto
+                    </button>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Abre el selector para elegir producto (simple, por variante o por serie).</p>
                 </div>
 
                 {{-- Productos Seleccionados --}}
@@ -156,14 +118,26 @@
                                 <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                                     @foreach($productosSeleccionados as $index => $producto)
                                         <tr>
-                                            <td class="px-3 py-2 text-sm text-gray-900 dark:text-gray-100">{{ $producto['name'] }}</td>
+                                            <td class="px-3 py-2 text-sm text-gray-900 dark:text-gray-100">
+                                                {{ $producto['name'] }}
+                                                @if(!empty($producto['variant_display_name']))
+                                                    <span class="text-gray-500 dark:text-gray-400"> — {{ $producto['variant_display_name'] }}</span>
+                                                @endif
+                                                @if(!empty($producto['serial_numbers']) && is_array($producto['serial_numbers']))
+                                                    <span class="text-gray-500 dark:text-gray-400 block text-xs mt-0.5">Serie(s): {{ implode(', ', $producto['serial_numbers']) }}</span>
+                                                @endif
+                                            </td>
                                             <td class="px-3 py-2 text-sm text-gray-900 dark:text-gray-100">${{ number_format($producto['price'], 2) }}</td>
                                             <td class="px-3 py-2 text-sm">
-                                                <input type="number" 
-                                                       wire:change="actualizarCantidad({{ $index }}, $event.target.value)"
-                                                       value="{{ $producto['quantity'] }}" 
-                                                       min="1" 
-                                                       class="w-20 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                                                @if(($producto['type'] ?? 'simple') === 'serialized')
+                                                    <span class="text-gray-700 dark:text-gray-300">{{ $producto['quantity'] }}</span>
+                                                @else
+                                                    <input type="number"
+                                                           wire:change="actualizarCantidad({{ $index }}, $event.target.value)"
+                                                           value="{{ $producto['quantity'] }}"
+                                                           min="1"
+                                                           class="w-20 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                                                @endif
                                             </td>
                                             <td class="px-3 py-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
                                                 ${{ number_format($producto['subtotal'], 2) }}
@@ -368,4 +342,104 @@
             </div>
         </form>
     </x-modal>
+
+    {{-- Modal: Unidades disponibles (producto serializado) — solo status AVAILABLE --}}
+    @if($productoSerializadoId !== null)
+        @php
+            $totalUnidades = $unidadesDisponiblesTotal;
+            $perPage = $unidadesDisponiblesPerPage ?: 15;
+            $maxPage = $totalUnidades > 0 ? (int) ceil($totalUnidades / $perPage) : 1;
+            $from = $totalUnidades === 0 ? 0 : ($unidadesDisponiblesPage - 1) * $perPage + 1;
+            $to = min($unidadesDisponiblesPage * $perPage, $totalUnidades);
+        @endphp
+        <div class="fixed inset-0 overflow-y-auto" style="z-index: 100;" aria-modal="true">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="fixed inset-0 bg-gray-500/75 dark:bg-gray-900/75 transition-opacity" wire:click="cerrarModalUnidadesFactura"></div>
+                <div class="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] flex flex-col">
+                    <div class="p-4 border-b border-gray-200 dark:border-gray-600">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Seleccionar unidades — {{ $productoSerializadoNombre }}</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Solo se muestran unidades con estado <strong>Disponible</strong>. Elige las que quieras agregar a la factura.</p>
+                        <div class="mt-3">
+                            <label for="modal-factura-buscar-serie" class="sr-only">Buscar por número de serie</label>
+                            <input type="text"
+                                   id="modal-factura-buscar-serie"
+                                   wire:model.live.debounce.400ms="unidadesDisponiblesSearch"
+                                   placeholder="Buscar por número de serie..."
+                                   class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 text-sm shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                    </div>
+                    <div class="p-4 overflow-y-auto flex-1">
+                        @if(count($unidadesDisponibles) > 0)
+                            <ul class="space-y-2">
+                                @foreach($unidadesDisponibles as $unit)
+                                    <li class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                        <input type="checkbox"
+                                               id="factura-serial-{{ $unit['id'] }}"
+                                               wire:model.live="serialesSeleccionados"
+                                               value="{{ $unit['serial_number'] }}"
+                                               class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500">
+                                        <label for="factura-serial-{{ $unit['id'] }}" class="flex-1 text-sm text-gray-900 dark:text-gray-100 cursor-pointer">
+                                            <span class="font-medium">{{ $unit['serial_number'] }}</span>
+                                            @if(!empty($unit['features']) && is_array($unit['features']))
+                                                <span class="text-gray-500 dark:text-gray-400 ml-2">— {{ implode(', ', array_map(fn($k, $v) => "{$k}: {$v}", array_keys($unit['features']), $unit['features'])) }}</span>
+                                            @endif
+                                        </label>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        @else
+                            <p class="text-sm text-gray-500 dark:text-gray-400">
+                                @if(!empty(trim($unidadesDisponiblesSearch)))
+                                    No hay unidades con ese número de serie.
+                                @else
+                                    No hay unidades disponibles (estado Disponible) en este momento.
+                                @endif
+                            </p>
+                        @endif
+                    </div>
+                    @if($totalUnidades > 0)
+                        <div class="px-4 py-2 border-t border-gray-200 dark:border-gray-600 flex items-center justify-between gap-2 flex-wrap">
+                            <p class="text-xs text-gray-500 dark:text-gray-400">
+                                Mostrando {{ $from }}-{{ $to }} de {{ $totalUnidades }}
+                            </p>
+                            <div class="flex items-center gap-1">
+                                <button type="button"
+                                        wire:click="irAPaginaUnidadesFactura({{ $unidadesDisponiblesPage - 1 }})"
+                                        @if($unidadesDisponiblesPage <= 1) disabled @endif
+                                        class="px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700">
+                                    Anterior
+                                </button>
+                                @for($p = max(1, $unidadesDisponiblesPage - 2); $p <= min($maxPage, $unidadesDisponiblesPage + 2); $p++)
+                                    <button type="button"
+                                            wire:click="irAPaginaUnidadesFactura({{ $p }})"
+                                            class="px-2 py-1 text-sm rounded {{ $p === $unidadesDisponiblesPage ? 'bg-indigo-600 text-white' : 'border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700' }}">
+                                        {{ $p }}
+                                    </button>
+                                @endfor
+                                <button type="button"
+                                        wire:click="irAPaginaUnidadesFactura({{ $unidadesDisponiblesPage + 1 }})"
+                                        @if($unidadesDisponiblesPage >= $maxPage) disabled @endif
+                                        class="px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700">
+                                    Siguiente
+                                </button>
+                            </div>
+                        </div>
+                    @endif
+                    <div class="p-4 border-t border-gray-200 dark:border-gray-600 flex justify-end gap-2">
+                        <button type="button"
+                                wire:click="cerrarModalUnidadesFactura"
+                                class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+                            Cerrar
+                        </button>
+                        <button type="button"
+                                wire:click="agregarSerializadosAFactura"
+                                class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+                                @if(empty($serialesSeleccionados)) disabled @endif>
+                            Agregar a la factura ({{ count($serialesSeleccionados) }})
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
 </div>

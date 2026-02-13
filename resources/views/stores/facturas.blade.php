@@ -10,6 +10,8 @@
         </div>
     </x-slot>
 
+    @livewire('select-item-modal', ['storeId' => $store->id, 'itemType' => 'INVENTARIO', 'rowId' => 'factura'])
+    @livewire('select-batch-variant-modal', ['storeId' => $store->id])
     <livewire:create-invoice-modal :store-id="$store->id" />
 
     <div class="py-12">
