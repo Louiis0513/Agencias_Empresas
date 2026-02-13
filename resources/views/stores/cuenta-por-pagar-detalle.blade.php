@@ -77,15 +77,19 @@
                                 </div>
                                 <div class="mb-4">
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Partes del Pago (puede ser de uno o varios bolsillos)</label>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Puede indicar una referencia por línea (ej. caja menor, transferencia, cheque).</p>
                                     <div id="payment-parts">
-                                        <div class="flex gap-2 mb-2">
-                                            <select name="parts[0][bolsillo_id]" class="flex-1 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" required>
-                                                <option value="">Seleccionar bolsillo</option>
-                                                @foreach($bolsillos as $b)
-                                                    <option value="{{ $b->id }}">{{ $b->name }} ({{ number_format($b->saldo, 2) }})</option>
-                                                @endforeach
-                                            </select>
-                                            <input type="number" name="parts[0][amount]" step="0.01" min="0.01" placeholder="Monto" class="w-32 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" required>
+                                        <div class="payment-part-row flex flex-wrap items-end gap-2 mb-2">
+                                            <div class="flex-1 min-w-[140px]">
+                                                <select name="parts[0][bolsillo_id]" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" required>
+                                                    <option value="">Seleccionar bolsillo</option>
+                                                    @foreach($bolsillos as $b)
+                                                        <option value="{{ $b->id }}">{{ $b->name }} ({{ number_format($b->saldo, 2) }})</option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                            <input type="number" name="parts[0][amount]" step="0.01" min="0.01" placeholder="Monto" class="w-28 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" required>
+                                            <input type="text" name="parts[0][reference]" class="w-40 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" placeholder="Ref. (opcional)" maxlength="100">
                                         </div>
                                     </div>
                                     <button type="button" id="add-part" class="text-sm text-indigo-600 hover:text-indigo-800">+ Agregar otro bolsillo</button>
@@ -144,21 +148,31 @@
     </div>
 
     @if(!$accountPayable->isPagado())
+    @php
+        $bolsillosForJs = $bolsillos->map(fn($b) => [
+            'id' => $b->id,
+            'name' => $b->name,
+            'saldo' => $b->saldo,
+        ])->values()->all();
+    @endphp
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             let partIndex = 1;
             const container = document.getElementById('payment-parts');
-            const bolsillos = @json($bolsillos->map(fn($b) => ['id' => $b->id, 'name' => $b->name, 'saldo' => $b->saldo]));
+            const bolsillos = @json($bolsillosForJs);
 
             document.getElementById('add-part').addEventListener('click', function() {
                 const div = document.createElement('div');
-                div.className = 'flex gap-2 mb-2';
+                div.className = 'payment-part-row flex flex-wrap items-end gap-2 mb-2';
                 div.innerHTML = `
-                    <select name="parts[${partIndex}][bolsillo_id]" class="flex-1 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" required>
-                        <option value="">Seleccionar bolsillo</option>
-                        ${bolsillos.map(b => `<option value="${b.id}">${b.name} (${parseFloat(b.saldo).toFixed(2)})</option>`).join('')}
-                    </select>
-                    <input type="number" name="parts[${partIndex}][amount]" step="0.01" min="0.01" placeholder="Monto" class="w-32 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" required>
+                    <div class="flex-1 min-w-[140px]">
+                        <select name="parts[${partIndex}][bolsillo_id]" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" required>
+                            <option value="">Seleccionar bolsillo</option>
+                            ${bolsillos.map(b => `<option value="${b.id}">${b.name} (${parseFloat(b.saldo).toFixed(2)})</option>`).join('')}
+                        </select>
+                    </div>
+                    <input type="number" name="parts[${partIndex}][amount]" step="0.01" min="0.01" placeholder="Monto" class="w-28 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" required>
+                    <input type="text" name="parts[${partIndex}][reference]" class="w-40 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" placeholder="Ref. (opcional)" maxlength="100">
                 `;
                 container.appendChild(div);
                 partIndex++;

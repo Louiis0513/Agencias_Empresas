@@ -19,6 +19,11 @@ class CajaService
         return (float) Bolsillo::deTienda($store->id)->sum('saldo');
     }
 
+    /**
+     * Crea un bolsillo con saldo inicial 0.
+     * Si se desea saldo inicial, el caller debe crear un Comprobante de Ingreso
+     * con destino a este bolsillo (ej. "Saldo inicial desde creación del bolsillo") para trazabilidad.
+     */
     public function crearBolsillo(Store $store, array $datos): Bolsillo
     {
         $this->validarNombreBolsilloUnico($store->id, $datos['name']);
@@ -28,7 +33,7 @@ class CajaService
                 'store_id'         => $store->id,
                 'name'             => $datos['name'],
                 'detalles'         => $datos['detalles'] ?? null,
-                'saldo'            => (float) ($datos['saldo'] ?? 0),
+                'saldo'            => 0,
                 'is_bank_account'  => (bool) ($datos['is_bank_account'] ?? false),
                 'is_active'        => (bool) ($datos['is_active'] ?? true),
             ]);

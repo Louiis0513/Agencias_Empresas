@@ -25,7 +25,7 @@
                 <div>
                     <x-input-label for="saldo" value="{{ __('Saldo inicial') }}" />
                     <x-text-input wire:model="saldo" id="saldo" class="block mt-1 w-full" type="number" step="0.01" min="0" placeholder="0.00" />
-                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Opcional. Luego se actualiza con movimientos (ingresos/egresos).</p>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Opcional. Si indica un monto, se creará un Comprobante de ingreso "Saldo inicial desde creación del bolsillo" para trazabilidad.</p>
                     <x-input-error :messages="$errors->get('saldo')" class="mt-1" />
                 </div>
 

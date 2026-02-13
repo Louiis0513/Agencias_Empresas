@@ -1033,14 +1033,28 @@ class StoreController extends Controller
             'is_active' => ['nullable', 'boolean'],
         ]);
         try {
-            $cajaService->crearBolsillo($store, [
+            $bolsillo = $cajaService->crearBolsillo($store, [
                 'name' => $request->input('name'),
                 'detalles' => $request->input('detalles'),
-                'saldo' => (float) ($request->input('saldo') ?? 0),
                 'is_bank_account' => (bool) $request->input('is_bank_account', false),
                 'is_active' => (bool) $request->input('is_active', true),
             ]);
-            return redirect()->route('stores.cajas', $store)->with('success', 'Bolsillo creado correctamente.');
+
+            $saldoInicial = (float) ($request->input('saldo') ?? 0);
+            if ($saldoInicial > 0) {
+                $comprobanteIngresoService = app(\App\Services\ComprobanteIngresoService::class);
+                $comprobanteIngresoService->crearComprobante($store, Auth::id(), [
+                    'date' => now()->toDateString(),
+                    'notes' => 'Saldo inicial desde creación del bolsillo "' . $bolsillo->name . '"',
+                    'destinos' => [
+                        ['bolsillo_id' => $bolsillo->id, 'amount' => $saldoInicial],
+                    ],
+                ]);
+            }
+
+            return redirect()->route('stores.cajas', $store)->with('success', $saldoInicial > 0
+                ? 'Bolsillo creado correctamente. Se registró un comprobante de ingreso por el saldo inicial.'
+                : 'Bolsillo creado correctamente.');
         } catch (\Exception $e) {
             return redirect()->route('stores.cajas', $store)->with('error', $e->getMessage());
         }
@@ -2008,6 +2022,7 @@ class StoreController extends Controller
             'parts' => ['required', 'array', 'min:1'],
             'parts.*.bolsillo_id' => ['required', 'exists:bolsillos,id'],
             'parts.*.amount' => ['required', 'numeric', 'min:0.01'],
+            'parts.*.reference' => ['nullable', 'string', 'max:100'],
         ]);
 
         try {
@@ -2146,13 +2161,8 @@ class StoreController extends Controller
         session(['current_store_id' => $store->id]);
 
         $bolsillos = \App\Models\Bolsillo::deTienda($store->id)->activos()->orderBy('name')->get();
-        $cuentasPendientes = \App\Models\AccountReceivable::deTienda($store->id)
-            ->whereIn('status', [\App\Models\AccountReceivable::STATUS_PENDIENTE, \App\Models\AccountReceivable::STATUS_PARCIAL])
-            ->with(['invoice', 'customer'])
-            ->orderBy('created_at')
-            ->get();
 
-        return view('stores.comprobante-ingreso-crear', compact('store', 'bolsillos', 'cuentasPendientes'));
+        return view('stores.comprobante-ingreso-crear', compact('store', 'bolsillos'));
     }
 
     public function storeComprobanteIngreso(Store $store, Request $request, \App\Services\ComprobanteIngresoService $comprobanteIngresoService)
@@ -2164,44 +2174,23 @@ class StoreController extends Controller
         $request->validate([
             'date' => ['required', 'date'],
             'notes' => ['nullable', 'string', 'max:500'],
-            'type' => ['required', 'in:INGRESO_MANUAL,COBRO_CUENTA'],
-            'account_receivable_id' => ['nullable', 'required_if:type,COBRO_CUENTA', 'exists:accounts_receivable,id'],
-            'amount' => ['nullable', 'required_if:type,COBRO_CUENTA', 'numeric', 'min:0.01'],
             'parts' => ['required', 'array', 'min:1'],
             'parts.*.bolsillo_id' => ['required', 'exists:bolsillos,id'],
-            'parts.*.amount' => ['required', 'numeric', 'min:0'],
+            'parts.*.amount' => ['required', 'numeric', 'min:0.01'],
+            'parts.*.reference' => ['nullable', 'string', 'max:100'],
         ]);
 
-        $amount = (float) ($request->input('amount') ?? 0);
         $parts = $request->input('parts', []);
         $sumaPartes = collect($parts)->sum(fn ($p) => (float) ($p['amount'] ?? 0));
-
-        if ($request->input('type') === 'COBRO_CUENTA') {
-            if (abs($sumaPartes - $amount) > 0.01) {
-                return redirect()->back()->withInput()->with('error', 'La suma de los bolsillos debe coincidir con el monto a cobrar.');
-            }
-            $ar = \App\Models\AccountReceivable::where('id', $request->account_receivable_id)->where('store_id', $store->id)->firstOrFail();
-            if ($amount > (float) $ar->balance) {
-                return redirect()->back()->withInput()->with('error', 'El monto no puede ser mayor al saldo pendiente de la cuenta.');
-            }
-            $data = [
-                'date' => $request->date,
-                'notes' => $request->notes,
-                'type' => 'COBRO_CUENTA',
-                'aplicaciones' => [['account_receivable_id' => $ar->id, 'amount' => $amount]],
-                'destinos' => collect($parts)->map(fn ($p) => ['bolsillo_id' => $p['bolsillo_id'], 'amount' => (float) $p['amount'], 'reference' => $p['reference'] ?? null])->filter(fn ($d) => $d['amount'] > 0)->values()->all(),
-            ];
-        } else {
-            if ($sumaPartes <= 0) {
-                return redirect()->back()->withInput()->with('error', 'Indique al menos un bolsillo con monto mayor a cero.');
-            }
-            $data = [
-                'date' => $request->date,
-                'notes' => $request->notes,
-                'type' => 'INGRESO_MANUAL',
-                'destinos' => collect($parts)->map(fn ($p) => ['bolsillo_id' => $p['bolsillo_id'], 'amount' => (float) $p['amount'], 'reference' => $p['reference'] ?? null])->filter(fn ($d) => $d['amount'] > 0)->values()->all(),
-            ];
+        if ($sumaPartes <= 0) {
+            return redirect()->back()->withInput()->with('error', 'Indique al menos un bolsillo con monto mayor a cero.');
         }
+
+        $data = [
+            'date' => $request->date,
+            'notes' => $request->notes,
+            'destinos' => collect($parts)->map(fn ($p) => ['bolsillo_id' => $p['bolsillo_id'], 'amount' => (float) $p['amount'], 'reference' => $p['reference'] ?? null])->filter(fn ($d) => $d['amount'] > 0)->values()->all(),
+        ];
 
         try {
             $comprobante = $comprobanteIngresoService->crearComprobante($store, Auth::id(), $data);
@@ -2255,40 +2244,8 @@ class StoreController extends Controller
         session(['current_store_id' => $store->id]);
 
         $bolsillos = \App\Models\Bolsillo::deTienda($store->id)->activos()->orderBy('name')->get();
-        $proveedores = \App\Models\Proveedor::deTienda($store->id)->activos()->orderBy('nombre')->get(['id', 'nombre']);
 
-        // Reconstruir cuentas seleccionadas cuando hay error de validación (old input)
-        $cuentasSeleccionadasInit = [];
-        $proveedorIdInit = null;
-        $oldDestinos = old('destinos', []);
-        $destinosConFactura = array_values(array_filter($oldDestinos, fn ($d) => ! empty($d['account_payable_id'] ?? null)));
-        if (! empty($destinosConFactura)) {
-            $ids = array_column($destinosConFactura, 'account_payable_id');
-            $cuentas = \App\Models\AccountPayable::deTienda($store->id)
-                ->whereIn('id', $ids)
-                ->with(['purchase.proveedor'])
-                ->get()
-                ->keyBy('id');
-            foreach ($destinosConFactura as $d) {
-                $ap = $cuentas->get($d['account_payable_id']);
-                if ($ap) {
-                    $cuentasSeleccionadasInit[] = [
-                        'id' => $ap->id,
-                        'purchase_id' => $ap->purchase_id,
-                        'balance' => (float) $ap->balance,
-                        'due_date' => $ap->due_date?->format('Y-m-d'),
-                        'amount' => (float) ($d['amount'] ?? $ap->balance),
-                    ];
-                }
-            }
-            // Usar proveedor de la primera factura (puede ser null para "Sin proveedor")
-            $primera = $cuentas->first();
-            $proveedorIdInit = $primera?->purchase?->proveedor_id;
-        } else {
-            $proveedorIdInit = old('proveedor_id');
-        }
-
-        return view('stores.comprobante-egreso-crear', compact('store', 'bolsillos', 'proveedores', 'cuentasSeleccionadasInit', 'proveedorIdInit'));
+        return view('stores.comprobante-egreso-crear', compact('store', 'bolsillos'));
     }
 
     public function cuentasPorPagarProveedor(Request $request, Store $store, AccountPayableService $accountPayableService, StorePermissionService $permission)
