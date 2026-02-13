@@ -1958,6 +1958,11 @@ class StoreController extends Controller
             $purchase->refresh();
             $route = $purchase->isProducto() ? 'stores.purchases.show' : 'stores.purchases.show';
             return redirect()->route($route, [$store, $purchase])->with('success', 'Compra aprobada. Inventario actualizado.');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $purchase->refresh();
+            $route = $purchase->isProducto() ? 'stores.purchases.show' : 'stores.purchases.show';
+            $message = $e->validator->errors()->first();
+            return redirect()->route($route, [$store, $purchase])->with('error', $message);
         } catch (\Exception $e) {
             // Recargar la compra para obtener el tipo actualizado
             $purchase->refresh();

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\AccountPayable;
 use App\Models\Activo;
 use App\Models\BatchItem;
+use App\Models\ProductItem;
 use App\Models\Purchase;
 use App\Models\PurchaseDetail;
 use App\Models\Store;
@@ -381,6 +382,8 @@ class PurchaseService
             }
         }
 
+        // Validar seriales de productos serializados: sin duplicados en la compra y sin repetir seriales ya en inventario
+        $serialsByProduct = [];
         foreach ($details as $detail) {
             if ($detail->isInventario() && $detail->product_id) {
                 $product = $detail->product;
@@ -392,8 +395,48 @@ class PurchaseService
                     if (empty($serialItems) || ! is_array($serialItems)) {
                         throw new Exception("El producto «{$product->name}» es serializado. La compra debe incluir los números de serie por unidad. Edita la compra y añade las unidades con su serial.");
                     }
+                    $productKey = (int) $detail->product_id;
+                    if (! isset($serialsByProduct[$productKey])) {
+                        $serialsByProduct[$productKey] = ['product' => $product, 'serials' => []];
+                    }
+                    foreach ($serialItems as $row) {
+                        $serial = trim($row['serial_number'] ?? '');
+                        if ($serial !== '') {
+                            $serialsByProduct[$productKey]['serials'][] = $serial;
+                        }
+                    }
                 }
             }
+        }
+        foreach ($serialsByProduct as $productId => $data) {
+            $product = $data['product'];
+            $serials = $data['serials'];
+            $seen = [];
+            foreach ($serials as $serial) {
+                if (isset($seen[$serial])) {
+                    $validator = Validator::make([], []);
+                    $validator->errors()->add(
+                        'serial_items',
+                        "Número de serie duplicado en la compra: «{$serial}» (producto: {$product->name}). Corrige los seriales antes de aprobar."
+                    );
+                    throw new ValidationException($validator);
+                }
+                $seen[$serial] = true;
+                if (ProductItem::where('store_id', $store->id)
+                    ->where('product_id', $product->id)
+                    ->where('serial_number', $serial)
+                    ->exists()) {
+                    $validator = Validator::make([], []);
+                    $validator->errors()->add(
+                        'serial_items',
+                        "El número de serie «{$serial}» ya existe en el inventario (producto: {$product->name}). No se puede aprobar la compra hasta corregirlo."
+                    );
+                    throw new ValidationException($validator);
+                }
+            }
+        }
+
+        foreach ($details as $detail) {
             if ($detail->isActivoFijo() && $detail->activo_id) {
                 $activo = $detail->activo;
                 if ($activo && $activo->isSerializado() && (empty($activo->serial_number) || $activo->quantity > 0)) {
