@@ -257,6 +257,9 @@ new class extends Component
                             <a href="{{ route('stores.ventas.carrito', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.ventas.carrito*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
                                 {{ __('Carrito') }}
                             </a>
+                            <a href="{{ route('stores.ventas.cotizaciones', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.ventas.cotizaciones*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
+                                {{ __('Cotizaciones') }}
+                            </a>
                             @endstoreCan
                         @endif
                     </div>
@@ -375,8 +378,11 @@ new class extends Component
                 @endif
                 @if($canV)
                 <div class="px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">{{ __('Ventas') }}</div>
-                <x-responsive-nav-link :href="route('stores.ventas.carrito', $store)" :active="request()->routeIs('stores.ventas*')" wire:navigate>
+                <x-responsive-nav-link :href="route('stores.ventas.carrito', $store)" :active="request()->routeIs('stores.ventas.carrito*')" wire:navigate>
                     {{ __('Carrito') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('stores.ventas.cotizaciones', $store)" :active="request()->routeIs('stores.ventas.cotizaciones*')" wire:navigate>
+                    {{ __('Cotizaciones') }}
                 </x-responsive-nav-link>
                 @endif
                 <div class="border-t border-gray-200 dark:border-gray-600 my-2"></div>

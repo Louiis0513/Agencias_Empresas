@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\CategoryService;
 use App\Services\AttributeService;
 use App\Services\ProductService;
+use App\Services\CotizacionService;
 use App\Services\CustomerService;
 use App\Services\InvoiceService;
 use App\Services\ProveedorService;
@@ -676,6 +677,57 @@ class StoreController extends Controller
         session(['current_store_id' => $store->id]);
 
         return view('stores.ventas.carrito', compact('store'));
+    }
+
+    public function cotizaciones(Store $store, StorePermissionService $permission)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        $permission->authorize($store, 'invoices.view');
+
+        session(['current_store_id' => $store->id]);
+
+        $cotizaciones = \App\Models\Cotizacion::deTienda($store->id)
+            ->with(['user', 'customer', 'items'])
+            ->orderByDesc('created_at')
+            ->paginate(15);
+
+        return view('stores.ventas.cotizaciones', compact('store', 'cotizaciones'));
+    }
+
+    public function showCotizacion(Store $store, \App\Models\Cotizacion $cotizacion, CotizacionService $cotizacionService, StorePermissionService $permission)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        $permission->authorize($store, 'invoices.view');
+
+        if ($cotizacion->store_id !== $store->id) {
+            abort(404);
+        }
+
+        $cotizacion->load(['user', 'customer', 'items.product']);
+        $itemsConPrecios = $cotizacionService->obtenerItemsConPrecios($store, $cotizacion);
+
+        return view('stores.ventas.cotizacion-detalle', compact('store', 'cotizacion', 'itemsConPrecios'));
+    }
+
+    public function destroyCotizacion(Store $store, \App\Models\Cotizacion $cotizacion, CotizacionService $cotizacionService, StorePermissionService $permission)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        $permission->authorize($store, 'invoices.view');
+
+        if ($cotizacion->store_id !== $store->id) {
+            abort(404);
+        }
+
+        $cotizacionService->eliminarCotizacion($cotizacion);
+
+        return redirect()->route('stores.ventas.cotizaciones', $store)
+            ->with('success', 'Cotización eliminada correctamente.');
     }
 
     // ==================== FACTURAS ====================

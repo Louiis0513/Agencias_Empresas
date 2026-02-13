@@ -55,8 +55,11 @@ Route::middleware(['auth', 'verified'])->prefix('tienda/{store:slug}')->name('st
     Route::get('/categorias/{category}/atributos', [StoreController::class, 'categoryAttributes'])->name('category.attributes');
     Route::post('/categorias/{category}/atributos', [StoreController::class, 'assignAttributes'])->name('category.attributes.assign');
 
-    // Ventas (carrito, etc.)
+    // Ventas (carrito, cotizaciones)
     Route::get('/ventas/carrito', [StoreController::class, 'carrito'])->name('ventas.carrito');
+    Route::get('/ventas/cotizaciones', [StoreController::class, 'cotizaciones'])->name('ventas.cotizaciones');
+    Route::get('/ventas/cotizaciones/{cotizacion}', [StoreController::class, 'showCotizacion'])->name('ventas.cotizaciones.show');
+    Route::delete('/ventas/cotizaciones/{cotizacion}', [StoreController::class, 'destroyCotizacion'])->name('ventas.cotizaciones.destroy');
 
     // Facturas
     Route::get('/facturas', [StoreController::class, 'invoices'])->name('invoices');

@@ -83,6 +83,20 @@ class VentaService
     }
 
     /**
+     * Retorna el precio unitario de venta del ítem seleccionado.
+     * Centraliza la lógica de precios: todo precio mostrado en el carrito y cotizaciones debe obtenerse aquí.
+     * Delega en InventarioService::precioParaItem.
+     *
+     * @param  array|null  $variantFeatures  Para batch: mapa atributo=>valor de la variante
+     * @param  array|null  $serialNumbers  Para serialized: lista de números de serie (usa el primero para el precio)
+     * @return float Precio unitario
+     */
+    public function verPrecio(Store $store, int $productId, string $type, ?array $variantFeatures = null, ?array $serialNumbers = null): float
+    {
+        return $this->inventarioService->precioParaItem($store, $productId, $type, $variantFeatures, $serialNumbers);
+    }
+
+    /**
      * Valida que haya stock disponible para los ítems antes de guardarlos en el carrito.
      * Se llama al pulsar "Agregar producto al carrito". Delega en InventarioService::validarStockDisponible.
      *

@@ -6,6 +6,7 @@ use App\Models\BatchItem;
 use App\Models\Product;
 use App\Models\Store;
 use App\Services\InventarioService;
+use App\Services\VentaService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -107,18 +108,16 @@ class SelectBatchVariantModal extends Component
                 }
                 $key = InventarioService::detectorDeVariantesEnLotes($normalizedFeatures);
                 if (! isset($variantsMap[$key])) {
+                    $ventaService = app(VentaService::class);
                     $variantsMap[$key] = [
                         'variant_key'   => $key,
                         'features'      => $normalizedFeatures,
                         'display_name'  => $this->formatVariantDisplayName($normalizedFeatures),
                         'quantity'      => 0,
-                        'price'         => $batchItem->price !== null && (float) $batchItem->price > 0 ? (float) $batchItem->price : null,
+                        'price'         => $ventaService->verPrecio($store, (int) $product->id, 'batch', $normalizedFeatures),
                     ];
                 }
                 $variantsMap[$key]['quantity'] += (int) $batchItem->quantity;
-                if ($variantsMap[$key]['price'] === null && $batchItem->price !== null && (float) $batchItem->price > 0) {
-                    $variantsMap[$key]['price'] = (float) $batchItem->price;
-                }
             }
         }
 
@@ -160,7 +159,7 @@ class SelectBatchVariantModal extends Component
             return;
         }
 
-        // Despachar por variante (stock total); el carrito no necesita saber de qué lote salen las unidades
+        // Despachar por variante (stock total); el precio se obtiene vía VentaService::verPrecio en el carrito
         $this->dispatch('batch-variant-selected',
             rowId: $this->rowId,
             productId: $this->productId,
@@ -168,7 +167,6 @@ class SelectBatchVariantModal extends Component
             variantFeatures: $selectedVariant['features'],
             displayName: $selectedVariant['display_name'],
             totalStock: (int) $selectedVariant['quantity'],
-            price: $selectedVariant['price'],
         );
 
         $this->dispatch('close-modal', 'select-batch-variant');

@@ -687,6 +687,62 @@ class InventarioService
     }
 
     /**
+     * Retorna el precio unitario de venta para un ítem según su tipo (simple, batch, serialized).
+     * Usado para enriquecer cotizaciones con el precio real actual del inventario.
+     *
+     * @param  array|null  $variantFeatures  Para batch: mapa atributo=>valor de la variante
+     * @param  array|null  $serialNumbers  Para serialized: lista de números de serie (usa el primero para el precio)
+     * @return float Precio unitario
+     */
+    public function precioParaItem(Store $store, int $productId, string $type, ?array $variantFeatures = null, ?array $serialNumbers = null): float
+    {
+        $product = Product::where('id', $productId)
+            ->where('store_id', $store->id)
+            ->first();
+
+        if (! $product) {
+            return 0.0;
+        }
+
+        $productPrice = (float) ($product->price ?? 0);
+
+        // Serialized: precio del ProductItem (primer serial) o producto
+        if ($type === 'serialized' && is_array($serialNumbers) && ! empty($serialNumbers)) {
+            $serial = trim((string) $serialNumbers[0]);
+            if ($serial !== '') {
+                $item = ProductItem::where('store_id', $store->id)
+                    ->where('product_id', $productId)
+                    ->where('serial_number', $serial)
+                    ->first();
+                if ($item && $item->price !== null && (float) $item->price > 0) {
+                    return (float) $item->price;
+                }
+            }
+            return $productPrice;
+        }
+
+        // Batch: precio del BatchItem con esas features o producto
+        if ($type === 'batch' && is_array($variantFeatures) && ! empty($variantFeatures)) {
+            $key = self::detectorDeVariantesEnLotes($variantFeatures);
+            $batchItem = BatchItem::whereHas('batch', fn ($q) => $q->where('store_id', $store->id)->where('product_id', $productId))
+                ->where('quantity', '>', 0)
+                ->where(function ($q) {
+                    $q->where('is_active', true)->orWhereNull('is_active');
+                })
+                ->with('batch.product')
+                ->get()
+                ->first(fn (BatchItem $bi) => self::detectorDeVariantesEnLotes($bi->features) === $key);
+            if ($batchItem) {
+                return $batchItem->getSellingPriceAttribute();
+            }
+            return $productPrice;
+        }
+
+        // Simple: precio del producto
+        return $productPrice;
+    }
+
+    /**
      * Valida que haya stock disponible para todos los productos indicados.
      * Solo valida productos de inventario (serialized/batch). No modifica el inventario.
      * Para productos serializados puede recibir serial_numbers[] en lugar de quantity; entonces valida que esos seriales existan y estén disponibles.

@@ -2,9 +2,11 @@
 
 namespace App\Livewire;
 
+use App\Models\Customer;
 use App\Models\Product;
 use App\Models\ProductItem;
 use App\Models\Store;
+use App\Services\CotizacionService;
 use App\Services\InventarioService;
 use App\Services\VentaService;
 use Exception;
@@ -38,6 +40,12 @@ class VentasCarrito extends Component
     public string $unidadesDisponiblesSearch = '';
     public int $unidadesDisponiblesTotal = 0;
     public int $unidadesDisponiblesPerPage = 15;
+
+    /** Modal Guardar como cotización */
+    public bool $mostrarModalCotizacion = false;
+    public string $notaCotizacion = '';
+    public ?string $customerIdCotizacion = null;
+    public ?string $errorCotizacion = null;
 
     public function getStoreProperty(): ?Store
     {
@@ -73,11 +81,12 @@ class VentasCarrito extends Component
             if (! $producto) {
                 return;
             }
-            $disponibilidad = app(VentaService::class)->verificadorCarrito($store, (int) $producto->id);
+            $ventaService = app(VentaService::class);
+            $disponibilidad = $ventaService->verificadorCarrito($store, (int) $producto->id);
             $this->pendienteSimple = [
                 'product_id' => $producto->id,
                 'name' => $producto->name,
-                'price' => (float) $producto->price,
+                'price' => $ventaService->verPrecio($store, (int) $producto->id, 'simple'),
                 'stock' => (int) $disponibilidad['cantidad'],
             ];
             $this->pendienteBatch = null;
@@ -96,7 +105,7 @@ class VentasCarrito extends Component
      * Escucha selección de variante (lote). Una fila por variante con stock total; no se muestran lotes.
      */
     #[On('batch-variant-selected')]
-    public function onBatchVariantSelected($rowId, $productId, $productName, $variantFeatures, $displayName, $totalStock = 0, $price = null): void
+    public function onBatchVariantSelected($rowId, $productId, $productName, $variantFeatures, $displayName, $totalStock = 0): void
     {
         if ($rowId !== 'venta') {
             return;
@@ -110,10 +119,10 @@ class VentasCarrito extends Component
             return;
         }
         $variantFeatures = is_array($variantFeatures) ? $variantFeatures : [];
-        $precio = $price !== null && (float) $price > 0 ? (float) $price : (float) $producto->price;
+        $ventaService = app(VentaService::class);
         $stock = (int) $totalStock;
         if ($stock < 1) {
-            $r = app(VentaService::class)->verificadorCarritoVariante($store, (int) $productId, $variantFeatures);
+            $r = $ventaService->verificadorCarritoVariante($store, (int) $productId, $variantFeatures);
             $stock = (int) $r['cantidad'];
         }
         $this->pendienteBatch = [
@@ -121,7 +130,7 @@ class VentasCarrito extends Component
             'name' => $productName,
             'variant_features' => $variantFeatures,
             'variant_display_name' => $displayName,
-            'price' => $precio,
+            'price' => $ventaService->verPrecio($store, (int) $productId, 'batch', $variantFeatures),
             'stock' => $stock,
         ];
         $this->pendienteSimple = null;
@@ -328,15 +337,15 @@ class VentasCarrito extends Component
             return;
         }
 
+        $ventaService = app(VentaService::class);
         $items = [['product_id' => $productId, 'serial_numbers' => $serialNumbers]];
         try {
-            app(VentaService::class)->validarGuardadoItemCarrito($store, $items);
+            $ventaService->validarGuardadoItemCarrito($store, $items);
         } catch (Exception $e) {
             $this->errorStock = $e->getMessage();
             return;
         }
 
-        $productPrice = (float) $producto->price;
         $productItems = ProductItem::where('store_id', $store->id)
             ->where('product_id', $productId)
             ->whereIn('serial_number', $serialNumbers)
@@ -345,10 +354,7 @@ class VentasCarrito extends Component
 
         $carritoSimulado = $this->carrito;
         foreach ($serialNumbers as $serial) {
-            $pi = $productItems->get($serial);
-            $precio = $pi && $pi->price !== null && (float) $pi->price > 0
-                ? (float) $pi->price
-                : $productPrice;
+            $precio = $ventaService->verPrecio($store, $productId, 'serialized', null, [$serial]);
             $carritoSimulado[] = [
                 'product_id' => $productId,
                 'name' => $producto->name,
@@ -363,17 +369,15 @@ class VentasCarrito extends Component
 
         $itemsParaValidar = $this->carritoToItemsParaValidar($carritoSimulado);
         try {
-            app(VentaService::class)->validarGuardadoItemCarrito($store, $itemsParaValidar);
+            $ventaService->validarGuardadoItemCarrito($store, $itemsParaValidar);
         } catch (Exception $e) {
             $this->errorStock = $e->getMessage();
             return;
         }
 
         foreach ($serialNumbers as $serial) {
+            $precio = $ventaService->verPrecio($store, $productId, 'serialized', null, [$serial]);
             $pi = $productItems->get($serial);
-            $precio = $pi && $pi->price !== null && (float) $pi->price > 0
-                ? (float) $pi->price
-                : $productPrice;
             $features = ($pi && is_array($pi->features)) ? $pi->features : [];
             $this->carrito[] = [
                 'product_id' => $productId,
@@ -624,6 +628,76 @@ class VentasCarrito extends Component
             $total += $precioUnit * max(1, $qty);
         }
         return round($total, 2);
+    }
+
+    /**
+     * Abre el modal para guardar el carrito como cotización.
+     */
+    public function abrirModalCotizacion(): void
+    {
+        $this->errorCotizacion = null;
+        $this->notaCotizacion = '';
+        $this->customerIdCotizacion = null;
+        $this->mostrarModalCotizacion = true;
+    }
+
+    /**
+     * Cierra el modal de cotización sin guardar.
+     */
+    public function cerrarModalCotizacion(): void
+    {
+        $this->mostrarModalCotizacion = false;
+        $this->notaCotizacion = '';
+        $this->customerIdCotizacion = null;
+        $this->errorCotizacion = null;
+    }
+
+    /**
+     * Guarda el carrito actual como cotización.
+     */
+    public function guardarComoCotizacion(CotizacionService $cotizacionService): void
+    {
+        $this->errorCotizacion = null;
+
+        $nota = trim($this->notaCotizacion);
+        if ($nota === '') {
+            $this->errorCotizacion = 'La nota es obligatoria.';
+            return;
+        }
+
+        $store = $this->getStoreProperty();
+        if (! $store) {
+            $this->errorCotizacion = 'No se encontró la tienda.';
+            return;
+        }
+
+        if (empty($this->carrito)) {
+            $this->errorCotizacion = 'El carrito está vacío. Agrega productos antes de guardar la cotización.';
+            return;
+        }
+
+        try {
+            $customerId = $this->customerIdCotizacion ? (int) $this->customerIdCotizacion : null;
+            $cotizacionService->crearDesdeCarrito($store, auth()->id(), $customerId, $nota, $this->carrito);
+
+            $this->cerrarModalCotizacion();
+            session()->flash('success', 'Cotización guardada correctamente.');
+            $this->redirect(route('stores.ventas.cotizaciones', $store), navigate: true);
+        } catch (\InvalidArgumentException $e) {
+            $this->errorCotizacion = $e->getMessage();
+        } catch (\Exception $e) {
+            $this->errorCotizacion = 'Error al guardar la cotización: ' . $e->getMessage();
+        }
+    }
+
+    public function getCustomersProperty(): \Illuminate\Support\Collection
+    {
+        $store = $this->getStoreProperty();
+        if (! $store) {
+            return collect();
+        }
+
+        return Customer::where('store_id', $store->id)->orderBy('name')->get();
     }
 
     public function render()

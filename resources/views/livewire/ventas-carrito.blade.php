@@ -242,7 +242,12 @@
                     </tbody>
                 </table>
             </div>
-            <div class="mt-4 flex justify-end">
+            <div class="mt-4 flex justify-end items-center gap-4">
+                <button type="button"
+                        wire:click="abrirModalCotizacion"
+                        class="inline-flex items-center px-4 py-2 bg-emerald-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-emerald-700 focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition">
+                    Guardar como cotización
+                </button>
                 <div class="rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 px-6 py-4 min-w-[200px]">
                     <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Total</p>
                     <p class="text-xl font-bold text-gray-900 dark:text-white mt-1">{{ number_format($this->carritoTotal, 2) }}</p>
@@ -252,4 +257,60 @@
             <p class="text-sm text-gray-500 dark:text-gray-400">El carrito está vacío. Haz clic en «Agregar producto» para seleccionar los ítems a vender.</p>
         @endif
     </div>
+
+    {{-- Modal: Guardar como cotización --}}
+    @if($mostrarModalCotizacion)
+        <div class="fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="fixed inset-0 bg-gray-500/75 dark:bg-gray-900/75 transition-opacity" wire:click="cerrarModalCotizacion"></div>
+                <div class="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full">
+                    <div class="p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Guardar como cotización</h3>
+
+                        @if($errorCotizacion)
+                            <div class="mb-4 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm">
+                                {{ $errorCotizacion }}
+                            </div>
+                        @endif
+
+                        <div class="space-y-4">
+                            <div>
+                                <label for="cotizacion-nota" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nota <span class="text-red-500">*</span></label>
+                                <textarea id="cotizacion-nota"
+                                          wire:model="notaCotizacion"
+                                          rows="3"
+                                          placeholder="Describe la cotización..."
+                                          class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 shadow-sm focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                            </div>
+                            <div>
+                                <label for="cotizacion-cliente" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cliente (opcional)</label>
+                                <select id="cotizacion-cliente"
+                                        wire:model="customerIdCotizacion"
+                                        class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                                    <option value="">Sin cliente</option>
+                                    @foreach($this->customers as $customer)
+                                        <option value="{{ $customer->id }}">{{ $customer->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mt-6 flex justify-end gap-2">
+                            <button type="button"
+                                    wire:click="cerrarModalCotizacion"
+                                    class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                                Cancelar
+                            </button>
+                            <button type="button"
+                                    wire:click="guardarComoCotizacion"
+                                    wire:target="guardarComoCotizacion"
+                                    class="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 disabled:opacity-50">
+                                Guardar cotización
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
 </div>
