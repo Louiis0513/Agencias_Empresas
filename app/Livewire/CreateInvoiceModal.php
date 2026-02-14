@@ -985,6 +985,50 @@ class CreateInvoiceModal extends Component
             $this->addError('customer_id', $e->getMessage());
         }
     }
+    // =========================================================================
+    // NUEVO: CARGA DESDE CARRITO
+    // =========================================================================
+
+    #[On('load-items-from-cart')]
+    public function loadFromCart(array $items, ?int $customer_id = null): void
+    {
+        // 1. Limpiar el estado actual
+        $this->resetFormulario();
+
+        // 2. Cargar Cliente si existe
+        if ($customer_id) {
+            $this->seleccionarCliente($customer_id);
+        }
+
+        // 3. Mapear Items del Carrito a Items de Factura
+        foreach ($items as $item) {
+            $qty = (int) ($item['quantity'] ?? 1);
+            $price = (float) ($item['price'] ?? 0);
+            
+            // Estructura compatible con $this->productosSeleccionados
+            $this->productosSeleccionados[] = [
+                'product_id' => $item['product_id'],
+                'name' => $item['name'],
+                'price' => $price,
+                'quantity' => $qty,
+                'subtotal' => $price * $qty,
+                'type' => $item['type'] ?? 'simple',
+                
+                // Campos opcionales para variantes
+                'variant_features' => $item['variant_features'] ?? [],
+                'variant_display_name' => $item['variant_display_name'] ?? '',
+                
+                // Campos opcionales para seriales
+                'serial_numbers' => $item['serial_numbers'] ?? [],
+            ];
+        }
+
+        // 4. Calcular Totales con los nuevos items
+        $this->calcularTotales();
+
+        // 5. Abrir el modal (Asegura que se muestre al recibir los datos)
+        $this->dispatch('open-modal', 'create-invoice'); 
+    }
 
     public function render()
     {

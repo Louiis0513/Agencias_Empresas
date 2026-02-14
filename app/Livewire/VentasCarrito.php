@@ -689,6 +689,33 @@ class VentasCarrito extends Component
             $this->errorCotizacion = 'Error al guardar la cotización: ' . $e->getMessage();
         }
     }
+    public function enviarAFacturacion()
+    {
+        // 1. Validar
+        if (empty($this->carrito)) {
+            return;
+        }
+
+        // 2. Mapear items
+        $itemsParaFactura = collect($this->carrito)->map(function ($item) {
+            return [
+                'product_id' => $item['product_id'],
+                'name' => $item['name'],
+                'quantity' => $item['quantity'],
+                'price' => $item['price'],
+                'type' => $item['type'] ?? 'simple',
+                'variant_features' => $item['variant_features'] ?? [],
+                'variant_display_name' => $item['variant_display_name'] ?? '',
+                'serial_numbers' => $item['serial_numbers'] ?? [],
+            ];
+        })->toArray();
+
+        // 3. Emitir datos GLOBALMENTE (Sin ->to, así no falla buscando el componente)
+        $this->dispatch('load-items-from-cart', items: $itemsParaFactura);
+        
+        // 4. Abrir el modal (Usamos 'create-invoice' que es el nombre en tu vista Blade)
+        $this->dispatch('open-modal', 'create-invoice');
+    }
 
     public function getCustomersProperty(): \Illuminate\Support\Collection
     {
