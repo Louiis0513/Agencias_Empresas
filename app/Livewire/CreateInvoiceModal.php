@@ -7,7 +7,9 @@ use App\Models\Store;
 use App\Models\Product;
 use App\Models\Customer;
 use App\Services\CajaService;
+use App\Services\InventarioService;
 use App\Services\VentaService;
+use Exception;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Attributes\On;
@@ -33,6 +35,13 @@ class CreateInvoiceModal extends Component
 
     // Productos (cada ítem: product_id, name, price, quantity, subtotal; opcional: type, variant_display_name, variant_features, serial_numbers)
     public array $productosSeleccionados = [];
+
+    /** Pendiente: producto simple o variante a agregar (pedir cantidad, validar stock). */
+    public ?array $pendienteSimple = null;
+    public ?array $pendienteBatch = null;
+    public int $cantidadSimple = 1;
+    public int $cantidadBatch = 1;
+    public ?string $errorStock = null;
 
     /** Modal unidades serializadas (solo status AVAILABLE) */
     public ?int $productoSerializadoId = null;
@@ -172,6 +181,11 @@ class CreateInvoiceModal extends Component
         $this->clienteSeleccionado = null;
         $this->cerrarModalCliente();
         $this->productosSeleccionados = [];
+        $this->pendienteSimple = null;
+        $this->pendienteBatch = null;
+        $this->cantidadSimple = 1;
+        $this->cantidadBatch = 1;
+        $this->errorStock = null;
         $this->cerrarModalUnidadesFactura();
         $this->discountType = 'amount';
         $this->discountValue = '0';
@@ -381,6 +395,7 @@ class CreateInvoiceModal extends Component
     /** Abre el modal de selección de producto (contexto factura). */
     public function abrirSelectorProducto(): void
     {
+        $this->errorStock = null;
         $this->dispatch('open-select-item-for-row', rowId: 'factura', itemType: 'INVENTARIO', productIdsInCartSimple: []);
     }
 
@@ -405,25 +420,27 @@ class CreateInvoiceModal extends Component
                 return;
             }
             $ventaService = app(VentaService::class);
-            $precio = $ventaService->verPrecio($store, (int) $producto->id, 'simple');
-            $this->productosSeleccionados[] = [
+            $disponibilidad = $ventaService->verificadorCarrito($store, (int) $producto->id);
+            $this->pendienteSimple = [
                 'product_id' => $producto->id,
                 'name' => $producto->name,
-                'price' => (float) $precio,
-                'quantity' => 1,
-                'subtotal' => (float) $precio,
-                'type' => 'simple',
+                'price' => $ventaService->verPrecio($store, (int) $producto->id, 'simple'),
+                'stock' => (int) $disponibilidad['cantidad'],
             ];
-            $this->calcularTotales();
+            $this->pendienteBatch = null;
+            $this->cantidadSimple = 1;
         } elseif ($productType === 'batch') {
+            $this->pendienteSimple = null;
             $this->dispatch('open-select-batch-variant', productId: $id, rowId: 'factura', productName: $name, variantKeysInCart: $this->getVariantKeysInFacturaParaProducto((int) $id));
         } else {
+            $this->pendienteSimple = null;
+            $this->pendienteBatch = null;
             $this->abrirModalUnidadesFactura((int) $id);
         }
     }
 
     /**
-     * Escucha selección de variante (lote). Añade una línea a la factura.
+     * Escucha selección de variante (lote). Setea pendienteBatch para pedir cantidad y validar.
      * Usa el precio enviado por el modal cuando viene (rowId factura); si no, obtiene vía InventarioService.
      */
     #[On('batch-variant-selected')]
@@ -441,20 +458,24 @@ class CreateInvoiceModal extends Component
             return;
         }
         $variantFeatures = is_array($variantFeatures) ? $variantFeatures : [];
-        $precio = $price !== null && (float) $price >= 0
-            ? (float) $price
-            : app(VentaService::class)->verPrecio($store, (int) $productId, 'batch', $variantFeatures);
-        $this->productosSeleccionados[] = [
+        $ventaService = app(VentaService::class);
+        $stock = (int) $totalStock;
+        if ($stock < 1) {
+            $r = $ventaService->verificadorCarritoVariante($store, (int) $productId, $variantFeatures);
+            $stock = (int) $r['cantidad'];
+        }
+        $this->pendienteBatch = [
             'product_id' => (int) $productId,
             'name' => $productName,
-            'price' => (float) $precio,
-            'quantity' => 1,
-            'subtotal' => (float) $precio,
-            'type' => 'batch',
             'variant_features' => $variantFeatures,
             'variant_display_name' => $displayName ?? '',
+            'price' => $price !== null && (float) $price >= 0
+                ? (float) $price
+                : $ventaService->verPrecio($store, (int) $productId, 'batch', $variantFeatures),
+            'stock' => $stock,
         ];
-        $this->calcularTotales();
+        $this->pendienteSimple = null;
+        $this->cantidadBatch = 1;
     }
 
     /** Claves de variante ya en la factura para este producto (evitar duplicar en selector). */
@@ -468,9 +489,147 @@ class CreateInvoiceModal extends Component
             if (empty($item['variant_features']) || ! is_array($item['variant_features'])) {
                 continue;
             }
-            $keys[] = \App\Services\InventarioService::detectorDeVariantesEnLotes($item['variant_features']);
+            $keys[] = InventarioService::detectorDeVariantesEnLotes($item['variant_features']);
         }
         return array_values(array_unique($keys));
+    }
+
+    public function cancelarPendienteSimple(): void
+    {
+        $this->pendienteSimple = null;
+    }
+
+    public function cancelarPendienteBatch(): void
+    {
+        $this->pendienteBatch = null;
+    }
+
+    public function confirmarAgregarSimpleFactura(VentaService $ventaService): void
+    {
+        $this->errorStock = null;
+        if (! $this->pendienteSimple) {
+            return;
+        }
+        $quantity = max(1, (int) $this->cantidadSimple);
+        $store = $this->getStoreProperty();
+        if (! $store) {
+            $this->pendienteSimple = null;
+            return;
+        }
+        $productId = (int) $this->pendienteSimple['product_id'];
+        $stock = (int) $this->pendienteSimple['stock'];
+        if ($quantity > $stock) {
+            $this->errorStock = "Stock insuficiente. Disponible: {$stock}, solicitado: {$quantity}.";
+            return;
+        }
+        $productosSimulado = $this->productosSeleccionados;
+        $productosSimulado[] = [
+            'product_id' => $productId,
+            'name' => $this->pendienteSimple['name'],
+            'quantity' => $quantity,
+            'price' => (float) $this->pendienteSimple['price'],
+            'type' => 'simple',
+        ];
+        $items = $this->productosFacturaToItemsParaValidar($productosSimulado);
+        try {
+            $ventaService->validarGuardadoItemCarrito($store, $items);
+        } catch (Exception $e) {
+            $this->errorStock = $e->getMessage();
+            return;
+        }
+        $precio = (float) $this->pendienteSimple['price'];
+        $this->productosSeleccionados[] = [
+            'product_id' => $productId,
+            'name' => $this->pendienteSimple['name'],
+            'price' => $precio,
+            'quantity' => $quantity,
+            'subtotal' => $precio * $quantity,
+            'type' => 'simple',
+        ];
+        $this->pendienteSimple = null;
+        $this->cantidadSimple = 1;
+        $this->calcularTotales();
+    }
+
+    public function confirmarAgregarVarianteFactura(VentaService $ventaService): void
+    {
+        $this->errorStock = null;
+        if (! $this->pendienteBatch) {
+            return;
+        }
+        $quantity = max(1, (int) $this->cantidadBatch);
+        $store = $this->getStoreProperty();
+        if (! $store) {
+            $this->pendienteBatch = null;
+            return;
+        }
+        $productId = (int) $this->pendienteBatch['product_id'];
+        $variantFeatures = $this->pendienteBatch['variant_features'] ?? [];
+        $stockVariante = (int) $this->pendienteBatch['stock'];
+        if ($quantity > $stockVariante) {
+            $this->errorStock = "Stock insuficiente en esta variante. Disponible: {$stockVariante}, solicitado: {$quantity}.";
+            return;
+        }
+        $productosSimulado = $this->productosSeleccionados;
+        $productosSimulado[] = [
+            'product_id' => $productId,
+            'name' => $this->pendienteBatch['name'],
+            'variant_features' => $variantFeatures,
+            'variant_display_name' => $this->pendienteBatch['variant_display_name'] ?? '',
+            'quantity' => $quantity,
+            'price' => (float) $this->pendienteBatch['price'],
+            'type' => 'batch',
+        ];
+        $items = $this->productosFacturaToItemsParaValidar($productosSimulado);
+        try {
+            $ventaService->validarGuardadoItemCarrito($store, $items);
+        } catch (Exception $e) {
+            $this->errorStock = $e->getMessage();
+            return;
+        }
+        $precio = (float) $this->pendienteBatch['price'];
+        $this->productosSeleccionados[] = [
+            'product_id' => $productId,
+            'name' => $this->pendienteBatch['name'],
+            'price' => $precio,
+            'quantity' => $quantity,
+            'subtotal' => $precio * $quantity,
+            'type' => 'batch',
+            'variant_features' => $variantFeatures,
+            'variant_display_name' => $this->pendienteBatch['variant_display_name'] ?? '',
+        ];
+        $this->pendienteBatch = null;
+        $this->cantidadBatch = 1;
+        $this->calcularTotales();
+    }
+
+    /** Convierte productosSeleccionados a formato para validar stock. */
+    protected function productosFacturaToItemsParaValidar(array $productos): array
+    {
+        $items = [];
+        $byProduct = [];
+        foreach ($productos as $row) {
+            if (! empty($row['serial_numbers'])) {
+                $items[] = ['product_id' => $row['product_id'], 'serial_numbers' => $row['serial_numbers']];
+            } elseif (! empty($row['variant_features']) && is_array($row['variant_features'])) {
+                $items[] = [
+                    'product_id' => (int) ($row['product_id'] ?? 0),
+                    'variant_features' => $row['variant_features'],
+                    'quantity' => (int) ($row['quantity'] ?? 0),
+                ];
+            } else {
+                $pid = (int) ($row['product_id'] ?? 0);
+                if ($pid > 0) {
+                    $byProduct[$pid] = ($byProduct[$pid] ?? 0) + (int) ($row['quantity'] ?? 0);
+                }
+            }
+        }
+        foreach ($byProduct as $productId => $totalQty) {
+            if ($totalQty > 0) {
+                $items[] = ['product_id' => $productId, 'quantity' => $totalQty];
+            }
+        }
+        return $items;
     }
 
     /** Abre el modal de unidades disponibles para un producto serializado (solo status AVAILABLE). */
@@ -569,6 +728,7 @@ class CreateInvoiceModal extends Component
     /** Agrega a la factura las unidades serializadas seleccionadas (solo vista; una línea por serie). */
     public function agregarSerializadosAFactura(): void
     {
+        $this->errorStock = null;
         if ($this->productoSerializadoId === null || empty($this->serialesSeleccionados)) {
             $this->cerrarModalUnidadesFactura();
             return;
@@ -585,6 +745,13 @@ class CreateInvoiceModal extends Component
         }
         $ventaService = app(VentaService::class);
         $serialNumbers = array_values(array_filter(array_map('trim', $this->serialesSeleccionados)));
+        $items = [['product_id' => $this->productoSerializadoId, 'serial_numbers' => $serialNumbers]];
+        try {
+            $ventaService->validarGuardadoItemCarrito($store, $items);
+        } catch (Exception $e) {
+            $this->errorStock = $e->getMessage();
+            return;
+        }
         foreach ($serialNumbers as $serial) {
             $precio = $ventaService->verPrecio($store, $this->productoSerializadoId, 'serialized', null, [$serial]);
             $this->productosSeleccionados[] = [

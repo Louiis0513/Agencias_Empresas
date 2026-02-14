@@ -51,6 +51,66 @@
                         </button>
                     </div>
 
+                    @if($errorStock)
+                        <div class="p-4 rounded-xl bg-red-900/20 border border-red-800/50 text-red-300 text-sm">
+                            {{ $errorStock }}
+                        </div>
+                    @endif
+
+                    {{-- Pendiente: cantidad para producto simple --}}
+                    @if($pendienteSimple)
+                        <div class="p-4 rounded-xl border border-slate-600 bg-slate-800/50">
+                            <p class="text-sm font-medium text-slate-300 mb-2">Cantidad para <strong class="text-white">{{ $pendienteSimple['name'] }}</strong> (máx. {{ $pendienteSimple['stock'] }})</p>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <input type="number"
+                                       wire:model="cantidadSimple"
+                                       min="1"
+                                       placeholder="Cantidad"
+                                       class="w-24 rounded-md border-slate-600 bg-slate-900 text-white text-sm focus:ring-indigo-500 focus:border-indigo-500">
+                                <button type="button"
+                                        wire:click="confirmarAgregarSimpleFactura"
+                                        wire:target="confirmarAgregarSimpleFactura"
+                                        class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 text-sm font-bold">
+                                    Añadir a la factura
+                                </button>
+                                <button type="button"
+                                        wire:click="cancelarPendienteSimple"
+                                        class="px-4 py-2 border border-slate-600 rounded-lg text-slate-300 hover:bg-slate-700 text-sm font-medium">
+                                    Cancelar
+                                </button>
+                            </div>
+                            <p class="mt-1 text-xs text-slate-500">Precio unit.: ${{ number_format($pendienteSimple['price'] ?? 0, 2) }}</p>
+                        </div>
+                    @endif
+
+                    {{-- Pendiente: cantidad para variante (lote) --}}
+                    @if($pendienteBatch)
+                        <div class="p-4 rounded-xl border border-slate-600 bg-slate-800/50">
+                            <p class="text-sm font-medium text-slate-300 mb-2">
+                                Cantidad para <strong class="text-white">{{ $pendienteBatch['name'] }}</strong> — {{ $pendienteBatch['variant_display_name'] }} (máx. {{ $pendienteBatch['stock'] }})
+                            </p>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <input type="number"
+                                       wire:model="cantidadBatch"
+                                       min="1"
+                                       placeholder="Cantidad"
+                                       class="w-24 rounded-md border-slate-600 bg-slate-900 text-white text-sm focus:ring-indigo-500 focus:border-indigo-500">
+                                <button type="button"
+                                        wire:click="confirmarAgregarVarianteFactura"
+                                        wire:target="confirmarAgregarVarianteFactura"
+                                        class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 text-sm font-bold">
+                                    Añadir a la factura
+                                </button>
+                                <button type="button"
+                                        wire:click="cancelarPendienteBatch"
+                                        class="px-4 py-2 border border-slate-600 rounded-lg text-slate-300 hover:bg-slate-700 text-sm font-medium">
+                                    Cancelar
+                                </button>
+                            </div>
+                            <p class="mt-1 text-xs text-slate-500">Precio unit.: ${{ number_format($pendienteBatch['price'] ?? 0, 2) }}</p>
+                        </div>
+                    @endif
+
                     @if(count($productosSeleccionados) > 0)
                         <div class="overflow-hidden rounded-xl border border-slate-700 bg-slate-800/30">
                             <table class="min-w-full divide-y divide-slate-700">
@@ -339,6 +399,111 @@
                         <button type="button" wire:click="cerrarModalCliente"
                             class="px-5 py-2.5 border border-slate-600 rounded-lg text-slate-300 hover:bg-slate-700 font-bold text-sm transition-colors">
                             Cerrar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- Modal: Unidades disponibles (producto serializado) --}}
+    @if($productoSerializadoId !== null)
+        @php
+            $totalUnidades = $unidadesDisponiblesTotal;
+            $perPage = $unidadesDisponiblesPerPage ?: 15;
+            $maxPage = $totalUnidades > 0 ? (int) ceil($totalUnidades / $perPage) : 1;
+            $from = $totalUnidades === 0 ? 0 : ($unidadesDisponiblesPage - 1) * $perPage + 1;
+            $to = min($unidadesDisponiblesPage * $perPage, $totalUnidades);
+        @endphp
+        <div class="fixed inset-0 overflow-y-auto" style="z-index: 200;" aria-modal="true">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="fixed inset-0 bg-slate-900/80 transition-opacity" wire:click="cerrarModalUnidadesFactura"></div>
+                <div class="relative bg-slate-800 rounded-2xl shadow-2xl border border-slate-600 max-w-lg w-full max-h-[90vh] flex flex-col">
+                    <div class="p-4 border-b border-slate-600">
+                        <h3 class="text-lg font-bold text-white">Seleccionar unidades — {{ $productoSerializadoNombre }}</h3>
+                        <p class="text-sm text-slate-400 mt-1">Elige los ítems disponibles que quieres agregar a la factura.</p>
+                        <div class="mt-3">
+                            <label for="modal-buscar-serie-factura" class="sr-only">Buscar por número de serie</label>
+                            <input type="text"
+                                   id="modal-buscar-serie-factura"
+                                   wire:model.live.debounce.400ms="unidadesDisponiblesSearch"
+                                   placeholder="Buscar por número de serie..."
+                                   class="w-full rounded-md border-slate-600 bg-slate-900 text-white text-sm focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                    </div>
+                    <div class="p-4 overflow-y-auto flex-1">
+                        @if(count($unidadesDisponibles) > 0)
+                            <ul class="space-y-2">
+                                @foreach($unidadesDisponibles as $unit)
+                                    <li class="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-700/50">
+                                        <input type="checkbox"
+                                               id="serial-factura-{{ $unit['id'] }}"
+                                               wire:model.live="serialesSeleccionados"
+                                               value="{{ $unit['serial_number'] }}"
+                                               class="rounded border-slate-600 text-indigo-500 focus:ring-indigo-500 bg-slate-800">
+                                        <label for="serial-factura-{{ $unit['id'] }}" class="flex-1 text-sm text-slate-200 cursor-pointer">
+                                            <span class="font-medium">{{ $unit['serial_number'] }}</span>
+                                            @if(!empty($unit['features']) && is_array($unit['features']))
+                                                <span class="text-slate-500 ml-2">— {{ implode(', ', array_map(fn($k, $v) => "{$k}: {$v}", array_keys($unit['features']), $unit['features'])) }}</span>
+                                            @endif
+                                        </label>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        @else
+                            <p class="text-sm text-slate-500">
+                                @if(!empty(trim($unidadesDisponiblesSearch)))
+                                    No hay unidades con ese número de serie.
+                                @else
+                                    No hay unidades disponibles en este momento.
+                                @endif
+                            </p>
+                        @endif
+                    </div>
+                    @if($totalUnidades > 0)
+                        <div class="px-4 py-2 border-t border-slate-600 flex items-center justify-between gap-2 flex-wrap">
+                            <p class="text-xs text-slate-500">
+                                Mostrando {{ $from }}-{{ $to }} de {{ $totalUnidades }}
+                            </p>
+                            <div class="flex items-center gap-1">
+                                <button type="button"
+                                        wire:click="irAPaginaUnidadesFactura({{ $unidadesDisponiblesPage - 1 }})"
+                                        @if($unidadesDisponiblesPage <= 1) disabled @endif
+                                        class="px-2 py-1 text-sm rounded border border-slate-600 text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-700">
+                                    Anterior
+                                </button>
+                                @for($p = max(1, $unidadesDisponiblesPage - 2); $p <= min($maxPage, $unidadesDisponiblesPage + 2); $p++)
+                                    <button type="button"
+                                            wire:click="irAPaginaUnidadesFactura({{ $p }})"
+                                            class="px-2 py-1 text-sm rounded {{ $p === $unidadesDisponiblesPage ? 'bg-indigo-600 text-white' : 'border border-slate-600 text-slate-300 hover:bg-slate-700' }}">
+                                        {{ $p }}
+                                    </button>
+                                @endfor
+                                <button type="button"
+                                        wire:click="irAPaginaUnidadesFactura({{ $unidadesDisponiblesPage + 1 }})"
+                                        @if($unidadesDisponiblesPage >= $maxPage) disabled @endif
+                                        class="px-2 py-1 text-sm rounded border border-slate-600 text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-700">
+                                    Siguiente
+                                </button>
+                            </div>
+                        </div>
+                    @endif
+                    @if($errorStock)
+                        <div class="px-4 py-2 bg-red-900/30 border-t border-red-800 text-red-300 text-sm">
+                            {{ $errorStock }}
+                        </div>
+                    @endif
+                    <div class="p-4 border-t border-slate-600 flex justify-end gap-2">
+                        <button type="button"
+                                wire:click="cerrarModalUnidadesFactura"
+                                class="px-4 py-2 border border-slate-600 rounded-lg text-slate-300 hover:bg-slate-700 font-bold text-sm">
+                            Cerrar
+                        </button>
+                        <button type="button"
+                                wire:click="agregarSerializadosAFactura"
+                                class="px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold text-sm hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                @if(empty($serialesSeleccionados)) disabled @endif>
+                            Agregar seleccionados ({{ count($serialesSeleccionados) }})
                         </button>
                     </div>
                 </div>
