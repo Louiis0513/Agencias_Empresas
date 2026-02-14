@@ -1,4 +1,27 @@
 <x-app-layout>
+@php
+        // Transforma los items de la cotización al formato que entiende el modal de factura
+        $itemsParaFacturar = collect($itemsConPrecios)->map(function($row) {
+            $item = $row['item'];
+            $type = 'simple';
+            if (!empty($item->serial_numbers) && count($item->serial_numbers) > 0) {
+                $type = 'serialized';
+            } elseif (!empty($item->variant_features)) {
+                $type = 'batch';
+            }
+            
+            return [
+                'product_id' => $item->product_id,
+                'name' => $item->name ?? $item->product->name ?? 'Producto',
+                'quantity' => $item->quantity,
+                'price' => $row['unit_price'],
+                'type' => $type,
+                'variant_features' => $item->variant_features ?? [],
+                'variant_display_name' => $item->variant_display_name ?? '',
+                'serial_numbers' => $item->serial_numbers ?? [],
+            ];
+        })->values()->all();
+    @endphp
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
@@ -12,6 +35,16 @@
                     <button type="submit" class="inline-flex items-center px-3 py-1.5 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700">
                         Eliminar cotización
                     </button>
+                    <button type="button"
+                        x-data
+                        x-on:click="Livewire.dispatch('load-items-from-cart', { 
+                            items: {{ \Illuminate\Support\Js::from($itemsParaFacturar) }}, 
+                            customer_id: {{ $cotizacion->customer_id ?? 'null' }} 
+                        })"
+                        class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 focus:bg-indigo-700 active:bg-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150 shadow-sm">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    Facturar Cotización
+                </button>
                 </form>
                 <a href="{{ route('stores.ventas.cotizaciones', $store) }}" class="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
                     ← Volver a Cotizaciones
@@ -102,4 +135,5 @@
             </div>
         </div>
     </div>
+    <livewire:create-invoice-modal :store-id="$store->id" />
 </x-app-layout>
