@@ -625,8 +625,6 @@ class ProductService
             'serial_items' => $serialItems,
         ]);
 
-        // Actualizar costo ponderado después de que InventarioService haya actualizado el stock
-        $this->updateProductCost($product);
     }
 
     /**
@@ -763,37 +761,6 @@ class ProductService
                 }
             }
         }
-
-        // Actualizar costo ponderado después de que InventarioService haya actualizado el stock
-        $this->updateProductCost($product);
     }
-
-    /**
-     * Actualiza el costo ponderado del producto desde la fuente de verdad.
-     * Batch: SUM(qty × unit_cost) / total_qty de todos los batch_items.
-     * Serializado: promedio de cost de los product_items disponibles.
-     */
-    protected function updateProductCost(Product $product): void
-    {
-        if ($product->isSerialized()) {
-            $items = \App\Models\ProductItem::where('product_id', $product->id)
-                ->where('store_id', $product->store_id)
-                ->where('status', \App\Models\ProductItem::STATUS_AVAILABLE)
-                ->get();
-            $total = $items->sum('cost');
-            $qty = $items->count();
-        } elseif ($product->isBatch()) {
-            $total = \App\Models\BatchItem::whereHas('batch', function ($q) use ($product) {
-                $q->where('product_id', $product->id)->where('store_id', $product->store_id);
-            })->get()->sum(fn (\App\Models\BatchItem $bi) => $bi->quantity * (float) $bi->unit_cost);
-            $qty = \App\Models\BatchItem::whereHas('batch', function ($q) use ($product) {
-                $q->where('product_id', $product->id)->where('store_id', $product->store_id);
-            })->sum('quantity');
-        } else {
-            return;
-        }
-
-        $product->cost = $qty > 0 ? (float) round($total / $qty, 2) : 0.0;
-        $product->save();
-    }
+    
 }

@@ -236,7 +236,9 @@ class InventarioService
                 }
 
                 $this->actualizarStock($product, $type, $quantity);
-                $this->actualizarCostoPonderado($product);
+                if ($type === MovimientoInventario::TYPE_ENTRADA) {
+                    $this->actualizarCostoPonderado($product);
+                }
 
                 $mov = MovimientoInventario::create([
                     'store_id'    => $store->id,
@@ -399,7 +401,9 @@ class InventarioService
             ]);
 
             $this->actualizarStock($product, $type, $quantity);
-            $this->actualizarCostoPonderado($product);
+            if ($type === MovimientoInventario::TYPE_ENTRADA) {
+                $this->actualizarCostoPonderado($product);
+            }
 
             return $mov;
         });
@@ -586,18 +590,18 @@ class InventarioService
     }
 
     /**
-     * Retorna el stock disponible según el tipo de producto (consulta anatómica, sin modificar inventario).
-     * Una sola función con todos los casos; sin redundancia.
+     * Retorna el stock disponible basándose ESTRICTAMENTE en el tipo de producto.
      *
-     * Casos (en orden de resolución):
-     * 1. Serializado: product_id + serial_number → product_items, disponible/status.
-     * 2. Lote por ítem concreto: product_id + batch_item_id → quantity de ese BatchItem.
-     * 3. Lote por variante (features): product_id + variant_features → suma quantity de todos los BatchItems con esas features.
-     * 4. Simple: solo product_id → campo stock de la tabla products.
+     * Lógica jerárquica:
+     * 1. Determina el tipo de producto (Simple, Batch, Serialized).
+     * 2. Ejecuta la estrategia de consulta correspondiente a ese tipo,
+     *    con una consideración especial para productos 'simple' que gestionan lotes.
      *
-     * @param  int|null  $batchItemId  Lote: id de un BatchItem concreto (stock de ese ítem).
-     * @param  string|null  $serialNumber  Serializado: número de serie.
-     * @param  array|null  $variantFeatures  Lote: mapa atributo=>valor; retorna stock total de esa variante en todos los lotes.
+     * @param  Store  $store
+     * @param  int  $productId
+     * @param  int|null  $batchItemId  Opcional: para lote, id de un BatchItem concreto.
+     * @param  string|null  $serialNumber  Opcional: para serializado, número de serie.
+     * @param  array|null  $variantFeatures  Opcional: para lote, mapa atributo=>valor de la variante.
      * @return array{disponible: bool, cantidad: int, status: string|null}
      */
     public function stockDisponible(Store $store, int $productId, ?int $batchItemId = null, ?string $serialNumber = null, ?array $variantFeatures = null): array
@@ -610,18 +614,66 @@ class InventarioService
             return ['disponible' => false, 'cantidad' => 0, 'status' => null];
         }
 
-        // Case 3: Serializado — se envía el serial, se busca en product_items y se retorna el status para saber si está disponible
+        // Normalizamos el tipo, asumiendo 'simple' si es null o vacío
+        $type = $product->type ?: 'simple';
+
+        switch ($type) {
+            case MovimientoInventario::PRODUCT_TYPE_SERIALIZED:
+                // Si el producto es serializado, su stock se gestiona por ProductItems.
+                return $this->consultarStockSerializado($store, $product, $serialNumber);
+
+            case MovimientoInventario::PRODUCT_TYPE_BATCH:
+                // Si el producto es por lote, su stock se gestiona por BatchItems.
+                return $this->consultarStockLote($store, $product, $batchItemId, $variantFeatures);
+
+            case 'simple':
+            default:
+                // Caso 'simple': Aquí es donde necesitamos la lógica especial para productos 'simple' que gestionan lotes.
+                // Si un producto marcado como 'simple' tiene lotes asociados,
+                // su stock real proviene de la suma de esos lotes.
+                if ($product->batches()->exists()) {
+                    // Delegar a consultarStockLote para obtener la suma total de BatchItems.
+                    // Le pasamos null para batchItemId y variantFeatures para que tome el Sub-caso 3 (consulta general).
+                    return $this->consultarStockLote($store, $product, null, null);
+                }
+                // Si el producto 'simple' NO tiene lotes asociados, su stock está en la columna 'stock'.
+                return $this->consultarStockSimple($product);
+        }
+    }
+
+    /**
+     * Estrategia para Producto Simple (sin gestión por lotes):
+     * Mira directamente la columna 'stock' del producto.
+     */
+    protected function consultarStockSimple(Product $product): array
+    {
+        $cantidad = (int) $product->stock;
+        
+        return [
+            'disponible' => $cantidad > 0,
+            'cantidad'   => $cantidad,
+            'status'     => null, // Simple no maneja estados (vendido/reservado) por unidad
+        ];
+    }
+
+    /**
+     * Estrategia para Producto Serializado:
+     * Si hay serial: Busca esa unidad específica y su estado.
+     * Si NO hay serial: Cuenta el total de unidades disponibles (opcional, pero útil).
+     */
+    protected function consultarStockSerializado(Store $store, Product $product, ?string $serialNumber): array
+    {
+        // Si se pide un serial específico (Caso de Uso: Venta o Validación de salida)
         if ($serialNumber !== null && $serialNumber !== '') {
-            if (! $product->isSerialized()) {
-                return ['disponible' => false, 'cantidad' => 0, 'status' => null];
-            }
             $item = ProductItem::where('store_id', $store->id)
                 ->where('product_id', $product->id)
                 ->where('serial_number', trim($serialNumber))
                 ->first();
+
             if (! $item) {
                 return ['disponible' => false, 'cantidad' => 0, 'status' => null];
             }
+
             $disponible = $item->status === ProductItem::STATUS_AVAILABLE;
 
             return [
@@ -631,19 +683,38 @@ class InventarioService
             ];
         }
 
-        // Case 2: Lote por ítem concreto — batch_item_id → quantity de ese BatchItem
+        // Si no envían serial, retornamos el conteo total de disponibles (Caso de Uso: Listado o Catalog)
+        $cantidadTotal = ProductItem::where('store_id', $store->id)
+            ->where('product_id', $product->id)
+            ->where('status', ProductItem::STATUS_AVAILABLE)
+            ->count();
+
+        return [
+            'disponible' => $cantidadTotal > 0,
+            'cantidad'   => $cantidadTotal,
+            'status'     => null,
+        ];
+    }
+
+    /**
+     * Estrategia para Producto por Lotes (Batch):
+     * 1. Por ID de Item específico (BatchItem concreto).
+     * 2. Por Variantes (Features): Suma de todos los lotes que coincidan.
+     * 3. General: Suma total del stock activo.
+     */
+    protected function consultarStockLote(Store $store, Product $product, ?int $batchItemId, ?array $variantFeatures): array
+    {
+        // Sub-caso 1: Consulta por ID específico de BatchItem
         if ($batchItemId !== null && $batchItemId > 0) {
-            if (! $product->isBatch()) {
-                return ['disponible' => false, 'cantidad' => 0, 'status' => null];
-            }
             $batchItem = BatchItem::where('id', $batchItemId)
                 ->whereHas('batch', fn ($q) => $q->where('store_id', $store->id)->where('product_id', $product->id))
                 ->first();
+
             if (! $batchItem) {
                 return ['disponible' => false, 'cantidad' => 0, 'status' => null];
             }
+            
             $cantidad = (int) $batchItem->quantity;
-
             return [
                 'disponible' => $cantidad > 0,
                 'cantidad'   => $cantidad,
@@ -651,37 +722,38 @@ class InventarioService
             ];
         }
 
-        // Case 3: Lote por variante (features) — suma quantity de todos los BatchItems con esas features
+        // Sub-caso 2: Consulta por Variantes (ej. Talla: M, Color: Azul)
         if ($variantFeatures !== null && is_array($variantFeatures) && ! empty($variantFeatures)) {
-            if (! $product->isBatch()) {
-                return ['disponible' => false, 'cantidad' => 0, 'status' => null];
-            }
             $key = self::detectorDeVariantesEnLotes($variantFeatures);
-            $batchItems = BatchItem::whereHas('batch', fn ($q) => $q->where('store_id', $store->id)->where('product_id', $product->id))
+            
+            $cantidad = BatchItem::whereHas('batch', fn ($q) => $q->where('store_id', $store->id)->where('product_id', $product->id))
                 ->where('quantity', '>', 0)
                 ->where(function ($q) {
                     $q->where('is_active', true)->orWhereNull('is_active');
                 })
-                ->get();
-            $cantidad = 0;
-            foreach ($batchItems as $bi) {
-                if (self::detectorDeVariantesEnLotes($bi->features) === $key) {
-                    $cantidad += (int) $bi->quantity;
-                }
-            }
+                ->get()
+                ->filter(fn ($bi) => self::detectorDeVariantesEnLotes($bi->features) === $key)
+                ->sum('quantity');
+
             return [
                 'disponible' => $cantidad > 0,
-                'cantidad'   => $cantidad,
+                'cantidad'   => (int) $cantidad,
                 'status'     => null,
             ];
         }
 
-        // Case 4: Simple — retorna el stock de la tabla producto
-        $cantidad = (int) $product->stock;
+        // Sub-caso 3: Consulta general (stock total en lotes activos)
+        // Esto es útil si solo quieres saber cuánto hay en total sin importar el lote
+        $cantidadTotal = BatchItem::whereHas('batch', fn ($q) => $q->where('store_id', $store->id)->where('product_id', $product->id))
+            ->where('quantity', '>', 0)
+            ->where(function ($q) {
+                $q->where('is_active', true)->orWhereNull('is_active');
+            })
+            ->sum('quantity');
 
         return [
-            'disponible' => $cantidad > 0,
-            'cantidad'   => $cantidad,
+            'disponible' => $cantidadTotal > 0,
+            'cantidad'   => (int) $cantidadTotal,
             'status'     => null,
         ];
     }

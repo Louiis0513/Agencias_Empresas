@@ -64,6 +64,8 @@ class CreateInvoiceModal extends Component
 
     // Factura
     public string $status = 'PAID';
+    public array $todosLosBolsillos = []; 
+    public array $bolsillosBancariosIds = [];
     /** Partes del pago cuando status = PAID. [ ['method' => 'CASH', 'amount' => '10000', 'bolsillo_id' => 1, 'recibido' => '15000'], ... ] */
     public array $paymentParts = [];
 
@@ -170,10 +172,29 @@ class CreateInvoiceModal extends Component
 
     public function mount()
     {
+        $this->cargarBolsillos(); 
         $this->calcularTotales();
         $this->inicializarPagosSiPagada();
     }
+    public function cargarBolsillos()
+    {
+        $store = $this->getStoreProperty();
+        if (!$store) return;
 
+        $cajaService = app(CajaService::class);
+
+        // Obtenemos los bolsillos según la lógica de tu CajaService
+        $efectivos = $cajaService->obtenerBolsillosParaPago($store, 'CASH');
+        $bancos = $cajaService->obtenerBolsillosParaPago($store, 'TRANSFER');
+
+        // Guardamos los IDs que son bancos para usarlos en las validaciones
+        $this->bolsillosBancariosIds = $bancos->pluck('id')->toArray();
+
+        // Creamos una lista única para el selector de la vista
+        $this->todosLosBolsillos = $efectivos->merge($bancos)
+            ->map(fn($b) => ['id' => $b->id, 'name' => $b->name])
+            ->toArray();
+    }
     public function resetFormulario()
     {
         $this->saving = false;
@@ -195,6 +216,7 @@ class CreateInvoiceModal extends Component
         $this->status = 'PAID';
         $this->paymentParts = [];
         $this->resetValidation();
+        $this->cargarBolsillos(); 
         $this->calcularTotales();
         $this->inicializarPagosSiPagada();
     }
@@ -255,6 +277,15 @@ class CreateInvoiceModal extends Component
 
         $index = (int) $parts[0];
         $field = $parts[1];
+        if ($field === 'bolsillo_id') {
+            $bid = (int) $value;
+            if (in_array($bid, $this->bolsillosBancariosIds)) {
+                $this->paymentParts[$index]['method'] = 'TRANSFER';
+            } else {
+                $this->paymentParts[$index]['method'] = 'CASH';
+            }
+            return;
+        }
 
         if ($field === 'amount') {
             $this->ajustarMontoPago($index);
@@ -947,13 +978,24 @@ class CreateInvoiceModal extends Component
         try {
             // Preparar detalles para guardar
             $details = array_map(function($item) {
-                return [
-                    'product_id' => $item['product_id'],
-                    'unit_price' => $item['price'],
-                    'quantity' => $item['quantity'],
-                    'subtotal' => $item['subtotal'],
+                               $detail = [
+                                   'product_id' => $item['product_id'],
+                                    'unit_price' => $item['price'],
+                                    'quantity' => $item['quantity'],
+                                    'subtotal' => $item['subtotal'],
                 ];
-            }, $this->productosSeleccionados);
+                              // Incluir variant_features si existen
+                                if (isset($item['variant_features']) && is_array($item['variant_features'])) {
+                                    $detail['variant_features'] = $item['variant_features'];
+                                }
+                
+                                // Incluir serial_numbers si existen
+                                if (isset($item['serial_numbers']) && is_array($item['serial_numbers'])) {
+                                    $detail['serial_numbers'] = $item['serial_numbers'];
+                                }
+                
+                                return $detail;
+                }, $this->productosSeleccionados);
 
             $payload = [
                 'customer_id' => $this->customer_id,
@@ -970,6 +1012,7 @@ class CreateInvoiceModal extends Component
                         'payment_method' => $p['method'] ?? 'CASH',
                         'amount' => (float) ($p['amount'] ?? 0),
                         'bolsillo_id' => (int) ($p['bolsillo_id'] ?? 0),
+                        'reference' => $p['reference'] ?? null,
                     ];
                 }, array_filter($this->paymentParts, fn ($p) => ((float) ($p['amount'] ?? 0)) > 0));
             }

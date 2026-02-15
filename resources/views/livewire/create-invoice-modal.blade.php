@@ -226,77 +226,95 @@
                             <div class="space-y-4">
                                 @foreach($paymentParts as $index => $part)
                                     @php
-                                        $method = $part['method'] ?? 'CASH';
+                                        $bid = (int)($part['bolsillo_id'] ?? 0);
+                                        // Usamos el array que preparamos en PHP para saber si es banco
+                                        $isBank = in_array($bid, $this->bolsillosBancariosIds);
+                                        
                                         $amt = (float)($part['amount'] ?? 0);
                                         $rec = (float)($part['recibido'] ?? 0);
-                                        $vuelto = ($method === 'CASH' && $rec >= $amt && $amt > 0) ? round($rec - $amt, 2) : null;
+                                        // Vuelto solo aplica si NO es banco, se recibió algo y cubre el monto
+                                        $vuelto = (!$isBank && $rec >= $amt && $amt > 0) ? ($rec - $amt) : null;
                                     @endphp
-                                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-slate-900/50 rounded-xl border border-slate-700 relative">
-                                        <div class="md:col-span-1">
-                                            <label class="text-[10px] uppercase font-black text-slate-500">Método</label>
-                                            <select wire:model.live="paymentParts.{{ $index }}.method" wire:change="actualizarMetodoPago({{ $index }})"
-                                                class="w-full mt-1 rounded bg-slate-800 border-slate-600 text-white text-sm focus:ring-indigo-500">
-                                                <option value="CASH">Efectivo</option>
-                                                <option value="CARD">Tarjeta</option>
-                                                <option value="TRANSFER">Transferencia</option>
-                                            </select>
-                                        </div>
-                                        <div class="md:col-span-1">
-                                            <label class="text-[10px] uppercase font-black text-slate-500">Monto Cobrado</label>
-                                            <input type="number" wire:model.blur="paymentParts.{{ $index }}.amount" step="0.01" min="0" placeholder="0.00"
-                                                class="w-full mt-1 rounded bg-slate-800 border-slate-600 text-white text-sm font-bold">
-                                            <x-input-error :messages="$errors->get('paymentParts.' . $index . '.amount')" class="mt-0.5 text-red-400 text-xs" />
-                                        </div>
-                                        <div class="md:col-span-1">
-                                            <label class="text-[10px] uppercase font-black text-slate-500">Caja / Cuenta</label>
-                                            <select wire:model="paymentParts.{{ $index }}.bolsillo_id" class="w-full mt-1 rounded bg-slate-800 border-slate-600 text-white text-sm">
-                                                <option value="0">Seleccionar...</option>
-                                                @foreach($this->bolsillosParaMetodo($part['method'] ?? 'CASH') as $b)
-                                                    <option value="{{ $b->id }}">{{ $b->name }}</option>
+
+                                    <div class="grid grid-cols-1 md:grid-cols-12 gap-4 p-4 bg-slate-900/50 rounded-xl border border-slate-700 relative">
+                                        
+                                        {{-- 1. SELECCIÓN DE BOLSILLO (Reemplaza al selector de Método) --}}
+                                        <div class="md:col-span-5">
+                                            <label class="text-[10px] uppercase font-black text-slate-500">Destino (Caja/Banco)</label>
+                                            <select wire:model.live="paymentParts.{{ $index }}.bolsillo_id" 
+                                                    class="w-full mt-1 rounded bg-slate-800 border-slate-600 text-white text-sm focus:ring-indigo-500">
+                                                <option value="">Seleccionar destino...</option>
+                                                @foreach($todosLosBolsillos as $b)
+                                                    <option value="{{ $b['id'] }}">
+                                                        {{ $b['name'] }}
+                                                    </option>
                                                 @endforeach
                                             </select>
                                             <x-input-error :messages="$errors->get('paymentParts.' . $index . '.bolsillo_id')" class="mt-0.5 text-red-400 text-xs" />
                                         </div>
-                                        <div class="flex flex-col items-end justify-end gap-1 pb-1">
-                                            @if($method === 'CASH')
-                                                <div class="w-full">
-                                                    <label class="text-[10px] uppercase font-black text-slate-500">Recibido (vuelto)</label>
-                                                    <input type="number" wire:model.blur="paymentParts.{{ $index }}.recibido" step="0.01" min="0" placeholder="0.00"
-                                                        class="w-full mt-1 rounded bg-slate-800 border-slate-600 text-white text-sm font-bold">
+
+                                        {{-- 2. CAMPO DINÁMICO: REFERENCIA O RECIBIDO --}}
+                                        @if($isBank)
+                                            {{-- Si es Banco: Mostramos Referencia --}}
+                                            <div class="md:col-span-4">
+                                                <label class="text-[10px] uppercase font-black text-slate-500">Referencia / Voucher</label>
+                                                <input type="text" wire:model="paymentParts.{{ $index }}.reference" placeholder="# Transacción"
+                                                       class="w-full mt-1 rounded bg-slate-800 border-slate-600 text-white text-sm">
+                                            </div>
+                                        @else
+                                            {{-- Si es Efectivo: Mostramos Recibido para calcular cambio --}}
+                                            <div class="md:col-span-4">
+                                                <label class="text-[10px] uppercase font-black text-slate-500">Dinero Recibido</label>
+                                                <div class="relative">
+                                                    <input type="number" wire:model.live="paymentParts.{{ $index }}.recibido" step="0.01" min="0" placeholder="0.00"
+                                                           class="w-full mt-1 rounded bg-slate-800 border-slate-600 text-white text-sm font-bold">
                                                     @if($vuelto !== null)
-                                                        <p class="mt-0.5 text-xs font-bold text-emerald-400">Vuelto: ${{ number_format($vuelto, 2) }}</p>
+                                                        <div class="absolute right-0 -bottom-5 text-xs font-bold text-emerald-400">
+                                                            Cambio: ${{ number_format($vuelto, 2) }}
+                                                        </div>
                                                     @endif
-                                                    <x-input-error :messages="$errors->get('paymentParts.' . $index . '.recibido')" class="mt-0.5 text-red-400 text-xs" />
                                                 </div>
-                                            @endif
-                                            @if(count($paymentParts) > 1)
-                                                <button type="button" wire:click="quitarPago({{ $index }})" class="text-red-500 hover:bg-red-500/10 p-2 rounded-lg transition-colors">
-                                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
-                                                </button>
-                                            @endif
+                                            </div>
+                                        @endif
+
+                                        {{-- 3. MONTO A COBRAR --}}
+                                        <div class="md:col-span-3">
+                                            <label class="text-[10px] uppercase font-black text-slate-500">Monto</label>
+                                            <input type="number" wire:model.blur="paymentParts.{{ $index }}.amount" step="0.01" min="0" placeholder="0.00"
+                                                   class="w-full mt-1 rounded bg-slate-800 border-slate-600 text-white text-sm font-bold text-right">
+                                            <x-input-error :messages="$errors->get('paymentParts.' . $index . '.amount')" class="mt-0.5 text-red-400 text-xs" />
                                         </div>
+
+                                        {{-- Botón Eliminar --}}
+                                        @if(count($paymentParts) > 1)
+                                            <button type="button" wire:click="quitarPago({{ $index }})" 
+                                                    class="absolute -top-2 -right-2 bg-red-600 text-white rounded-full p-1 shadow-lg hover:bg-red-500 transition-colors"
+                                                    title="Quitar este pago">
+                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                            </button>
+                                        @endif
                                     </div>
                                 @endforeach
                             </div>
 
-                            {{-- Barra de cuadre de caja --}}
-                            <div class="mt-6 p-4 bg-slate-900 rounded-xl flex items-center justify-between border border-slate-700">
-                                <div class="text-sm font-bold text-slate-400 italic">Resumen de cuadre:</div>
-                                <div class="flex space-x-6">
+                            {{-- Barra de Resumen (Sin cambios, solo la mantenemos) --}}
+                            <div class="mt-8 p-4 bg-slate-900 rounded-xl flex items-center justify-between border border-slate-700">
+                                <div class="text-sm font-bold text-slate-400 italic">Resumen de pagos:</div>
+                                <div class="flex space-x-8">
                                     <div class="text-center">
-                                        <p class="text-[10px] text-slate-500 uppercase font-black">Pagado</p>
+                                        <p class="text-[10px] text-slate-500 uppercase font-black">Total Pagado</p>
                                         <p class="text-lg font-bold text-white">${{ number_format($this->totalPagado, 2) }}</p>
                                     </div>
-                                    <div class="text-center border-l border-slate-700 pl-6">
-                                        <p class="text-[10px] text-slate-500 uppercase font-black">Estado</p>
+                                    <div class="text-center border-l border-slate-700 pl-8">
+                                        <p class="text-[10px] text-slate-500 uppercase font-black">Pendiente</p>
                                         @if(abs($this->diferenciaPago) < 0.01)
-                                            <p class="text-lg font-bold text-emerald-400 flex items-center">
+                                            <p class="text-lg font-bold text-emerald-400 flex items-center justify-center">
                                                 <svg class="w-5 h-5 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
-                                                Cuadrado
+                                                ¡Completo!
                                             </p>
                                         @else
                                             <p class="text-lg font-bold text-amber-500 animate-pulse">
-                                                {{ $this->diferenciaPago > 0 ? 'Faltan' : 'Sobran' }} ${{ number_format(abs($this->diferenciaPago), 2) }}
+                                                {{ $this->diferenciaPago > 0 ? 'Falta' : 'Sobra' }} ${{ number_format(abs($this->diferenciaPago), 2) }}
                                             </p>
                                         @endif
                                     </div>
