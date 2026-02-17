@@ -25,6 +25,9 @@ class PermissionSeeder extends Seeder
             ['slug' => 'categories.create', 'name' => 'Crear categorías', 'description' => 'Crear y editar categorías'],
             ['slug' => 'categories.destroy', 'name' => 'Eliminar categorías', 'description' => 'Eliminar categorías'],
             ['slug' => 'category-attributes.assign', 'name' => 'Asignar atributos de categoría', 'description' => 'Asignar grupos de atributos a categorías'],
+            ['slug' => 'category-attributes.create', 'name' => 'Crear atributos de categoría', 'description' => 'Agregar atributos a una categoría'],
+            ['slug' => 'category-attributes.edit', 'name' => 'Editar atributos de categoría', 'description' => 'Modificar atributos asignados a una categoría'],
+            ['slug' => 'category-attributes.destroy', 'name' => 'Eliminar atributos de categoría', 'description' => 'Retirar atributos de una categoría'],
 
             // Productos
             ['slug' => 'products.view', 'name' => 'Ver productos', 'description' => 'Ver listado y detalle de productos'],
@@ -35,6 +38,7 @@ class PermissionSeeder extends Seeder
             ['slug' => 'product-purchases.create', 'name' => 'Crear compras de productos', 'description' => 'Crear compras de productos'],
             ['slug' => 'product-purchases.edit', 'name' => 'Editar compras de productos', 'description' => 'Editar compras de productos'],
             ['slug' => 'product-purchases.destroy', 'name' => 'Eliminar compras de productos', 'description' => 'Eliminar compras de productos'],
+            ['slug' => 'product-purchases.approve', 'name' => 'Aprobar compras de productos', 'description' => 'Aprobar compras de productos para actualizar inventario'],
 
             // Facturas
             ['slug' => 'invoices.view', 'name' => 'Ver facturas', 'description' => 'Ver listado y detalle de facturas'],
@@ -46,6 +50,7 @@ class PermissionSeeder extends Seeder
             ['slug' => 'proveedores.create', 'name' => 'Crear proveedores', 'description' => 'Crear nuevos proveedores'],
             ['slug' => 'proveedores.edit', 'name' => 'Editar proveedores', 'description' => 'Modificar datos de proveedores'],
             ['slug' => 'proveedores.destroy', 'name' => 'Eliminar proveedores', 'description' => 'Eliminar proveedores'],
+            ['slug' => 'proveedores.products.assign', 'name' => 'Asignar productos a proveedores', 'description' => 'Relacionar productos existentes con un proveedor'],
 
             // Clientes
             ['slug' => 'customers.view', 'name' => 'Ver clientes', 'description' => 'Ver listado de clientes'],
@@ -59,7 +64,6 @@ class PermissionSeeder extends Seeder
             ['slug' => 'caja.bolsillos.edit', 'name' => 'Editar bolsillos', 'description' => 'Modificar bolsillos'],
             ['slug' => 'caja.bolsillos.destroy', 'name' => 'Eliminar bolsillos', 'description' => 'Eliminar bolsillos'],
             ['slug' => 'caja.movimientos.create', 'name' => 'Registrar movimientos de caja', 'description' => 'Registrar entradas y salidas de caja'],
-            ['slug' => 'caja.movimientos.destroy', 'name' => 'Eliminar movimientos de caja', 'description' => 'Eliminar movimientos de caja'],
 
             // Inventario
             ['slug' => 'inventario.view', 'name' => 'Ver inventario', 'description' => 'Ver inventario de productos'],
@@ -71,6 +75,8 @@ class PermissionSeeder extends Seeder
             ['slug' => 'activos.create', 'name' => 'Crear activos', 'description' => 'Crear nuevos activos'],
             ['slug' => 'activos.edit', 'name' => 'Editar activos', 'description' => 'Modificar activos'],
             ['slug' => 'activos.destroy', 'name' => 'Eliminar activos', 'description' => 'Eliminar activos'],
+            ['slug' => 'activos.movimientos.view', 'name' => 'Ver movimientos de activos', 'description' => 'Ver entradas y salidas de activos'],
+            ['slug' => 'activos.movimientos.create', 'name' => 'Registrar movimientos de activos', 'description' => 'Registrar movimientos de activos'],
 
             // Compras
             ['slug' => 'purchases.view', 'name' => 'Ver compras', 'description' => 'Ver listado y detalle de compras'],
@@ -109,6 +115,11 @@ class PermissionSeeder extends Seeder
             ['slug' => 'workers.create', 'name' => 'Crear trabajadores', 'description' => 'Añadir trabajadores a la tienda'],
             ['slug' => 'workers.edit', 'name' => 'Editar trabajadores', 'description' => 'Modificar datos y rol de trabajadores'],
             ['slug' => 'workers.destroy', 'name' => 'Eliminar trabajadores', 'description' => 'Quitar trabajadores de la tienda'],
+            ['slug' => 'workers.assign-role', 'name' => 'Asignar roles a trabajadores', 'description' => 'Vincular trabajadores existentes a un rol específico'],
+
+            // Ventas (carrito y cotizaciones)
+            ['slug' => 'ventas.carrito.view', 'name' => 'Ver carrito de ventas', 'description' => 'Acceso al carrito de ventas'],
+            ['slug' => 'cotizaciones.view', 'name' => 'Ver cotizaciones', 'description' => 'Ver las cotizaciones guardadas y eliminarlas'],
         ];
 
         foreach ($permissions as $p) {

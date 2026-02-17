@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\StoreController;
+use App\Http\Controllers\StoreWorkerController;
 
 Route::view('/', 'welcome');
 
@@ -14,17 +15,17 @@ Route::view('profile', 'profile')
     ->name('profile');
 
 
-Route::middleware(['auth', 'verified'])->prefix('tienda/{store:slug}')->name('stores.')->group(function () {
+Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:slug}')->name('stores.')->group(function () {
     
   
     Route::get('/', [StoreController::class, 'show'])->name('dashboard');
 
-    Route::get('/trabajadores', [StoreController::class, 'workers'])->name('workers');
-    Route::get('/trabajadores/crear', [StoreController::class, 'createWorker'])->name('workers.create');
-    Route::post('/trabajadores', [StoreController::class, 'storeWorker'])->name('workers.store');
-    Route::get('/trabajadores/{worker}/editar', [StoreController::class, 'editWorker'])->name('workers.edit');
-    Route::put('/trabajadores/{worker}', [StoreController::class, 'updateWorker'])->name('workers.update');
-    Route::delete('/trabajadores/{worker}', [StoreController::class, 'destroyWorker'])->name('workers.destroy');
+    Route::get('/trabajadores', [StoreWorkerController::class, 'index'])->name('workers');
+    Route::get('/trabajadores/crear', [StoreWorkerController::class, 'create'])->name('workers.create');
+    Route::post('/trabajadores', [StoreWorkerController::class, 'store'])->name('workers.store');
+    Route::get('/trabajadores/{worker}/editar', [StoreWorkerController::class, 'edit'])->name('workers.edit');
+    Route::put('/trabajadores/{worker}', [StoreWorkerController::class, 'update'])->name('workers.update');
+    Route::delete('/trabajadores/{worker}', [StoreWorkerController::class, 'destroy'])->name('workers.destroy');
 
     Route::get('/roles', [StoreController::class, 'roles'])->name('roles');
     Route::get('/roles/{role}/permisos', [StoreController::class, 'rolePermissions'])->name('roles.permissions');
