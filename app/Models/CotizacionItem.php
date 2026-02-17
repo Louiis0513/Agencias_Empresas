@@ -12,6 +12,7 @@ class CotizacionItem extends Model
     protected $fillable = [
         'cotizacion_id',
         'product_id',
+        'product_variant_id',
         'type',
         'quantity',
         'variant_features',

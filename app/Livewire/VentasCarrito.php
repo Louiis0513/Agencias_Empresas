@@ -105,7 +105,7 @@ class VentasCarrito extends Component
      * Escucha selección de variante (lote). Una fila por variante con stock total; no se muestran lotes.
      */
     #[On('batch-variant-selected')]
-    public function onBatchVariantSelected($rowId, $productId, $productName, $variantFeatures, $displayName, $totalStock = 0): void
+    public function onBatchVariantSelected($rowId, $productId, $productName, $variantFeatures, $displayName, $totalStock = 0, $price = null, $productVariantId = null): void
     {
         if ($rowId !== 'venta') {
             return;
@@ -121,16 +121,17 @@ class VentasCarrito extends Component
         $variantFeatures = is_array($variantFeatures) ? $variantFeatures : [];
         $ventaService = app(VentaService::class);
         $stock = (int) $totalStock;
-        if ($stock < 1) {
-            $r = $ventaService->verificadorCarritoVariante($store, (int) $productId, $variantFeatures);
+        if ($stock < 1 && $productVariantId) {
+            $r = $ventaService->verificadorCarritoVariante($store, (int) $productId, (int) $productVariantId);
             $stock = (int) $r['cantidad'];
         }
         $this->pendienteBatch = [
             'product_id' => (int) $productId,
             'name' => $productName,
+            'product_variant_id' => $productVariantId ? (int) $productVariantId : null,
             'variant_features' => $variantFeatures,
             'variant_display_name' => $displayName,
-            'price' => $ventaService->verPrecio($store, (int) $productId, 'batch', $variantFeatures),
+            'price' => $price !== null ? (float) $price : ($productVariantId ? $ventaService->verPrecio($store, (int) $productId, 'batch', (int) $productVariantId) : 0),
             'stock' => $stock,
         ];
         $this->pendienteSimple = null;
@@ -460,12 +461,13 @@ class VentasCarrito extends Component
         }
         $productId = (int) $this->pendienteBatch['product_id'];
         $variantFeatures = $this->pendienteBatch['variant_features'] ?? [];
+        $pvId = $this->pendienteBatch['product_variant_id'] ?? null;
         $stockVariante = (int) $this->pendienteBatch['stock'];
         if ($quantity > $stockVariante) {
             $this->errorStock = "Stock insuficiente en esta variante. Disponible: {$stockVariante}, solicitado: {$quantity}.";
             return;
         }
-        $items = [['product_id' => $productId, 'variant_features' => $variantFeatures, 'quantity' => $quantity]];
+        $items = [['product_id' => $productId, 'product_variant_id' => $pvId, 'quantity' => $quantity]];
         try {
             $ventaService->validarGuardadoItemCarrito($store, $items);
         } catch (Exception $e) {
@@ -475,6 +477,7 @@ class VentasCarrito extends Component
         $this->carrito[] = [
             'product_id' => $productId,
             'name' => $this->pendienteBatch['name'],
+            'product_variant_id' => $pvId,
             'variant_features' => $variantFeatures,
             'variant_display_name' => $this->pendienteBatch['variant_display_name'],
             'quantity' => $quantity,
@@ -495,16 +498,10 @@ class VentasCarrito extends Component
         foreach ($carrito as $row) {
             if (! empty($row['serial_numbers'])) {
                 $items[] = ['product_id' => $row['product_id'], 'serial_numbers' => $row['serial_numbers']];
-            } elseif (! empty($row['variant_features']) && is_array($row['variant_features'])) {
+            } elseif (! empty($row['product_variant_id'])) {
                 $items[] = [
                     'product_id' => (int) ($row['product_id'] ?? 0),
-                    'variant_features' => $row['variant_features'],
-                    'quantity' => (int) ($row['quantity'] ?? 0),
-                ];
-            } elseif (! empty($row['batch_item_id'])) {
-                $items[] = [
-                    'product_id' => (int) ($row['product_id'] ?? 0),
-                    'batch_item_id' => (int) $row['batch_item_id'],
+                    'product_variant_id' => (int) $row['product_variant_id'],
                     'quantity' => (int) ($row['quantity'] ?? 0),
                 ];
             } else {
@@ -575,16 +572,8 @@ class VentasCarrito extends Component
         $item['quantity'] = $quantity;
         $ventaService = app(VentaService::class);
         $productId = (int) $item['product_id'];
-        if (($item['type'] ?? '') === 'batch' && ! empty($item['variant_features'])) {
-            $r = $ventaService->verificadorCarritoVariante($store, $productId, $item['variant_features']);
-            if ($r['cantidad'] < $quantity) {
-                $item['quantity'] = $cantidadAnterior;
-                $this->errorStock = "Stock insuficiente en esta variante. Disponible: {$r['cantidad']}.";
-                return;
-            }
-            $item['stock'] = $r['cantidad'];
-        } elseif (($item['type'] ?? '') === 'batch' && ! empty($item['batch_item_id'])) {
-            $r = $ventaService->verificadorCarrito($store, $productId, (int) $item['batch_item_id'], null);
+        if (($item['type'] ?? '') === 'batch' && ! empty($item['product_variant_id'])) {
+            $r = $ventaService->verificadorCarritoVariante($store, $productId, (int) $item['product_variant_id']);
             if ($r['cantidad'] < $quantity) {
                 $item['quantity'] = $cantidadAnterior;
                 $this->errorStock = "Stock insuficiente en esta variante. Disponible: {$r['cantidad']}.";
@@ -704,6 +693,7 @@ class VentasCarrito extends Component
                 'quantity' => $item['quantity'],
                 'price' => $item['price'],
                 'type' => $item['type'] ?? 'simple',
+                'product_variant_id' => $item['product_variant_id'] ?? null,
                 'variant_features' => $item['variant_features'] ?? [],
                 'variant_display_name' => $item['variant_display_name'] ?? '',
                 'serial_numbers' => $item['serial_numbers'] ?? [],

@@ -99,49 +99,18 @@
                 </dl>
             </div>
 
-            {{-- Tabla de variantes (solo producto por lote): Variante, Stock, Costo, Precio, Ver detalles --}}
+            {{-- Tabla de variantes (solo producto por lote): desde product_variants --}}
             @if($product->isBatch())
                 @php
                     $attrById = $product->category?->attributes?->keyBy('id') ?? collect();
-                    $variantesParaTabla = collect();
-                    foreach ($product->batches as $batch) {
-                        foreach ($batch->batchItems as $bi) {
-                            $features = is_array($bi->features ?? null) ? $bi->features : [];
-                            ksort($features);
-                            $key = json_encode($features);
-                            if (!$variantesParaTabla->has($key)) {
-                                $variantesParaTabla->put($key, (object) [
-                                    'features' => $bi->features ?? [],
-                                    'total_quantity' => 0,
-                                    'total_cost' => 0,
-                                    'price' => null,
-                                    'movimientos' => [],
-                                    'is_active' => $bi->is_active ?? true,
-                                ]);
-                            }
-                            $obj = $variantesParaTabla->get($key);
-                            $obj->total_quantity += (int) $bi->quantity;
-                            $obj->total_cost += (float) $bi->quantity * (float) ($bi->unit_cost ?? 0);
-                            if ($obj->price === null && $bi->price !== null) {
-                                $obj->price = $bi->price;
-                            }
-                            if (!isset($obj->is_active)) {
-                                $obj->is_active = $bi->is_active ?? true;
-                            }
-                            $obj->movimientos[] = (object) [
-                                'reference' => $batch->reference,
-                                'expiration_date' => $batch->expiration_date,
-                                'created_at' => $batch->created_at,
-                                'quantity' => (int) $bi->quantity,
-                                'unit_cost' => (float) ($bi->unit_cost ?? 0),
-                            ];
-                        }
-                    }
-                    $variantesParaTabla = $variantesParaTabla->values()->map(function ($v) use ($attrById) {
-                        $v->costo_promedio = $v->total_quantity > 0 ? $v->total_cost / $v->total_quantity : 0;
+                    $variantesParaTabla = $product->variants->map(function ($variant) use ($attrById, $product) {
+                        $features = $variant->features ?? [];
+                        $totalQty = $variant->batchItems->sum('quantity');
+                        $totalCost = $variant->batchItems->sum(fn ($bi) => (float) $bi->quantity * (float) $bi->unit_cost);
+
                         $label = '';
-                        if (!empty($v->features) && is_array($v->features)) {
-                            $parts = collect($v->features)->map(function ($val, $k) use ($attrById) {
+                        if (!empty($features) && is_array($features)) {
+                            $parts = collect($features)->map(function ($val, $k) use ($attrById) {
                                 $attr = $attrById->get((int) $k) ?? $attrById->get((string) $k);
                                 $name = $attr ? $attr->name : (string) $k;
                                 return $name . ': ' . $val;
@@ -150,8 +119,34 @@
                         } else {
                             $label = '—';
                         }
-                        $v->label = $label;
-                        return $v;
+
+                        $movimientos = [];
+                        foreach ($variant->batchItems as $bi) {
+                            $batch = $bi->batch;
+                            if ($batch) {
+                                $movimientos[] = (object) [
+                                    'reference' => $batch->reference,
+                                    'expiration_date' => $batch->expiration_date,
+                                    'created_at' => $batch->created_at,
+                                    'quantity' => (int) $bi->quantity,
+                                    'unit_cost' => (float) $bi->unit_cost,
+                                ];
+                            }
+                        }
+
+                        return (object) [
+                            'id' => $variant->id,
+                            'features' => $features,
+                            'label' => $label,
+                            'total_quantity' => (int) $totalQty,
+                            'costo_promedio' => $totalQty > 0 ? $totalCost / $totalQty : 0,
+                            'cost_reference' => (float) $variant->cost_reference,
+                            'price' => $variant->price,
+                            'barcode' => $variant->barcode,
+                            'sku' => $variant->sku,
+                            'is_active' => $variant->is_active,
+                            'movimientos' => $movimientos,
+                        ];
                     });
                 @endphp
                 <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg overflow-hidden">
@@ -179,8 +174,10 @@
                                     <tr>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Variante</th>
                                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Stock</th>
-                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Costo</th>
+                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Costo Ref.</th>
                                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Precio</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Barcode</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">SKU</th>
                                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Estado</th>
                                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Acción</th>
                                     </tr>
@@ -190,7 +187,7 @@
                                         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
                                             <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">{{ $vp->label }}</td>
                                             <td class="px-4 py-3 text-right text-sm text-gray-900 dark:text-gray-100">{{ $vp->total_quantity }}</td>
-                                            <td class="px-4 py-3 text-right text-sm text-gray-500 dark:text-gray-400">{{ number_format($vp->costo_promedio, 2) }} €</td>
+                                            <td class="px-4 py-3 text-right text-sm text-gray-500 dark:text-gray-400">{{ number_format($vp->cost_reference, 2) }} €</td>
                                             <td class="px-4 py-3 text-right text-sm text-gray-900 dark:text-gray-100">
                                                 @if($vp->price !== null && (float)$vp->price > 0)
                                                     {{ number_format((float) $vp->price, 2) }} €
@@ -198,6 +195,8 @@
                                                     <span class="text-gray-400 dark:text-gray-500">—</span>
                                                 @endif
                                             </td>
+                                            <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{{ $vp->barcode ?? '—' }}</td>
+                                            <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{{ $vp->sku ?? '—' }}</td>
                                             <td class="px-4 py-3 text-right">
                                                 <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ ($vp->is_active ?? true) ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300' }}">
                                                     {{ ($vp->is_active ?? true) ? 'Activo' : 'Inactivo' }}
@@ -224,7 +223,7 @@
                         <div class="p-6 bg-white dark:bg-gray-800">
                             <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4 pb-2 border-b border-gray-200 dark:border-gray-600">Detalle de la variante</h2>
                             {{-- Resumen como producto simple: Variante, Stock, Costo, Precio, Ubicación --}}
-                            <dl class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6 p-4 bg-gray-50 dark:bg-gray-900/40 rounded-lg border border-gray-200 dark:border-gray-700">
+                            <dl class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 dark:bg-gray-900/40 rounded-lg border border-gray-200 dark:border-gray-700">
                                 <div>
                                     <dt class="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Variante</dt>
                                     <dd class="mt-1 text-base font-medium text-gray-900 dark:text-gray-100">{{ $vp->label }}</dd>
@@ -234,8 +233,8 @@
                                     <dd class="mt-1 text-base font-medium text-gray-900 dark:text-gray-100">{{ $vp->total_quantity }}</dd>
                                 </div>
                                 <div>
-                                    <dt class="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Costo</dt>
-                                    <dd class="mt-1 text-base font-medium text-gray-900 dark:text-gray-100">{{ number_format($vp->costo_promedio, 2) }} €</dd>
+                                    <dt class="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Costo Ref.</dt>
+                                    <dd class="mt-1 text-base font-medium text-gray-900 dark:text-gray-100">{{ number_format($vp->cost_reference, 2) }} €</dd>
                                 </div>
                                 <div>
                                     <dt class="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Precio</dt>
@@ -246,6 +245,14 @@
                                             <span class="text-gray-600 dark:text-gray-400">—</span>
                                         @endif
                                     </dd>
+                                </div>
+                                <div>
+                                    <dt class="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Barcode</dt>
+                                    <dd class="mt-1 text-base font-medium text-gray-900 dark:text-gray-100">{{ $vp->barcode ?? '—' }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">SKU</dt>
+                                    <dd class="mt-1 text-base font-medium text-gray-900 dark:text-gray-100">{{ $vp->sku ?? '—' }}</dd>
                                 </div>
                                 <div>
                                     <dt class="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Ubicación</dt>
@@ -453,42 +460,17 @@
 
             {{-- Inventario: por lotes = batches + batch_items --}}
             @if($product->isBatch())
-                {{-- Variantes permitidas: define qué opciones se podrán elegir al comprar --}}
                 @if($product->category && $product->category->attributes->isNotEmpty())
-                    @php
-                        $attrById = $product->category->attributes->keyBy('id');
-                        $batchItemsFlat = $product->batches->flatMap(fn($b) => $b->batchItems);
-                        $uniqueVariants = collect();
-                        foreach ($batchItemsFlat as $bi) {
-                            $features = is_array($bi->features ?? null) ? $bi->features : [];
-                            $key = \App\Services\InventarioService::detectorDeVariantesEnLotes($features);
-                            if (!$uniqueVariants->has($key)) {
-                                $uniqueVariants->put($key, (object) [
-                                    'features' => $bi->features ?? [],
-                                    'total_quantity' => 0,
-                                    'price' => null,
-                                    'is_active' => $bi->is_active ?? true,
-                                ]);
-                            }
-                            $uniqueVariants->get($key)->total_quantity += (int) $bi->quantity;
-                            if ($uniqueVariants->get($key)->price === null && $bi->price !== null) {
-                                $uniqueVariants->get($key)->price = $bi->price;
-                            }
-                        }
-                        $uniqueVariants = $uniqueVariants->values();
-                    @endphp
-                    {{-- Modal Modificar variante (uno por variante única): prellenar atributos de la categoría --}}
-                    @foreach($uniqueVariants as $uv)
+                    {{-- Modal Modificar variante (uno por variante en product_variants) --}}
+                    @foreach($variantesParaTabla as $uv)
                         <x-modal name="modificar-variante-{{ $loop->index }}" focusable maxWidth="2xl">
                             <div class="p-6 bg-white dark:bg-gray-800">
                                 <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2 pb-2 border-b border-gray-200 dark:border-gray-600">Modificar variante</h2>
-                                <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">Edita los atributos de esta variante. Si la categoría tiene nuevos atributos, aparecerán aquí para asignarlos.</p>
+                                <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">Edita los datos de esta variante.</p>
                                 <form method="POST" action="{{ route('stores.productos.variant.update', [$store, $product]) }}" class="space-y-4" id="form-modificar-variante-{{ $loop->index }}">
                                     @csrf
                                     @method('PUT')
-                                    @foreach($uv->features ?? [] as $attrId => $val)
-                                        <input type="hidden" name="old_attribute_values[{{ $attrId }}]" value="{{ $val }}" />
-                                    @endforeach
+                                    <input type="hidden" name="product_variant_id" value="{{ $uv->id }}" />
                                     @foreach($product->category->attributes as $attr)
                                         @php
                                             $currentValue = $uv->features[$attr->id] ?? $uv->features[(string)$attr->id] ?? ($attr->type === 'boolean' ? '0' : '');
@@ -526,12 +508,24 @@
                                             </div>
                                         @endif
                                     @endforeach
-                                    {{-- Precio al público de la variante --}}
-                                    <div class="pt-3 border-t border-gray-200 dark:border-gray-600">
-                                        <x-input-label for="mod-var-{{ $loop->index }}-price" value="{{ __('Precio al público') }}" class="dark:text-white font-semibold" />
-                                        <x-text-input name="price" id="mod-var-{{ $loop->index }}-price" class="block mt-1 w-full" type="number" step="0.01" min="0" placeholder="0.00" value="{{ $uv->price !== null && $uv->price !== '' ? number_format((float) $uv->price, 2, '.', '') : '' }}" />
+                                    <div class="pt-3 border-t border-gray-200 dark:border-gray-600 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div>
+                                            <x-input-label for="mod-var-{{ $loop->index }}-price" value="{{ __('Precio al público') }}" class="dark:text-white font-semibold" />
+                                            <x-text-input name="price" id="mod-var-{{ $loop->index }}-price" class="block mt-1 w-full" type="number" step="0.01" min="0" placeholder="0.00" value="{{ $uv->price !== null && $uv->price !== '' ? number_format((float) $uv->price, 2, '.', '') : '' }}" />
+                                        </div>
+                                        <div>
+                                            <x-input-label for="mod-var-{{ $loop->index }}-cost-ref" value="{{ __('Costo de referencia') }}" class="dark:text-white font-semibold" />
+                                            <x-text-input name="cost_reference" id="mod-var-{{ $loop->index }}-cost-ref" class="block mt-1 w-full" type="number" step="0.01" min="0" placeholder="0.00" value="{{ number_format((float) $uv->cost_reference, 2, '.', '') }}" />
+                                        </div>
+                                        <div>
+                                            <x-input-label for="mod-var-{{ $loop->index }}-barcode" value="{{ __('Código de barras') }}" class="dark:text-white font-semibold" />
+                                            <x-text-input name="barcode" id="mod-var-{{ $loop->index }}-barcode" class="block mt-1 w-full" type="text" :value="$uv->barcode ?? ''" />
+                                        </div>
+                                        <div>
+                                            <x-input-label for="mod-var-{{ $loop->index }}-sku" value="{{ __('SKU') }}" class="dark:text-white font-semibold" />
+                                            <x-text-input name="sku" id="mod-var-{{ $loop->index }}-sku" class="block mt-1 w-full" type="text" :value="$uv->sku ?? ''" />
+                                        </div>
                                     </div>
-                                    {{-- Estado activo de la variante --}}
                                     <div class="pt-3">
                                         <label class="flex items-center gap-2">
                                             <input type="hidden" name="is_active" value="0">

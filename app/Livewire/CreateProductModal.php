@@ -104,6 +104,8 @@ class CreateProductModal extends Component
 
         if ($this->type === MovimientoInventario::PRODUCT_TYPE_BATCH) {
             $rules['variants'] = ['required', 'array', 'min:1'];
+            $rules['variants.*.sku'] = ['nullable', 'string', 'max:255'];
+            $rules['variants.*.barcode'] = ['nullable', 'string', 'max:255'];
             $rules['variants.*.price'] = ['nullable', 'numeric', 'min:0'];
             $rules['variants.*.cost'] = ['nullable', 'numeric', 'min:0'];
             $rules['variants.*.stock_initial'] = ['nullable', 'integer', 'min:0'];
@@ -250,6 +252,8 @@ class CreateProductModal extends Component
             'batch_number' => '',
             'expiration_date' => '',
             'has_stock' => false,
+            'sku' => '',
+            'barcode' => '',
         ];
 
         foreach ($category->attributes as $attr) {

@@ -73,14 +73,14 @@ class VentaService
 
     /**
      * Verificador de disponibilidad por variante (producto lote): stock total de esa variante en todos los lotes.
-     * Delega en InventarioService::stockDisponible con variant_features (caso lote por variante).
+     * Delega en InventarioService::stockDisponible con product_variant_id.
      *
-     * @param  array  $variantFeatures  Mapa atributo => valor (ej. ['1' => '250ml', '2' => 'Plastico'])
+     * @param  int  $productVariantId  ID de la variante en product_variants
      * @return array{disponible: bool, cantidad: int, status: null}
      */
-    public function verificadorCarritoVariante(Store $store, int $productId, array $variantFeatures): array
+    public function verificadorCarritoVariante(Store $store, int $productId, int $productVariantId): array
     {
-        return $this->inventarioService->stockDisponible($store, $productId, null, null, $variantFeatures);
+        return $this->inventarioService->stockDisponible($store, $productId, null, null, $productVariantId);
     }
 
     /**
@@ -88,13 +88,13 @@ class VentaService
      * Centraliza la lógica de precios: todo precio mostrado en el carrito y cotizaciones debe obtenerse aquí.
      * Delega en InventarioService::precioParaItem.
      *
-     * @param  array|null  $variantFeatures  Para batch: mapa atributo=>valor de la variante
-     * @param  array|null  $serialNumbers  Para serialized: lista de números de serie (usa el primero para el precio)
+     * @param  int|null  $productVariantId  Para batch: ID de la variante
+     * @param  array|null  $serialNumbers  Para serialized: lista de números de serie
      * @return float Precio unitario
      */
-    public function verPrecio(Store $store, int $productId, string $type, ?array $variantFeatures = null, ?array $serialNumbers = null): float
+    public function verPrecio(Store $store, int $productId, string $type, ?int $productVariantId = null, ?array $serialNumbers = null): float
     {
-        return $this->inventarioService->precioParaItem($store, $productId, $type, $variantFeatures, $serialNumbers);
+        return $this->inventarioService->precioParaItem($store, $productId, $type, $productVariantId, $serialNumbers);
     }
 
     /**
@@ -153,13 +153,13 @@ class VentaService
                     if ($qty < 1) {
                         continue;
                     }
-                    $variantFeatures = $item['variant_features'] ?? null;
-                    if (is_array($variantFeatures) && ! empty($variantFeatures)) {
+                    $productVariantId = $item['product_variant_id'] ?? null;
+                    if ($productVariantId) {
                         $this->inventarioService->registrarSalidaPorVarianteFIFO(
                             $store,
                             $userId,
                             $productId,
-                            $variantFeatures,
+                            (int) $productVariantId,
                             $qty,
                             'Venta a crédito Factura #' . $factura->id
                         );
@@ -224,13 +224,13 @@ class VentaService
                     if ($qty < 1) {
                         continue;
                     }
-                    $variantFeatures = $item['variant_features'] ?? null;
-                    if (is_array($variantFeatures) && ! empty($variantFeatures)) {
+                    $productVariantId = $item['product_variant_id'] ?? null;
+                    if ($productVariantId) {
                         $this->inventarioService->registrarSalidaPorVarianteFIFO(
                             $store,
                             $userId,
                             $productId,
-                            $variantFeatures,
+                            (int) $productVariantId,
                             $qty,
                             'Venta Factura #' . $factura->id
                         );

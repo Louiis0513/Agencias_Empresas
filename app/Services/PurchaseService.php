@@ -196,42 +196,28 @@ class PurchaseService
                             if ($qty < 1) {
                                 continue;
                             }
+
+                            // Resolver la variante: por product_variant_id directo o por features
+                            $productVariantId = $bi['product_variant_id'] ?? null;
                             $features = $bi['features'] ?? null;
-                            $price = isset($bi['price']) && $bi['price'] !== null ? (float) $bi['price'] : null;
 
-                            // Si viene batch_item_id, obtener features desde el BatchItem (fuente de verdad)
-                            if (! empty($bi['batch_item_id'])) {
-                                $sourceItem = BatchItem::where('id', $bi['batch_item_id'])
-                                    ->whereHas('batch', fn ($q) => $q->where('product_id', $product->id)->where('store_id', $store->id))
+                            if ($productVariantId) {
+                                $variant = \App\Models\ProductVariant::where('id', $productVariantId)
+                                    ->where('product_id', $product->id)
                                     ->first();
-                                if (! $sourceItem) {
-                                    throw new Exception("La variante seleccionada (ID {$bi['batch_item_id']}) no existe o no pertenece al producto «{$product->name}».");
+                                if (! $variant) {
+                                    throw new Exception("La variante seleccionada (ID {$productVariantId}) no existe para «{$product->name}».");
                                 }
-                                $features = $sourceItem->features;
-                                // Si no venía price en la compra, heredar del BatchItem existente
-                                if ($price === null && $sourceItem->price !== null) {
-                                    $price = (float) $sourceItem->price;
-                                }
-                            }
-
-                            // Si aún no hay price y tenemos features: buscar en batch_items existentes de esta variante
-                            if ($price === null && $features !== null && is_array($features) && ! empty($features)) {
-                                $key = InventarioService::detectorDeVariantesEnLotes($features);
-                                $existingBi = BatchItem::whereHas('batch', fn ($q) => $q->where('product_id', $product->id)->where('store_id', $store->id))
-                                    ->whereNotNull('price')
-                                    ->get()
-                                    ->first(fn (BatchItem $b) => InventarioService::detectorDeVariantesEnLotes($b->features) === $key);
-                                if ($existingBi) {
-                                    $price = (float) $existingBi->price;
-                                }
+                            } else {
+                                $variant = InventarioService::resolverVariante($product->id, null, $features);
                             }
 
                             $items[] = [
                                 'quantity' => $qty,
                                 'cost' => (float) ($bi['unit_cost'] ?? 0),
                                 'unit_cost' => (float) ($bi['unit_cost'] ?? 0),
-                                'price' => $price,
-                                'features' => $features,
+                                'product_variant_id' => $variant ? $variant->id : null,
+                                'features' => $variant ? $variant->features : $features,
                             ];
                         }
                     } else {

@@ -475,7 +475,7 @@ class CreateInvoiceModal extends Component
      * Usa el precio enviado por el modal cuando viene (rowId factura); si no, obtiene vía InventarioService.
      */
     #[On('batch-variant-selected')]
-    public function onBatchVariantSelected($rowId, $productId, $productName, $variantFeatures, $displayName, $totalStock = 0, $price = null): void
+    public function onBatchVariantSelected($rowId, $productId, $productName, $variantFeatures, $displayName, $totalStock = 0, $price = null, $productVariantId = null): void
     {
         if ($rowId !== 'factura') {
             return;
@@ -491,18 +491,19 @@ class CreateInvoiceModal extends Component
         $variantFeatures = is_array($variantFeatures) ? $variantFeatures : [];
         $ventaService = app(VentaService::class);
         $stock = (int) $totalStock;
-        if ($stock < 1) {
-            $r = $ventaService->verificadorCarritoVariante($store, (int) $productId, $variantFeatures);
+        if ($stock < 1 && $productVariantId) {
+            $r = $ventaService->verificadorCarritoVariante($store, (int) $productId, (int) $productVariantId);
             $stock = (int) $r['cantidad'];
         }
         $this->pendienteBatch = [
             'product_id' => (int) $productId,
             'name' => $productName,
+            'product_variant_id' => $productVariantId ? (int) $productVariantId : null,
             'variant_features' => $variantFeatures,
             'variant_display_name' => $displayName ?? '',
             'price' => $price !== null && (float) $price >= 0
                 ? (float) $price
-                : $ventaService->verPrecio($store, (int) $productId, 'batch', $variantFeatures),
+                : ($productVariantId ? $ventaService->verPrecio($store, (int) $productId, 'batch', (int) $productVariantId) : 0),
             'stock' => $stock,
         ];
         $this->pendienteSimple = null;
@@ -601,10 +602,12 @@ class CreateInvoiceModal extends Component
             $this->errorStock = "Stock insuficiente en esta variante. Disponible: {$stockVariante}, solicitado: {$quantity}.";
             return;
         }
+        $pvId = $this->pendienteBatch['product_variant_id'] ?? null;
         $productosSimulado = $this->productosSeleccionados;
         $productosSimulado[] = [
             'product_id' => $productId,
             'name' => $this->pendienteBatch['name'],
+            'product_variant_id' => $pvId,
             'variant_features' => $variantFeatures,
             'variant_display_name' => $this->pendienteBatch['variant_display_name'] ?? '',
             'quantity' => $quantity,
@@ -626,6 +629,7 @@ class CreateInvoiceModal extends Component
             'quantity' => $quantity,
             'subtotal' => $precio * $quantity,
             'type' => 'batch',
+            'product_variant_id' => $pvId,
             'variant_features' => $variantFeatures,
             'variant_display_name' => $this->pendienteBatch['variant_display_name'] ?? '',
         ];
@@ -642,10 +646,10 @@ class CreateInvoiceModal extends Component
         foreach ($productos as $row) {
             if (! empty($row['serial_numbers'])) {
                 $items[] = ['product_id' => $row['product_id'], 'serial_numbers' => $row['serial_numbers']];
-            } elseif (! empty($row['variant_features']) && is_array($row['variant_features'])) {
+            } elseif (! empty($row['product_variant_id'])) {
                 $items[] = [
                     'product_id' => (int) ($row['product_id'] ?? 0),
-                    'variant_features' => $row['variant_features'],
+                    'product_variant_id' => (int) $row['product_variant_id'],
                     'quantity' => (int) ($row['quantity'] ?? 0),
                 ];
             } else {
@@ -978,24 +982,23 @@ class CreateInvoiceModal extends Component
         try {
             // Preparar detalles para guardar
             $details = array_map(function($item) {
-                               $detail = [
-                                   'product_id' => $item['product_id'],
-                                    'unit_price' => $item['price'],
-                                    'quantity' => $item['quantity'],
-                                    'subtotal' => $item['subtotal'],
+                $detail = [
+                    'product_id' => $item['product_id'],
+                    'unit_price' => $item['price'],
+                    'quantity' => $item['quantity'],
+                    'subtotal' => $item['subtotal'],
                 ];
-                              // Incluir variant_features si existen
-                                if (isset($item['variant_features']) && is_array($item['variant_features'])) {
-                                    $detail['variant_features'] = $item['variant_features'];
-                                }
-                
-                                // Incluir serial_numbers si existen
-                                if (isset($item['serial_numbers']) && is_array($item['serial_numbers'])) {
-                                    $detail['serial_numbers'] = $item['serial_numbers'];
-                                }
-                
-                                return $detail;
-                }, $this->productosSeleccionados);
+
+                if (! empty($item['product_variant_id'])) {
+                    $detail['product_variant_id'] = (int) $item['product_variant_id'];
+                }
+
+                if (isset($item['serial_numbers']) && is_array($item['serial_numbers'])) {
+                    $detail['serial_numbers'] = $item['serial_numbers'];
+                }
+
+                return $detail;
+            }, $this->productosSeleccionados);
 
             $payload = [
                 'customer_id' => $this->customer_id,
@@ -1056,12 +1059,9 @@ class CreateInvoiceModal extends Component
                 'quantity' => $qty,
                 'subtotal' => $price * $qty,
                 'type' => $item['type'] ?? 'simple',
-                
-                // Campos opcionales para variantes
+                'product_variant_id' => $item['product_variant_id'] ?? null,
                 'variant_features' => $item['variant_features'] ?? [],
                 'variant_display_name' => $item['variant_display_name'] ?? '',
-                
-                // Campos opcionales para seriales
                 'serial_numbers' => $item['serial_numbers'] ?? [],
             ];
         }

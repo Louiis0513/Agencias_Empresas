@@ -11,19 +11,14 @@ class BatchItem extends Model
 
     protected $fillable = [
         'batch_id',
+        'product_variant_id',
         'quantity',
-        'features',
         'unit_cost',
-        'price',
-        'is_active',
     ];
 
     protected $casts = [
         'quantity' => 'integer',
         'unit_cost' => 'decimal:2',
-        'price' => 'decimal:2',
-        'features' => 'array',
-        'is_active' => 'boolean',
     ];
 
     public function batch()
@@ -31,19 +26,8 @@ class BatchItem extends Model
         return $this->belongsTo(Batch::class);
     }
 
-    /**
-     * Precio de venta efectivo: el de la variante si está definido, si no el del producto.
-     * Requiere tener cargado batch.product para el fallback.
-     */
-    public function getSellingPriceAttribute(): float
+    public function productVariant()
     {
-        if (isset($this->attributes['price']) && $this->attributes['price'] !== null) {
-            return (float) $this->attributes['price'];
-        }
-        $product = $this->relationLoaded('batch') && $this->batch
-            ? $this->batch->product
-            : $this->batch?->product;
-
-        return (float) ($product->price ?? 0);
+        return $this->belongsTo(ProductVariant::class);
     }
 }

@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Models\BatchItem;
 use App\Models\Product;
 use App\Models\ProductItem;
+use App\Models\ProductVariant;
 use App\Models\Store;
 use App\Services\InventarioService;
 use Illuminate\Support\Facades\Auth;
@@ -39,8 +40,8 @@ class CreateMovimientoInventarioModal extends Component
             'features' => [],
         ],
     ];
-    /** Batch → salir */
-    public ?int $batch_item_id = null;
+    /** Batch → salir (selección de variante) */
+    public ?int $product_variant_id = null;
     public array $batch_items_available = [];
 
     public array $categoryAttributes = [];
@@ -108,7 +109,7 @@ class CreateMovimientoInventarioModal extends Component
                 'features' => [],
             ],
         ];
-        $this->batch_item_id = null;
+        $this->product_variant_id = null;
         $this->batch_items_available = [];
         $this->categoryAttributes = [];
         $this->resetValidation();
@@ -186,7 +187,7 @@ class CreateMovimientoInventarioModal extends Component
                 'features' => [],
             ],
         ];
-        $this->batch_item_id = null;
+        $this->product_variant_id = null;
         $this->batch_items_available = [];
     }
 
@@ -212,23 +213,30 @@ class CreateMovimientoInventarioModal extends Component
             return;
         }
 
-        $this->batch_items_available = BatchItem::with('batch')
-            ->where('quantity', '>', 0)
-            ->whereHas('batch', function ($q) use ($product) {
-                $q->where('store_id', $this->storeId)->where('product_id', $product->id);
-            })
-            ->orderBy('updated_at', 'desc')
-            ->get()
-            ->map(function (BatchItem $item) {
-                return [
-                    'id' => $item->id,
-                    'reference' => $item->batch->reference,
-                    'expiration_date' => optional($item->batch->expiration_date)->format('Y-m-d'),
-                    'quantity' => $item->quantity,
-                    'features' => $item->features ?? [],
-                ];
-            })
-            ->toArray();
+        // Cargar variantes del producto con su stock agregado
+        $variants = ProductVariant::where('product_id', $product->id)
+            ->where('is_active', true)
+            ->with('batchItems')
+            ->get();
+
+        $this->batch_items_available = $variants->map(function (ProductVariant $variant) {
+            $totalStock = $variant->batchItems->sum('quantity');
+            $features = $variant->features ?? [];
+
+            $parts = [];
+            foreach ($features as $attrId => $value) {
+                $attrName = collect($this->categoryAttributes)->firstWhere('id', (int) $attrId)['name'] ?? "Attr {$attrId}";
+                $parts[] = "{$attrName}: {$value}";
+            }
+
+            return [
+                'id' => $variant->id,
+                'product_variant_id' => $variant->id,
+                'display_name' => implode(', ', $parts) ?: '—',
+                'quantity' => (int) $totalStock,
+                'features' => $features,
+            ];
+        })->filter(fn ($v) => $v['quantity'] > 0)->values()->toArray();
     }
 
     public function addSerialItem(): void
@@ -302,7 +310,9 @@ class CreateMovimientoInventarioModal extends Component
                 $payload['quantity'] = array_sum(array_column($batchData['items'], 'quantity'));
             } else {
                 $this->prepareBatchSalidaValidation();
-                $payload['batch_item_id'] = $this->batch_item_id;
+                // Usamos salida por variante FIFO en vez de batch_item_id directo
+                $payload['_use_variant_fifo'] = true;
+                $payload['product_variant_id'] = $this->product_variant_id;
                 $payload['quantity'] = (int) $this->quantity;
             }
         }
@@ -314,12 +324,26 @@ class CreateMovimientoInventarioModal extends Component
         }
 
         try {
-            $inventarioService->registrarMovimiento(
-                $store,
-                Auth::id(),
-                $payload,
-                $serialNumbers
-            );
+            $useVariantFifo = $payload['_use_variant_fifo'] ?? false;
+            unset($payload['_use_variant_fifo']);
+
+            if ($useVariantFifo && ! empty($payload['product_variant_id'])) {
+                $inventarioService->registrarSalidaPorVarianteFIFO(
+                    $store,
+                    Auth::id(),
+                    $product->id,
+                    (int) $payload['product_variant_id'],
+                    (int) $payload['quantity'],
+                    $payload['description'] ?? null,
+                );
+            } else {
+                $inventarioService->registrarMovimiento(
+                    $store,
+                    Auth::id(),
+                    $payload,
+                    $serialNumbers
+                );
+            }
 
             $this->resetForm();
 
@@ -412,7 +436,7 @@ class CreateMovimientoInventarioModal extends Component
                 $attrId = (string) $attr['id'];
                 $value = $item['features'][$attrId] ?? null;
                 if ($value !== null && $value !== '') {
-                    $features[$attr['name']] = (string) $value;
+                    $features[$attrId] = (string) $value;
                 }
             }
 
@@ -438,16 +462,16 @@ class CreateMovimientoInventarioModal extends Component
 
     protected function prepareBatchSalidaValidation(): void
     {
-        if (! $this->batch_item_id) {
+        if (! $this->product_variant_id) {
             throw ValidationException::withMessages([
-                'batch_item_id' => 'Debes seleccionar el lote/variante a descontar.',
+                'product_variant_id' => 'Debes seleccionar la variante a descontar.',
             ]);
         }
 
-        $selected = collect($this->batch_items_available)->firstWhere('id', $this->batch_item_id);
+        $selected = collect($this->batch_items_available)->firstWhere('product_variant_id', $this->product_variant_id);
         if (! $selected) {
             throw ValidationException::withMessages([
-                'batch_item_id' => 'El lote seleccionado no está disponible.',
+                'product_variant_id' => 'La variante seleccionada no está disponible.',
             ]);
         }
 
@@ -460,7 +484,7 @@ class CreateMovimientoInventarioModal extends Component
 
         if ($qty > (int) $selected['quantity']) {
             throw ValidationException::withMessages([
-                'quantity' => "Solo hay {$selected['quantity']} unidades disponibles en ese lote/variante.",
+                'quantity' => "Solo hay {$selected['quantity']} unidades disponibles en esa variante.",
             ]);
         }
     }

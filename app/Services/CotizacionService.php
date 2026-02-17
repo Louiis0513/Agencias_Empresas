@@ -52,6 +52,7 @@ class CotizacionService
                     'product_id' => $productId,
                     'type' => $type,
                     'quantity' => max(1, $quantity),
+                    'product_variant_id' => $item['product_variant_id'] ?? null,
                     'variant_features' => $item['variant_features'] ?? null,
                     'serial_numbers' => $item['serial_numbers'] ?? null,
                     'name' => $name,
@@ -90,7 +91,7 @@ class CotizacionService
                 $store,
                 $item->product_id,
                 $item->type,
-                $item->variant_features,
+                $item->product_variant_id ?? null,
                 $item->serial_numbers
             );
             $quantity = (int) $item->quantity;

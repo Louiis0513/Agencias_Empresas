@@ -361,7 +361,7 @@ class StoreController extends Controller
         }
         session(['current_store_id' => $store->id]);
 
-        $product->load(['category.attributes.options', 'productItems', 'batches.batchItems', 'allowedVariantOptions', 'attributeValues.attribute']);
+        $product->load(['category.attributes.options', 'productItems', 'batches.batchItems', 'variants.batchItems.batch', 'allowedVariantOptions', 'attributeValues.attribute']);
 
         return view('stores.producto-detalle', compact('store', 'product'));
     }
@@ -404,7 +404,8 @@ class StoreController extends Controller
     }
 
     /**
-     * Actualiza una variante del producto (atributos y/o precio al público) usando ProductService::updateVariantFeatures.
+     * Actualiza una variante del producto (atributos, precio, costo ref, barcode, sku, estado).
+     * Usa ProductService::updateVariant con el product_variant_id.
      */
     public function updateVariant(Store $store, \App\Models\Product $product, Request $request, ProductService $productService)
     {
@@ -415,6 +416,12 @@ class StoreController extends Controller
             abort(404);
         }
 
+        $productVariantId = (int) $request->input('product_variant_id');
+        if (! $productVariantId) {
+            return redirect()->route('stores.products.show', [$store, $product])
+                ->with('error', 'No se especificó la variante a actualizar.');
+        }
+
         $product->load('category.attributes');
         $category = $product->category;
         if (! $category || $category->attributes->isEmpty()) {
@@ -422,10 +429,6 @@ class StoreController extends Controller
                 ->with('error', 'El producto debe tener una categoría con atributos.');
         }
 
-        $oldFeatures = array_filter(
-            $request->input('old_attribute_values', []),
-            fn ($v) => $v !== null && $v !== ''
-        );
         $rawNew = $request->input('attribute_values', []);
         $newFeatures = [];
         foreach ($category->attributes as $attr) {
@@ -436,23 +439,31 @@ class StoreController extends Controller
             $newFeatures[$attr->id] = $v;
         }
 
+        $data = [
+            'features' => $newFeatures,
+            'is_active' => $request->boolean('is_active'),
+        ];
+
         $price = $request->input('price');
-        $priceValue = null;
         if ($price !== null && $price !== '') {
-            $priceValue = (float) $price;
+            $data['price'] = (float) $price;
         }
 
-        $isActive = $request->boolean('is_active');
+        $costRef = $request->input('cost_reference');
+        if ($costRef !== null && $costRef !== '') {
+            $data['cost_reference'] = (float) $costRef;
+        }
 
-        $oldKey = \App\Services\InventarioService::detectorDeVariantesEnLotes($oldFeatures);
-        $newKey = \App\Services\InventarioService::detectorDeVariantesEnLotes($newFeatures);
-        if ($oldKey !== $newKey && $productService->variantExists($store, $product, $newFeatures)) {
-            return redirect()->route('stores.products.show', [$store, $product])
-                ->with('error', 'Con esas modificaciones, esa variante ya existe. Elige otra combinación de atributos.');
+        if ($request->has('barcode')) {
+            $data['barcode'] = $request->input('barcode') ?: null;
+        }
+
+        if ($request->has('sku')) {
+            $data['sku'] = $request->input('sku') ?: null;
         }
 
         try {
-            $productService->updateVariantFeatures($store, $product, $oldFeatures, $newFeatures, $priceValue, $isActive);
+            $productService->updateVariant($store, $product, $productVariantId, $data);
         } catch (\Exception $e) {
             return redirect()->route('stores.products.show', [$store, $product])
                 ->with('error', $e->getMessage());
@@ -1618,12 +1629,12 @@ class StoreController extends Controller
                         'price' => isset($item['price']) && $item['price'] !== '' ? (float) $item['price'] : null,
                         'expiration_date' => isset($item['expiration_date']) && $item['expiration_date'] !== '' ? $item['expiration_date'] : null,
                     ];
-                    // Preferir batch_item_id: el backend obtendrá features desde el BatchItem
-                    if (! empty($item['batch_item_id'])) {
-                        $itemForStorage['batch_item_id'] = (int) $item['batch_item_id'];
-                    } else {
+                    // Preferir product_variant_id: el backend lo usa para identificar la variante
+                    if (! empty($item['product_variant_id'])) {
+                        $itemForStorage['product_variant_id'] = (int) $item['product_variant_id'];
+                    } elseif (! empty($item['features'])) {
                         // Retrocompatibilidad: borradores antiguos con features
-                        $features = $item['features'] ?? null;
+                        $features = $item['features'];
                         if (is_array($features)) {
                             $features = array_filter($features, fn ($v) => $v !== '' && $v !== null);
                         }

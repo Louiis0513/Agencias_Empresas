@@ -73,6 +73,16 @@ class Product extends Model
     }
 
     /**
+     * Variantes del producto (solo productos por lote).
+     * Cada variante es una combinación única de atributos con su precio,
+     * costo de referencia, barcode y SKU propios.
+     */
+    public function variants()
+    {
+        return $this->hasMany(ProductVariant::class);
+    }
+
+    /**
      * Opciones de atributos permitidas para variantes de este producto (lotes/serial).
      * Si está vacío para un atributo, en compras se muestran todas las opciones de la categoría.
      */

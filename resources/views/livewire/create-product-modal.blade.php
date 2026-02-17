@@ -270,6 +270,17 @@
                                                 @endforeach
                                             </div>
 
+                                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                                                <div>
+                                                    <x-input-label for="variant-{{ $index }}-sku" value="{{ __('SKU variante') }}" />
+                                                    <x-text-input wire:model="variants.{{ $index }}.sku" id="variant-{{ $index }}-sku" class="block mt-1 w-full" type="text" placeholder="Ej: SKU-V001" />
+                                                </div>
+                                                <div>
+                                                    <x-input-label for="variant-{{ $index }}-barcode" value="{{ __('Barcode variante') }}" />
+                                                    <x-text-input wire:model="variants.{{ $index }}.barcode" id="variant-{{ $index }}-barcode" class="block mt-1 w-full" type="text" placeholder="Ej: 8412345678901" />
+                                                </div>
+                                            </div>
+
                                             {{-- Precio (siempre visible) --}}
                                             <div class="mb-4">
                                                 <x-input-label for="variant-{{ $index }}-price" value="{{ __('Precio') }}" />

@@ -7,6 +7,7 @@ use App\Models\BatchItem;
 use App\Models\MovimientoInventario;
 use App\Models\Product;
 use App\Models\ProductItem;
+use App\Models\ProductVariant;
 use App\Models\Store;
 use Exception;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -15,10 +16,8 @@ use Illuminate\Support\Facades\DB;
 class InventarioService
 {
     /**
-     * Detecta/identifica variantes en lotes: convierte features (array o null) a un string normalizado
-     * para comparar variantes. Misma variante (ej. talla S, color Rojo) da el mismo key aunque
-     * el orden de claves cambie. Convierte claves y valores a string para evitar diferencias por
-     * tipo (int vs string) que causarían duplicados al crear batch_items desde compras vs creación de producto.
+     * Normaliza features (array o null) a un string JSON determinista para comparar variantes.
+     * Se mantiene como utilidad para migración y resolución de variantes por features.
      */
     public static function detectorDeVariantesEnLotes(?array $features): string
     {
@@ -38,10 +37,53 @@ class InventarioService
     }
 
     /**
-     * Resuelve el costo unitario para el registro de MovimientoInventario (reportes/valorización).
-     * Batch ENTRADA: promedio ponderado de los items del lote.
-     * Serializado ENTRADA: promedio de los costos por unidad.
-     * SALIDA u otros: usa unit_cost explícito si se pasó.
+     * Busca o crea un ProductVariant a partir de un product_variant_id explícito
+     * o de un array de features. Retorna el ProductVariant resuelto.
+     *
+     * @param  int  $productId
+     * @param  int|null  $productVariantId  ID directo de la variante (preferido)
+     * @param  array|null  $features  Features para buscar/crear si no hay ID
+     * @return ProductVariant|null
+     */
+    public static function resolverVariante(int $productId, ?int $productVariantId = null, ?array $features = null): ?ProductVariant
+    {
+        if ($productVariantId) {
+            return ProductVariant::where('id', $productVariantId)
+                ->where('product_id', $productId)
+                ->first();
+        }
+
+        if ($features === null || empty($features)) {
+            return null;
+        }
+
+        $key = self::detectorDeVariantesEnLotes($features);
+        if ($key === '') {
+            return null;
+        }
+
+        $normalized = json_decode($key, true);
+
+        // Buscar entre las variantes existentes
+        $variants = ProductVariant::where('product_id', $productId)->get();
+        foreach ($variants as $variant) {
+            if ($variant->normalized_key === $key) {
+                return $variant;
+            }
+        }
+
+        // No encontrada: crear nueva
+        return ProductVariant::create([
+            'product_id' => $productId,
+            'features' => $normalized,
+            'cost_reference' => 0,
+            'price' => null,
+            'is_active' => true,
+        ]);
+    }
+
+    /**
+     * Resuelve el costo unitario para el registro de MovimientoInventario.
      */
     protected function resolveUnitCostForMovement(array $datos, string $type, int $quantity, bool $isBatch): ?float
     {
@@ -76,10 +118,6 @@ class InventarioService
 
     /**
      * Actualiza el stock del producto según el tipo de movimiento.
-     * ENTRADA: stock += quantity.
-     * SALIDA: valida stock >= quantity, luego stock -= quantity.
-     *
-     * @throws Exception Si es SALIDA y no hay stock suficiente
      */
     public function actualizarStock(Product $product, string $type, int $quantity): void
     {
@@ -97,16 +135,9 @@ class InventarioService
     }
 
     /**
-     * Recalcula y actualiza el costo ponderado del producto desde la fuente de verdad.
-     * Batch: SUM(qty × unit_cost) / total_qty de todos los batch_items.
-     * Serializado: promedio de cost de los product_items disponibles.
-     */
-    /**
      * Recalcula el costo ponderado del producto desde la fuente de verdad.
-     * Serializado: promedio de cost de los product_items disponibles.
-     * Batch y simple: SUM(qty × unit_cost) / total_qty de todos los batch_items (simples usan Batch sin variantes).
      */
-    public function actualizarCostoPonderado(Product $product): void
+    public function actualizarCostoPonderado(Product $product, ?array $entradaItems = null): void
     {
         if ($product->isSerialized()) {
             $items = ProductItem::where('product_id', $product->id)
@@ -115,6 +146,36 @@ class InventarioService
                 ->get();
             $total = $items->sum('cost');
             $qty = $items->count();
+        } elseif ($product->isBatch() && ! empty($entradaItems)) {
+            $newTotalQty = 0;
+            $newTotalCost = 0.0;
+            foreach ($entradaItems as $item) {
+                $itemQty = (int) ($item['quantity'] ?? 0);
+                if ($itemQty <= 0) {
+                    continue;
+                }
+                $itemCost = (float) ($item['unit_cost'] ?? $item['cost'] ?? 0);
+                $newTotalQty += $itemQty;
+                $newTotalCost += $itemQty * $itemCost;
+            }
+
+            if ($newTotalQty > 0) {
+                $currentStock = (int) $product->stock;
+                $oldStock = max($currentStock - $newTotalQty, 0);
+                $oldCost = (float) $product->cost;
+                if ($currentStock > 0) {
+                    if ($oldStock > 0) {
+                        $product->cost = round((($oldStock * $oldCost) + $newTotalCost) / $currentStock, 2);
+                    } else {
+                        $product->cost = round($newTotalCost / $currentStock, 2);
+                    }
+                } else {
+                    $product->cost = 0.0;
+                }
+                $product->save();
+                $this->actualizarCostReferencePorVariantes($product, $entradaItems);
+                return;
+            }
         } elseif ($product->isBatch() || $product->type === 'simple' || empty($product->type)) {
             $total = BatchItem::whereHas('batch', function ($q) use ($product) {
                 $q->where('product_id', $product->id)->where('store_id', $product->store_id);
@@ -128,17 +189,94 @@ class InventarioService
 
         $product->cost = $qty > 0 ? (float) round($total / $qty, 2) : 0.0;
         $product->save();
+
+        if ($product->isBatch()) {
+            $this->actualizarCostReferencePorVariantes($product);
+        }
+    }
+
+    /**
+     * Actualiza cost_reference de cada variante que tenga batch_items.
+     */
+    protected function actualizarCostReferencePorVariantes(Product $product, ?array $entradaItems = null): void
+    {
+        if (! empty($entradaItems)) {
+            $variantsToUpdate = [];
+            foreach ($entradaItems as $item) {
+                $variantId = (int) ($item['product_variant_id'] ?? 0);
+                $qty = (int) ($item['quantity'] ?? 0);
+                if ($variantId < 1 || $qty <= 0) {
+                    continue;
+                }
+                $unitCost = (float) ($item['unit_cost'] ?? $item['cost'] ?? 0);
+                if (! isset($variantsToUpdate[$variantId])) {
+                    $variantsToUpdate[$variantId] = ['quantity' => 0, 'total_cost' => 0.0];
+                }
+                $variantsToUpdate[$variantId]['quantity'] += $qty;
+                $variantsToUpdate[$variantId]['total_cost'] += $qty * $unitCost;
+            }
+
+            foreach ($variantsToUpdate as $variantId => $entry) {
+                $variant = ProductVariant::where('id', $variantId)
+                    ->where('product_id', $product->id)
+                    ->first();
+                if (! $variant) {
+                    continue;
+                }
+                $newQty = $entry['quantity'];
+                $newCost = $entry['total_cost'];
+                if ($newQty <= 0) {
+                    continue;
+                }
+                $currentVariantStock = (int) BatchItem::where('product_variant_id', $variantId)
+                    ->whereHas('batch', fn ($q) => $q->where('product_id', $product->id)->where('store_id', $product->store_id))
+                    ->sum('quantity');
+                $oldVariantStock = max($currentVariantStock - $newQty, 0);
+                $oldCostRef = (float) $variant->cost_reference;
+                if ($currentVariantStock > 0) {
+                    if ($oldVariantStock > 0) {
+                        $avgCost = round((($oldVariantStock * $oldCostRef) + $newCost) / $currentVariantStock, 2);
+                    } else {
+                        $avgCost = round($newCost / $newQty, 2);
+                    }
+                } else {
+                    $avgCost = 0.0;
+                }
+                $variant->update(['cost_reference' => $avgCost]);
+            }
+
+            return;
+        }
+
+        $variantTotals = BatchItem::select([
+            'product_variant_id',
+            DB::raw('SUM(quantity) as total_qty'),
+            DB::raw('SUM(quantity * unit_cost) as total_cost'),
+        ])
+            ->whereNotNull('product_variant_id')
+            ->whereHas('batch', function ($q) use ($product) {
+                $q->where('product_id', $product->id)->where('store_id', $product->store_id);
+            })
+            ->groupBy('product_variant_id')
+            ->get()
+            ->each(function ($row) use ($product) {
+                $variantId = (int) $row->product_variant_id;
+                if ($variantId < 1 || (int) $row->total_qty === 0) {
+                    return;
+                }
+
+                $avgCost = (float) round($row->total_cost / (int) $row->total_qty, 2);
+                ProductVariant::where('id', $variantId)
+                    ->where('product_id', $product->id)
+                    ->update(['cost_reference' => $avgCost]);
+            });
     }
 
     /**
      * Registra un movimiento de inventario.
-     * Arquitectura binaria: Serializado (product_items) o Por lotes (batches + batch_items).
-     * Regla de oro: Nada entra sin referencia de compra (o INI-YYYY para carga inicial).
      *
-     * @param  array  $datos  product_id, type, quantity, description, purchase_id(opcional).
-     *                        Serializado ENTRADA: serial_items [{serial_number, cost, features}], reference (obligatorio).
-     *                        Batch ENTRADA: batch_data {reference, expiration_date?, items [{quantity, cost, features}]}.
-     * @param  array  $serialNumbers  Serializado SALIDA: lista de seriales a descontar.
+     * Batch ENTRADA: batch_data {reference, expiration_date?, items [{quantity, cost, product_variant_id|features}]}.
+     * Batch SALIDA: batch_item_id (directo) o product_variant_id (FIFO dentro de la variante).
      */
     public function registrarMovimiento(Store $store, int $userId, array $datos, array $serialNumbers = []): MovimientoInventario
     {
@@ -147,6 +285,7 @@ class InventarioService
                 ->where('store_id', $store->id)
                 ->lockForUpdate()
                 ->firstOrFail();
+            $resolvedEntradaItems = null;
 
             $type = $datos['type'];
             $quantity = (int) $datos['quantity'];
@@ -154,7 +293,7 @@ class InventarioService
                 throw new Exception('La cantidad debe ser al menos 1.');
             }
 
-            // Salida: validar stock disponible antes de modificar (usa validarStockDisponible → stockDisponible)
+            // Salida: validar stock disponible
             if ($type === MovimientoInventario::TYPE_SALIDA && $product->isProductoInventario()) {
                 $itemsToValidate = [];
                 if ($product->isSerialized()) {
@@ -180,8 +319,7 @@ class InventarioService
                 $this->validarStockDisponible($store, $itemsToValidate);
             }
 
-            // Productos simples: sin variantes, pero en inventario se tratan como lote (Batch + BatchItem)
-            // para trazabilidad por compra y costo real (ponderado por entradas).
+            // Productos simples: sin variantes, lote para trazabilidad
             if ($product->type === 'simple' || empty($product->type)) {
                 $unitCost = isset($datos['unit_cost']) && $datos['unit_cost'] !== '' && $datos['unit_cost'] !== null
                     ? (float) $datos['unit_cost']
@@ -201,11 +339,10 @@ class InventarioService
                         ['expiration_date' => null]
                     );
                     BatchItem::create([
-                        'batch_id'  => $batch->id,
-                        'quantity'  => $quantity,
-                        'unit_cost' => $unitCost,
-                        'features'  => null,
-                        'price'     => null,
+                        'batch_id'           => $batch->id,
+                        'product_variant_id' => null,
+                        'quantity'           => $quantity,
+                        'unit_cost'          => $unitCost,
                     ]);
                 } else {
                     $batchItemId = $datos['batch_item_id'] ?? null;
@@ -217,9 +354,6 @@ class InventarioService
                     } else {
                         $batchItems = BatchItem::whereHas('batch', fn ($q) => $q->where('store_id', $store->id)->where('product_id', $product->id))
                             ->where('quantity', '>', 0)
-                            ->where(function ($q) {
-                                $q->where('is_active', true)->orWhereNull('is_active');
-                            })
                             ->with('batch')
                             ->get()
                             ->sortBy(fn (BatchItem $bi) => $bi->batch->created_at->format('Y-m-d H:i:s') . '-' . $bi->id);
@@ -254,11 +388,11 @@ class InventarioService
                 return $mov;
             }
 
-            // Productos serializados o por lotes: lógica existente
+            // Serializado o por lotes
             $allowedTypes = [MovimientoInventario::PRODUCT_TYPE_SERIALIZED, MovimientoInventario::PRODUCT_TYPE_BATCH];
             if (! in_array($product->type, $allowedTypes)) {
                 throw new Exception(
-                    "El producto «{$product->name}» no es apto para inventario. Solo productos tipo «serialized» o «batch» tienen movimientos."
+                    "El producto «{$product->name}» no es apto para inventario."
                 );
             }
 
@@ -268,7 +402,7 @@ class InventarioService
                 if ($type === MovimientoInventario::TYPE_ENTRADA) {
                     $serialItems = $datos['serial_items'] ?? [];
                     if (empty($serialItems) || ! is_array($serialItems)) {
-                        throw new Exception('Producto serializado: se requieren serial_items (serial, cost, features por unidad).');
+                        throw new Exception('Producto serializado: se requieren serial_items.');
                     }
                     $reference = trim($datos['reference'] ?? '');
                     if ($reference === '') {
@@ -319,8 +453,9 @@ class InventarioService
             } elseif ($product->isBatch()) {
                 if ($type === MovimientoInventario::TYPE_ENTRADA) {
                     if (empty($datos['batch_data']) || ! is_array($datos['batch_data'])) {
-                        throw new Exception('Para productos por lote se requieren los datos del lote (reference, items).');
+                        throw new Exception('Para productos por lote se requieren los datos del lote.');
                     }
+                    $resolvedEntradaItems = [];
                     $batchInfo = $datos['batch_data'];
                     $ref = trim($batchInfo['reference'] ?? '');
                     if ($ref === '') {
@@ -328,7 +463,7 @@ class InventarioService
                     }
                     $batchInfo['reference'] = $ref;
                     if (empty($batchInfo['items']) || ! is_array($batchInfo['items'])) {
-                        throw new Exception('El lote debe contener una lista de items con variantes y cantidades.');
+                        throw new Exception('El lote debe contener una lista de items.');
                     }
                     $sumItems = array_sum(array_column($batchInfo['items'], 'quantity'));
                     if ($sumItems !== $quantity) {
@@ -342,40 +477,48 @@ class InventarioService
                             'reference'  => $batchInfo['reference'],
                         ],
                         [
-                            'expiration_date' => isset($batchInfo['expiration_date']) ? $batchInfo['expiration_date'] : null,
+                            'expiration_date' => $batchInfo['expiration_date'] ?? null,
                         ]
                     );
                     if (isset($batchInfo['expiration_date']) && $batchInfo['expiration_date']) {
                         $batch->update(['expiration_date' => $batchInfo['expiration_date']]);
                     }
 
-                    $existingItems = $batch->batchItems()->get()->keyBy(function (BatchItem $bi) {
-                        return self::detectorDeVariantesEnLotes($bi->features);
-                    });
+                    // Agrupar batch_items existentes por product_variant_id
+                    $existingItems = $batch->batchItems()->get()->keyBy('product_variant_id');
 
                     foreach ($batchInfo['items'] as $itemData) {
                         $qty = (int) ($itemData['quantity'] ?? 0);
                         if ($qty < 1) {
                             continue;
                         }
-                        $features = $itemData['features'] ?? null;
-                        $key = self::detectorDeVariantesEnLotes($features);
                         $unitCost = (float) ($itemData['cost'] ?? $itemData['unit_cost'] ?? $datos['unit_cost'] ?? 0);
 
-                        if ($existingItems->has($key)) {
-                            $existingItems->get($key)->increment('quantity', $qty);
-                        } else {
-                            $price = isset($itemData['price']) && $itemData['price'] !== '' && $itemData['price'] !== null
-                                ? (float) $itemData['price'] : null;
-                            $newItem = BatchItem::create([
-                                'batch_id'  => $batch->id,
-                                'quantity'  => $qty,
-                                'unit_cost' => $unitCost,
-                                'features'  => $features,
-                                'price'     => $price,
-                            ]);
-                            $existingItems->put($key, $newItem);
+                        // Resolver la variante: por ID directo o por features
+                        $variantId = $itemData['product_variant_id'] ?? null;
+                        $features = $itemData['features'] ?? null;
+                        $variant = self::resolverVariante($product->id, $variantId ? (int) $variantId : null, $features);
+
+                        if (! $variant) {
+                            throw new Exception('No se pudo resolver la variante para un item del lote.');
                         }
+
+                        if ($existingItems->has($variant->id)) {
+                            $existingItems->get($variant->id)->increment('quantity', $qty);
+                        } else {
+                            $newItem = BatchItem::create([
+                                'batch_id'           => $batch->id,
+                                'product_variant_id' => $variant->id,
+                                'quantity'           => $qty,
+                                'unit_cost'          => $unitCost,
+                            ]);
+                            $existingItems->put($variant->id, $newItem);
+                        }
+                        $resolvedEntradaItems[] = [
+                            'product_variant_id' => $variant->id,
+                            'quantity' => $qty,
+                            'unit_cost' => $unitCost,
+                        ];
                     }
                 } else {
                     $batchItem = BatchItem::where('id', $datos['batch_item_id'])
@@ -402,7 +545,7 @@ class InventarioService
 
             $this->actualizarStock($product, $type, $quantity);
             if ($type === MovimientoInventario::TYPE_ENTRADA) {
-                $this->actualizarCostoPonderado($product);
+                $this->actualizarCostoPonderado($product, $resolvedEntradaItems);
             }
 
             return $mov;
@@ -410,15 +553,7 @@ class InventarioService
     }
 
     /**
-     * Registra una salida de inventario por cantidad aplicando FIFO (primero en entrar, primero en salir).
-     * Para productos por lote: descuenta de los batch_items más antiguos primero (orden por batch.created_at).
-     * Para productos serializados: toma las primeras N unidades disponibles (orden por id).
-     * Si el producto no es de inventario (serialized/batch), no hace nada.
-     *
-     * @param  string|null  $description  Ej: "Venta Factura #123"
-     * @return void
-     *
-     * @throws Exception Si no hay stock suficiente o el producto no es apto para inventario
+     * Salida FIFO sin variante específica (productos simples o lote general).
      */
     public function registrarSalidaPorCantidadFIFO(Store $store, int $userId, int $productId, int $quantity, ?string $description = null): void
     {
@@ -442,13 +577,9 @@ class InventarioService
         }
 
         if ($product->isBatch() || $product->type === 'simple' || empty($product->type)) {
-            // FIFO: batch_items activos con stock, ordenados por antigüedad del lote (batch.created_at)
             $batchItems = BatchItem::where('quantity', '>', 0)
                 ->whereHas('batch', function ($q) use ($store, $productId) {
                     $q->where('store_id', $store->id)->where('product_id', $productId);
-                })
-                ->where(function ($q) {
-                    $q->where('is_active', true)->orWhereNull('is_active');
                 })
                 ->with('batch')
                 ->get()
@@ -473,11 +604,10 @@ class InventarioService
 
             if ($remaining > 0) {
                 throw new Exception(
-                    "Stock insuficiente en «{$product->name}». No hay suficiente en los lotes disponibles. Solicitado: {$quantity}."
+                    "Stock insuficiente en «{$product->name}». No hay suficiente en los lotes disponibles."
                 );
             }
         } else {
-            // Serializado: primeras N unidades disponibles (FIFO por id)
             $items = ProductItem::where('store_id', $store->id)
                 ->where('product_id', $productId)
                 ->where('status', ProductItem::STATUS_AVAILABLE)
@@ -487,7 +617,7 @@ class InventarioService
 
             if ($items->count() < $quantity) {
                 throw new Exception(
-                    "Stock insuficiente en «{$product->name}» (serializado). Disponibles: {$items->count()}, solicitado: {$quantity}."
+                    "Stock insuficiente en «{$product->name}» (serializado)."
                 );
             }
 
@@ -502,11 +632,7 @@ class InventarioService
     }
 
     /**
-     * Registra salida de inventario por números de serie (productos serializados).
-     * El cliente eligió qué unidades concretas vender; se descuentan esos ítems.
-     *
-     * @param  array  $serialNumbers  Números de serie a descontar (deben existir y estar AVAILABLE)
-     * @throws Exception Si algún serial no existe o no está disponible
+     * Salida por seriales (productos serializados).
      */
     public function registrarSalidaPorSeriales(Store $store, int $userId, int $productId, array $serialNumbers, ?string $description = null): void
     {
@@ -520,7 +646,7 @@ class InventarioService
             ->firstOrFail();
 
         if (! $product->isSerialized()) {
-            throw new Exception("El producto «{$product->name}» no es serializado; use registro por cantidad.");
+            throw new Exception("El producto «{$product->name}» no es serializado.");
         }
 
         $this->registrarMovimiento($store, $userId, [
@@ -532,13 +658,13 @@ class InventarioService
     }
 
     /**
-     * Salida por variante (producto lote): descuenta cantidad aplicando FIFO entre los BatchItems con esas features.
-     * El carrito no necesita saber de qué lote salen las unidades; se descuentan por orden de antigüedad.
+     * Salida por variante (producto lote): descuenta cantidad FIFO entre los BatchItems
+     * de la variante identificada por product_variant_id.
      *
-     * @param  array  $features  Mapa atributo => valor de la variante
-     * @throws Exception Si no hay stock suficiente en esa variante
+     * @param  int  $productVariantId  ID de la variante en product_variants
+     * @throws Exception Si no hay stock suficiente
      */
-    public function registrarSalidaPorVarianteFIFO(Store $store, int $userId, int $productId, array $features, int $quantity, ?string $description = null): void
+    public function registrarSalidaPorVarianteFIFO(Store $store, int $userId, int $productId, int $productVariantId, int $quantity, ?string $description = null): void
     {
         if ($quantity < 1) {
             return;
@@ -550,18 +676,14 @@ class InventarioService
             ->firstOrFail();
 
         if (! $product->isBatch()) {
-            throw new Exception("El producto «{$product->name}» no es por lote; no se puede usar salida por variante.");
+            throw new Exception("El producto «{$product->name}» no es por lote.");
         }
 
-        $key = self::detectorDeVariantesEnLotes($features);
-        $batchItems = BatchItem::where('quantity', '>', 0)
+        $batchItems = BatchItem::where('product_variant_id', $productVariantId)
+            ->where('quantity', '>', 0)
             ->whereHas('batch', fn ($q) => $q->where('store_id', $store->id)->where('product_id', $productId))
-            ->where(function ($q) {
-                $q->where('is_active', true)->orWhereNull('is_active');
-            })
             ->with('batch')
             ->get()
-            ->filter(fn (BatchItem $bi) => self::detectorDeVariantesEnLotes($bi->features) === $key)
             ->sortBy(fn (BatchItem $bi) => $bi->batch->created_at->format('Y-m-d H:i:s') . '-' . $bi->id)
             ->values();
 
@@ -590,21 +712,11 @@ class InventarioService
     }
 
     /**
-     * Retorna el stock disponible basándose ESTRICTAMENTE en el tipo de producto.
+     * Stock disponible según tipo de producto.
      *
-     * Lógica jerárquica:
-     * 1. Determina el tipo de producto (Simple, Batch, Serialized).
-     * 2. Ejecuta la estrategia de consulta correspondiente a ese tipo,
-     *    con una consideración especial para productos 'simple' que gestionan lotes.
-     *
-     * @param  Store  $store
-     * @param  int  $productId
-     * @param  int|null  $batchItemId  Opcional: para lote, id de un BatchItem concreto.
-     * @param  string|null  $serialNumber  Opcional: para serializado, número de serie.
-     * @param  array|null  $variantFeatures  Opcional: para lote, mapa atributo=>valor de la variante.
-     * @return array{disponible: bool, cantidad: int, status: string|null}
+     * @param  int|null  $productVariantId  Para lote: ID de la variante
      */
-    public function stockDisponible(Store $store, int $productId, ?int $batchItemId = null, ?string $serialNumber = null, ?array $variantFeatures = null): array
+    public function stockDisponible(Store $store, int $productId, ?int $batchItemId = null, ?string $serialNumber = null, ?int $productVariantId = null): array
     {
         $product = Product::where('id', $productId)
             ->where('store_id', $store->id)
@@ -614,56 +726,36 @@ class InventarioService
             return ['disponible' => false, 'cantidad' => 0, 'status' => null];
         }
 
-        // Normalizamos el tipo, asumiendo 'simple' si es null o vacío
         $type = $product->type ?: 'simple';
 
         switch ($type) {
             case MovimientoInventario::PRODUCT_TYPE_SERIALIZED:
-                // Si el producto es serializado, su stock se gestiona por ProductItems.
                 return $this->consultarStockSerializado($store, $product, $serialNumber);
 
             case MovimientoInventario::PRODUCT_TYPE_BATCH:
-                // Si el producto es por lote, su stock se gestiona por BatchItems.
-                return $this->consultarStockLote($store, $product, $batchItemId, $variantFeatures);
+                return $this->consultarStockLote($store, $product, $batchItemId, $productVariantId);
 
             case 'simple':
             default:
-                // Caso 'simple': Aquí es donde necesitamos la lógica especial para productos 'simple' que gestionan lotes.
-                // Si un producto marcado como 'simple' tiene lotes asociados,
-                // su stock real proviene de la suma de esos lotes.
                 if ($product->batches()->exists()) {
-                    // Delegar a consultarStockLote para obtener la suma total de BatchItems.
-                    // Le pasamos null para batchItemId y variantFeatures para que tome el Sub-caso 3 (consulta general).
                     return $this->consultarStockLote($store, $product, null, null);
                 }
-                // Si el producto 'simple' NO tiene lotes asociados, su stock está en la columna 'stock'.
                 return $this->consultarStockSimple($product);
         }
     }
 
-    /**
-     * Estrategia para Producto Simple (sin gestión por lotes):
-     * Mira directamente la columna 'stock' del producto.
-     */
     protected function consultarStockSimple(Product $product): array
     {
         $cantidad = (int) $product->stock;
-        
         return [
             'disponible' => $cantidad > 0,
             'cantidad'   => $cantidad,
-            'status'     => null, // Simple no maneja estados (vendido/reservado) por unidad
+            'status'     => null,
         ];
     }
 
-    /**
-     * Estrategia para Producto Serializado:
-     * Si hay serial: Busca esa unidad específica y su estado.
-     * Si NO hay serial: Cuenta el total de unidades disponibles (opcional, pero útil).
-     */
     protected function consultarStockSerializado(Store $store, Product $product, ?string $serialNumber): array
     {
-        // Si se pide un serial específico (Caso de Uso: Venta o Validación de salida)
         if ($serialNumber !== null && $serialNumber !== '') {
             $item = ProductItem::where('store_id', $store->id)
                 ->where('product_id', $product->id)
@@ -675,7 +767,6 @@ class InventarioService
             }
 
             $disponible = $item->status === ProductItem::STATUS_AVAILABLE;
-
             return [
                 'disponible' => $disponible,
                 'cantidad'   => $disponible ? 1 : 0,
@@ -683,7 +774,6 @@ class InventarioService
             ];
         }
 
-        // Si no envían serial, retornamos el conteo total de disponibles (Caso de Uso: Listado o Catalog)
         $cantidadTotal = ProductItem::where('store_id', $store->id)
             ->where('product_id', $product->id)
             ->where('status', ProductItem::STATUS_AVAILABLE)
@@ -697,14 +787,11 @@ class InventarioService
     }
 
     /**
-     * Estrategia para Producto por Lotes (Batch):
-     * 1. Por ID de Item específico (BatchItem concreto).
-     * 2. Por Variantes (Features): Suma de todos los lotes que coincidan.
-     * 3. General: Suma total del stock activo.
+     * Stock por lote: por batch_item_id, por product_variant_id, o general.
      */
-    protected function consultarStockLote(Store $store, Product $product, ?int $batchItemId, ?array $variantFeatures): array
+    protected function consultarStockLote(Store $store, Product $product, ?int $batchItemId, ?int $productVariantId): array
     {
-        // Sub-caso 1: Consulta por ID específico de BatchItem
+        // Sub-caso 1: por batch_item_id concreto
         if ($batchItemId !== null && $batchItemId > 0) {
             $batchItem = BatchItem::where('id', $batchItemId)
                 ->whereHas('batch', fn ($q) => $q->where('store_id', $store->id)->where('product_id', $product->id))
@@ -713,7 +800,7 @@ class InventarioService
             if (! $batchItem) {
                 return ['disponible' => false, 'cantidad' => 0, 'status' => null];
             }
-            
+
             $cantidad = (int) $batchItem->quantity;
             return [
                 'disponible' => $cantidad > 0,
@@ -722,17 +809,11 @@ class InventarioService
             ];
         }
 
-        // Sub-caso 2: Consulta por Variantes (ej. Talla: M, Color: Azul)
-        if ($variantFeatures !== null && is_array($variantFeatures) && ! empty($variantFeatures)) {
-            $key = self::detectorDeVariantesEnLotes($variantFeatures);
-            
-            $cantidad = BatchItem::whereHas('batch', fn ($q) => $q->where('store_id', $store->id)->where('product_id', $product->id))
+        // Sub-caso 2: por product_variant_id
+        if ($productVariantId !== null && $productVariantId > 0) {
+            $cantidad = BatchItem::where('product_variant_id', $productVariantId)
+                ->whereHas('batch', fn ($q) => $q->where('store_id', $store->id)->where('product_id', $product->id))
                 ->where('quantity', '>', 0)
-                ->where(function ($q) {
-                    $q->where('is_active', true)->orWhereNull('is_active');
-                })
-                ->get()
-                ->filter(fn ($bi) => self::detectorDeVariantesEnLotes($bi->features) === $key)
                 ->sum('quantity');
 
             return [
@@ -742,13 +823,9 @@ class InventarioService
             ];
         }
 
-        // Sub-caso 3: Consulta general (stock total en lotes activos)
-        // Esto es útil si solo quieres saber cuánto hay en total sin importar el lote
+        // Sub-caso 3: stock total
         $cantidadTotal = BatchItem::whereHas('batch', fn ($q) => $q->where('store_id', $store->id)->where('product_id', $product->id))
             ->where('quantity', '>', 0)
-            ->where(function ($q) {
-                $q->where('is_active', true)->orWhereNull('is_active');
-            })
             ->sum('quantity');
 
         return [
@@ -759,14 +836,9 @@ class InventarioService
     }
 
     /**
-     * Retorna el precio unitario de venta para un ítem según su tipo (simple, batch, serialized).
-     * Usado para enriquecer cotizaciones con el precio real actual del inventario.
-     *
-     * @param  array|null  $variantFeatures  Para batch: mapa atributo=>valor de la variante
-     * @param  array|null  $serialNumbers  Para serialized: lista de números de serie (usa el primero para el precio)
-     * @return float Precio unitario
+     * Precio para un ítem según su tipo. Batch: lee de ProductVariant.
      */
-    public function precioParaItem(Store $store, int $productId, string $type, ?array $variantFeatures = null, ?array $serialNumbers = null): float
+    public function precioParaItem(Store $store, int $productId, string $type, ?int $productVariantId = null, ?array $serialNumbers = null): float
     {
         $product = Product::where('id', $productId)
             ->where('store_id', $store->id)
@@ -778,7 +850,6 @@ class InventarioService
 
         $productPrice = (float) ($product->price ?? 0);
 
-        // Serialized: precio del ProductItem (primer serial) o producto
         if ($type === 'serialized' && is_array($serialNumbers) && ! empty($serialNumbers)) {
             $serial = trim((string) $serialNumbers[0]);
             if ($serial !== '') {
@@ -793,50 +864,21 @@ class InventarioService
             return $productPrice;
         }
 
-        // Batch: precio del BatchItem con esas features. Construir mapa clave→BatchItem con la misma
-        // función de clave para evitar desajustes (solo la primera variante encontraba precio).
-        if ($type === 'batch' && is_array($variantFeatures) && ! empty($variantFeatures)) {
-            $key = self::detectorDeVariantesEnLotes($variantFeatures);
-            if ($key === '') {
-                return $productPrice;
-            }
-            $batchItems = BatchItem::whereHas('batch', fn ($q) => $q->where('store_id', $store->id)->where('product_id', $productId))
-                ->where('quantity', '>', 0)
-                ->where(function ($q) {
-                    $q->where('is_active', true)->orWhereNull('is_active');
-                })
-                ->with('batch.product')
-                ->get();
-            $keyToItem = [];
-            foreach ($batchItems as $bi) {
-                $biFeatures = $bi->features;
-                if (! is_array($biFeatures)) {
-                    $biFeatures = is_string($biFeatures) ? json_decode($biFeatures, true) : [];
-                }
-                $biKey = self::detectorDeVariantesEnLotes($biFeatures ?? []);
-                if ($biKey !== '' && ! isset($keyToItem[$biKey])) {
-                    $keyToItem[$biKey] = $bi;
-                }
-            }
-            $batchItem = $keyToItem[$key] ?? null;
-            if ($batchItem) {
-                return $batchItem->getSellingPriceAttribute();
+        if ($type === 'batch' && $productVariantId) {
+            $variant = ProductVariant::where('id', $productVariantId)
+                ->where('product_id', $productId)
+                ->first();
+            if ($variant) {
+                return $variant->selling_price;
             }
             return $productPrice;
         }
 
-        // Simple: precio del producto
         return $productPrice;
     }
 
     /**
-     * Valida que haya stock disponible para todos los productos indicados.
-     * Solo valida productos de inventario (serialized/batch). No modifica el inventario.
-     * Para productos serializados puede recibir serial_numbers[] en lugar de quantity; entonces valida que esos seriales existan y estén disponibles.
-     * Delega en stockDisponible() para la lógica de consulta por tipo (simple, lote, serializado).
-     *
-     * @param  array  $items  Lista de ítems: product_id + quantity O product_id + serial_numbers[] O product_id + batch_item_id + quantity O product_id + variant_features + quantity
-     * @throws Exception Si algún producto no tiene stock suficiente o un serial no está disponible
+     * Valida stock disponible para una lista de ítems.
      */
     public function validarStockDisponible(Store $store, array $items): void
     {
@@ -878,9 +920,9 @@ class InventarioService
                 if ($quantity < 1) {
                     continue;
                 }
-                $variantFeatures = $item['variant_features'] ?? null;
-                if (is_array($variantFeatures) && ! empty($variantFeatures)) {
-                    $r = $this->stockDisponible($store, $productId, null, null, $variantFeatures);
+                $productVariantId = $item['product_variant_id'] ?? null;
+                if ($productVariantId) {
+                    $r = $this->stockDisponible($store, $productId, null, null, (int) $productVariantId);
                 } else {
                     $batchItemId = isset($item['batch_item_id']) && $item['batch_item_id'] !== '' ? (int) $item['batch_item_id'] : null;
                     $r = $this->stockDisponible($store, $productId, $batchItemId, null);
@@ -897,8 +939,6 @@ class InventarioService
 
     /**
      * Lista movimientos de inventario con filtros.
-     *
-     * @param array $filtros product_id, type, fecha_desde, fecha_hasta, per_page
      */
     public function listarMovimientos(Store $store, array $filtros = []): LengthAwarePaginator
     {
@@ -923,7 +963,7 @@ class InventarioService
     }
 
     /**
-     * Productos de la tienda aptos para movimientos de inventario (simple, serialized o batch).
+     * Productos aptos para movimientos de inventario.
      */
     public function productosConInventario(Store $store): \Illuminate\Database\Eloquent\Collection
     {
@@ -939,7 +979,7 @@ class InventarioService
     }
 
     /**
-     * Busca productos de inventario por término (para buscador en compras).
+     * Busca productos de inventario por término.
      */
     public function buscarProductosInventario(Store $store, string $term, int $limit = 15): \Illuminate\Support\Collection
     {
