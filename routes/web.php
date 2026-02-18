@@ -3,6 +3,8 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\StoreController;
 use App\Http\Controllers\StoreWorkerController;
+use App\Http\Controllers\StoreCategoryController;
+use App\Http\Controllers\StoreProductController;
 
 Route::view('/', 'welcome');
 
@@ -34,27 +36,27 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::put('/roles/{role}', [StoreController::class, 'updateRole'])->name('roles.update');
     Route::delete('/roles/{role}', [StoreController::class, 'destroyRole'])->name('roles.destroy');
 
-    Route::get('/productos', [StoreController::class, 'products'])->name('products');
+    Route::get('/productos', [StoreProductController::class, 'index'])->name('products');
     Route::get('/productos/compras', [StoreController::class, 'productPurchases'])->name('product-purchases');
     Route::get('/productos/compras/crear', [StoreController::class, 'createProductPurchase'])->name('product-purchases.create');
     Route::post('/productos/compras', [StoreController::class, 'storeProductPurchase'])->name('product-purchases.store');
-    Route::get('/productos/{product}', [StoreController::class, 'showProduct'])->name('products.show');
-    Route::put('/productos/{product}/variantes-permitidas', [StoreController::class, 'updateProductVariantOptions'])->name('productos.variant-options.update');
-    Route::put('/productos/{product}/variante', [StoreController::class, 'updateVariant'])->name('productos.variant.update');
-    Route::post('/productos/{product}/variantes', [StoreController::class, 'storeVariants'])->name('productos.variants.store');
-    Route::delete('/productos/{product}', [StoreController::class, 'destroyProduct'])->name('products.destroy');
+    Route::get('/productos/{product}', [StoreProductController::class, 'show'])->name('products.show');
+    Route::put('/productos/{product}/variantes-permitidas', [StoreProductController::class, 'updateProductVariantOptions'])->name('productos.variant-options.update');
+    Route::put('/productos/{product}/variante', [StoreProductController::class, 'updateVariant'])->name('productos.variant.update');
+    Route::post('/productos/{product}/variantes', [StoreProductController::class, 'storeVariants'])->name('productos.variants.store');
+    Route::delete('/productos/{product}', [StoreProductController::class, 'destroy'])->name('products.destroy');
 
-    Route::get('/categorias', [StoreController::class, 'categories'])->name('categories');
-    Route::get('/categorias/{category}', [StoreController::class, 'showCategory'])->name('category.show');
-    Route::delete('/categorias/{category}', [StoreController::class, 'destroyCategory'])->name('categories.destroy');
+    Route::get('/categorias', [StoreCategoryController::class, 'index'])->name('categories');
+    Route::get('/categorias/{category}', [StoreCategoryController::class, 'show'])->name('category.show');
+    Route::delete('/categorias/{category}', [StoreCategoryController::class, 'destroy'])->name('categories.destroy');
     
     // Grupos de atributos (gestión global)
     Route::get('/atributos', [StoreController::class, 'attributeGroups'])->name('attribute-groups');
     Route::delete('/atributos/grupos/{attributeGroup}', [StoreController::class, 'destroyAttributeGroup'])->name('attribute-groups.destroy');
 
     // Atributos de categorías
-    Route::get('/categorias/{category}/atributos', [StoreController::class, 'categoryAttributes'])->name('category.attributes');
-    Route::post('/categorias/{category}/atributos', [StoreController::class, 'assignAttributes'])->name('category.attributes.assign');
+    Route::get('/categorias/{category}/atributos', [StoreCategoryController::class, 'attributes'])->name('category.attributes');
+    Route::post('/categorias/{category}/atributos', [StoreCategoryController::class, 'assignAttributes'])->name('category.attributes.assign');
 
     // Ventas (carrito, cotizaciones)
     Route::get('/ventas/carrito', [StoreController::class, 'carrito'])->name('ventas.carrito');
