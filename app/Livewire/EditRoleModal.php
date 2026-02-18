@@ -2,9 +2,13 @@
 
 namespace App\Livewire;
 
+use App\Models\Permission;
 use App\Models\Role;
 use App\Models\Store;
+use App\Services\StorePermissionService;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Livewire\Component;
 
 class EditRoleModal extends Component
@@ -14,6 +18,9 @@ class EditRoleModal extends Component
     public ?int $roleId = null;
 
     public string $name = '';
+
+    /** @var array<int> */
+    public array $selectedPermissions = [];
 
     public function loadRole($roleId = null)
     {
@@ -40,6 +47,7 @@ class EditRoleModal extends Component
 
         if ($role) {
             $this->name = $role->name;
+            $this->selectedPermissions = $role->permissions()->pluck('id')->all();
             $this->dispatch('open-modal', 'edit-role');
         }
     }
@@ -48,12 +56,19 @@ class EditRoleModal extends Component
     {
         return [
             'name' => ['required', 'string', 'min:1', 'max:255'],
+            'selectedPermissions' => ['array'],
+            'selectedPermissions.*' => ['integer', 'exists:permissions,id'],
         ];
     }
 
     public function getStoreProperty(): ?Store
     {
         return Store::find($this->storeId);
+    }
+
+    public function getPermissionsByGroupProperty()
+    {
+        return Permission::orderBy('slug')->get()->groupBy(fn ($p) => Str::before($p->slug, '.') ?: 'general');
     }
 
     public function update()
@@ -74,8 +89,19 @@ class EditRoleModal extends Component
             ->firstOrFail();
 
         $role->update(['name' => $this->name]);
+        $role->permissions()->sync($this->selectedPermissions);
 
-        $this->reset(['name', 'roleId']);
+        $userIds = DB::table('store_user')
+            ->where('role_id', $role->id)
+            ->where('store_id', $store->id)
+            ->pluck('user_id');
+
+        $permissionService = app(StorePermissionService::class);
+        foreach ($userIds as $userId) {
+            $permissionService->clearPermissionCache((int) $userId, $store->id);
+        }
+
+        $this->reset(['name', 'roleId', 'selectedPermissions']);
         $this->resetValidation();
 
         return redirect()->route('stores.roles', $store)
