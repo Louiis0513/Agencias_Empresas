@@ -202,4 +202,32 @@ class StoreProductController extends Controller
                 ->with('error', $e->getMessage());
         }
     }
+
+    /**
+     * Devuelve en JSON los atributos de la categoría del producto (para compra de productos, seriales y variantes).
+     */
+    public function atributosCategoria(Store $store, int $productId, StorePermissionService $permission)
+    {
+        $permission->authorize($store, 'products.view');
+
+        if ($productId <= 0) {
+            return response()->json(['attributes' => []]);
+        }
+
+        $product = Product::where('store_id', $store->id)->find($productId);
+        if (! $product) {
+            return response()->json(['attributes' => []]);
+        }
+
+        $product->load('category.attributes.options');
+        $category = $product->category;
+        $attributes = $category ? $category->attributes->map(fn ($a) => [
+            'id' => $a->id,
+            'name' => $a->name,
+            'type' => $a->type ?? 'text',
+            'options' => $a->options ? $a->options->map(fn ($o) => ['id' => $o->id, 'value' => $o->value])->values()->all() : [],
+        ])->values()->all() : [];
+
+        return response()->json(['attributes' => $attributes]);
+    }
 }

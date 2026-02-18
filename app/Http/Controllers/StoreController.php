@@ -7,7 +7,12 @@ use App\Models\Category;
 use App\Services\CategoryService;
 use App\Services\AttributeService;
 use App\Services\StorePermissionService;
+use App\Services\CotizacionService;
+use App\Services\PurchaseService;
+use App\Models\Purchase;
 use Exception;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 class StoreController extends Controller
 {
     public function show(Store $store)
@@ -231,6 +236,81 @@ class StoreController extends Controller
 
         return redirect()->route('stores.ventas.cotizaciones', $store)
             ->with('success', 'Cotización eliminada correctamente.');
+    }
+
+    // ==================== COMPRAS DE PRODUCTOS ====================
+
+    public function productPurchases(Store $store, Request $request, PurchaseService $purchaseService, StorePermissionService $permission)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        $permission->authorize($store, 'product-purchases.view');
+
+        session(['current_store_id' => $store->id]);
+
+        $filtros = [
+            'status' => $request->get('status'),
+            'payment_status' => $request->get('payment_status'),
+            'proveedor_id' => $request->get('proveedor_id'),
+            'purchase_type' => Purchase::TYPE_PRODUCTO,
+            'per_page' => $request->get('per_page', 15),
+        ];
+
+        $purchases = $purchaseService->listarCompras($store, $filtros);
+        $proveedores = $store->proveedores()->orderBy('nombre')->get();
+
+        return view('stores.compras-productos', compact('store', 'purchases', 'proveedores'));
+    }
+
+    public function createProductPurchase(Store $store, StorePermissionService $permission)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        $permission->authorize($store, 'product-purchases.create');
+
+        session(['current_store_id' => $store->id]);
+
+        $proveedores = $store->proveedores()->orderBy('nombre')->get();
+
+        return view('stores.compra-productos-crear', compact('store', 'proveedores'));
+    }
+
+    public function storeProductPurchase(Store $store, Request $request, PurchaseService $purchaseService, StorePermissionService $permission)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        $permission->authorize($store, 'product-purchases.create');
+
+        $data = $request->validate([
+            'proveedor_id' => ['nullable', 'exists:proveedores,id'],
+            'payment_status' => ['required', 'in:PAGADO,PENDIENTE'],
+            'invoice_number' => ['nullable', 'string', 'max:255'],
+            'invoice_date' => ['nullable', 'date'],
+            'due_date' => ['nullable', 'date'],
+            'details' => ['required', 'array', 'min:1'],
+            'details.*.item_type' => ['nullable', 'string'],
+            'details.*.product_id' => ['nullable'],
+            'details.*.activo_id' => ['nullable'],
+            'details.*.description' => ['nullable', 'string'],
+            'details.*.quantity' => ['required', 'integer', 'min:1'],
+            'details.*.unit_cost' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        $data['purchase_type'] = Purchase::TYPE_PRODUCTO;
+
+        try {
+            $purchaseService->crearCompra($store, Auth::id(), $data);
+
+            return redirect()->route('stores.product-purchases', $store)
+                ->with('success', 'Compra de productos creada correctamente.');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return redirect()->back()->withInput()->withErrors($e->errors());
+        } catch (\Exception $e) {
+            return redirect()->back()->withInput()->with('error', $e->getMessage());
+        }
     }
 
     // ==================== PROVEEDORES ====================

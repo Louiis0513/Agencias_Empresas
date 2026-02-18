@@ -10,6 +10,11 @@ use App\Http\Controllers\StoreProveedorController;
 use App\Http\Controllers\StoreInvoiceController;
 use App\Http\Controllers\StoreRoleController;
 use App\Http\Controllers\StoreCajaController;
+use App\Http\Controllers\StoreInventoryController;
+use App\Http\Controllers\StoreActivoController;
+use App\Http\Controllers\StorePurchaseController;
+use App\Http\Controllers\StoreAccountPayableController;
+use App\Http\Controllers\StoreAccountReceivableController;
 
 Route::view('/', 'welcome');
 
@@ -46,6 +51,7 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::get('/productos/compras/crear', [StoreController::class, 'createProductPurchase'])->name('product-purchases.create');
     Route::post('/productos/compras', [StoreController::class, 'storeProductPurchase'])->name('product-purchases.store');
     Route::get('/productos/{product}', [StoreProductController::class, 'show'])->name('products.show');
+    Route::get('/productos/{productId}/atributos-categoria', [StoreProductController::class, 'atributosCategoria'])->name('productos.atributos-categoria')->whereNumber('productId');
     Route::put('/productos/{product}/variantes-permitidas', [StoreProductController::class, 'updateProductVariantOptions'])->name('productos.variant-options.update');
     Route::put('/productos/{product}/variante', [StoreProductController::class, 'updateVariant'])->name('productos.variant.update');
     Route::post('/productos/{product}/variantes', [StoreProductController::class, 'storeVariants'])->name('productos.variants.store');
@@ -107,6 +113,43 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::put('/comprobantes-egreso/{comprobanteEgreso}', [StoreCajaController::class, 'updateComprobanteEgreso'])->name('comprobantes-egreso.update');
     Route::post('/comprobantes-egreso/{comprobanteEgreso}/reversar', [StoreCajaController::class, 'reversarComprobanteEgreso'])->name('comprobantes-egreso.reversar');
     Route::post('/comprobantes-egreso/{comprobanteEgreso}/anular', [StoreCajaController::class, 'anularComprobanteEgreso'])->name('comprobantes-egreso.anular');
+
+    // Inventario
+    Route::controller(StoreInventoryController::class)->group(function () {
+        Route::get('/inventario', 'index')->name('inventario');
+    });
+
+    // Activos Fijos
+    Route::controller(StoreActivoController::class)->group(function () {
+        Route::get('/activos', 'index')->name('activos');
+        Route::get('/activos/movimientos', 'movimientos')->name('activos.movimientos');
+    });
+
+    // Compra de activos (módulo Financiero)
+    Route::controller(StorePurchaseController::class)->group(function () {
+        Route::get('/compras', 'index')->name('purchases');
+        Route::get('/compras/crear', 'create')->name('purchases.create');
+        Route::post('/compras', 'store')->name('purchases.store');
+        Route::get('/compras/{purchase}', 'show')->name('purchases.show');
+        Route::get('/compras/{purchase}/editar', 'edit')->name('purchases.edit');
+        Route::put('/compras/{purchase}', 'update')->name('purchases.update');
+        Route::post('/compras/{purchase}/aprobar', 'approve')->name('purchases.approve');
+        Route::post('/compras/{purchase}/anular', 'void')->name('purchases.void');
+    });
+
+    // Cuentas por pagar
+    Route::controller(StoreAccountPayableController::class)->group(function () {
+        Route::get('/cuentas-por-pagar', 'index')->name('accounts-payables');
+        Route::get('/cuentas-por-pagar/{accountPayable}', 'show')->name('accounts-payables.show');
+        Route::post('/cuentas-por-pagar/{accountPayable}/pagar', 'pay')->name('accounts-payables.pay');
+    });
+
+    // Cuentas por cobrar
+    Route::controller(StoreAccountReceivableController::class)->group(function () {
+        Route::get('/cuentas-por-cobrar', 'index')->name('accounts-receivables');
+        Route::get('/cuentas-por-cobrar/{accountReceivable}', 'show')->name('accounts-receivables.show');
+        Route::post('/cuentas-por-cobrar/{accountReceivable}/cobrar', 'cobrar')->name('accounts-receivables.cobrar');
+    });
 });
 
 require __DIR__.'/auth.php';
