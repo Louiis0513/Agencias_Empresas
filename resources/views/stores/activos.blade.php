@@ -10,7 +10,7 @@
         </div>
     </x-slot>
 
-    <div class="py-12">
+    <div class="py-12" x-data>
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             @if(session('success'))
                 <div class="mb-4 bg-green-100 dark:bg-green-900/30 border border-green-400 text-green-700 dark:text-green-300 px-4 py-3 rounded relative" role="alert">
@@ -41,11 +41,11 @@
                                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
                                 Movimientos
                             </a>
-                            <a href="{{ route('stores.activos.create', $store) }}"
-                               class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700">
+                            <button type="button" x-on:click="$dispatch('open-modal', 'create-activo')"
+                                    class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700">
                                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                                 Crear Activo
-                            </a>
+                            </button>
                         </div>
                     </div>
 
@@ -88,12 +88,6 @@
                                             </td>
                                             <td class="px-4 py-4 text-right text-sm font-medium">
                                                 <a href="{{ route('stores.activos.movimientos', $store) }}?activo_id={{ $activo->id }}" class="text-emerald-600 hover:text-emerald-900 dark:text-emerald-400 dark:hover:text-emerald-300 mr-3">Movimientos</a>
-                                                <a href="{{ route('stores.activos.edit', [$store, $activo]) }}" class="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 mr-3">Editar</a>
-                                                <form method="POST" action="{{ route('stores.activos.destroy', [$store, $activo]) }}" class="inline" onsubmit="return confirm('¿Eliminar este activo? Debe tener cantidad 0.');">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit" class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300">Eliminar</button>
-                                                </form>
                                             </td>
                                         </tr>
                                     @endforeach
@@ -107,12 +101,13 @@
                                 No hay activos que coincidan con la búsqueda.
                             @else
                                 No hay activos registrados. Los activos son bienes que se compran para usar (computadores, muebles, etc.), no para vender.
-                                <a href="{{ route('stores.activos.create', $store) }}" class="text-indigo-600 dark:text-indigo-400 hover:underline">Crear el primero</a>
+                                <button type="button" x-on:click="$dispatch('open-modal', 'create-activo')" class="text-indigo-600 dark:text-indigo-400 hover:underline bg-transparent border-0 p-0 cursor-pointer font-inherit">Crear el primero</button>
                             @endif
                         </p>
                     @endif
                 </div>
             </div>
         </div>
+        @livewire('create-activo-modal', ['storeId' => $store->id, 'fromPurchase' => false])
     </div>
 </x-app-layout>

@@ -46,9 +46,9 @@ class StoreActivoController extends Controller
             'fecha_hasta' => $request->get('fecha_hasta'),
         ];
 
-        $activosParaSelect = $activoService->activosParaMovimientos($store);
+        $activosParaMovimientos = $activoService->activosParaMovimientos($store);
         $movimientos = $activoService->listarMovimientos($store, $filtros);
 
-        return view('stores.activo-movimientos', compact('store', 'movimientos', 'activosParaSelect'));
+        return view('stores.activo-movimientos', compact('store', 'movimientos', 'activosParaMovimientos'));
     }
 }
