@@ -65,13 +65,18 @@ class CajaService
 
     public function registrarMovimiento(Store $store, int $userId, array $datos): MovimientoBolsillo
     {
+        $sesion = app(SesionCajaService::class)->obtenerSesionAbierta($store);
+        if (! $sesion) {
+            throw new Exception('No hay una sesión de caja abierta. Abra la caja para registrar movimientos.');
+        }
+
         $comprobanteIngresoId = $datos['comprobante_ingreso_id'] ?? null;
         $comprobanteEgresoId = $datos['comprobante_egreso_id'] ?? null;
         if (! $comprobanteIngresoId && ! $comprobanteEgresoId) {
             throw new Exception('Cada movimiento de caja debe estar vinculado a un Comprobante de Ingreso o de Egreso. Cree el comprobante desde el módulo correspondiente.');
         }
 
-        return DB::transaction(function () use ($store, $userId, $datos) {
+        return DB::transaction(function () use ($store, $userId, $datos, $sesion) {
             $bolsillo = Bolsillo::deTienda($store->id)
                 ->where('id', $datos['bolsillo_id'])
                 ->lockForUpdate()
@@ -84,6 +89,7 @@ class CajaService
             $mov = MovimientoBolsillo::create([
                 'store_id'               => $store->id,
                 'bolsillo_id'            => $bolsillo->id,
+                'sesion_caja_id'         => $sesion->id,
                 'comprobante_egreso_id'   => $datos['comprobante_egreso_id'] ?? null,
                 'comprobante_ingreso_id'  => $datos['comprobante_ingreso_id'] ?? null,
                 'type'                   => $datos['type'],

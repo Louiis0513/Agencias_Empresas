@@ -64,6 +64,9 @@ class PermissionSeeder extends Seeder
             ['slug' => 'caja.bolsillos.edit', 'name' => 'Editar bolsillos', 'description' => 'Modificar bolsillos'],
             ['slug' => 'caja.bolsillos.destroy', 'name' => 'Eliminar bolsillos', 'description' => 'Eliminar bolsillos'],
             ['slug' => 'caja.movimientos.create', 'name' => 'Registrar movimientos de caja', 'description' => 'Registrar entradas y salidas de caja'],
+            ['slug' => 'caja.sesiones.view', 'name' => 'Ver sesiones de caja', 'description' => 'Ver historial de sesiones de caja'],
+            ['slug' => 'caja.sesiones.abrir', 'name' => 'Abrir caja', 'description' => 'Abrir sesión de caja'],
+            ['slug' => 'caja.sesiones.cerrar', 'name' => 'Cerrar caja', 'description' => 'Cerrar sesión de caja (wizard)'],
 
             // Inventario
             ['slug' => 'inventario.view', 'name' => 'Ver inventario', 'description' => 'Ver inventario de productos'],

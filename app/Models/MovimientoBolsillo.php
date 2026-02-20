@@ -16,6 +16,7 @@ class MovimientoBolsillo extends Model
     protected $fillable = [
         'store_id',
         'bolsillo_id',
+        'sesion_caja_id',
         'comprobante_egreso_id',
         'comprobante_ingreso_id',
         'type',
@@ -38,6 +39,11 @@ class MovimientoBolsillo extends Model
     public function bolsillo()
     {
         return $this->belongsTo(Bolsillo::class);
+    }
+
+    public function sesionCaja()
+    {
+        return $this->belongsTo(SesionCaja::class, 'sesion_caja_id');
     }
 
     public function comprobanteEgreso()

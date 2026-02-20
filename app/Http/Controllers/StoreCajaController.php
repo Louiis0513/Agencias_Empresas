@@ -9,10 +9,12 @@ use App\Models\Bolsillo;
 use App\Models\ComprobanteEgreso;
 use App\Models\ComprobanteIngreso;
 use App\Models\Store;
+use App\Models\SesionCaja;
 use App\Services\AccountPayableService;
 use App\Services\CajaService;
 use App\Services\ComprobanteEgresoService;
 use App\Services\ComprobanteIngresoService;
+use App\Services\SesionCajaService;
 use App\Services\StorePermissionService;
 use Exception;
 use Illuminate\Http\Request;
@@ -26,19 +28,22 @@ class StoreCajaController extends Controller
     protected ComprobanteEgresoService $comprobanteEgresoService;
     protected AccountPayableService $accountPayableService;
     protected StorePermissionService $permissionService;
+    protected SesionCajaService $sesionCajaService;
 
     public function __construct(
         CajaService $cajaService,
         ComprobanteIngresoService $comprobanteIngresoService,
         ComprobanteEgresoService $comprobanteEgresoService,
         AccountPayableService $accountPayableService,
-        StorePermissionService $permissionService
+        StorePermissionService $permissionService,
+        SesionCajaService $sesionCajaService
     ) {
         $this->cajaService = $cajaService;
         $this->comprobanteIngresoService = $comprobanteIngresoService;
         $this->comprobanteEgresoService = $comprobanteEgresoService;
         $this->accountPayableService = $accountPayableService;
         $this->permissionService = $permissionService;
+        $this->sesionCajaService = $sesionCajaService;
     }
 
     public function index(Store $store, Request $request)
@@ -52,7 +57,106 @@ class StoreCajaController extends Controller
         ];
         $bolsillos = $this->cajaService->listarBolsillos($store, $filtros);
         $totalCaja = $this->cajaService->totalCaja($store);
-        return view('stores.caja', compact('store', 'bolsillos', 'totalCaja'));
+        $sesionAbierta = $this->sesionCajaService->obtenerSesionAbierta($store);
+
+        return view('stores.caja', compact('store', 'bolsillos', 'totalCaja', 'sesionAbierta'));
+    }
+
+    public function aperturaCaja(Store $store)
+    {
+        $this->permissionService->authorize($store, 'caja.sesiones.abrir');
+
+        if ($this->sesionCajaService->obtenerSesionAbierta($store)) {
+            return redirect()->route('stores.cajas', $store)->with('error', 'Ya hay una sesión de caja abierta.');
+        }
+
+        $bolsillos = Bolsillo::deTienda($store->id)->activos()->orderBy('name')->get();
+        $saldosEsperados = $this->sesionCajaService->obtenerSaldosEsperadosParaApertura($store);
+
+        return view('stores.caja-apertura', compact('store', 'bolsillos', 'saldosEsperados'));
+    }
+
+    public function storeAperturaCaja(Store $store, Request $request)
+    {
+        $this->permissionService->authorize($store, 'caja.sesiones.abrir');
+
+        $bolsillos = Bolsillo::deTienda($store->id)->activos()->orderBy('name')->get();
+        $saldosFisicos = [];
+        foreach ($bolsillos as $b) {
+            $saldosFisicos[$b->id] = (float) $request->input('saldo_fisico.' . $b->id, 0);
+        }
+
+        try {
+            $this->sesionCajaService->abrirSesion($store, (int) Auth::id(), $saldosFisicos, $request->input('nota_apertura'));
+
+            return redirect()->route('stores.cajas', $store)->with('success', 'Sesión de caja abierta correctamente.');
+        } catch (Exception $e) {
+            return redirect()->back()->withInput()->with('error', $e->getMessage());
+        }
+    }
+
+    public function cerrarCaja(Store $store)
+    {
+        $this->permissionService->authorize($store, 'caja.sesiones.cerrar');
+
+        $sesionAbierta = $this->sesionCajaService->obtenerSesionAbierta($store);
+        if (! $sesionAbierta) {
+            return redirect()->route('stores.cajas', $store)->with('error', 'No hay una sesión de caja abierta para cerrar.');
+        }
+
+        $bolsillos = Bolsillo::deTienda($store->id)->activos()->orderBy('name')->get();
+
+        return view('stores.caja-cerrar-wizard', compact('store', 'sesionAbierta', 'bolsillos'));
+    }
+
+    public function storeCierreCaja(Store $store, Request $request)
+    {
+        $this->permissionService->authorize($store, 'caja.sesiones.cerrar');
+
+        $request->validate([
+            'saldo_fisico' => ['required', 'array'],
+            'saldo_fisico.*' => ['nullable', 'numeric', 'min:0'],
+            'nota_cierre' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $saldosFisicos = [];
+        foreach ($request->input('saldo_fisico', []) as $bolsilloId => $valor) {
+            $saldosFisicos[(int) $bolsilloId] = (float) $valor;
+        }
+
+        try {
+            $this->sesionCajaService->cerrarSesion($store, (int) Auth::id(), $saldosFisicos, $request->input('nota_cierre'));
+
+            return redirect()->route('stores.cajas', $store)->with('success', 'Sesión de caja cerrada correctamente.');
+        } catch (Exception $e) {
+            return redirect()->back()->withInput()->with('error', $e->getMessage());
+        }
+    }
+
+    public function sesiones(Store $store, Request $request)
+    {
+        $this->permissionService->authorize($store, 'caja.sesiones.view');
+
+        $filtros = [
+            'fecha_desde' => $request->get('fecha_desde'),
+            'fecha_hasta' => $request->get('fecha_hasta'),
+            'per_page' => $request->get('per_page', 15),
+        ];
+        $sesiones = $this->sesionCajaService->listarSesiones($store, $filtros);
+
+        return view('stores.caja-sesiones', compact('store', 'sesiones'));
+    }
+
+    public function showSesion(Store $store, SesionCaja $sesionCaja)
+    {
+        $this->permissionService->authorize($store, 'caja.sesiones.view');
+        if ($sesionCaja->store_id !== $store->id) {
+            abort(404);
+        }
+
+        $sesionCaja = $this->sesionCajaService->obtenerSesion($store, $sesionCaja->id);
+
+        return view('stores.caja-sesion-detalle', compact('store', 'sesionCaja'));
     }
 
     public function showBolsillo(Store $store, Bolsillo $bolsillo, Request $request)
@@ -155,6 +259,10 @@ class StoreCajaController extends Controller
     {
         $this->permissionService->authorize($store, 'comprobantes-ingreso.create');
 
+        if (! $this->sesionCajaService->obtenerSesionAbierta($store)) {
+            return redirect()->route('stores.cajas', $store)->with('error', 'No hay una sesión de caja abierta. Abra la caja para registrar comprobantes de ingreso.');
+        }
+
         $bolsillos = Bolsillo::deTienda($store->id)->activos()->orderBy('name')->get();
 
         return view('stores.comprobante-ingreso-crear', compact('store', 'bolsillos'));
@@ -207,6 +315,10 @@ class StoreCajaController extends Controller
     public function createComprobanteEgreso(Store $store)
     {
         $this->permissionService->authorize($store, 'comprobantes-egreso.create');
+
+        if (! $this->sesionCajaService->obtenerSesionAbierta($store)) {
+            return redirect()->route('stores.cajas', $store)->with('error', 'No hay una sesión de caja abierta. Abra la caja para registrar comprobantes de egreso.');
+        }
 
         $bolsillos = Bolsillo::deTienda($store->id)->activos()->orderBy('name')->get();
 

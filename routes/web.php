@@ -94,6 +94,12 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::delete('/clientes/{customer}', [StoreCustomerController::class, 'destroy'])->name('customers.destroy');
 
     Route::get('/caja', [StoreCajaController::class, 'index'])->name('cajas');
+    Route::get('/caja/apertura', [StoreCajaController::class, 'aperturaCaja'])->name('cajas.apertura');
+    Route::post('/caja/apertura', [StoreCajaController::class, 'storeAperturaCaja'])->name('cajas.apertura.store');
+    Route::get('/caja/cerrar', [StoreCajaController::class, 'cerrarCaja'])->name('cajas.cerrar');
+    Route::post('/caja/cerrar', [StoreCajaController::class, 'storeCierreCaja'])->name('cajas.cerrar.store');
+    Route::get('/caja/sesiones', [StoreCajaController::class, 'sesiones'])->name('cajas.sesiones');
+    Route::get('/caja/sesiones/{sesionCaja}', [StoreCajaController::class, 'showSesion'])->name('cajas.sesiones.show');
     Route::post('/caja/bolsillos', [StoreCajaController::class, 'storeBolsillo'])->name('cajas.bolsillos.store');
     Route::get('/caja/bolsillos/{bolsillo}', [StoreCajaController::class, 'showBolsillo'])->name('cajas.bolsillos.show');
     Route::put('/caja/bolsillos/{bolsillo}', [StoreCajaController::class, 'updateBolsillo'])->name('cajas.bolsillos.update');

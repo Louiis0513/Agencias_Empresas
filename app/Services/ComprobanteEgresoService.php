@@ -8,6 +8,7 @@ use App\Models\ComprobanteEgresoDestino;
 use App\Models\ComprobanteEgresoOrigen;
 use App\Models\MovimientoBolsillo;
 use App\Models\Purchase;
+use App\Models\SesionCaja;
 use App\Models\Store;
 use Exception;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -182,6 +183,15 @@ class ComprobanteEgresoService
 
             if ($comprobante->isReversed()) {
                 throw new Exception('Este comprobante ya fue anulado.');
+            }
+
+            $movimientos = MovimientoBolsillo::where('comprobante_egreso_id', $comprobante->id)->get();
+            $sesionIds = $movimientos->pluck('sesion_caja_id')->filter()->unique();
+            if ($sesionIds->isNotEmpty()) {
+                $hayCerrada = SesionCaja::whereIn('id', $sesionIds->toArray())->whereNotNull('closed_at')->exists();
+                if ($hayCerrada) {
+                    throw new Exception('No se puede anular un comprobante de egreso cuyos movimientos pertenecen a una sesión de caja ya cerrada.');
+                }
             }
 
             $totalOrigenes = 0;

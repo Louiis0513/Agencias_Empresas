@@ -979,6 +979,15 @@ class CreateInvoiceModal extends Component
             abort(403, 'No tienes permiso para crear facturas en esta tienda.');
         }
 
+        if ($this->status === 'PAID') {
+            $sesionAbierta = app(\App\Services\SesionCajaService::class)->obtenerSesionAbierta($store);
+            if (! $sesionAbierta) {
+                $this->addError('customer_id', 'No hay una sesión de caja abierta. Abra la caja para registrar ventas al contado.');
+                $this->saving = false;
+                return;
+            }
+        }
+
         try {
             // Preparar detalles para guardar
             $details = array_map(function($item) {

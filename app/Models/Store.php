@@ -73,6 +73,11 @@ class Store extends Model
         return $this->hasMany(Bolsillo::class);
     }
 
+    public function sesionesCaja()
+    {
+        return $this->hasMany(SesionCaja::class, 'store_id');
+    }
+
     public function proveedores()
     {
         return $this->hasMany(Proveedor::class);

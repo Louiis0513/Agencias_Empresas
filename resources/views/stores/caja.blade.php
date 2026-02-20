@@ -26,6 +26,28 @@
                 </div>
             @endif
 
+            {{-- Estado de sesión de caja --}}
+            @if($sesionAbierta)
+                <div class="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                        <p class="text-sm text-green-700 dark:text-green-300 font-medium">Sesión de caja abierta</p>
+                        <p class="text-sm text-green-600 dark:text-green-400">Desde {{ $sesionAbierta->opened_at->format('d/m/Y H:i') }} por {{ $sesionAbierta->user->name ?? '—' }}</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <a href="{{ route('stores.cajas.cerrar', $store) }}" class="inline-flex items-center px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700 font-medium">Cerrar caja</a>
+                        <a href="{{ route('stores.cajas.sesiones', $store) }}" class="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700">Historial de sesiones</a>
+                    </div>
+                </div>
+            @else
+                <div class="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg flex flex-wrap items-center justify-between gap-4">
+                    <p class="text-sm text-amber-800 dark:text-amber-200 font-medium">No hay sesión de caja abierta. Debe abrir la caja para registrar ventas, comprobantes de ingreso o egreso.</p>
+                    <div class="flex gap-2">
+                        <a href="{{ route('stores.cajas.apertura', $store) }}" class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 font-medium">Abrir caja</a>
+                        <a href="{{ route('stores.cajas.sesiones', $store) }}" class="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700">Historial de sesiones</a>
+                    </div>
+                </div>
+            @endif
+
             {{-- Total caja (suma de todos los bolsillos) --}}
             <div class="mb-6 p-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-700 rounded-lg">
                 <p class="text-sm text-indigo-700 dark:text-indigo-300">Total caja (suma de bolsillos)</p>
