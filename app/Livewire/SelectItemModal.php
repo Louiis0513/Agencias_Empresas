@@ -71,7 +71,7 @@ class SelectItemModal extends Component
             'name' => $a->name,
             'code' => $a->code ?? null,
             'type' => 'ACTIVO_FIJO',
-            'control_type' => $a->control_type ?? 'LOTE',
+            'control_type' => null,
         ]);
     }
 

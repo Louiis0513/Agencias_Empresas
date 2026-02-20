@@ -116,7 +116,7 @@
                                             'quantity' => $d->quantity,
                                             'unit_cost' => $d->unit_cost,
                                             'subtotal' => $d->subtotal,
-                                            'is_serializado' => $d->activo && $d->activo->control_type === 'SERIALIZADO',
+                                            'is_serializado' => $d->item_type === 'ACTIVO_FIJO',
                                         ])->values()->all();
                                     } else {
                                         $detailsToShow = array_values($detailsToShow);
@@ -153,7 +153,7 @@
                                             </div>
                                         </td>
                                         <td class="px-3 py-2">
-                                            <input type="number" name="details[{{ $i }}][quantity]" value="{{ $qty }}" {{ $isSerializado ? 'min="0" max="1"' : 'min="1"' }} class="detail-qty w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" required>
+                                            <input type="number" name="details[{{ $i }}][quantity]" value="{{ $qty }}" min="1" class="detail-qty w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" required>
                                         </td>
                                         <td class="px-3 py-2">
                                             <input type="number" name="details[{{ $i }}][unit_cost]" value="{{ $cost }}" min="0" step="0.01" class="detail-cost w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" required>

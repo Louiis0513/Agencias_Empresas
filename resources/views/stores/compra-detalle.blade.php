@@ -99,7 +99,7 @@
                     </div>
 
                     @php
-                        $detallesSerializados = $purchase->details->filter(fn($d) => $d->isActivoFijo() && $d->activo && $d->activo->isSerializado() && empty($d->activo->serial_number));
+                        $detallesSerializados = $purchase->details->filter(fn($d) => $d->isActivoFijo());
                     @endphp
 
                     @if($purchase->isBorrador())

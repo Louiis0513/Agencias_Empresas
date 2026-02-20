@@ -21,15 +21,28 @@ class MovimientoActivo extends Model
         'quantity',
         'description',
         'unit_cost',
+        'metadata',
     ];
 
     protected $casts = [
         'quantity' => 'integer',
         'unit_cost' => 'decimal:2',
+        'metadata' => 'array',
     ];
 
-    public const TYPE_ENTRADA = 'ENTRADA';
-    public const TYPE_SALIDA = 'SALIDA';
+    /** Alta del activo (entrada única). */
+    public const TYPE_ALTA = 'ALTA';
+    /** Baja del activo (salida única). */
+    public const TYPE_BAJA = 'BAJA';
+    /** Cambio de estado (lifecycle). */
+    public const TYPE_CAMBIO_ESTADO = 'CAMBIO_ESTADO';
+    /** Asignación de responsable. */
+    public const TYPE_ASIGNACION = 'ASIGNACION';
+    /** Cambio de ubicación. */
+    public const TYPE_CAMBIO_UBICACION = 'CAMBIO_UBICACION';
+
+    public const TYPE_ENTRADA = 'ALTA';
+    public const TYPE_SALIDA = 'BAJA';
 
     public function store()
     {

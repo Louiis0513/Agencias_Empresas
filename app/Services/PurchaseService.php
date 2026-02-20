@@ -238,26 +238,34 @@ class PurchaseService
                     ]));
                 }
             }
-            if ($detail->isActivoFijo() && $detail->activo_id) {
-                $activo = $detail->activo;
+            if ($detail->isActivoFijo()) {
                 $purchaseDate = $purchase->invoice_date ?? $purchase->created_at;
-                if ($activo && $activo->isSerializado()) {
-                    if (! empty($activo->serial_number) && $activo->quantity === 0) {
-                        $this->activoService->registrarEntrada($store, $detail->activo_id, $detail->quantity, (float) $detail->unit_cost, $userId, $purchase->id, $reference);
-                        $this->activoService->actualizarActivoDesdeCompra($store, $detail->activo_id, $purchaseDate);
-                    } else {
-                        $serials = $serialsByDetailId[$detail->id] ?? [];
-                        if (count($serials) !== $detail->quantity) {
-                            throw new Exception("El activo «{$activo->name}» es serializado. Debes indicar {$detail->quantity} número(s) de serie.");
-                        }
-                        $instances = $this->activoService->crearInstanciasSerializadas($store, $detail->activo_id, $serials, (float) $detail->unit_cost, $userId, $purchase->id, $reference);
-                        foreach ($instances as $inst) {
-                            $this->activoService->actualizarActivoDesdeCompra($store, $inst->id, $purchaseDate);
-                        }
+                $serials = $serialsByDetailId[$detail->id] ?? [];
+                if (count($serials) !== $detail->quantity) {
+                    $name = $detail->activo?->name ?? $detail->description ?? 'Activo';
+                    throw new Exception("El ítem «{$name}» requiere {$detail->quantity} número(s) de serie (uno por unidad).");
+                }
+                $template = $detail->activo;
+                $unitCost = (float) $detail->unit_cost;
+                foreach ($serials as $serial) {
+                    $serial = trim((string) $serial);
+                    if ($serial === '') {
+                        continue;
                     }
-                } else {
-                    $this->activoService->registrarEntrada($store, $detail->activo_id, $detail->quantity, (float) $detail->unit_cost, $userId, $purchase->id, $reference);
-                    $this->activoService->actualizarActivoDesdeCompra($store, $detail->activo_id, $purchaseDate);
+                    $data = [
+                        'name' => $template ? $template->name : $detail->description,
+                        'code' => $template?->code,
+                        'serial_number' => $serial,
+                        'model' => $template?->model,
+                        'brand' => $template?->brand,
+                        'description' => $detail->description,
+                        'unit_cost' => $unitCost,
+                        'purchase_date' => $purchaseDate,
+                        'condition' => Activo::CONDITION_NUEVO,
+                        'status' => Activo::STATUS_OPERATIVO,
+                    ];
+                    $activo = $this->activoService->crearActivoDesdeCompra($store, $data, $userId, $purchase->id);
+                    $this->activoService->actualizarActivoDesdeCompra($store, $activo->id, $purchaseDate);
                 }
             }
         }
@@ -423,13 +431,11 @@ class PurchaseService
         }
 
         foreach ($details as $detail) {
-            if ($detail->isActivoFijo() && $detail->activo_id) {
-                $activo = $detail->activo;
-                if ($activo && $activo->isSerializado() && (empty($activo->serial_number) || $activo->quantity > 0)) {
-                    $serials = $serialsByDetailId[$detail->id] ?? [];
-                    if (count($serials) !== $detail->quantity) {
-                        throw new Exception("El activo «{$activo->name}» es serializado. Debes indicar {$detail->quantity} número(s) de serie.");
-                    }
+            if ($detail->isActivoFijo()) {
+                $serials = $serialsByDetailId[$detail->id] ?? [];
+                if (count($serials) !== $detail->quantity) {
+                    $name = $detail->activo?->name ?? $detail->description ?? 'Activo';
+                    throw new Exception("El ítem «{$name}» requiere {$detail->quantity} número(s) de serie (uno por unidad).");
                 }
             }
         }

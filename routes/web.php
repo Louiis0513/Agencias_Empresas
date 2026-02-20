@@ -123,6 +123,10 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::controller(StoreActivoController::class)->group(function () {
         Route::get('/activos', 'index')->name('activos');
         Route::get('/activos/movimientos', 'movimientos')->name('activos.movimientos');
+        Route::get('/activos/{activo}', 'show')->name('activos.show');
+        Route::get('/activos/{activo}/editar', 'edit')->name('activos.edit');
+        Route::put('/activos/{activo}', 'update')->name('activos.update');
+        Route::post('/activos/{activo}/baja', 'darDeBaja')->name('activos.baja');
     });
 
     // Compra de activos (módulo Financiero)

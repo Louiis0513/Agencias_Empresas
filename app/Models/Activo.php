@@ -10,27 +10,22 @@ class Activo extends Model
 {
     use HasFactory;
 
-    /** Control por unidad con serial (computador, caminadora). Cantidad siempre 1. */
-    public const CONTROL_SERIALIZADO = 'SERIALIZADO';
-
-    /** Control por lote/granel (sillas, pesas). Cantidad N. */
-    public const CONTROL_LOTE = 'LOTE';
-
     /** Condición física */
     public const CONDITION_NUEVO = 'NUEVO';
     public const CONDITION_BUENO = 'BUENO';
     public const CONDITION_REGULAR = 'REGULAR';
     public const CONDITION_MALO = 'MALO';
 
-    /** Estado operativo */
-    public const STATUS_ACTIVO = 'ACTIVO';
-    public const STATUS_EN_MANTENIMIENTO = 'EN_MANTENIMIENTO';
-    public const STATUS_BAJA = 'BAJA';
-    public const STATUS_PRESTADO = 'PRESTADO';
+    /** Lifecycle: estado operativo del activo (1 activo físico = 1 registro) */
+    public const STATUS_OPERATIVO = 'OPERATIVO';
+    public const STATUS_EN_REPARACION = 'EN_REPARACION';
+    public const STATUS_EN_PRESTAMO = 'EN_PRESTAMO';
+    public const STATUS_DONADO = 'DONADO';
+    public const STATUS_DADO_DE_BAJA = 'DADO_DE_BAJA';
+    public const STATUS_VENDIDO = 'VENDIDO';
 
     protected $fillable = [
         'store_id',
-        'control_type',
         'name',
         'code',
         'serial_number',
@@ -47,7 +42,6 @@ class Activo extends Model
         'warranty_expiry',
         'purchase_date',
         'is_active',
-        'activo_template_id',
     ];
 
     protected $casts = [
@@ -58,20 +52,24 @@ class Activo extends Model
         'purchase_date' => 'date',
     ];
 
-    /** Valor total del activo (cantidad × costo unitario). */
+    /** Valor del activo (1 unidad × costo unitario). */
     public function getValorTotalAttribute(): float
     {
-        return (float) ($this->quantity * $this->unit_cost);
+        return (float) ($this->unit_cost ?? 0);
     }
 
-    public function isSerializado(): bool
+    /** No se puede vender ni donar un activo en reparación o en préstamo. */
+    public function puedePasarA(string $nuevoStatus): bool
     {
-        return $this->control_type === self::CONTROL_SERIALIZADO;
-    }
+        $noPermitidoDesde = [self::STATUS_EN_REPARACION, self::STATUS_EN_PRESTAMO];
+        $transicionesRestringidas = [self::STATUS_VENDIDO, self::STATUS_DONADO];
 
-    public function isLote(): bool
-    {
-        return $this->control_type === self::CONTROL_LOTE;
+        if (in_array($nuevoStatus, $transicionesRestringidas, true)
+            && in_array($this->status, $noPermitidoDesde, true)) {
+            return false;
+        }
+
+        return true;
     }
 
     public function store()
@@ -87,16 +85,6 @@ class Activo extends Model
     public function assignedTo()
     {
         return $this->belongsTo(User::class, 'assigned_to_user_id');
-    }
-
-    public function template()
-    {
-        return $this->belongsTo(Activo::class, 'activo_template_id');
-    }
-
-    public function instances()
-    {
-        return $this->hasMany(Activo::class, 'activo_template_id');
     }
 
     public function purchaseDetails()
@@ -117,21 +105,6 @@ class Activo extends Model
     public function scopeActivos(Builder $query): void
     {
         $query->where('is_active', true);
-    }
-
-    public function scopeSerializados(Builder $query): void
-    {
-        $query->where('control_type', self::CONTROL_SERIALIZADO);
-    }
-
-    public function scopeLote(Builder $query): void
-    {
-        $query->where('control_type', self::CONTROL_LOTE);
-    }
-
-    public function scopeTemplates(Builder $query): void
-    {
-        $query->whereNull('activo_template_id');
     }
 
     public function scopeBuscar(Builder $query, string $term): void
@@ -157,14 +130,16 @@ class Activo extends Model
         ];
     }
 
-    /** Opciones de estado para selects. */
+    /** Opciones de estado (lifecycle) para selects. */
     public static function estadosDisponibles(): array
     {
         return [
-            self::STATUS_ACTIVO => 'Activo',
-            self::STATUS_EN_MANTENIMIENTO => 'En mantenimiento',
-            self::STATUS_BAJA => 'Baja',
-            self::STATUS_PRESTADO => 'Prestado',
+            self::STATUS_OPERATIVO => 'Operativo',
+            self::STATUS_EN_REPARACION => 'En reparación',
+            self::STATUS_EN_PRESTAMO => 'En préstamo',
+            self::STATUS_DONADO => 'Donado',
+            self::STATUS_DADO_DE_BAJA => 'Dado de baja',
+            self::STATUS_VENDIDO => 'Vendido',
         ];
     }
 }
