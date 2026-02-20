@@ -36,7 +36,10 @@ class SesionCajaService
         foreach ($bolsillos as $b) {
             if ($ultimaCerrada) {
                 $detalle = $ultimaCerrada->detalles()->where('bolsillo_id', $b->id)->first();
-                $result[$b->id] = $detalle ? (float) $detalle->saldo_esperado_cierre : (float) $b->saldo;
+                // Usar saldo_fisico_cierre: tras el ajuste de cierre el saldo en sistema = físico; es lo que debe esperarse al abrir de nuevo.
+                $result[$b->id] = $detalle && $detalle->saldo_fisico_cierre !== null
+                    ? (float) $detalle->saldo_fisico_cierre
+                    : (float) $b->saldo;
             } else {
                 $result[$b->id] = (float) $b->saldo;
             }
