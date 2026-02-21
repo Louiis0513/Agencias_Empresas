@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\Invoice;
 use App\Models\InvoiceDetail;
 use App\Models\Product;
+use App\Models\ProductItem;
+use App\Models\ProductVariant;
 use App\Models\Store;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -362,10 +364,26 @@ class InvoiceService
             );
         }
 
+        $productName = $producto->name;
+        $productVariantId = $item['product_variant_id'] ?? null;
+        if ($productVariantId) {
+            $variant = ProductVariant::with('product.category.attributes')
+                ->where('id', (int) $productVariantId)
+                ->where('product_id', $producto->id)
+                ->first();
+            if ($variant) {
+                $productName .= ' (' . $variant->display_name . ')';
+            }
+        }
+        $serialNumbers = $item['serial_numbers'] ?? null;
+        if (is_array($serialNumbers) && ! empty($serialNumbers)) {
+            $productName .= ' - ' . $this->formatSerialDescriptions($producto, $store->id, $serialNumbers);
+        }
+
         InvoiceDetail::create([
             'invoice_id'   => $factura->id,
             'product_id'   => $producto->id,
-            'product_name' => $producto->name,
+            'product_name' => $productName,
             'unit_price'   => $item['unit_price'],
             'quantity'     => $qty,
             'subtotal'     => $item['subtotal'],
@@ -375,6 +393,8 @@ class InvoiceService
     /**
      * Crea un detalle de factura sin validar stock. Usado por crearFacturaSoloCabeceraYDetalles;
      * el orquestador (VentaService) es responsable de validar y descontar inventario.
+     * product_name se enriquece con variante (atributos) y/o seriales para que en la factura
+     * se vea exactamente qué compró el cliente.
      */
     private function crearDetalleSinValidarStock(Store $store, Invoice $factura, array $item): void
     {
@@ -385,13 +405,63 @@ class InvoiceService
 
         $qty = (int) ($item['quantity'] ?? 0);
 
+        $productName = $producto->name;
+        $productVariantId = $item['product_variant_id'] ?? null;
+        if ($productVariantId) {
+            $variant = ProductVariant::with('product.category.attributes')
+                ->where('id', (int) $productVariantId)
+                ->where('product_id', $producto->id)
+                ->first();
+            if ($variant) {
+                $productName .= ' (' . $variant->display_name . ')';
+            }
+        }
+        $serialNumbers = $item['serial_numbers'] ?? null;
+        if (is_array($serialNumbers) && ! empty($serialNumbers)) {
+            $productName .= ' - ' . $this->formatSerialDescriptions($producto, $store->id, $serialNumbers);
+        }
+
         InvoiceDetail::create([
             'invoice_id'   => $factura->id,
             'product_id'   => $producto->id,
-            'product_name' => $producto->name,
+            'product_name' => $productName,
             'unit_price'   => $item['unit_price'],
             'quantity'     => $qty,
             'subtotal'     => $item['subtotal'],
         ]);
+    }
+
+    /**
+     * Construye la parte de descripción por seriales con atributos (para factura o movimiento).
+     * Ej: "Serial: X (Marca: Y, Sabor: Z); Serial: W (Marca: Y2)"
+     *
+     * @param  Product  $producto  Producto (se usará category.attributes si no cargados)
+     * @param  int  $storeId
+     * @param  array  $serialNumbers
+     * @return string
+     */
+    private function formatSerialDescriptions(Product $producto, int $storeId, array $serialNumbers): string
+    {
+        $producto->load('category.attributes');
+        $attrNames = $producto->category
+            ? $producto->category->attributes->pluck('name', 'id')->all()
+            : [];
+
+        $items = ProductItem::where('product_id', $producto->id)
+            ->where('store_id', $storeId)
+            ->whereIn('serial_number', $serialNumbers)
+            ->get();
+
+        $parts = [];
+        foreach ($serialNumbers as $sn) {
+            $item = $items->firstWhere('serial_number', $sn);
+            $featStr = $item
+                ? ProductVariant::formatFeaturesWithAttributeNames($item->features ?? [], $attrNames)
+                : '';
+            $parts[] = $featStr !== ''
+                ? "Serial: {$sn} ({$featStr})"
+                : "Serial: {$sn}";
+        }
+        return implode('; ', $parts);
     }
 }

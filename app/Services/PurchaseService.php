@@ -34,6 +34,8 @@ class PurchaseService
             $details = $data['details'] ?? [];
             unset($data['details']);
 
+            $details = $this->normalizarDetallesParaCompra($details);
+
             $total = 0;
             foreach ($details as $d) {
                 $subtotal = (float) ($d['quantity'] ?? 0) * (float) ($d['unit_cost'] ?? 0);
@@ -91,6 +93,10 @@ class PurchaseService
 
             $details = $data['details'] ?? null;
             unset($data['details']);
+
+            if ($details !== null) {
+                $details = $this->normalizarDetallesParaCompra($details);
+            }
 
             if (isset($data['payment_status'])) {
                 $data['payment_type'] = $data['payment_status'] === Purchase::PAYMENT_PENDIENTE
@@ -166,11 +172,12 @@ class PurchaseService
                 if (! $product) {
                     continue;
                 }
+                $movementDescription = "{$reference} - {$detail->description}";
                 $baseDatos = [
                     'product_id' => $product->id,
                     'type' => \App\Models\MovimientoInventario::TYPE_ENTRADA,
                     'quantity' => $detail->quantity,
-                    'description' => "{$reference} - {$detail->description}",
+                    'description' => $movementDescription,
                     'purchase_id' => $purchase->id,
                 ];
                 if ($product->isSerialized()) {
@@ -178,6 +185,11 @@ class PurchaseService
                     if (empty($serialItems)) {
                         throw new Exception("El producto «{$product->name}» es serializado. La compra debe incluir los números de serie por unidad.");
                     }
+                    $n = count($serialItems);
+                    $summary = $n === 1
+                        ? $this->resumenUnidadSerializada($serialItems[0], $product)
+                        : "{$n} unidades (serializadas)";
+                    $baseDatos['description'] = "{$reference} - {$product->name} — {$summary}";
                     $this->inventarioService->registrarMovimiento($store, $userId, array_merge($baseDatos, [
                         'reference' => $reference,
                         'serial_items' => $serialItems,
@@ -189,6 +201,7 @@ class PurchaseService
                     ]));
                 } elseif ($product->isBatch()) {
                     $batchItems = $detail->batch_items ?? null;
+                    $firstVariantDisplayName = null;
                     if (! empty($batchItems) && is_array($batchItems)) {
                         $items = [];
                         foreach ($batchItems as $bi) {
@@ -197,33 +210,37 @@ class PurchaseService
                                 continue;
                             }
 
-                            // Resolver la variante: por product_variant_id directo o por features
-                            $productVariantId = $bi['product_variant_id'] ?? null;
-                            $features = $bi['features'] ?? null;
+                            // Productos por lote se identifican siempre por product_variant_id (tabla product_variants es la fuente de verdad)
+                            $productVariantId = isset($bi['product_variant_id']) ? (int) $bi['product_variant_id'] : 0;
+                            if ($productVariantId < 1) {
+                                throw new Exception("El producto «{$product->name}» tiene una línea de lote sin variante seleccionada. Edita la compra y elige la variante (ej. talla/sabor) en cada línea.");
+                            }
 
-                            if ($productVariantId) {
-                                $variant = \App\Models\ProductVariant::where('id', $productVariantId)
-                                    ->where('product_id', $product->id)
-                                    ->first();
-                                if (! $variant) {
-                                    throw new Exception("La variante seleccionada (ID {$productVariantId}) no existe para «{$product->name}».");
-                                }
-                            } else {
-                                $variant = InventarioService::resolverVariante($product->id, null, $features);
+                            $variant = \App\Models\ProductVariant::where('id', $productVariantId)
+                                ->where('product_id', $product->id)
+                                ->first();
+                            if (! $variant) {
+                                throw new Exception("La variante seleccionada (ID {$productVariantId}) no existe para «{$product->name}».");
+                            }
+                            if ($firstVariantDisplayName === null) {
+                                $firstVariantDisplayName = $variant->display_name;
                             }
 
                             $items[] = [
                                 'quantity' => $qty,
                                 'cost' => (float) ($bi['unit_cost'] ?? 0),
                                 'unit_cost' => (float) ($bi['unit_cost'] ?? 0),
-                                'product_variant_id' => $variant ? $variant->id : null,
-                                'features' => $variant ? $variant->features : $features,
+                                'product_variant_id' => $variant->id,
+                                'features' => $variant->features,
                             ];
                         }
                     } else {
                         $items = [
                             ['quantity' => $detail->quantity, 'cost' => (float) $detail->unit_cost, 'unit_cost' => (float) $detail->unit_cost, 'features' => null],
                         ];
+                    }
+                    if ($firstVariantDisplayName !== null && $firstVariantDisplayName !== '—') {
+                        $baseDatos['description'] = "{$reference} - {$product->name} — {$firstVariantDisplayName}";
                     }
                     $batchExpiration = isset($batchItems[0]['expiration_date']) && $batchItems[0]['expiration_date'] !== '' && $batchItems[0]['expiration_date'] !== null
                         ? $batchItems[0]['expiration_date']
@@ -325,6 +342,71 @@ class PurchaseService
             ->where('store_id', $store->id)
             ->with(['details.product', 'details.activo', 'proveedor', 'user', 'accountPayable'])
             ->firstOrFail();
+    }
+
+    /**
+     * Construye un resumen legible de una unidad serializada (serial + atributos) para la descripción del movimiento.
+     *
+     * @param  array<string, mixed>  $row  Un ítem de serial_items (serial_number, cost, features)
+     */
+    protected function resumenUnidadSerializada(array $row, \App\Models\Product $product): string
+    {
+        $sn = trim($row['serial_number'] ?? '');
+        $feats = $row['features'] ?? [];
+        $attrNames = [];
+        if ($product->category) {
+            $category = $product->category->relationLoaded('attributes') ? $product->category : $product->category->load('attributes');
+            $attrNames = $category->attributes->pluck('name', 'id')->all();
+        }
+        $parts = [];
+        if ($sn !== '') {
+            $parts[] = "Serial: {$sn}";
+        }
+        if (is_array($feats)) {
+            foreach ($feats as $attrId => $val) {
+                if ((string) $val !== '') {
+                    $name = $attrNames[(int) $attrId] ?? $attrNames[(string) $attrId] ?? "Atributo {$attrId}";
+                    $parts[] = "{$name}: {$val}";
+                }
+            }
+        }
+        return empty($parts) ? '1 unidad (serializada)' : implode(', ', $parts);
+    }
+
+    /**
+     * Construye la descripción enriquecida para un detalle serializado (producto + resumen de cada unidad).
+     * Se usa al guardar el borrador para que en la vista del borrador se vean serial y atributos.
+     *
+     * @param  array<int, array<string, mixed>>  $serialItems  Array de ítems con serial_number, cost, features
+     */
+    protected function construirDescripcionSerializado(\App\Models\Product $product, array $serialItems): string
+    {
+        $attrNames = [];
+        if ($product->category) {
+            $category = $product->category->relationLoaded('attributes') ? $product->category : $product->category->load('attributes');
+            $attrNames = $category->attributes->pluck('name', 'id')->all();
+        }
+        $parts = [];
+        foreach ($serialItems as $idx => $row) {
+            $row = is_array($row) ? $row : (array) $row;
+            $sn = trim($row['serial_number'] ?? '');
+            $feats = $row['features'] ?? [];
+            $featParts = [];
+            if (is_array($feats)) {
+                foreach ($feats as $attrId => $val) {
+                    if ((string) $val !== '') {
+                        $name = $attrNames[(int) $attrId] ?? $attrNames[(string) $attrId] ?? "Atributo {$attrId}";
+                        $featParts[] = "{$name}: {$val}";
+                    }
+                }
+            }
+            $unitLabel = $sn !== '' ? "Serial: {$sn}" : 'Unidad ' . ($idx + 1);
+            if (! empty($featParts)) {
+                $unitLabel .= ' (' . implode(', ', $featParts) . ')';
+            }
+            $parts[] = $unitLabel;
+        }
+        return $product->name . (empty($parts) ? '' : ' — ' . implode('; ', $parts));
     }
 
     /**
@@ -481,6 +563,42 @@ class PurchaseService
         ])->validate();
     }
 
+    /**
+     * Normaliza los detalles de compra: si un detalle tiene batch_items o serial_items
+     * pero no quantity/unit_cost a nivel raíz, los deriva para total y crearDetalle.
+     */
+    protected function normalizarDetallesParaCompra(array $details): array
+    {
+        return array_map(function (array $d) {
+            $batchItems = $d['batch_items'] ?? null;
+            $serialItems = $d['serial_items'] ?? null;
+
+            if (! empty($batchItems) && is_array($batchItems)) {
+                $sumQty = 0;
+                $sumCost = 0.0;
+                foreach ($batchItems as $bi) {
+                    $q = (int) ($bi['quantity'] ?? 0);
+                    $sumQty += $q;
+                    $sumCost += $q * (float) ($bi['unit_cost'] ?? 0);
+                }
+                if ($sumQty > 0) {
+                    $d['quantity'] = $sumQty;
+                    $d['unit_cost'] = round($sumCost / $sumQty, 2);
+                }
+            } elseif (! empty($serialItems) && is_array($serialItems)) {
+                $cnt = count($serialItems);
+                $sumCost = 0.0;
+                foreach ($serialItems as $row) {
+                    $sumCost += (float) ($row['cost'] ?? 0);
+                }
+                $d['quantity'] = $cnt;
+                $d['unit_cost'] = $cnt > 0 ? round($sumCost / $cnt, 2) : 0;
+            }
+
+            return $d;
+        }, $details);
+    }
+
     protected function crearDetalle(Purchase $purchase, array $d): PurchaseDetail
     {
         $quantity = (int) ($d['quantity'] ?? 0);
@@ -523,7 +641,31 @@ class PurchaseService
 
         $batchItems = null;
         if (! empty($d['batch_items']) && is_array($d['batch_items'])) {
-            $batchItems = array_values($d['batch_items']);
+            $batchItems = [];
+            foreach ($d['batch_items'] as $bi) {
+                $bi = is_array($bi) ? $bi : [];
+                $variantId = isset($bi['product_variant_id']) ? (int) $bi['product_variant_id'] : 0;
+                if ($variantId < 1) {
+                    throw new Exception('Cada línea de lote debe tener una variante seleccionada (product_variant_id). Edita la compra y elige la variante en cada línea.');
+                }
+                $batchItems[] = $bi;
+            }
+            $batchItems = array_values($batchItems);
+        }
+
+        // Al crear/actualizar el borrador: descripción enriquecida con atributos/serial o variante para que se vea bien al ver el borrador
+        if ($productId && isset($product)) {
+            if ($product->isSerialized() && ! empty($serialItems)) {
+                $description = $this->construirDescripcionSerializado($product, $serialItems);
+            } elseif ($product->isBatch() && ! empty($batchItems)) {
+                $variantId = isset($batchItems[0]['product_variant_id']) ? (int) $batchItems[0]['product_variant_id'] : 0;
+                if ($variantId > 0) {
+                    $variant = \App\Models\ProductVariant::where('id', $variantId)->where('product_id', $product->id)->first();
+                    if ($variant) {
+                        $description = $product->name . ' — ' . $variant->display_name;
+                    }
+                }
+            }
         }
 
         return PurchaseDetail::create([

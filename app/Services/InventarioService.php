@@ -494,13 +494,16 @@ class InventarioService
                         }
                         $unitCost = (float) ($itemData['cost'] ?? $itemData['unit_cost'] ?? $datos['unit_cost'] ?? 0);
 
-                        // Resolver la variante: por ID directo o por features
-                        $variantId = $itemData['product_variant_id'] ?? null;
-                        $features = $itemData['features'] ?? null;
-                        $variant = self::resolverVariante($product->id, $variantId ? (int) $variantId : null, $features);
-
+                        // Productos por lote se identifican siempre por product_variant_id (tabla product_variants es la fuente de verdad)
+                        $variantId = isset($itemData['product_variant_id']) ? (int) $itemData['product_variant_id'] : 0;
+                        if ($variantId < 1) {
+                            throw new Exception('El ítem del lote debe indicar la variante (product_variant_id).');
+                        }
+                        $variant = ProductVariant::where('id', $variantId)
+                            ->where('product_id', $product->id)
+                            ->first();
                         if (! $variant) {
-                            throw new Exception('No se pudo resolver la variante para un item del lote.');
+                            throw new Exception("La variante (ID {$variantId}) no existe para el producto «{$product->name}».");
                         }
 
                         if ($existingItems->has($variant->id)) {
@@ -633,6 +636,7 @@ class InventarioService
 
     /**
      * Salida por seriales (productos serializados).
+     * El costo unitario del movimiento se obtiene de product_items (campo cost), no se calcula.
      */
     public function registrarSalidaPorSeriales(Store $store, int $userId, int $productId, array $serialNumbers, ?string $description = null): void
     {
@@ -649,12 +653,30 @@ class InventarioService
             throw new Exception("El producto «{$product->name}» no es serializado.");
         }
 
-        $this->registrarMovimiento($store, $userId, [
+        $items = ProductItem::where('store_id', $store->id)
+            ->where('product_id', $productId)
+            ->whereIn('serial_number', $serialNumbers)
+            ->get();
+
+        $unitCost = null;
+        if ($items->isNotEmpty()) {
+            $costs = $items->map(fn (ProductItem $pi) => $pi->cost !== null ? (float) $pi->cost : 0.0)->all();
+            $sum = array_sum($costs);
+            $count = count($costs);
+            $unitCost = $count > 0 ? round($sum / $count, 2) : null;
+        }
+
+        $datos = [
             'product_id'  => $productId,
             'type'        => MovimientoInventario::TYPE_SALIDA,
             'quantity'    => count($serialNumbers),
             'description' => $description,
-        ], $serialNumbers);
+        ];
+        if ($unitCost !== null) {
+            $datos['unit_cost'] = $unitCost;
+        }
+
+        $this->registrarMovimiento($store, $userId, $datos, $serialNumbers);
     }
 
     /**

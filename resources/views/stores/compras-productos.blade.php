@@ -97,7 +97,7 @@
                                             <td class="px-4 py-4 whitespace-nowrap text-sm font-medium">
                                                 <a href="{{ route('stores.purchases.show', [$store, $purchase]) }}" class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 mr-3">Ver</a>
                                                 @if($purchase->isBorrador())
-                                                    <a href="{{ route('stores.purchases.edit', [$store, $purchase]) }}" class="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 mr-3">Editar</a>
+                                                    <a href="{{ route('stores.product-purchases.edit', [$store, $purchase]) }}" class="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 mr-3">Editar</a>
                                                 @endif
                                             </td>
                                         </tr>

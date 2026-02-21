@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Services\InventarioService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 
 class ProductVariant extends Model
 {
@@ -55,6 +56,30 @@ class ProductVariant extends Model
     }
 
     /**
+     * Formatea un array de features (attrId => value) usando un mapa de nombres de atributos.
+     * Útil para variantes y para unidades serializadas (ProductItem features).
+     *
+     * @param  array  $features  ['8' => 'airfuzr', '9' => 'Mango', '10' => '30000']
+     * @param  array  $attrNames  [8 => 'Marca', 9 => 'Sabor', 10 => 'Push']
+     * @return string  "Marca: airfuzr, Sabor: Mango, Push: 30000" (o "Atributo X: valor" si falta nombre)
+     */
+    public static function formatFeaturesWithAttributeNames(array $features, array $attrNames): string
+    {
+        if (empty($features) || ! is_array($features)) {
+            return '';
+        }
+        $parts = [];
+        foreach ($features as $attrId => $value) {
+            if ((string) $value === '') {
+                continue;
+            }
+            $name = $attrNames[(int) $attrId] ?? $attrNames[(string) $attrId] ?? "Atributo {$attrId}";
+            $parts[] = "{$name}: {$value}";
+        }
+        return implode(', ', $parts);
+    }
+
+    /**
      * Nombre legible de la variante: "Talla: M, Color: Rojo".
      * Intenta resolver los IDs de atributos a sus nombres usando la categoría del producto.
      */
@@ -71,17 +96,13 @@ class ProductVariant extends Model
             $category = $product->relationLoaded('category') ? $product->category : $product->category()->with('attributes')->first();
             if ($category) {
                 $attrs = $category->relationLoaded('attributes') ? $category->attributes : $category->attributes;
-                $attrNames = $attrs->pluck('name', 'id')->all();
+                $attrNames = ($attrs instanceof Collection ? $attrs : collect($attrs))->pluck('name', 'id')->all();
             }
         }
 
-        $parts = [];
-        foreach ($features as $attrId => $value) {
-            $name = $attrNames[(int) $attrId] ?? $attrNames[(string) $attrId] ?? "Atributo {$attrId}";
-            $parts[] = "{$name}: {$value}";
-        }
+        $formatted = static::formatFeaturesWithAttributeNames($features, $attrNames);
 
-        return implode(', ', $parts);
+        return $formatted !== '' ? $formatted : '—';
     }
 
     /**

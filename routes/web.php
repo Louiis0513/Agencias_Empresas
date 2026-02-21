@@ -50,6 +50,8 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::get('/productos/compras', [StoreController::class, 'productPurchases'])->name('product-purchases');
     Route::get('/productos/compras/crear', [StoreController::class, 'createProductPurchase'])->name('product-purchases.create');
     Route::post('/productos/compras', [StoreController::class, 'storeProductPurchase'])->name('product-purchases.store');
+    Route::get('/productos/compras/{purchase}/editar', [StoreController::class, 'editProductPurchase'])->name('product-purchases.edit');
+    Route::put('/productos/compras/{purchase}', [StoreController::class, 'updateProductPurchase'])->name('product-purchases.update');
     Route::get('/productos/{product}', [StoreProductController::class, 'show'])->name('products.show');
     Route::get('/productos/{productId}/atributos-categoria', [StoreProductController::class, 'atributosCategoria'])->name('productos.atributos-categoria')->whereNumber('productId');
     Route::put('/productos/{product}/variantes-permitidas', [StoreProductController::class, 'updateProductVariantOptions'])->name('productos.variant-options.update');

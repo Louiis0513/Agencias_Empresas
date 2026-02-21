@@ -2,7 +2,7 @@
     $purchase = $purchase ?? null;
     $detailsForEdit = $detailsForEdit ?? [];
     $editing = $purchase && $purchase instanceof \App\Models\Purchase;
-    $formAction = $editing ? route('stores.purchases.update', [$store, $purchase]) : route('stores.product-purchases.store', $store);
+    $formAction = $editing ? route('stores.product-purchases.update', [$store, $purchase]) : route('stores.product-purchases.store', $store);
 @endphp
 <x-app-layout>
     <x-slot name="header">
@@ -124,8 +124,8 @@
                                             <div class="item-select-wrapper">
                                                 <input type="hidden" name="details[{{ $i }}][product_id]" class="product-id-input" value="{{ $d['product_id'] ?? '' }}">
                                                 <input type="hidden" name="details[{{ $i }}][description]" class="item-description-input" value="{{ $d['description'] ?? '' }}">
-                                                @if($isBatchRow && $productVariantId)
-                                                    <input type="hidden" name="details[{{ $i }}][batch_items][0][product_variant_id]" value="{{ $productVariantId }}">
+                                                @if($isBatchRow)
+                                                    <input type="hidden" name="details[{{ $i }}][batch_items][0][product_variant_id]" value="{{ $productVariantId ?? '' }}">
                                                 @endif
                                                 <span class="item-selected-name text-sm text-gray-700 dark:text-gray-300 block mb-1 min-h-[1.25rem]">{{ $d['description'] ?? '' }}</span>
                                                 <button type="button" class="btn-select-item {{ $hasItem ? 'hidden' : '' }} px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
@@ -141,6 +141,7 @@
                                                 <input type="hidden" name="details[{{ $i }}][quantity]" value="{{ $qty }}" class="detail-qty">
                                                 <span class="detail-serial-qty text-sm text-gray-700 dark:text-gray-300">{{ $qty }}</span>
                                             @elseif($isBatchRow)
+                                                <input type="hidden" name="details[{{ $i }}][quantity]" value="{{ $qty }}" class="detail-qty-hidden">
                                                 <input type="number" name="details[{{ $i }}][batch_items][0][quantity]" value="{{ $qty }}" min="1" class="detail-qty w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
                                             @else
                                                 <input type="number" name="details[{{ $i }}][quantity]" value="{{ $qty }}" min="1" class="detail-qty w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
@@ -150,6 +151,7 @@
                                         </td>
                                         <td class="px-3 py-2 detail-cost-cell">
                                             @if($isBatchRow)
+                                                <input type="hidden" name="details[{{ $i }}][unit_cost]" value="{{ $cost }}" class="detail-cost-hidden">
                                                 <input type="number" name="details[{{ $i }}][batch_items][0][unit_cost]" value="{{ $cost }}" min="0" step="0.01" class="detail-cost w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
                                             @else
                                                 <input type="number" name="details[{{ $i }}][unit_cost]" value="{{ $cost }}" min="0" step="0.01" class="detail-cost w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
@@ -252,9 +254,18 @@
 
     <script>
         function compraProductosUpdateSubtotal(row) {
-            var qty = parseFloat(row.querySelector('.detail-qty').value) || 0;
-            var cost = parseFloat(row.querySelector('.detail-cost').value) || 0;
+            var qtyEl = row.querySelector('.detail-qty');
+            var costEl = row.querySelector('.detail-cost');
+            var qty = parseFloat(qtyEl && qtyEl.value ? qtyEl.value : 0) || 0;
+            var cost = parseFloat(costEl && costEl.value ? costEl.value : 0) || 0;
             row.querySelector('.detail-subtotal').textContent = (qty * cost).toFixed(2);
+            // Para filas tipo lote: mantener sincronizados los hidden quantity/unit_cost que exige el backend
+            if (row.getAttribute('data-is-batch') === '1') {
+                var qtyHidden = row.querySelector('.detail-qty-hidden');
+                var costHidden = row.querySelector('.detail-cost-hidden');
+                if (qtyHidden) qtyHidden.value = qty;
+                if (costHidden) costHidden.value = cost;
+            }
         }
 
         function compraProductosUpdateSerialQtyAndSubtotal(detailRow) {
@@ -406,6 +417,8 @@
                         next.remove();
                     }
                     
+                    const qtyCell = row.querySelector('.detail-qty-cell');
+                    const costCell = row.querySelector('.detail-cost-cell');
                     const qtyInput = row.querySelector('.detail-qty');
                     const costInput = row.querySelector('.detail-cost');
                     if (row.querySelector('.detail-serial-qty')) row.querySelector('.detail-serial-qty').classList.add('hidden');
@@ -414,6 +427,23 @@
                     if (row.querySelector('.detail-batch-cost')) row.querySelector('.detail-batch-cost').classList.add('hidden');
                     if (qtyInput) { qtyInput.classList.remove('hidden'); qtyInput.name = `details[${rowId}][batch_items][0][quantity]`; qtyInput.value = '1'; }
                     if (costInput) { costInput.classList.remove('hidden'); costInput.name = `details[${rowId}][batch_items][0][unit_cost]`; costInput.value = '0'; }
+                    // Hidden quantity/unit_cost para que el backend reciba details.*.quantity y details.*.unit_cost
+                    if (qtyCell && !row.querySelector('.detail-qty-hidden')) {
+                        var qtyH = document.createElement('input');
+                        qtyH.type = 'hidden';
+                        qtyH.name = 'details[' + rowId + '][quantity]';
+                        qtyH.className = 'detail-qty-hidden';
+                        qtyH.value = '1';
+                        qtyCell.insertBefore(qtyH, qtyCell.firstChild);
+                    }
+                    if (costCell && !row.querySelector('.detail-cost-hidden')) {
+                        var costH = document.createElement('input');
+                        costH.type = 'hidden';
+                        costH.name = 'details[' + rowId + '][unit_cost]';
+                        costH.className = 'detail-cost-hidden';
+                        costH.value = '0';
+                        costCell.insertBefore(costH, costCell.firstChild);
+                    }
                     
                     // product_variant_id: el backend lo necesita para identificar la variante al aprobar
                     const wrapper = row.querySelector('.item-select-wrapper');
@@ -903,6 +933,7 @@
                         const featuresInput = row.querySelector('input[name*="[variant_features]"]');
                         if (featuresInput) featuresInput.remove();
                         row.querySelectorAll('input[name*="[batch_items]"]').forEach(function(inp) { inp.remove(); });
+                        row.querySelectorAll('.detail-qty-hidden, .detail-cost-hidden').forEach(function(inp) { inp.remove(); });
                         var expCell = row.querySelector('.detail-expiration-cell');
                         if (expCell) { expCell.textContent = '—'; expCell.classList.add('text-gray-500', 'dark:text-gray-400'); }
                         var qtyInput = row.querySelector('.detail-qty');

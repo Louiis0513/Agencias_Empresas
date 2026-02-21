@@ -105,7 +105,7 @@
                     @if($purchase->isBorrador())
                         <div class="flex flex-col gap-4">
                             <div class="flex gap-3">
-                                <a href="{{ route('stores.purchases.edit', [$store, $purchase]) }}" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Editar</a>
+                                <a href="{{ $purchase->purchase_type === \App\Models\Purchase::TYPE_PRODUCTO ? route('stores.product-purchases.edit', [$store, $purchase]) : route('stores.purchases.edit', [$store, $purchase]) }}" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Editar</a>
                                 @if($purchase->payment_status == 'PAGADO' && $bolsillos && $bolsillos->isNotEmpty())
                                     <button type="button" id="btn-show-pago-contado" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">Aprobar Compra (Contado)</button>
                                 @elseif($purchase->payment_status == 'PAGADO' && (!$bolsillos || $bolsillos->isEmpty()))

@@ -3,6 +3,9 @@
 namespace App\Services;
 
 use App\Models\Invoice;
+use App\Models\Product;
+use App\Models\ProductItem;
+use App\Models\ProductVariant;
 use App\Models\Store;
 use Illuminate\Support\Facades\DB;
 
@@ -139,14 +142,19 @@ class VentaService
                 if ($productId < 1) {
                     continue;
                 }
+                $product = Product::where('id', $productId)->where('store_id', $store->id)->first();
+                $descBase = 'Venta a crédito Factura #' . $factura->id . ' - ' . ($product ? $product->name : 'Producto #' . $productId);
+
                 $serialNumbers = $item['serial_numbers'] ?? null;
                 if (is_array($serialNumbers) && ! empty($serialNumbers)) {
+                    $serialPart = $this->formatSerialDescriptionsForMovement($product, $store->id, $serialNumbers);
+                    $description = $descBase . ' - ' . $serialPart;
                     $this->inventarioService->registrarSalidaPorSeriales(
                         $store,
                         $userId,
                         $productId,
                         $serialNumbers,
-                        'Venta a crédito Factura #' . $factura->id
+                        $description
                     );
                 } else {
                     $qty = (int) ($item['quantity'] ?? 0);
@@ -155,13 +163,18 @@ class VentaService
                     }
                     $productVariantId = $item['product_variant_id'] ?? null;
                     if ($productVariantId) {
+                        $variant = ProductVariant::with('product.category.attributes')
+                            ->where('id', (int) $productVariantId)
+                            ->where('product_id', $productId)
+                            ->first();
+                        $description = $descBase . ($variant ? ' - ' . $variant->display_name : '');
                         $this->inventarioService->registrarSalidaPorVarianteFIFO(
                             $store,
                             $userId,
                             $productId,
                             (int) $productVariantId,
                             $qty,
-                            'Venta a crédito Factura #' . $factura->id
+                            $description
                         );
                     } else {
                         $this->inventarioService->registrarSalidaPorCantidadFIFO(
@@ -169,7 +182,7 @@ class VentaService
                             $userId,
                             $productId,
                             $qty,
-                            'Venta a crédito Factura #' . $factura->id
+                            $descBase
                         );
                     }
                 }
@@ -210,14 +223,19 @@ class VentaService
                 if ($productId < 1) {
                     continue;
                 }
+                $product = Product::where('id', $productId)->where('store_id', $store->id)->first();
+                $descBase = 'Venta Factura #' . $factura->id . ' - ' . ($product ? $product->name : 'Producto #' . $productId);
+
                 $serialNumbers = $item['serial_numbers'] ?? null;
                 if (is_array($serialNumbers) && ! empty($serialNumbers)) {
+                    $serialPart = $this->formatSerialDescriptionsForMovement($product, $store->id, $serialNumbers);
+                    $description = $descBase . ' - ' . $serialPart;
                     $this->inventarioService->registrarSalidaPorSeriales(
                         $store,
                         $userId,
                         $productId,
                         $serialNumbers,
-                        'Venta Factura #' . $factura->id
+                        $description
                     );
                 } else {
                     $qty = (int) ($item['quantity'] ?? 0);
@@ -226,13 +244,18 @@ class VentaService
                     }
                     $productVariantId = $item['product_variant_id'] ?? null;
                     if ($productVariantId) {
+                        $variant = ProductVariant::with('product.category.attributes')
+                            ->where('id', (int) $productVariantId)
+                            ->where('product_id', $productId)
+                            ->first();
+                        $description = $descBase . ($variant ? ' - ' . $variant->display_name : '');
                         $this->inventarioService->registrarSalidaPorVarianteFIFO(
                             $store,
                             $userId,
                             $productId,
                             (int) $productVariantId,
                             $qty,
-                            'Venta Factura #' . $factura->id
+                            $description
                         );
                     } else {
                         $this->inventarioService->registrarSalidaPorCantidadFIFO(
@@ -240,7 +263,7 @@ class VentaService
                             $userId,
                             $productId,
                             $qty,
-                            'Venta Factura #' . $factura->id
+                            $descBase
                         );
                     }
                 }
@@ -284,5 +307,42 @@ class VentaService
         }
 
         return $this->ventaACredito($store, $userId, $datos);
+    }
+
+    /**
+     * Construye la descripción de seriales con atributos para movimientos de salida.
+     * Ej: "Serial: X (Marca: Y, Sabor: Z); Serial: W (Marca: Y2)"
+     *
+     * @param  Product|null  $product
+     * @param  int  $storeId
+     * @param  array  $serialNumbers
+     * @return string
+     */
+    private function formatSerialDescriptionsForMovement(?Product $product, int $storeId, array $serialNumbers): string
+    {
+        if (! $product) {
+            return 'Serial: ' . implode(', ', $serialNumbers);
+        }
+        $product->load('category.attributes');
+        $attrNames = $product->category
+            ? $product->category->attributes->pluck('name', 'id')->all()
+            : [];
+
+        $items = ProductItem::where('product_id', $product->id)
+            ->where('store_id', $storeId)
+            ->whereIn('serial_number', $serialNumbers)
+            ->get();
+
+        $parts = [];
+        foreach ($serialNumbers as $sn) {
+            $item = $items->firstWhere('serial_number', $sn);
+            $featStr = $item
+                ? ProductVariant::formatFeaturesWithAttributeNames($item->features ?? [], $attrNames)
+                : '';
+            $parts[] = $featStr !== ''
+                ? "Serial: {$sn} ({$featStr})"
+                : "Serial: {$sn}";
+        }
+        return implode('; ', $parts);
     }
 }
