@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Bolsillo;
 use App\Models\Invoice;
 use App\Models\InvoiceDetail;
 use App\Models\Product;
@@ -15,6 +16,43 @@ use Exception;
 
 class InvoiceService
 {
+    /**
+     * Deriva el método de pago a partir de los bolsillos usados.
+     * - Todos efectivo (is_bank_account false) → CASH
+     * - Todos bancario (is_bank_account true) → TRANSFER
+     * - Mezcla → MIXED
+     *
+     * @param  array<int>  $bolsilloIds
+     * @return string|null  CASH, TRANSFER, MIXED o null si no hay bolsillos
+     */
+    public function derivarMetodoPagoDesdeBolsillos(Store $store, array $bolsilloIds): ?string
+    {
+        $bolsilloIds = array_filter(array_unique(array_map('intval', $bolsilloIds)));
+        if ($bolsilloIds === []) {
+            return null;
+        }
+
+        $bolsillos = Bolsillo::whereIn('id', $bolsilloIds)
+            ->where('store_id', $store->id)
+            ->get();
+
+        if ($bolsillos->isEmpty()) {
+            return null;
+        }
+
+        $todosEfectivo = $bolsillos->every(fn (Bolsillo $b) => ! $b->is_bank_account);
+        $todosBancario = $bolsillos->every(fn (Bolsillo $b) => $b->is_bank_account);
+
+        if ($todosEfectivo) {
+            return 'CASH';
+        }
+        if ($todosBancario) {
+            return 'TRANSFER';
+        }
+
+        return 'MIXED';
+    }
+
     /* -------------------------------------------------------------------------- */
     /* CONSULTAS (LECTURA)                                                         */
     /* -------------------------------------------------------------------------- */
@@ -71,9 +109,29 @@ class InvoiceService
             $query->where('customer_id', $filtros['customer_id']);
         }
 
-        // Filtro por método de pago
-        if (isset($filtros['payment_method']) && !empty($filtros['payment_method'])) {
-            $query->where('payment_method', $filtros['payment_method']);
+        // Filtro por método de pago (SIN_METODO o NULL = facturas sin método, p. ej. pendientes)
+        if (isset($filtros['payment_method']) && $filtros['payment_method'] !== '') {
+            if (in_array(strtoupper((string) $filtros['payment_method']), ['NULL', 'SIN_METODO'], true)) {
+                $query->whereNull('payment_method');
+            } else {
+                $query->where('payment_method', $filtros['payment_method']);
+            }
+        }
+
+        // Filtro por bolsillo (facturas que tengan algún pago/cobro en ese bolsillo)
+        if (isset($filtros['bolsillo_id']) && (int) $filtros['bolsillo_id'] > 0) {
+            $bolsilloId = (int) $filtros['bolsillo_id'];
+            $query->where(function ($q) use ($bolsilloId) {
+                $q->whereHas('comprobantesIngresoDirectos', function ($sub) use ($bolsilloId) {
+                    $sub->whereHas('destinos', fn ($d) => $d->where('bolsillo_id', $bolsilloId));
+                })->orWhereHas('accountReceivable', function ($sub) use ($bolsilloId) {
+                    $sub->whereHas('comprobanteIngresoAplicaciones', function ($sub2) use ($bolsilloId) {
+                        $sub2->whereHas('comprobanteIngreso', function ($sub3) use ($bolsilloId) {
+                            $sub3->whereHas('destinos', fn ($d) => $d->where('bolsillo_id', $bolsilloId));
+                        });
+                    });
+                });
+            });
         }
 
         // Búsqueda (usa el scope del modelo)
@@ -98,7 +156,13 @@ class InvoiceService
     public function obtenerFactura(Store $store, int $invoiceId): Invoice
     {
         $factura = Invoice::deTienda($store->id)
-            ->with(['details.product', 'customer', 'user'])
+            ->with([
+                'details.product',
+                'customer',
+                'user',
+                'accountReceivable.comprobanteIngresoAplicaciones.comprobanteIngreso',
+                'comprobantesIngresoDirectos',
+            ])
             ->find($invoiceId);
 
         if (!$factura) {
@@ -125,12 +189,13 @@ class InvoiceService
     public function crearFactura(Store $store, int $userId, array $datos): Invoice
     {
         $status = $datos['status'] ?? 'PAID';
-        $payments = $datos['payments'] ?? [];
         if ($status === 'PENDING') {
-            $payments = [];
+            $datos['payment_method'] = null;
+        } else {
+            $payments = $datos['payments'] ?? [];
+            $methods = array_unique(array_filter(array_column($payments, 'payment_method')));
+            $datos['payment_method'] = count($methods) > 1 ? 'MIXED' : ($methods[0] ?? 'CASH');
         }
-        $methods = array_unique(array_filter(array_column($payments, 'payment_method')));
-        $datos['payment_method'] = count($methods) > 1 ? 'MIXED' : ($methods[0] ?? ($status === 'PAID' ? 'CASH' : 'CREDIT'));
         $datos['status'] = $status;
 
         return $this->crearFacturaSoloCabeceraYDetalles($store, $userId, $datos);
@@ -149,7 +214,9 @@ class InvoiceService
     {
         return DB::transaction(function () use ($store, $userId, $datos) {
             $status = $datos['status'] ?? 'PENDING';
-            $paymentMethod = $datos['payment_method'] ?? ($status === 'PAID' ? 'CASH' : 'CREDIT');
+            $paymentMethod = $status === 'PENDING'
+                ? null
+                : ($datos['payment_method'] ?? 'CASH');
 
             $factura = Invoice::create([
                 'store_id'        => $store->id,
@@ -181,7 +248,7 @@ class InvoiceService
     public function crearFacturaPendienteSoloCabeceraYDetalles(Store $store, int $userId, array $datos): Invoice
     {
         $datos['status'] = 'PENDING';
-        $datos['payment_method'] = 'CREDIT';
+        $datos['payment_method'] = null;
         return $this->crearFacturaSoloCabeceraYDetalles($store, $userId, $datos);
     }
 

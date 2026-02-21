@@ -24,6 +24,7 @@ class StoreInvoiceController extends Controller
             'status' => $request->get('status'),
             'customer_id' => $request->get('customer_id'),
             'payment_method' => $request->get('payment_method'),
+            'bolsillo_id' => $request->get('bolsillo_id'),
             'search' => $request->get('search'),
             'fecha_desde' => $request->get('fecha_desde', $rangoFechas['fecha_desde']->format('Y-m-d')),
             'fecha_hasta' => $request->get('fecha_hasta', $rangoFechas['fecha_hasta']->format('Y-m-d')),
@@ -32,8 +33,9 @@ class StoreInvoiceController extends Controller
 
         $invoices = $invoiceService->listarFacturas($store, $filtros);
         $customers = $customerService->getAllStoreCustomers($store);
+        $bolsillos = $store->bolsillos()->activos()->orderBy('name')->get();
 
-        return view('stores.facturas', compact('store', 'invoices', 'customers', 'rangoFechas'));
+        return view('stores.facturas', compact('store', 'invoices', 'customers', 'rangoFechas', 'bolsillos'));
     }
 
     public function show(Store $store, Invoice $invoice, InvoiceService $invoiceService, StorePermissionService $permission)

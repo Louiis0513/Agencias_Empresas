@@ -34,7 +34,7 @@ class StoreInvoiceRequest extends FormRequest
             'discount' => ['sometimes', 'numeric', 'min:0'],
             'total' => ['required', 'numeric', 'min:0'],
             'status' => ['required', 'string', 'in:PAID,PENDING,VOID'],
-            'payment_method' => ['required', 'string', 'in:CASH,CARD,TRANSFER'],
+            'payment_method' => ['nullable', 'string', 'in:CASH,CARD,TRANSFER,MIXED'],
             // Validación del array de items/details
             'details' => ['required', 'array', 'min:1'],
             'details.*.product_id' => [
@@ -68,8 +68,7 @@ class StoreInvoiceRequest extends FormRequest
             'total.min' => 'El total no puede ser negativo.',
             'status.required' => 'El estado es obligatorio.',
             'status.in' => 'El estado debe ser PAID, PENDING o VOID.',
-            'payment_method.required' => 'El método de pago es obligatorio.',
-            'payment_method.in' => 'El método de pago debe ser CASH, CARD o TRANSFER.',
+            'payment_method.in' => 'El método de pago debe ser CASH, CARD, TRANSFER o MIXED.',
             'details.required' => 'Debe incluir al menos un detalle.',
             'details.min' => 'Debe incluir al menos un detalle.',
             'details.*.product_id.required' => 'El producto es obligatorio para cada detalle.',

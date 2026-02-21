@@ -211,10 +211,11 @@ class VentaService
             // 1. Validar stock
             $this->inventarioService->validarStockDisponible($store, $details);
 
-            // 2. Factura PAID solo cabecera + detalles
+            // 2. Factura PAID solo cabecera + detalles (método de pago derivado de bolsillos)
             $datosFactura = $datos;
             $datosFactura['status'] = 'PAID';
-            $datosFactura['payment_method'] = count($destinos) > 1 ? 'MIXED' : 'CASH';
+            $bolsilloIds = array_values(array_map(fn ($d) => (int) ($d['bolsillo_id'] ?? 0), $destinos));
+            $datosFactura['payment_method'] = $this->invoiceService->derivarMetodoPagoDesdeBolsillos($store, $bolsilloIds) ?? 'CASH';
             $factura = $this->invoiceService->crearFacturaSoloCabeceraYDetalles($store, $userId, $datosFactura);
 
             // 3. Descontar inventario

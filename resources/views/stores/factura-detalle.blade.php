@@ -39,7 +39,9 @@
                         <div>
                             <p class="text-sm text-gray-500 dark:text-gray-400">Método de Pago</p>
                             <p class="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                                @if($invoice->payment_method == 'CASH')
+                                @if($invoice->payment_method === null)
+                                    <span class="text-gray-500 dark:text-gray-400">Sin método de pago asociado</span>
+                                @elseif($invoice->payment_method == 'CASH')
                                     Efectivo
                                 @elseif($invoice->payment_method == 'CARD')
                                     Tarjeta
@@ -169,6 +171,45 @@
                             </div>
                         </div>
                     </div>
+
+                    @php
+                        $comprobantesDirectos = $invoice->comprobantesIngresoDirectos->reject(fn ($ci) => $ci->isReversed());
+                        $comprobantesCobro = $invoice->accountReceivable
+                            ? $invoice->accountReceivable->comprobanteIngresoAplicaciones
+                                ->map(fn ($ap) => $ap->comprobanteIngreso)
+                                ->filter(fn ($ci) => $ci && !$ci->isReversed())
+                            : collect();
+                        $comprobantes = $comprobantesDirectos->concat($comprobantesCobro)->unique('id')->values();
+                        $mostrarSeccionCobro = $invoice->accountReceivable || $comprobantes->isNotEmpty();
+                    @endphp
+                    @if($mostrarSeccionCobro)
+                    {{-- Cuenta por cobrar y comprobantes de ingreso --}}
+                    <div class="mt-6 border-t border-gray-200 dark:border-gray-700 pt-4 space-y-4">
+                        @if($invoice->accountReceivable)
+                            <div>
+                                <a href="{{ route('stores.accounts-receivables.show', [$store, $invoice->accountReceivable]) }}"
+                                   class="inline-flex items-center px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-md hover:bg-amber-700">
+                                    Ver cuenta por cobrar
+                                </a>
+                            </div>
+                        @endif
+                        @if($comprobantes->isNotEmpty())
+                            <div>
+                                <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Comprobante(s) de ingreso</h3>
+                                <ul class="space-y-1">
+                                    @foreach($comprobantes as $ci)
+                                        <li>
+                                            <a href="{{ route('stores.comprobantes-ingreso.show', [$store, $ci]) }}"
+                                               class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300">
+                                                {{ $ci->number }} — {{ $ci->date->format('d/m/Y') }} — ${{ number_format($ci->total_amount, 2) }}
+                                            </a>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        @endif
+                    </div>
+                    @endif
 
                     {{-- Botones de Acción --}}
                     <div class="mt-6 flex justify-end space-x-3 border-t border-gray-200 dark:border-gray-700 pt-4">

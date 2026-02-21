@@ -20,7 +20,7 @@ class Invoice extends Model
         'discount',
         'total',
         'status',        // PAID, PENDING, VOID
-        'payment_method' // CASH, CARD, TRANSFER
+        'payment_method', // CASH, TRANSFER, MIXED; null si PENDING
     ];
 
     protected $casts = [
@@ -55,6 +55,12 @@ class Invoice extends Model
     public function accountReceivable()
     {
         return $this->hasOne(AccountReceivable::class);
+    }
+
+    /** Comprobantes de ingreso tipo PAGO_FACTURA asociados directamente a esta factura. */
+    public function comprobantesIngresoDirectos()
+    {
+        return $this->hasMany(\App\Models\ComprobanteIngreso::class, 'invoice_id');
     }
 
     // --- SCOPES ---

@@ -17,7 +17,8 @@ use Illuminate\Support\Facades\DB;
 class ComprobanteIngresoService
 {
     public function __construct(
-        protected CajaService $cajaService
+        protected CajaService $cajaService,
+        protected InvoiceService $invoiceService
     ) {}
 
     public function siguienteNumero(Store $store): string
@@ -205,9 +206,21 @@ class ComprobanteIngresoService
         $account->status = $newBalance <= 0 ? AccountReceivable::STATUS_PAGADO : AccountReceivable::STATUS_PARCIAL;
         $account->save();
 
-        if ($newBalance <= 0) {
-            $account->invoice->update(['status' => 'PAID']);
-        }
+        // En cada abono actualizar siempre el método de pago de la factura según los bolsillos usados en todas las aplicaciones.
+        $invoice = $account->invoice;
+        $bolsilloIds = $account->comprobanteIngresoAplicaciones()
+            ->with('comprobanteIngreso.destinos')
+            ->get()
+            ->flatMap(fn (ComprobanteIngresoAplicacion $a) => $a->comprobanteIngreso->destinos->pluck('bolsillo_id'))
+            ->unique()
+            ->filter()
+            ->values()
+            ->all();
+        $paymentMethod = $this->invoiceService->derivarMetodoPagoDesdeBolsillos($store, $bolsilloIds) ?? 'CASH';
+        $invoice->update(array_filter([
+            'payment_method' => $paymentMethod,
+            'status' => $newBalance <= 0 ? 'PAID' : null,
+        ]));
     }
 
     public function listar(Store $store, array $filtros = []): LengthAwarePaginator

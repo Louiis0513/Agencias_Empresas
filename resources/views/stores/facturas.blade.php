@@ -46,7 +46,7 @@
 
                     {{-- Filtros y búsqueda --}}
                     <form method="GET" action="{{ route('stores.invoices', $store) }}" class="mb-6 space-y-4">
-                        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                        <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
                             {{-- Rango de fechas --}}
                             <div class="md:col-span-2">
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Rango de Fechas</label>
@@ -76,17 +76,41 @@
                                 </select>
                             </div>
 
+                            {{-- Filtro Estado --}}
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Estado</label>
+                                <select name="status" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                                    <option value="">Todos</option>
+                                    <option value="PAID" {{ request('status') == 'PAID' ? 'selected' : '' }}>Pagada</option>
+                                    <option value="PENDING" {{ request('status') == 'PENDING' ? 'selected' : '' }}>Pendiente</option>
+                                    <option value="VOID" {{ request('status') == 'VOID' ? 'selected' : '' }}>Anulada</option>
+                                </select>
+                            </div>
+
                             {{-- Filtro Método de Pago --}}
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Método de Pago</label>
                                 <select name="payment_method" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
                                     <option value="">Todos</option>
+                                    <option value="SIN_METODO" {{ request('payment_method') == 'SIN_METODO' ? 'selected' : '' }}>Sin método de pago</option>
                                     <option value="CASH" {{ request('payment_method') == 'CASH' ? 'selected' : '' }}>Efectivo</option>
-                                    <option value="CARD" {{ request('payment_method') == 'CARD' ? 'selected' : '' }}>Tarjeta</option>
                                     <option value="TRANSFER" {{ request('payment_method') == 'TRANSFER' ? 'selected' : '' }}>Transferencia</option>
                                     <option value="MIXED" {{ request('payment_method') == 'MIXED' ? 'selected' : '' }}>Mixto</option>
                                 </select>
                             </div>
+
+                            {{-- Filtro Bolsillo --}}
+                            @if(isset($bolsillos) && $bolsillos->isNotEmpty())
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Bolsillo</label>
+                                <select name="bolsillo_id" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                                    <option value="">Todos</option>
+                                    @foreach($bolsillos as $b)
+                                        <option value="{{ $b->id }}" {{ request('bolsillo_id') == $b->id ? 'selected' : '' }}>{{ $b->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            @endif
 
                             {{-- Búsqueda --}}
                             <div>
@@ -101,7 +125,7 @@
                                             class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
                                         Buscar
                                     </button>
-                                    @if(request()->anyFilled(['search', 'customer_id', 'payment_method', 'fecha_desde', 'fecha_hasta']))
+                                    @if(request()->anyFilled(['search', 'customer_id', 'status', 'payment_method', 'bolsillo_id', 'fecha_desde', 'fecha_hasta']))
                                         <a href="{{ route('stores.invoices', $store) }}" 
                                            class="px-4 py-2 bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-400 dark:hover:bg-gray-600">
                                             Limpiar
@@ -120,6 +144,7 @@
                                     <tr>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Fecha</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Cliente</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Estado</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Total</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Método de Pago</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Acciones</th>
@@ -134,11 +159,22 @@
                                             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                                                 {{ $invoice->customer ? $invoice->customer->name : 'Cliente Genérico' }}
                                             </td>
+                                            <td class="px-4 py-4 whitespace-nowrap text-sm">
+                                                @if($invoice->status === 'PAID')
+                                                    <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Pagada</span>
+                                                @elseif($invoice->status === 'PENDING')
+                                                    <span class="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">Pendiente</span>
+                                                @else
+                                                    <span class="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">Anulada</span>
+                                                @endif
+                                            </td>
                                             <td class="px-4 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-gray-100">
                                                 ${{ number_format($invoice->total, 2) }}
                                             </td>
                                             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                                                @if($invoice->payment_method == 'CASH')
+                                                @if($invoice->payment_method === null)
+                                                    <span class="text-gray-500 dark:text-gray-400">Sin método de pago asociado</span>
+                                                @elseif($invoice->payment_method == 'CASH')
                                                     Efectivo
                                                 @elseif($invoice->payment_method == 'CARD')
                                                     Tarjeta
@@ -184,7 +220,7 @@
                         </div>
                     @else
                         <p class="text-gray-500 dark:text-gray-400 text-center py-8">
-                            @if(request()->anyFilled(['search', 'customer_id', 'payment_method', 'fecha_desde', 'fecha_hasta']))
+                            @if(request()->anyFilled(['search', 'customer_id', 'status', 'payment_method', 'bolsillo_id', 'fecha_desde', 'fecha_hasta']))
                                 No se encontraron facturas con los filtros aplicados.
                             @else
                                 No hay facturas en los últimos 31 días.
