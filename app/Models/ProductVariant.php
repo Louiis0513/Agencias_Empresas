@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\AttributeOption;
 use App\Services\InventarioService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -90,17 +91,20 @@ class ProductVariant extends Model
             return '—';
         }
 
-        $attrNames = [];
-        $product = $this->relationLoaded('product') ? $this->product : $this->product;
-        if ($product && $product->category) {
-            $category = $product->relationLoaded('category') ? $product->category : $product->category()->with('attributes')->first();
-            if ($category) {
-                $attrs = $category->relationLoaded('attributes') ? $category->attributes : $category->attributes;
-                $attrNames = ($attrs instanceof Collection ? $attrs : collect($attrs))->pluck('name', 'id')->all();
+        $resolvedFeatures = [];
+        foreach ($features as $attrId => $value) {
+            if (is_numeric($value) && (string) (int) $value === (string) $value) {
+                $opt = AttributeOption::find((int) $value);
+                $resolvedFeatures[$attrId] = $opt ? $opt->value : $value;
+            } else {
+                $resolvedFeatures[$attrId] = $value;
             }
         }
 
-        $formatted = static::formatFeaturesWithAttributeNames($features, $attrNames);
+        $attrIds = array_map('intval', array_keys($features));
+        $attrNames = Attribute::whereIn('id', $attrIds)->pluck('name', 'id')->all();
+
+        $formatted = static::formatFeaturesWithAttributeNames($resolvedFeatures, $attrNames);
 
         return $formatted !== '' ? $formatted : '—';
     }
