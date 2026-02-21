@@ -17,7 +17,17 @@ class Cotizacion extends Model
         'user_id',
         'customer_id',
         'nota',
+        'vence_at',
+        'estado',
+        'invoice_id',
     ];
+
+    protected $casts = [
+        'vence_at' => 'date',
+    ];
+
+    public const ESTADO_BORRADOR = 'borrador';
+    public const ESTADO_FACTURADA = 'facturada';
 
     public function store()
     {
@@ -37,6 +47,11 @@ class Cotizacion extends Model
     public function items()
     {
         return $this->hasMany(CotizacionItem::class);
+    }
+
+    public function invoice()
+    {
+        return $this->belongsTo(Invoice::class);
     }
 
     public function scopeDeTienda(Builder $query, int $storeId): void

@@ -15,6 +15,7 @@ class CotizacionItem extends Model
         'product_variant_id',
         'type',
         'quantity',
+        'unit_price',
         'variant_features',
         'serial_numbers',
         'name',
@@ -25,6 +26,7 @@ class CotizacionItem extends Model
         'variant_features' => 'array',
         'serial_numbers' => 'array',
         'quantity' => 'integer',
+        'unit_price' => 'float',
     ];
 
     public function cotizacion()

@@ -294,6 +294,13 @@
                                           class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 shadow-sm focus:ring-indigo-500 focus:border-indigo-500"></textarea>
                             </div>
                             <div>
+                                <label for="cotizacion-vence" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha de vencimiento (opcional)</label>
+                                <input type="date" id="cotizacion-vence"
+                                       wire:model="venceAtCotizacion"
+                                       min="{{ date('Y-m-d') }}"
+                                       class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                            </div>
+                            <div>
                                 <label for="cotizacion-cliente" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cliente (opcional)</label>
                                 <select id="cotizacion-cliente"
                                         wire:model="customerIdCotizacion"

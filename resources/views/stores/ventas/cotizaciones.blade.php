@@ -31,6 +31,9 @@
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Cliente</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Nota</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Ítems</th>
+                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Valor cotización</th>
+                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Valor actual</th>
+                                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Alerta</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Acciones</th>
                                     </tr>
                                 </thead>
@@ -47,6 +50,23 @@
                                             <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{{ $cot->customer?->name ?? '—' }}</td>
                                             <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 max-w-xs truncate" title="{{ $cot->nota }}">{{ $cot->nota }}</td>
                                             <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{{ $cot->items->count() }}</td>
+                                            @php
+                                                $totales = $totalesPorCotizacion[$cot->id] ?? ['total_cotizado' => 0, 'total_actual' => 0];
+                                                $diff = $totales['total_actual'] - $totales['total_cotizado'];
+                                                $hayCambio = abs($diff) > 0.005;
+                                            @endphp
+                                            <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 text-right font-medium">{{ number_format($totales['total_cotizado'], 2) }}</td>
+                                            <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 text-right font-medium">{{ number_format($totales['total_actual'], 2) }}</td>
+                                            <td class="px-4 py-3 text-center">
+                                                @if($hayCambio)
+                                                    <span class="text-xs font-medium {{ $diff > 0 ? 'text-amber-800 dark:text-amber-200' : 'text-emerald-800 dark:text-emerald-200' }}"
+                                                        title="{{ $diff > 0 ? 'El valor actual es mayor que el cotizado' : 'El valor actual es menor que el cotizado' }}">
+                                                        {{ $diff > 0 ? '+' : '' }}{{ number_format($diff, 2) }} {{ $diff > 0 ? '(aumentó)' : '(disminuyó)' }}
+                                                    </span>
+                                                @else
+                                                    <span class="text-gray-400 dark:text-gray-500 text-xs">—</span>
+                                                @endif
+                                            </td>
                                             <td class="px-4 py-3">
                                                 <a href="{{ route('stores.ventas.cotizaciones.show', [$store, $cot]) }}"
                                                    wire:navigate

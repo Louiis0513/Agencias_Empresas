@@ -960,6 +960,90 @@ class InventarioService
     }
 
     /**
+     * Valida stock disponible y devuelve los fallos sin lanzar excepción.
+     * Resultado keyed by product_id para facilitar mapeo en Livewire (ej. mensaje por fila).
+     *
+     * @return \Illuminate\Support\Collection<int, array{product_id: int, product_name: string, solicitado: int, actual: int, message: string}>
+     */
+    public function validarStockDisponibleResult(Store $store, array $items): \Illuminate\Support\Collection
+    {
+        $fallos = [];
+
+        foreach ($items as $item) {
+            $productId = (int) ($item['product_id'] ?? 0);
+            if ($productId < 1) {
+                continue;
+            }
+
+            $product = Product::where('id', $productId)
+                ->where('store_id', $store->id)
+                ->first();
+
+            if (! $product) {
+                $fallos[$productId] = [
+                    'product_id' => $productId,
+                    'product_name' => 'Producto #' . $productId,
+                    'solicitado' => (int) ($item['quantity'] ?? 0),
+                    'actual' => 0,
+                    'message' => "El producto #{$productId} no existe o no pertenece a esta tienda.",
+                ];
+                continue;
+            }
+
+            if (! $product->isProductoInventario()) {
+                continue;
+            }
+
+            $serialNumbers = $item['serial_numbers'] ?? null;
+            if (is_array($serialNumbers) && ! empty($serialNumbers)) {
+                foreach ($serialNumbers as $serial) {
+                    $serial = trim((string) $serial);
+                    if ($serial === '') {
+                        continue;
+                    }
+                    $r = $this->stockDisponible($store, $productId, null, $serial);
+                    if (! $r['disponible']) {
+                        $msg = $r['status'] === null
+                            ? "El serial «{$serial}» no existe en el inventario de «{$product->name}»."
+                            : "El ítem con serial «{$serial}» no está disponible (Estado: {$r['status']}).";
+                        $fallos[$productId] = [
+                            'product_id' => $productId,
+                            'product_name' => $product->name,
+                            'solicitado' => count(array_filter($serialNumbers)),
+                            'actual' => $r['disponible'] ? 1 : 0,
+                            'message' => $msg,
+                        ];
+                        break;
+                    }
+                }
+            } else {
+                $quantity = (int) ($item['quantity'] ?? 0);
+                if ($quantity < 1) {
+                    continue;
+                }
+                $productVariantId = $item['product_variant_id'] ?? null;
+                if ($productVariantId) {
+                    $r = $this->stockDisponible($store, $productId, null, null, (int) $productVariantId);
+                } else {
+                    $batchItemId = isset($item['batch_item_id']) && $item['batch_item_id'] !== '' ? (int) $item['batch_item_id'] : null;
+                    $r = $this->stockDisponible($store, $productId, $batchItemId, null);
+                }
+                if ($r['cantidad'] < $quantity) {
+                    $fallos[$productId] = [
+                        'product_id' => $productId,
+                        'product_name' => $product->name,
+                        'solicitado' => $quantity,
+                        'actual' => $r['cantidad'],
+                        'message' => "Stock insuficiente en «{$product->name}». Actual: {$r['cantidad']}, solicitado: {$quantity}.",
+                    ];
+                }
+            }
+        }
+
+        return collect($fallos);
+    }
+
+    /**
      * Lista movimientos de inventario con filtros.
      */
     public function listarMovimientos(Store $store, array $filtros = []): LengthAwarePaginator

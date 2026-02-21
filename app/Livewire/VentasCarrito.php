@@ -44,6 +44,7 @@ class VentasCarrito extends Component
     /** Modal Guardar como cotización */
     public bool $mostrarModalCotizacion = false;
     public string $notaCotizacion = '';
+    public ?string $venceAtCotizacion = null;
     public ?string $customerIdCotizacion = null;
     public ?string $errorCotizacion = null;
 
@@ -626,6 +627,7 @@ class VentasCarrito extends Component
     {
         $this->errorCotizacion = null;
         $this->notaCotizacion = '';
+        $this->venceAtCotizacion = null;
         $this->customerIdCotizacion = null;
         $this->mostrarModalCotizacion = true;
     }
@@ -637,6 +639,7 @@ class VentasCarrito extends Component
     {
         $this->mostrarModalCotizacion = false;
         $this->notaCotizacion = '';
+        $this->venceAtCotizacion = null;
         $this->customerIdCotizacion = null;
         $this->errorCotizacion = null;
     }
@@ -665,9 +668,13 @@ class VentasCarrito extends Component
             return;
         }
 
+        $venceAt = $this->venceAtCotizacion
+            ? \Carbon\Carbon::parse($this->venceAtCotizacion)->startOfDay()
+            : null;
+
         try {
             $customerId = $this->customerIdCotizacion ? (int) $this->customerIdCotizacion : null;
-            $cotizacionService->crearDesdeCarrito($store, auth()->id(), $customerId, $nota, $this->carrito);
+            $cotizacionService->crearDesdeCarrito($store, auth()->id(), $customerId, $nota, $this->carrito, $venceAt);
 
             $this->cerrarModalCotizacion();
             session()->flash('success', 'Cotización guardada correctamente.');

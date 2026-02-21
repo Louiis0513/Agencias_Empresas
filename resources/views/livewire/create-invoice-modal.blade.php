@@ -39,6 +39,33 @@
                         </button>
                     @endif
                     <x-input-error :messages="$errors->get('customer_id')" class="mt-2 text-red-400" />
+
+                    @if($mostrarCheckVencida && $cotizacion_id)
+                        <div class="mt-4 p-4 rounded-xl bg-amber-900/20 border border-amber-600/40">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" wire:model="confirmarVencida" class="rounded border-amber-600 text-amber-600 focus:ring-amber-500">
+                                <span class="text-amber-200 text-sm">Confirmo que deseo facturar esta cotización aunque esté vencida.</span>
+                            </label>
+                        </div>
+                    @endif
+
+                    @if($mostrarEleccionPrecio && $cotizacion_id)
+                        <div class="mt-4 p-4 rounded-xl bg-amber-900/30 border border-amber-600/50">
+                            <p class="text-amber-200 font-medium mb-2">Los precios han cambiado desde la cotización. Elija cómo facturar:</p>
+                            <div class="flex flex-wrap gap-3">
+                                <button type="button" wire:click="aplicarPrecioCotizado"
+                                    class="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-sm font-bold">
+                                    Mantener precio cotizado
+                                </button>
+                                <button type="button" wire:click="aplicarPrecioActual"
+                                    wire:target="aplicarPrecioActual"
+                                    class="px-4 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded-lg text-sm font-bold">
+                                    Usar precio actual
+                                </button>
+                            </div>
+                            <p class="text-slate-400 text-xs mt-2">Luego vuelva a pulsar «Emitir Factura».</p>
+                        </div>
+                    @endif
                 </div>
 
                 {{-- Sección: Productos --}}
@@ -135,7 +162,16 @@
                                                     <div class="text-[10px] text-slate-400 mt-1 uppercase leading-tight bg-slate-800 p-1 rounded">S/N: {{ implode(', ', $producto['serial_numbers']) }}</div>
                                                 @endif
                                             </td>
-                                            <td class="px-4 py-4 text-sm text-slate-300">${{ number_format($producto['price'], 2) }}</td>
+                                            <td class="px-4 py-4 text-sm text-slate-300">
+                                                @if($producto['precio_bloqueado'] ?? false)
+                                                    <span class="inline-flex items-center gap-1" title="Precio fijado por cotización (no editable)">
+                                                        ${{ number_format($producto['price'], 2) }}
+                                                        <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                                                    </span>
+                                                @else
+                                                    ${{ number_format($producto['price'], 2) }}
+                                                @endif
+                                            </td>
                                             <td class="px-4 py-4">
                                                 @if(($producto['type'] ?? 'simple') === 'serialized')
                                                     <span class="px-3 py-1 bg-slate-700 rounded text-white font-bold text-sm">{{ $producto['quantity'] }}</span>

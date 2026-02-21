@@ -187,7 +187,7 @@ class StoreController extends Controller
         return view('stores.ventas.carrito', compact('store'));
     }
 
-    public function cotizaciones(Store $store, StorePermissionService $permission)
+    public function cotizaciones(Store $store, CotizacionService $cotizacionService, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
@@ -201,7 +201,12 @@ class StoreController extends Controller
             ->orderByDesc('created_at')
             ->paginate(15);
 
-        return view('stores.ventas.cotizaciones', compact('store', 'cotizaciones'));
+        $totalesPorCotizacion = [];
+        foreach ($cotizaciones as $cot) {
+            $totalesPorCotizacion[$cot->id] = $cotizacionService->obtenerTotalesCotizacionYActual($store, $cot);
+        }
+
+        return view('stores.ventas.cotizaciones', compact('store', 'cotizaciones', 'totalesPorCotizacion'));
     }
 
     public function showCotizacion(Store $store, \App\Models\Cotizacion $cotizacion, CotizacionService $cotizacionService, StorePermissionService $permission)
@@ -215,10 +220,11 @@ class StoreController extends Controller
             abort(404);
         }
 
-        $cotizacion->load(['user', 'customer', 'items.product']);
+        $cotizacion->load(['user', 'customer', 'items.product', 'invoice']);
         $itemsConPrecios = $cotizacionService->obtenerItemsConPrecios($store, $cotizacion);
+        $preConversion = $cotizacionService->validarPreConversion($cotizacion);
 
-        return view('stores.ventas.cotizacion-detalle', compact('store', 'cotizacion', 'itemsConPrecios'));
+        return view('stores.ventas.cotizacion-detalle', compact('store', 'cotizacion', 'itemsConPrecios', 'preConversion'));
     }
 
     public function destroyCotizacion(Store $store, \App\Models\Cotizacion $cotizacion, CotizacionService $cotizacionService, StorePermissionService $permission)

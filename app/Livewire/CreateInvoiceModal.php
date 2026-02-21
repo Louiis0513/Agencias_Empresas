@@ -6,7 +6,9 @@ use App\Models\ProductItem;
 use App\Models\Store;
 use App\Models\Product;
 use App\Models\Customer;
+use App\Models\Cotizacion;
 use App\Services\CajaService;
+use App\Services\CotizacionService;
 use App\Services\InventarioService;
 use App\Services\VentaService;
 use Exception;
@@ -68,6 +70,16 @@ class CreateInvoiceModal extends Component
     public array $bolsillosBancariosIds = [];
     /** Partes del pago cuando status = PAID. [ ['method' => 'CASH', 'amount' => '10000', 'bolsillo_id' => 1, 'recibido' => '15000'], ... ] */
     public array $paymentParts = [];
+
+    /** Conversión desde cotización */
+    public ?int $cotizacion_id = null;
+    public bool $confirmarVencida = false;
+    /** 'cotizado' | 'actual' - elegido por el usuario cuando hay discrepancias de precio */
+    public ?string $usarPrecio = null;
+    /** Mostrar bloque "Precios han cambiado" con botones Mantener cotizado / Usar actual */
+    public bool $mostrarEleccionPrecio = false;
+    /** Mostrar checkbox para confirmar facturar cotización vencida (tras error del backend) */
+    public bool $mostrarCheckVencida = false;
 
     /**
      * Devuelve el máximo permitido para el monto de un pago dado, considerando:
@@ -215,6 +227,11 @@ class CreateInvoiceModal extends Component
         $this->total = 0;
         $this->status = 'PAID';
         $this->paymentParts = [];
+        $this->cotizacion_id = null;
+        $this->confirmarVencida = false;
+        $this->usarPrecio = null;
+        $this->mostrarEleccionPrecio = false;
+        $this->mostrarCheckVencida = false;
         $this->resetValidation();
         $this->cargarBolsillos(); 
         $this->calcularTotales();
@@ -887,7 +904,7 @@ class CreateInvoiceModal extends Component
         return Store::find($this->storeId);
     }
 
-    public function save(VentaService $ventaService)
+    public function save(VentaService $ventaService, CotizacionService $cotizacionService)
     {
         if ($this->saving) {
             return;
@@ -903,13 +920,13 @@ class CreateInvoiceModal extends Component
         }
 
         try {
-            $this->saveInvoice($ventaService, $store);
+            $this->saveInvoice($ventaService, $cotizacionService, $store);
         } finally {
             $lock->release();
         }
     }
 
-    protected function saveInvoice(VentaService $ventaService, ?Store $store): void
+    protected function saveInvoice(VentaService $ventaService, CotizacionService $cotizacionService, ?Store $store): void
     {
         // Validaciones
         if (!$this->customer_id) {
@@ -1028,7 +1045,22 @@ class CreateInvoiceModal extends Component
                     ];
                 }, array_filter($this->paymentParts, fn ($p) => ((float) ($p['amount'] ?? 0)) > 0));
             }
-            $ventaService->registrarVenta($store, Auth::id(), $payload);
+
+            if ($this->cotizacion_id) {
+                $cotizacion = Cotizacion::find($this->cotizacion_id);
+                if (! $cotizacion || $cotizacion->store_id != $store->id) {
+                    $this->saving = false;
+                    $this->addError('customer_id', 'Cotización no encontrada o no pertenece a esta tienda.');
+                    return;
+                }
+                $opciones = [
+                    'confirmar_vencida' => $this->confirmarVencida,
+                    'usar_precio' => $this->usarPrecio,
+                ];
+                $cotizacionService->convertirAFactura($store, (int) Auth::id(), $cotizacion, $payload, $opciones);
+            } else {
+                $ventaService->registrarVenta($store, Auth::id(), $payload);
+            }
 
             // Resetear formulario
             $this->resetFormulario();
@@ -1037,7 +1069,14 @@ class CreateInvoiceModal extends Component
                 ->with('success', 'Factura creada correctamente.');
         } catch (\Exception $e) {
             $this->saving = false;
-            $this->addError('customer_id', $e->getMessage());
+            $msg = $e->getMessage();
+            if (str_contains($msg, 'Precios han cambiado')) {
+                $this->mostrarEleccionPrecio = true;
+            }
+            if (str_contains($msg, 'vencida')) {
+                $this->mostrarCheckVencida = true;
+            }
+            $this->addError('customer_id', $msg);
         }
     }
     // =========================================================================
@@ -1045,22 +1084,31 @@ class CreateInvoiceModal extends Component
     // =========================================================================
 
     #[On('load-items-from-cart')]
-    public function loadFromCart(array $items, ?int $customer_id = null): void
+    public function loadFromCart(array $items, ?int $customer_id = null, ?int $cotizacion_id = null): void
     {
+        // Livewire.dispatch puede enviar un solo objeto { items, customer_id, cotizacion_id }; extraer si es el caso.
+        if (isset($items['items']) && is_array($items['items'])) {
+            $customer_id = $customer_id ?? ($items['customer_id'] ?? null);
+            $cotizacion_id = $cotizacion_id ?? ($items['cotizacion_id'] ?? null);
+            $items = $items['items'];
+        }
+
         // 1. Limpiar el estado actual
         $this->resetFormulario();
 
+        $this->cotizacion_id = $cotizacion_id !== null ? (int) $cotizacion_id : null;
+
         // 2. Cargar Cliente si existe
         if ($customer_id) {
-            $this->seleccionarCliente($customer_id);
+            $this->seleccionarCliente((int) $customer_id);
         }
 
         // 3. Mapear Items del Carrito a Items de Factura
         foreach ($items as $item) {
             $qty = (int) ($item['quantity'] ?? 1);
             $price = (float) ($item['price'] ?? 0);
-            
-            // Estructura compatible con $this->productosSeleccionados
+            $priceCotizado = isset($item['price_cotizado']) ? (float) $item['price_cotizado'] : $price;
+
             $this->productosSeleccionados[] = [
                 'product_id' => $item['product_id'],
                 'name' => $item['name'],
@@ -1072,14 +1120,55 @@ class CreateInvoiceModal extends Component
                 'variant_features' => $item['variant_features'] ?? [],
                 'variant_display_name' => $item['variant_display_name'] ?? '',
                 'serial_numbers' => $item['serial_numbers'] ?? [],
+                'price_cotizado' => $priceCotizado,
+                'precio_bloqueado' => false,
             ];
         }
 
         // 4. Calcular Totales con los nuevos items
         $this->calcularTotales();
 
-        // 5. Abrir el modal (Asegura que se muestre al recibir los datos)
-        $this->dispatch('open-modal', 'create-invoice'); 
+        // 5. Abrir el modal
+        $this->dispatch('open-modal', 'create-invoice');
+    }
+
+    /** Aplica precio cotizado a todos los ítems y bloquea edición (elección "Mantener precio cotizado"). */
+    public function aplicarPrecioCotizado(): void
+    {
+        foreach ($this->productosSeleccionados as $i => $producto) {
+            $cotizado = (float) ($producto['price_cotizado'] ?? $producto['price']);
+            $this->productosSeleccionados[$i]['price'] = $cotizado;
+            $this->productosSeleccionados[$i]['subtotal'] = $cotizado * (int) ($producto['quantity'] ?? 1);
+            $this->productosSeleccionados[$i]['precio_bloqueado'] = true;
+        }
+        $this->usarPrecio = 'cotizado';
+        $this->mostrarEleccionPrecio = false;
+        $this->calcularTotales();
+    }
+
+    /** Aplica precios actuales desde la cotización (backend) y desbloquea (elección "Usar precio actual"). */
+    public function aplicarPrecioActual(CotizacionService $cotizacionService): void
+    {
+        if (! $this->cotizacion_id) {
+            return;
+        }
+        $store = $this->getStoreProperty();
+        $cotizacion = Cotizacion::with('items')->find($this->cotizacion_id);
+        if (! $store || ! $cotizacion || $cotizacion->store_id !== (int) $store->id) {
+            return;
+        }
+        $precios = $cotizacionService->obtenerPreciosActualesEnOrden($store, $cotizacion);
+        foreach ($this->productosSeleccionados as $i => $producto) {
+            if (isset($precios[$i])) {
+                $p = $precios[$i];
+                $this->productosSeleccionados[$i]['price'] = $p;
+                $this->productosSeleccionados[$i]['subtotal'] = $p * (int) ($producto['quantity'] ?? 1);
+            }
+            $this->productosSeleccionados[$i]['precio_bloqueado'] = false;
+        }
+        $this->usarPrecio = 'actual';
+        $this->mostrarEleccionPrecio = false;
+        $this->calcularTotales();
     }
 
     public function render()
