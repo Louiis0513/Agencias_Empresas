@@ -24,16 +24,9 @@ class CreateInvoiceModal extends Component
     /** Evita doble envío del formulario (cuentas por cobrar duplicadas). */
     protected bool $saving = false;
 
-    // Cliente
+    // Cliente (actualizado por CustomerSearchSelect vía eventos customer-selected / customer-cleared)
     public ?int $customer_id = null;
-    public ?array $clienteSeleccionado = null; // ['id' => X, 'name' => '...', 'document_number' => '...', ...]
-
-    /** Modal buscar cliente: filtros identificados por tipo */
-    public bool $mostrarModalCliente = false;
-    public string $filtroClienteNombre = '';
-    public string $filtroClienteDocumento = '';
-    public string $filtroClienteTelefono = '';
-    public array $clientesEncontrados = [];
+    public ?array $clienteSeleccionado = null;
 
     // Productos (cada ítem: product_id, name, price, quantity, subtotal; opcional: type, variant_display_name, variant_features, serial_numbers)
     public array $productosSeleccionados = [];
@@ -212,7 +205,6 @@ class CreateInvoiceModal extends Component
         $this->saving = false;
         $this->customer_id = null;
         $this->clienteSeleccionado = null;
-        $this->cerrarModalCliente();
         $this->productosSeleccionados = [];
         $this->pendienteSimple = null;
         $this->pendienteBatch = null;
@@ -348,96 +340,18 @@ class CreateInvoiceModal extends Component
         return round($this->total - $this->totalPagado, 2);
     }
 
-    public function abrirModalCliente(): void
+    #[On('customer-selected')]
+    public function onCustomerSelected($customer_id, $customer = null): void
     {
-        $this->mostrarModalCliente = true;
-        $this->filtroClienteNombre = '';
-        $this->filtroClienteDocumento = '';
-        $this->filtroClienteTelefono = '';
-        $this->clientesEncontrados = [];
+        $this->customer_id = (int) $customer_id;
+        $this->clienteSeleccionado = is_array($customer) ? $customer : null;
     }
 
-    public function cerrarModalCliente(): void
-    {
-        $this->mostrarModalCliente = false;
-        $this->filtroClienteNombre = '';
-        $this->filtroClienteDocumento = '';
-        $this->filtroClienteTelefono = '';
-        $this->clientesEncontrados = [];
-    }
-
-    /** Busca clientes por filtros identificados: nombre, documento o teléfono. */
-    public function buscarClientes(): void
-    {
-        $store = $this->getStoreProperty();
-        if (! $store) {
-            $this->clientesEncontrados = [];
-            return;
-        }
-
-        $nombre = trim($this->filtroClienteNombre);
-        $documento = trim($this->filtroClienteDocumento);
-        $telefono = trim($this->filtroClienteTelefono);
-
-        if ($nombre === '' && $documento === '' && $telefono === '') {
-            $this->clientesEncontrados = [];
-            return;
-        }
-
-        $query = Customer::deTienda($store->id);
-
-        if ($nombre !== '') {
-            $query->where('name', 'like', '%' . $nombre . '%');
-        }
-        if ($documento !== '') {
-            $query->where('document_number', 'like', '%' . $documento . '%');
-        }
-        if ($telefono !== '') {
-            $query->where('phone', 'like', '%' . $telefono . '%');
-        }
-
-        $this->clientesEncontrados = $query->orderBy('name')
-            ->limit(15)
-            ->get()
-            ->map(fn ($customer) => [
-                'id' => $customer->id,
-                'name' => $customer->name,
-                'document_number' => $customer->document_number,
-                'email' => $customer->email,
-                'phone' => $customer->phone,
-            ])
-            ->toArray();
-    }
-
-    public function seleccionarCliente($clienteId): void
-    {
-        $store = $this->getStoreProperty();
-        if (! $store) {
-            return;
-        }
-
-        $cliente = Customer::where('id', $clienteId)
-            ->where('store_id', $store->id)
-            ->first();
-
-        if ($cliente) {
-            $this->customer_id = $cliente->id;
-            $this->clienteSeleccionado = [
-                'id' => $cliente->id,
-                'name' => $cliente->name,
-                'document_number' => $cliente->document_number,
-                'email' => $cliente->email,
-                'phone' => $cliente->phone,
-            ];
-            $this->cerrarModalCliente();
-        }
-    }
-
-    public function limpiarCliente(): void
+    #[On('customer-cleared')]
+    public function onCustomerCleared(): void
     {
         $this->customer_id = null;
         $this->clienteSeleccionado = null;
-        $this->cerrarModalCliente();
     }
 
     /** Abre el modal de selección de producto (contexto factura). */
@@ -1100,7 +1014,20 @@ class CreateInvoiceModal extends Component
 
         // 2. Cargar Cliente si existe
         if ($customer_id) {
-            $this->seleccionarCliente((int) $customer_id);
+            $store = $this->getStoreProperty();
+            if ($store) {
+                $cliente = Customer::where('id', (int) $customer_id)->where('store_id', $store->id)->first();
+                if ($cliente) {
+                    $this->customer_id = $cliente->id;
+                    $this->clienteSeleccionado = [
+                        'id' => $cliente->id,
+                        'name' => $cliente->name,
+                        'document_number' => $cliente->document_number,
+                        'email' => $cliente->email,
+                        'phone' => $cliente->phone,
+                    ];
+                }
+            }
         }
 
         // 3. Mapear Items del Carrito a Items de Factura

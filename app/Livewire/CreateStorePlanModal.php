@@ -3,8 +3,8 @@
 namespace App\Livewire;
 
 use App\Models\Store;
-use App\Models\StorePlan;
 use App\Services\StorePermissionService;
+use App\Services\SubscriptionService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
@@ -36,7 +36,7 @@ class CreateStorePlanModal extends Component
         ];
     }
 
-    public function save(StorePermissionService $permission)
+    public function save(StorePermissionService $permission, SubscriptionService $subscriptionService)
     {
         $this->validate();
 
@@ -47,15 +47,16 @@ class CreateStorePlanModal extends Component
 
         $permission->authorize($store, 'subscriptions.create');
 
-        StorePlan::create([
-            'store_id' => $store->id,
-            'name' => trim($this->name),
-            'description' => $this->description ? trim($this->description) : null,
-            'price' => (float) $this->price,
-            'duration_days' => (int) $this->duration_days,
-            'daily_entries_limit' => $this->daily_entries_limit !== '' && $this->daily_entries_limit !== null ? (int) $this->daily_entries_limit : null,
-            'total_entries_limit' => $this->total_entries_limit !== '' && $this->total_entries_limit !== null ? (int) $this->total_entries_limit : null,
-        ]);
+        $data = [
+            'name' => $this->name,
+            'description' => $this->description,
+            'price' => $this->price,
+            'duration_days' => $this->duration_days,
+            'daily_entries_limit' => $this->daily_entries_limit,
+            'total_entries_limit' => $this->total_entries_limit,
+        ];
+
+        $subscriptionService->createPlan($store, $data);
 
         session()->flash('success', 'Plan creado correctamente.');
 

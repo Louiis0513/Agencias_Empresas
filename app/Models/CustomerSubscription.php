@@ -45,6 +45,11 @@ class CustomerSubscription extends Model
         return $this->belongsTo(StorePlan::class);
     }
 
+    public function subscriptionEntries()
+    {
+        return $this->hasMany(SubscriptionEntry::class);
+    }
+
     /** Si la suscripción está vigente (dentro del rango de fechas) */
     public function isActive(): bool
     {

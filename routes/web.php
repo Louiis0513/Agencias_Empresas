@@ -16,6 +16,7 @@ use App\Http\Controllers\StorePurchaseController;
 use App\Http\Controllers\StoreAccountPayableController;
 use App\Http\Controllers\StoreAccountReceivableController;
 use App\Http\Controllers\StoreSubscriptionController;
+use App\Http\Controllers\StoreAsistenciaController;
 
 Route::view('/', 'welcome');
 
@@ -91,8 +92,12 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::delete('/proveedores/{proveedor}', [StoreProveedorController::class, 'destroy'])->name('proveedores.destroy');
 
     // Suscripciones (planes, membresías)
+    Route::get('/suscripciones/membresias', [StoreSubscriptionController::class, 'memberships'])->name('subscriptions.memberships');
     Route::get('/suscripciones/planes', [StoreSubscriptionController::class, 'plans'])->name('subscriptions.plans');
     Route::delete('/suscripciones/planes/{plan}', [StoreSubscriptionController::class, 'destroy'])->name('subscriptions.plans.destroy');
+
+    // Asistencias
+    Route::get('/asistencias', [StoreAsistenciaController::class, 'index'])->name('asistencias');
 
     // Clientes
     Route::get('/clientes', [StoreCustomerController::class, 'index'])->name('customers');

@@ -89,7 +89,7 @@ new class extends Component
                         </x-nav-link>
                         @endif
                         @if($canSuscripciones)
-                        <x-nav-link :href="route('stores.subscriptions.plans', $store)" :active="request()->routeIs('stores.subscriptions*')" wire:navigate>
+                        <x-nav-link :href="route('stores.subscriptions.memberships', $store)" :active="request()->routeIs('stores.subscriptions*') || request()->routeIs('stores.asistencias*')" wire:navigate>
                             {{ __('Suscripciones') }}
                         </x-nav-link>
                         @endif
@@ -169,8 +169,9 @@ new class extends Component
                 $inFinanciero = (request()->routeIs('stores.cajas*') || request()->routeIs('stores.activos*') || request()->routeIs('stores.accounts-payables*') || request()->routeIs('stores.accounts-receivables*') || request()->routeIs('stores.comprobantes-egreso*') || request()->routeIs('stores.comprobantes-ingreso*') || request()->routeIs('stores.invoices*') || (request()->routeIs('stores.purchases*') && !$isProductPurchase)) && !request()->routeIs('stores.product-purchases*');
                 $inVentas = request()->routeIs('stores.ventas*');
                 $inSuscripciones = request()->routeIs('stores.subscriptions*');
+                $inAsistencias = request()->routeIs('stores.asistencias*');
             @endphp
-            @if($inPersonas || $inProductos || $inFinanciero || $inVentas || $inSuscripciones)
+            @if($inPersonas || $inProductos || $inFinanciero || $inVentas || $inSuscripciones || $inAsistencias)
                 <div class="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
                     <div class="flex gap-1 py-2 overflow-x-auto">
                         @if($inPersonas)
@@ -269,10 +270,16 @@ new class extends Component
                             </a>
                             @endstoreCan
                         @endif
-                        @if($inSuscripciones)
+                        @if($inSuscripciones || $inAsistencias)
                             @storeCan($store, 'subscriptions.view')
+                            <a href="{{ route('stores.subscriptions.memberships', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.subscriptions.memberships*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
+                                {{ __('Membresías') }}
+                            </a>
                             <a href="{{ route('stores.subscriptions.plans', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.subscriptions.plans*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
-                                {{ __('Planes actuales') }}
+                                {{ __('Planes') }}
+                            </a>
+                            <a href="{{ route('stores.asistencias', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.asistencias*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
+                                {{ __('Asistencias') }}
                             </a>
                             @endstoreCan
                         @endif
@@ -402,8 +409,14 @@ new class extends Component
                 @endif
                 @if($canSuscripciones)
                 <div class="px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">{{ __('Suscripciones') }}</div>
-                <x-responsive-nav-link :href="route('stores.subscriptions.plans', $store)" :active="request()->routeIs('stores.subscriptions*')" wire:navigate>
-                    {{ __('Planes actuales') }}
+                <x-responsive-nav-link :href="route('stores.subscriptions.memberships', $store)" :active="request()->routeIs('stores.subscriptions.memberships*')" wire:navigate>
+                    {{ __('Membresías') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('stores.subscriptions.plans', $store)" :active="request()->routeIs('stores.subscriptions.plans*')" wire:navigate>
+                    {{ __('Planes') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('stores.asistencias', $store)" :active="request()->routeIs('stores.asistencias*')" wire:navigate>
+                    {{ __('Asistencias') }}
                 </x-responsive-nav-link>
                 @endif
                 <div class="border-t border-gray-200 dark:border-gray-600 my-2"></div>

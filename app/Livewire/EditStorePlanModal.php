@@ -3,8 +3,8 @@
 namespace App\Livewire;
 
 use App\Models\Store;
-use App\Models\StorePlan;
 use App\Services\StorePermissionService;
+use App\Services\SubscriptionService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
@@ -25,7 +25,7 @@ class EditStorePlanModal extends Component
         $this->storeId = $storeId;
     }
 
-    public function loadPlan($planId = null): void
+    public function loadPlan($planId = null, SubscriptionService $subscriptionService): void
     {
         if ($planId === null) {
             return;
@@ -44,9 +44,7 @@ class EditStorePlanModal extends Component
             return;
         }
 
-        $plan = StorePlan::where('id', $this->planId)
-            ->where('store_id', $store->id)
-            ->first();
+        $plan = $subscriptionService->getPlanForStore($store, $this->planId);
 
         if ($plan) {
             $this->name = $plan->name;
@@ -77,7 +75,7 @@ class EditStorePlanModal extends Component
         return Store::find($this->storeId);
     }
 
-    public function update(StorePermissionService $permission): mixed
+    public function update(StorePermissionService $permission, SubscriptionService $subscriptionService): mixed
     {
         $this->validate();
 
@@ -92,18 +90,16 @@ class EditStorePlanModal extends Component
             return null;
         }
 
-        $plan = StorePlan::where('id', $this->planId)
-            ->where('store_id', $store->id)
-            ->firstOrFail();
+        $data = [
+            'name' => $this->name,
+            'description' => $this->description,
+            'price' => $this->price,
+            'duration_days' => $this->duration_days,
+            'daily_entries_limit' => $this->daily_entries_limit,
+            'total_entries_limit' => $this->total_entries_limit,
+        ];
 
-        $plan->update([
-            'name' => trim($this->name),
-            'description' => $this->description !== '' && $this->description !== null ? trim($this->description) : null,
-            'price' => (float) $this->price,
-            'duration_days' => (int) $this->duration_days,
-            'daily_entries_limit' => $this->daily_entries_limit !== '' && $this->daily_entries_limit !== null ? (int) $this->daily_entries_limit : null,
-            'total_entries_limit' => $this->total_entries_limit !== '' && $this->total_entries_limit !== null ? (int) $this->total_entries_limit : null,
-        ]);
+        $subscriptionService->updatePlan($store, $this->planId, $data);
 
         session()->flash('success', 'Plan actualizado correctamente.');
 

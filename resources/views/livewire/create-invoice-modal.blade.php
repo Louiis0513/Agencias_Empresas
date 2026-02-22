@@ -10,34 +10,9 @@
             </div>
 
             <div class="space-y-8">
-                {{-- Sección: Cliente --}}
+                {{-- Sección: Cliente (componente reutilizable CustomerSearchSelect) --}}
                 <div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
-                    <x-input-label value="{{ __('Cliente') }} *" class="text-slate-300 font-semibold mb-2" />
-                    @if($clienteSeleccionado)
-                        <div class="p-4 bg-slate-800 border-l-4 border-indigo-500 rounded-r-lg shadow-inner">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <p class="font-bold text-indigo-400 text-lg">{{ $clienteSeleccionado['name'] }}</p>
-                                    <div class="flex space-x-4 mt-1 text-sm text-slate-300">
-                                        @if($clienteSeleccionado['document_number'])
-                                            <span class="flex items-center"><svg class="w-4 h-4 mr-1 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"></path></svg> {{ $clienteSeleccionado['document_number'] }}</span>
-                                        @endif
-                                        @if($clienteSeleccionado['phone'])
-                                            <span class="flex items-center"><svg class="w-4 h-4 mr-1 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg> {{ $clienteSeleccionado['phone'] }}</span>
-                                        @endif
-                                    </div>
-                                </div>
-                                <button type="button" wire:click="limpiarCliente" class="p-2 text-slate-400 hover:text-red-400 transition-colors">
-                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                                </button>
-                            </div>
-                        </div>
-                    @else
-                        <button type="button" wire:click="abrirModalCliente" class="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg transition-all shadow-lg shadow-indigo-500/20 uppercase text-xs tracking-widest">
-                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
-                            Seleccionar cliente
-                        </button>
-                    @endif
+                    <livewire:customer-search-select :store-id="$storeId" :selected-customer-id="$customer_id" emit-event-name="customer-selected" />
                     <x-input-error :messages="$errors->get('customer_id')" class="mt-2 text-red-400" />
 
                     @if($mostrarCheckVencida && $cotizacion_id)
@@ -378,87 +353,6 @@
             </div>
         </form>
     </x-modal>
-
-    {{-- Modal: Buscar y seleccionar cliente --}}
-    @if($mostrarModalCliente)
-        <div class="fixed inset-0 overflow-y-auto" style="z-index: 100;" aria-modal="true">
-            <div class="flex min-h-full items-center justify-center p-4">
-                <div class="fixed inset-0 bg-slate-900/80 transition-opacity" wire:click="cerrarModalCliente"></div>
-                <div class="relative bg-slate-800 rounded-2xl shadow-2xl border border-slate-600 max-w-2xl w-full max-h-[90vh] flex flex-col">
-                    <div class="p-6 border-b border-slate-600">
-                        <h3 class="text-lg font-bold text-white">Buscar cliente</h3>
-                        <p class="text-sm text-slate-400 mt-1">Indica al menos un criterio (nombre, documento o teléfono) y pulsa Buscar.</p>
-                        <div class="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            <div>
-                                <label for="modal-cliente-nombre" class="block text-xs font-bold text-slate-400 uppercase mb-1">Nombre</label>
-                                <input type="text" id="modal-cliente-nombre" wire:model="filtroClienteNombre" placeholder="Ej: Juan Pérez"
-                                    class="w-full rounded-lg border-slate-600 bg-slate-900 text-white text-sm focus:ring-indigo-500 focus:border-indigo-500">
-                            </div>
-                            <div>
-                                <label for="modal-cliente-documento" class="block text-xs font-bold text-slate-400 uppercase mb-1">Documento</label>
-                                <input type="text" id="modal-cliente-documento" wire:model="filtroClienteDocumento" placeholder="Ej: 12345678"
-                                    class="w-full rounded-lg border-slate-600 bg-slate-900 text-white text-sm focus:ring-indigo-500 focus:border-indigo-500">
-                            </div>
-                            <div>
-                                <label for="modal-cliente-telefono" class="block text-xs font-bold text-slate-400 uppercase mb-1">Teléfono</label>
-                                <input type="text" id="modal-cliente-telefono" wire:model="filtroClienteTelefono" placeholder="Ej: 0991234567"
-                                    class="w-full rounded-lg border-slate-600 bg-slate-900 text-white text-sm focus:ring-indigo-500 focus:border-indigo-500">
-                            </div>
-                        </div>
-                        <div class="mt-4 flex justify-end">
-                            <button type="button" wire:click="buscarClientes"
-                                class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg text-sm transition-colors">
-                                Buscar
-                            </button>
-                        </div>
-                    </div>
-                    <div class="p-4 overflow-y-auto flex-1">
-                        @if(count($clientesEncontrados) > 0)
-                            <table class="min-w-full divide-y divide-slate-600">
-                                <thead class="bg-slate-900/50 sticky top-0">
-                                    <tr>
-                                        <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-400">Nombre</th>
-                                        <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-400">Documento</th>
-                                        <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-400">Teléfono</th>
-                                        <th class="px-4 py-3 text-right text-xs font-bold uppercase text-slate-400">Acción</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-slate-600 bg-slate-900/30">
-                                    @foreach($clientesEncontrados as $cliente)
-                                        <tr class="hover:bg-slate-700/50 transition-colors">
-                                            <td class="px-4 py-3 text-sm text-white font-medium">{{ $cliente['name'] }}</td>
-                                            <td class="px-4 py-3 text-sm text-slate-400">{{ $cliente['document_number'] ?? '—' }}</td>
-                                            <td class="px-4 py-3 text-sm text-slate-400">{{ $cliente['phone'] ?? '—' }}</td>
-                                            <td class="px-4 py-3 text-sm text-right">
-                                                <button type="button" wire:click="seleccionarCliente({{ $cliente['id'] }})"
-                                                    class="text-indigo-400 hover:text-indigo-300 font-bold text-sm">
-                                                    Seleccionar
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        @else
-                            <p class="text-sm text-slate-500 text-center py-8">
-                                @if(!empty(trim($filtroClienteNombre)) || !empty(trim($filtroClienteDocumento)) || !empty(trim($filtroClienteTelefono)))
-                                    No se encontraron clientes con los filtros indicados. Prueba con otros criterios.
-                                @else
-                                    Indica nombre, documento o teléfono y haz clic en «Buscar».
-                                @endif
-                            </p>
-                        @endif
-                    </div>
-                    <div class="p-4 border-t border-slate-600 flex justify-end">
-                        <button type="button" wire:click="cerrarModalCliente"
-                            class="px-5 py-2.5 border border-slate-600 rounded-lg text-slate-300 hover:bg-slate-700 font-bold text-sm transition-colors">
-                            Cerrar
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    @endif
 
     {{-- Modal: Unidades disponibles (producto serializado) --}}
     @if($productoSerializadoId !== null)
