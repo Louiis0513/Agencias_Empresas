@@ -58,8 +58,10 @@
                                             <td class="px-4 py-4 text-sm text-gray-900 dark:text-gray-100">{{ $subscription->entries_used }}</td>
                                             <td class="px-4 py-4 text-sm text-gray-600 dark:text-gray-400">{{ $subscription->last_entry_at?->format('d/m/Y H:i') ?? '—' }}</td>
                                             <td class="px-4 py-4 text-sm">
-                                                @if($subscription->isActive())
+                                                @if($subscription->getStatus() === 'active')
                                                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">Activa</span>
+                                                @elseif($subscription->getStatus() === 'pending')
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">Pendiente</span>
                                                 @else
                                                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">Vencida</span>
                                                 @endif

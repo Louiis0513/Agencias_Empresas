@@ -203,7 +203,7 @@ class SubscriptionService
                     ->orderBy('expires_at', 'desc')
                     ->first();
                 if ($ultima && $ultima->expires_at->isPast()) {
-                    throw new InvalidArgumentException('Suscripción vencida. Fecha de vencimiento: ' . $ultima->expires_at->format('d/m/Y'));
+                    throw new InvalidArgumentException('No hay suscripción activa para la fecha indicada. Última suscripción vencida el ' . $ultima->expires_at->format('d/m/Y') . '.');
                 }
                 throw new InvalidArgumentException('El cliente no tiene una suscripción activa en esa fecha.');
             }
@@ -211,9 +211,14 @@ class SubscriptionService
             $subscription->load('storePlan');
             $plan = $subscription->storePlan;
 
-            if ($plan->daily_entries_limit === 1 && $subscription->last_entry_at !== null) {
-                if ($subscription->last_entry_at->toDateString() === $dateTime->toDateString()) {
-                    throw new InvalidArgumentException('Ya registró su entrada para ese día.');
+            if ($plan->daily_entries_limit !== null) {
+                $dayStart = $dateTime->copy()->startOfDay();
+                $dayEnd = $dateTime->copy()->endOfDay();
+                $entriesThatDay = SubscriptionEntry::where('customer_subscription_id', $subscription->id)
+                    ->whereBetween('recorded_at', [$dayStart, $dayEnd])
+                    ->count();
+                if ($entriesThatDay >= $plan->daily_entries_limit) {
+                    throw new InvalidArgumentException('Ya alcanzó el límite de entradas para ese día (' . $plan->daily_entries_limit . ' por día).');
                 }
             }
 

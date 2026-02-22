@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -50,11 +51,27 @@ class CustomerSubscription extends Model
         return $this->hasMany(SubscriptionEntry::class);
     }
 
-    /** Si la suscripción está vigente (dentro del rango de fechas) */
-    public function isActive(): bool
+    /**
+     * Estado de la suscripción respecto a una fecha.
+     *
+     * @return 'pending'|'active'|'expired'
+     */
+    public function getStatus(?Carbon $at = null): string
     {
-        $now = now();
-        return $now->between($this->starts_at, $this->expires_at);
+        $at = $at ?? now();
+        if ($this->starts_at->gt($at)) {
+            return 'pending';
+        }
+        if ($this->expires_at->lt($at)) {
+            return 'expired';
+        }
+        return 'active';
+    }
+
+    /** Si la suscripción está vigente (dentro del rango de fechas) */
+    public function isActive(?Carbon $at = null): bool
+    {
+        return $this->getStatus($at) === 'active';
     }
 
     /** Si puede registrar una entrada hoy (respeta daily_entries_limit) */
