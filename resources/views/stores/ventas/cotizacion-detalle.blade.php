@@ -67,7 +67,59 @@
         </div>
     </x-slot>
 
-    <div class="py-12">
+    {{-- Componente en window de forma síncrona para que cualquier evaluador (Livewire/Alpine) lo encuentre; Alpine.data se registra en alpine:init --}}
+    <script>
+        window.cotizacionFacturar = function(rows, customerId, cotizacionId) {
+            return {
+                rows: rows,
+                customerId: customerId,
+                cotizacionId: cotizacionId,
+                itemSelections: {},
+                totalSum: 0,
+                init: function() {
+                    var self = this;
+                    this.rows.forEach(function(r, i) {
+                        if (r.precio_cambio) self.itemSelections[i] = 'cotizado';
+                    });
+                    this.totalSum = this.computeTotalSum();
+                    this.$watch('itemSelections', function() { self.totalSum = self.computeTotalSum(); }, { deep: true });
+                },
+                getPrice: function(row, index) {
+                    if (row.precio_cambio)
+                        return this.itemSelections[index] === 'actual' ? row.unit_price_actual : row.unit_price;
+                    return row.unit_price;
+                },
+                getSubtotal: function(row, index) { return this.getPrice(row, index) * row.quantity; },
+                computeTotalSum: function() {
+                    return this.rows.reduce(function(sum, row, i) { return sum + this.getSubtotal(row, i); }.bind(this), 0);
+                },
+                formatNum: function(n) {
+                    return typeof n === 'number' ? n.toLocaleString('es', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : n;
+                },
+                facturar: function() {
+                    var items = this.rows.map(function(row, i) {
+                        return {
+                            product_id: row.product_id,
+                            name: row.name,
+                            quantity: row.quantity,
+                            price: this.getPrice(row, i),
+                            type: row.type,
+                            product_variant_id: row.product_variant_id,
+                            variant_features: row.variant_features || [],
+                            variant_display_name: row.variant_display_name || '',
+                            serial_numbers: row.serial_numbers || []
+                        };
+                    }.bind(this));
+                    Livewire.dispatch('load-items-from-cart', { items: items, customer_id: this.customerId, cotizacion_id: this.cotizacionId });
+                }
+            };
+        };
+        document.addEventListener('alpine:init', function() {
+            Alpine.data('cotizacionFacturar', window.cotizacionFacturar);
+        });
+    </script>
+
+    <div class="py-12" wire:ignore>
         <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
             @if($preConversion['vencida'] ?? false)
                 <div class="mb-4 p-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700">
@@ -111,9 +163,8 @@
 
                     {{-- Ítems de la cotización con precios y selectores por ítem --}}
                     <div class="border-t border-gray-200 dark:border-gray-700 pt-4"
-                         x-data="cotizacionFacturar({{ \Illuminate\Support\Js::from($itemsParaFacturarData) }}, {{ $cotizacion->customer_id ?? 'null' }}, {{ $cotizacion->id }})"
-                         x-init="$nextTick(() => { rows.forEach((r, i) => { if (r.precio_cambio) itemSelections[i] = 'cotizado' }) })"
-                         x-effect="itemSelections; if ($refs.totalDisplay && typeof total === 'number') $refs.totalDisplay.textContent = formatNum(total)">
+                         wire:ignore
+                         x-data="cotizacionFacturar({{ \Illuminate\Support\Js::from($itemsParaFacturarData) }}, {{ $cotizacion->customer_id ?? 'null' }}, {{ $cotizacion->id }})">
                         <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Productos</h3>
                         <div class="border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden">
                             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-600">
@@ -162,7 +213,7 @@
                             <div class="mt-4 flex flex-wrap items-center justify-end gap-4">
                                 <div class="rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 px-6 py-4 min-w-[200px]">
                                     <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Total</p>
-                                    <p class="text-xl font-bold text-gray-900 dark:text-white mt-1" x-ref="totalDisplay">{{ number_format($totalInicial, 2) }}</p>
+                                    <p class="text-xl font-bold text-gray-900 dark:text-white mt-1" x-text="formatNum(totalSum)">{{ number_format($totalInicial, 2) }}</p>
                                 </div>
                                 <button type="button"
                                     x-on:click="facturar()"
@@ -175,7 +226,7 @@
                             <div class="mt-4 flex justify-end">
                                 <div class="rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 px-6 py-4 min-w-[200px]">
                                     <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Total</p>
-                                    <p class="text-xl font-bold text-gray-900 dark:text-white mt-1">{{ number_format($totalInicial, 2) }}</p>
+                                    <p class="text-xl font-bold text-gray-900 dark:text-white mt-1" x-text="formatNum(totalSum)">{{ number_format($totalInicial, 2) }}</p>
                                 </div>
                             </div>
                             @endif
@@ -186,60 +237,4 @@
         </div>
     </div>
     <livewire:create-invoice-modal :store-id="$store->id" />
-
-    <script>
-        document.addEventListener('alpine:init', () => {
-            Alpine.data('cotizacionFacturar', (rows, customerId, cotizacionId) => {
-                const itemSelections = {};
-                rows.forEach((r, i) => {
-                    if (r.precio_cambio) itemSelections[i] = 'cotizado';
-                });
-                return {
-                rows: rows,
-                customerId: customerId,
-                cotizacionId: cotizacionId,
-                itemSelections: itemSelections,
-                getSelection(index) {
-                    return this.itemSelections[index] ?? 'cotizado';
-                },
-                setSelection(index, value) {
-                    this.itemSelections[index] = value;
-                },
-                getPrice(row, index) {
-                    if (row.precio_cambio) {
-                        return this.getSelection(index) === 'actual' ? row.unit_price_actual : row.unit_price;
-                    }
-                    return row.unit_price;
-                },
-                getSubtotal(row, index) {
-                    return this.getPrice(row, index) * row.quantity;
-                },
-                get total() {
-                    return this.rows.reduce((sum, row, i) => sum + this.getSubtotal(row, i), 0);
-                },
-                formatNum(n) {
-                    return typeof n === 'number' ? n.toLocaleString('es', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : n;
-                },
-                facturar() {
-                    const items = this.rows.map((row, i) => ({
-                        product_id: row.product_id,
-                        name: row.name,
-                        quantity: row.quantity,
-                        price: this.getPrice(row, i),
-                        type: row.type,
-                        product_variant_id: row.product_variant_id,
-                        variant_features: row.variant_features || [],
-                        variant_display_name: row.variant_display_name || '',
-                        serial_numbers: row.serial_numbers || [],
-                    }));
-                    Livewire.dispatch('load-items-from-cart', {
-                        items,
-                        customer_id: this.customerId,
-                        cotizacion_id: this.cotizacionId,
-                    });
-                },
-            };
-            });
-        });
-    </script>
 </x-app-layout>
