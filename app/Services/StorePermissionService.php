@@ -40,9 +40,14 @@ class StorePermissionService
 
     /**
      * Comprueba si el usuario tiene el permiso (por slug) en la tienda.
+     * El dueño de la tienda siempre tiene todos los permisos (sin depender de caché ni de la tabla permissions).
      */
     public function userHasPermission(User $user, Store $store, string $permissionSlug): bool
     {
+        if ($store->user_id === $user->id) {
+            return true;
+        }
+
         $permissions = $this->getUserPermissionsInStore($user, $store);
 
         return in_array($permissionSlug, $permissions, true);

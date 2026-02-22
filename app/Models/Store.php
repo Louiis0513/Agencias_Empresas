@@ -92,4 +92,14 @@ class Store extends Model
     {
         return $this->hasMany(AccountPayable::class);
     }
+
+    public function storePlans()
+    {
+        return $this->hasMany(StorePlan::class);
+    }
+
+    public function customerSubscriptions()
+    {
+        return $this->hasMany(CustomerSubscription::class);
+    }
 }

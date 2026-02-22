@@ -123,6 +123,12 @@ class PermissionSeeder extends Seeder
             // Ventas (carrito y cotizaciones)
             ['slug' => 'ventas.carrito.view', 'name' => 'Ver carrito de ventas', 'description' => 'Acceso al carrito de ventas'],
             ['slug' => 'cotizaciones.view', 'name' => 'Ver cotizaciones', 'description' => 'Ver las cotizaciones guardadas y eliminarlas'],
+
+            // Suscripciones (planes, membresías)
+            ['slug' => 'subscriptions.view', 'name' => 'Ver suscripciones', 'description' => 'Ver planes y suscripciones de la tienda'],
+            ['slug' => 'subscriptions.create', 'name' => 'Crear planes de suscripción', 'description' => 'Crear planes de suscripción o membresía'],
+            ['slug' => 'subscriptions.edit', 'name' => 'Editar planes de suscripción', 'description' => 'Modificar planes de suscripción'],
+            ['slug' => 'subscriptions.destroy', 'name' => 'Eliminar planes de suscripción', 'description' => 'Eliminar planes de suscripción'],
         ];
 
         foreach ($permissions as $p) {

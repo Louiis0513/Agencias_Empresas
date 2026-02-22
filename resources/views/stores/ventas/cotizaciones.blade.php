@@ -30,6 +30,7 @@
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Usuario</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Cliente</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Nota</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Vence en</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Ítems</th>
                                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Valor cotización</th>
                                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Valor actual</th>
@@ -39,7 +40,33 @@
                                 </thead>
                                 <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                                     @foreach($cotizaciones as $cot)
-                                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                                            x-data="{
+                                                venceAt: '{{ $cot->vence_at ? $cot->vence_at->format('Y-m-d') : '' }}',
+                                                get vencida() {
+                                                    if (!this.venceAt) return false;
+                                                    const [y, m, d] = this.venceAt.split('-').map(Number);
+                                                    const vence = new Date(y, m - 1, d);
+                                                    const hoy = new Date();
+                                                    hoy.setHours(0, 0, 0, 0);
+                                                    vence.setHours(0, 0, 0, 0);
+                                                    return vence < hoy;
+                                                },
+                                                get textoVence() {
+                                                    if (!this.venceAt) return null;
+                                                    const [y, m, d] = this.venceAt.split('-').map(Number);
+                                                    const vence = new Date(y, m - 1, d);
+                                                    const hoy = new Date();
+                                                    hoy.setHours(0, 0, 0, 0);
+                                                    vence.setHours(0, 0, 0, 0);
+                                                    const dias = Math.round((vence - hoy) / (24 * 60 * 60 * 1000));
+                                                    if (dias < 0) return '(vencida)';
+                                                    if (dias === 0) return '(vence hoy)';
+                                                    if (dias === 1) return '(vence mañana)';
+                                                    return '(vence en ' + dias + ' días)';
+                                                }
+                                            }"
+                                            :class="{ 'bg-red-50 dark:bg-red-900/20': venceAt && vencida }">
                                             <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">{{ $cot->id }}</td>
                                             <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300"
                                                 x-data="{ d: new Date('{{ $cot->created_at->utc()->toIso8601String() }}') }"
@@ -49,6 +76,15 @@
                                             <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{{ $cot->user->name ?? '—' }}</td>
                                             <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{{ $cot->customer?->name ?? '—' }}</td>
                                             <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 max-w-xs truncate" title="{{ $cot->nota }}">{{ $cot->nota }}</td>
+                                            <td class="px-4 py-3 text-sm"
+                                                :class="venceAt && vencida ? 'text-red-700 dark:text-red-300 font-medium' : 'text-gray-700 dark:text-gray-300'">
+                                                @if($cot->vence_at)
+                                                    {{ $cot->vence_at->format('d/m/Y') }}
+                                                    <span class="block text-xs" x-show="textoVence" x-text="textoVence"></span>
+                                                @else
+                                                    <span class="text-gray-400 dark:text-gray-500">—</span>
+                                                @endif
+                                            </td>
                                             <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{{ $cot->items->count() }}</td>
                                             @php
                                                 $totales = $totalesPorCotizacion[$cot->id] ?? ['total_cotizado' => 0, 'total_actual' => 0];
