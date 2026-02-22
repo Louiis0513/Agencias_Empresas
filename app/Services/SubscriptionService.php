@@ -157,6 +157,20 @@ class SubscriptionService
 
         $expiresAt = $startsAt->copy()->addDays($plan->duration_days);
 
+        // Validar que no exista una suscripción cruzada (mismo cliente/tienda, rangos solapados)
+        $existente = CustomerSubscription::where('store_id', $store->id)
+            ->where('customer_id', $customerId)
+            ->where('starts_at', '<=', $expiresAt)
+            ->where('expires_at', '>=', $startsAt)
+            ->first();
+
+        if ($existente) {
+            throw new InvalidArgumentException(
+                'El cliente ya tiene una suscripción vigente en ese período (desde ' .
+                $existente->starts_at->format('d/m/Y') . ' hasta ' . $existente->expires_at->format('d/m/Y') . '). No se permiten suscripciones cruzadas.'
+            );
+        }
+
         return CustomerSubscription::create([
             'store_id' => $store->id,
             'customer_id' => $customerId,

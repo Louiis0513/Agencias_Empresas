@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\ProductItem;
 use App\Models\ProductVariant;
 use App\Models\Store;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -43,7 +44,8 @@ class VentaService
         protected InventarioService $inventarioService,
         protected CajaService $cajaService,
         protected AccountReceivableService $accountReceivableService,
-        protected ComprobanteIngresoService $comprobanteIngresoService
+        protected ComprobanteIngresoService $comprobanteIngresoService,
+        protected SubscriptionService $subscriptionService
     ) {}
 
     /**
@@ -113,7 +115,26 @@ class VentaService
     }
 
     /**
-     * Venta a crédito: valida stock → crea factura PENDING → crea cuenta por cobrar (cuotas) → descuenta inventario.
+     * Separa los detalles en líneas de producto (inventario) y líneas de suscripción.
+     *
+     * @return array{0: array, 1: array} [productDetails, subscriptionDetails]
+     */
+    private function separarDetallesProductoSuscripcion(array $details): array
+    {
+        $productDetails = [];
+        $subscriptionDetails = [];
+        foreach ($details as $item) {
+            if (! empty($item['store_plan_id']) && (int) $item['store_plan_id'] > 0) {
+                $subscriptionDetails[] = $item;
+            } else {
+                $productDetails[] = $item;
+            }
+        }
+        return [$productDetails, $subscriptionDetails];
+    }
+
+    /**
+     * Venta a crédito: valida stock → crea factura PENDING → crea cuenta por cobrar (cuotas) → descuenta inventario → crea suscripciones.
      * Todo dentro de una transacción.
      *
      * @param  array  $datos  customer_id, subtotal, tax, discount, total, details, account_receivable (due_date?, cuotas: [{ amount, due_date }])
@@ -123,20 +144,23 @@ class VentaService
     {
         return DB::transaction(function () use ($store, $userId, $datos) {
             $details = $datos['details'] ?? [];
+            [$productDetails, $subscriptionDetails] = $this->separarDetallesProductoSuscripcion($details);
             $arData = $datos['account_receivable'] ?? [];
             $cuotas = $arData['cuotas'] ?? [];
             $dueDate = $arData['due_date'] ?? null;
 
-            // 1. Inventario: validar que hay stock de todos los productos de la venta
-            $this->inventarioService->validarStockDisponible($store, $details);
+            // 1. Inventario: validar stock solo de líneas producto
+            if (! empty($productDetails)) {
+                $this->inventarioService->validarStockDisponible($store, $productDetails);
+            }
 
-            // 2. Facturación: crear la factura en estado PENDING (solo cabecera + detalles, sin tocar inventario ni caja)
+            // 2. Facturación: crear la factura en estado PENDING (cabecera + todos los detalles)
             $factura = $this->invoiceService->crearFacturaPendienteSoloCabeceraYDetalles($store, $userId, $datos);
 
             // 3. Cuentas por cobrar: crear la cuenta vinculada a la factura y las cuotas (valida que suma cuotas = total)
             $this->accountReceivableService->crearDesdeFactura($store, $factura, $dueDate, $cuotas);
 
-            // 4. Inventario: descontar según tipo (seriales, variante FIFO, o cantidad FIFO)
+            // 4. Inventario: descontar solo líneas producto (las de suscripción no tienen product_id y se omiten en el loop)
             foreach ($details as $item) {
                 $productId = (int) ($item['product_id'] ?? 0);
                 if ($productId < 1) {
@@ -188,12 +212,22 @@ class VentaService
                 }
             }
 
-            return $factura->fresh()->load(['details.product', 'customer', 'user', 'accountReceivable.cuotas']);
+            // 5. Crear suscripciones por cada línea de tipo suscripción (valida solapamiento en SubscriptionService)
+            foreach ($subscriptionDetails as $item) {
+                $this->subscriptionService->createSubscription(
+                    $store,
+                    (int) $factura->customer_id,
+                    (int) $item['store_plan_id'],
+                    Carbon::parse($item['subscription_starts_at'])
+                );
+            }
+
+            return $factura->fresh()->load(['details.product', 'details.storePlan', 'customer', 'user', 'accountReceivable.cuotas']);
         });
     }
 
     /**
-     * Venta al contado: valida stock → crea factura PAID (solo cabecera + detalles) → descuenta inventario → crea comprobante de ingreso (PAGO_FACTURA).
+     * Venta al contado: valida stock → crea factura PAID (solo cabecera + detalles) → descuenta inventario → crea comprobante de ingreso (PAGO_FACTURA) → crea suscripciones.
      *
      * @param  array  $datos  customer_id, subtotal, tax, discount, total, details, destinos [ ['bolsillo_id' => int, 'amount' => float], ... ]
      * @return Invoice
@@ -202,14 +236,17 @@ class VentaService
     {
         return DB::transaction(function () use ($store, $userId, $datos) {
             $details = $datos['details'] ?? [];
+            [$productDetails, $subscriptionDetails] = $this->separarDetallesProductoSuscripcion($details);
             $destinos = $datos['destinos'] ?? [];
 
             if (empty($destinos)) {
                 throw new \Exception('Venta al contado requiere al menos un destino (bolsillo y monto).');
             }
 
-            // 1. Validar stock
-            $this->inventarioService->validarStockDisponible($store, $details);
+            // 1. Validar stock solo de líneas producto
+            if (! empty($productDetails)) {
+                $this->inventarioService->validarStockDisponible($store, $productDetails);
+            }
 
             // 2. Factura PAID solo cabecera + detalles (método de pago derivado de bolsillos)
             $datosFactura = $datos;
@@ -281,7 +318,17 @@ class VentaService
                 ], $destinos),
             ]);
 
-            return $factura->fresh()->load(['details.product', 'customer', 'user']);
+            // 5. Crear suscripciones por cada línea de tipo suscripción (valida solapamiento en SubscriptionService)
+            foreach ($subscriptionDetails as $item) {
+                $this->subscriptionService->createSubscription(
+                    $store,
+                    (int) $factura->customer_id,
+                    (int) $item['store_plan_id'],
+                    Carbon::parse($item['subscription_starts_at'])
+                );
+            }
+
+            return $factura->fresh()->load(['details.product', 'details.storePlan', 'customer', 'user']);
         });
     }
 

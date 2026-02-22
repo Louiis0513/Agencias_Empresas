@@ -27,10 +27,10 @@
                 <div class="p-6">
                     <div class="mb-6 flex flex-wrap justify-between items-center gap-4">
                         <div></div>
-                        <button type="button" x-on:click="$dispatch('open-modal', 'create-subscription')"
+                        <button type="button" x-on:click="$dispatch('open-modal', 'create-invoice')"
                                 class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700">
                             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                            Suscribir
+                            Suscribir cliente
                         </button>
                     </div>
 
@@ -72,12 +72,12 @@
                     @else
                         <p class="text-center text-gray-500 dark:text-gray-400 py-8">
                             No hay membresías registradas.
-                            <button type="button" x-on:click="$dispatch('open-modal', 'create-subscription')" class="text-indigo-600 dark:text-indigo-400 hover:underline bg-transparent border-0 p-0 cursor-pointer font-inherit">Suscribir a un cliente</button>
+                            <button type="button" x-on:click="$dispatch('open-modal', 'create-invoice')" class="text-indigo-600 dark:text-indigo-400 hover:underline bg-transparent border-0 p-0 cursor-pointer font-inherit">Suscribir a un cliente</button>
                         </p>
                     @endif
                 </div>
             </div>
         </div>
-        @livewire('create-subscription-modal', ['storeId' => $store->id])
+        <livewire:create-invoice-modal :store-id="$store->id" />
     </div>
 </x-app-layout>

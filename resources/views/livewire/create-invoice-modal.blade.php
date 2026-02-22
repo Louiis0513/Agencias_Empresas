@@ -43,15 +43,51 @@
                     @endif
                 </div>
 
-                {{-- Sección: Productos --}}
+                {{-- Sección: Productos y suscripciones --}}
                 <div class="space-y-4">
-                    <div class="flex items-center justify-between">
-                        <x-input-label value="{{ __('Productos en la Factura') }}" class="text-slate-300 font-semibold" />
-                        <button type="button" wire:click="abrirSelectorProducto" class="inline-flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-md transition-all uppercase tracking-widest shadow-lg shadow-emerald-500/20">
-                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                            Agregar producto
-                        </button>
+                    <div class="flex items-center justify-between flex-wrap gap-2">
+                        <x-input-label value="{{ __('Productos / Suscripciones en la Factura') }}" class="text-slate-300 font-semibold" />
+                        <div class="flex items-center gap-2">
+                            <button type="button" wire:click="abrirSelectorProducto" class="inline-flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-md transition-all uppercase tracking-widest shadow-lg shadow-emerald-500/20">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                Agregar producto
+                            </button>
+                            <button type="button" wire:click="abrirAgregarSuscripcion" class="inline-flex items-center px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold rounded-md transition-all uppercase tracking-widest shadow-lg shadow-violet-500/20">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"></path></svg>
+                                Agregar suscripción
+                            </button>
+                        </div>
                     </div>
+
+                    {{-- Bloque: Agregar suscripción (plan + fecha de inicio) --}}
+                    @if($mostrarAgregarSuscripcion)
+                        <div class="p-4 rounded-xl border border-violet-700/50 bg-violet-900/20">
+                            <p class="text-sm font-medium text-slate-300 mb-3">Agregar suscripción a la factura</p>
+                            <div class="flex flex-wrap items-end gap-4">
+                                <div class="min-w-[200px]">
+                                    <x-input-label value="Plan *" class="text-slate-400 text-xs" />
+                                    <select wire:model="planSuscripcionId" class="block mt-1 w-full rounded-md border-slate-600 bg-slate-800 text-white text-sm focus:ring-indigo-500 focus:border-indigo-500">
+                                        <option value="">Seleccione un plan</option>
+                                        @foreach($this->plans as $plan)
+                                            <option value="{{ $plan->id }}">{{ $plan->name }} — ${{ number_format($plan->price, 2) }} ({{ $plan->duration_days }} días)</option>
+                                        @endforeach
+                                    </select>
+                                    <x-input-error :messages="$errors->get('planSuscripcionId')" class="mt-1" />
+                                </div>
+                                <div>
+                                    <x-input-label value="Fecha de inicio del plan *" class="text-slate-400 text-xs" />
+                                    <x-text-input wire:model="suscripcionStartsAt" type="date" class="block mt-1 border-slate-600 bg-slate-800 text-white text-sm" />
+                                    <x-input-error :messages="$errors->get('suscripcionStartsAt')" class="mt-1" />
+                                </div>
+                                <button type="button" wire:click="confirmarAgregarSuscripcion" wire:target="confirmarAgregarSuscripcion" class="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-500 text-sm font-bold">
+                                    Añadir a la factura
+                                </button>
+                                <button type="button" wire:click="cancelarAgregarSuscripcion" class="px-4 py-2 border border-slate-600 rounded-lg text-slate-300 hover:bg-slate-700 text-sm font-medium">
+                                    Cancelar
+                                </button>
+                            </div>
+                        </div>
+                    @endif
 
                     @if($errorStock)
                         <div class="p-4 rounded-xl bg-red-900/20 border border-red-800/50 text-red-300 text-sm">
@@ -148,7 +184,9 @@
                                                 @endif
                                             </td>
                                             <td class="px-4 py-4">
-                                                @if(($producto['type'] ?? 'simple') === 'serialized')
+                                                @if(!empty($producto['is_subscription']))
+                                                    <span class="px-3 py-1 bg-slate-700 rounded text-white font-bold text-sm">1</span>
+                                                @elseif(($producto['type'] ?? 'simple') === 'serialized')
                                                     <span class="px-3 py-1 bg-slate-700 rounded text-white font-bold text-sm">{{ $producto['quantity'] }}</span>
                                                 @else
                                                     <input type="number" wire:change="actualizarCantidad({{ $index }}, $event.target.value)" value="{{ $producto['quantity'] }}" min="1"
@@ -168,7 +206,7 @@
                         </div>
                     @else
                          <div class="py-8 text-center bg-slate-800/20 border-2 border-dashed border-slate-700 rounded-xl">
-                            <p class="text-slate-500 italic">No hay productos agregados a esta factura.</p>
+                            <p class="text-slate-500 italic">No hay productos ni suscripciones agregados a esta factura.</p>
                          </div>
                     @endif
                     <x-input-error :messages="$errors->get('productosSeleccionados')" class="mt-2 text-red-400" />

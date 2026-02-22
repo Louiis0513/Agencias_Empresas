@@ -10,6 +10,7 @@ use App\Models\Cotizacion;
 use App\Services\CajaService;
 use App\Services\CotizacionService;
 use App\Services\InventarioService;
+use App\Services\SubscriptionService;
 use App\Services\VentaService;
 use Exception;
 use Illuminate\Support\Facades\Auth;
@@ -73,6 +74,11 @@ class CreateInvoiceModal extends Component
     public bool $mostrarEleccionPrecio = false;
     /** Mostrar checkbox para confirmar facturar cotización vencida (tras error del backend) */
     public bool $mostrarCheckVencida = false;
+
+    /** Agregar suscripción: bloque visible, plan elegido y fecha de inicio */
+    public bool $mostrarAgregarSuscripcion = false;
+    public ?int $planSuscripcionId = null;
+    public string $suscripcionStartsAt = '';
 
     /**
      * Devuelve el máximo permitido para el monto de un pago dado, considerando:
@@ -224,6 +230,9 @@ class CreateInvoiceModal extends Component
         $this->usarPrecio = null;
         $this->mostrarEleccionPrecio = false;
         $this->mostrarCheckVencida = false;
+        $this->mostrarAgregarSuscripcion = false;
+        $this->planSuscripcionId = null;
+        $this->suscripcionStartsAt = now()->format('Y-m-d');
         $this->resetValidation();
         $this->cargarBolsillos(); 
         $this->calcularTotales();
@@ -569,12 +578,15 @@ class CreateInvoiceModal extends Component
         $this->calcularTotales();
     }
 
-    /** Convierte productosSeleccionados a formato para validar stock. */
+    /** Convierte productosSeleccionados a formato para validar stock (excluye líneas de suscripción). */
     protected function productosFacturaToItemsParaValidar(array $productos): array
     {
         $items = [];
         $byProduct = [];
         foreach ($productos as $row) {
+            if (! empty($row['is_subscription'])) {
+                continue;
+            }
             if (! empty($row['serial_numbers'])) {
                 $items[] = ['product_id' => $row['product_id'], 'serial_numbers' => $row['serial_numbers']];
             } elseif (! empty($row['product_variant_id'])) {
@@ -818,6 +830,67 @@ class CreateInvoiceModal extends Component
         return Store::find($this->storeId);
     }
 
+    /** Planes de suscripción de la tienda (para "Agregar suscripción"). */
+    public function getPlansProperty(): \Illuminate\Support\Collection
+    {
+        $store = $this->getStoreProperty();
+        if (! $store) {
+            return collect();
+        }
+        return app(SubscriptionService::class)->getPlansForStore($store);
+    }
+
+    public function abrirAgregarSuscripcion(): void
+    {
+        $this->mostrarAgregarSuscripcion = true;
+        $this->planSuscripcionId = null;
+        $this->suscripcionStartsAt = now()->format('Y-m-d');
+        $this->resetValidation();
+    }
+
+    public function cancelarAgregarSuscripcion(): void
+    {
+        $this->mostrarAgregarSuscripcion = false;
+        $this->planSuscripcionId = null;
+        $this->suscripcionStartsAt = now()->format('Y-m-d');
+    }
+
+    public function confirmarAgregarSuscripcion(): void
+    {
+        $this->validate([
+            'planSuscripcionId' => 'required|integer',
+            'suscripcionStartsAt' => 'required|date',
+        ], [], [
+            'planSuscripcionId' => 'plan',
+            'suscripcionStartsAt' => 'fecha de inicio',
+        ]);
+
+        $store = $this->getStoreProperty();
+        if (! $store) {
+            return;
+        }
+
+        $plan = app(SubscriptionService::class)->getPlanForStore($store, (int) $this->planSuscripcionId);
+        if (! $plan) {
+            $this->addError('planSuscripcionId', 'El plan no existe o no pertenece a esta tienda.');
+            return;
+        }
+
+        $price = (float) $plan->price;
+        $this->productosSeleccionados[] = [
+            'name' => 'Suscripción: ' . $plan->name,
+            'price' => $price,
+            'quantity' => 1,
+            'subtotal' => $price,
+            'is_subscription' => true,
+            'store_plan_id' => (int) $plan->id,
+            'subscription_starts_at' => $this->suscripcionStartsAt,
+        ];
+
+        $this->calcularTotales();
+        $this->cancelarAgregarSuscripcion();
+    }
+
     public function save(VentaService $ventaService, CotizacionService $cotizacionService)
     {
         if ($this->saving) {
@@ -850,7 +923,7 @@ class CreateInvoiceModal extends Component
         }
 
         if (empty($this->productosSeleccionados)) {
-            $this->addError('productosSeleccionados', 'Debes agregar al menos un producto.');
+            $this->addError('productosSeleccionados', 'Debes agregar al menos un producto o una suscripción.');
             $this->saving = false;
             return;
         }
@@ -920,25 +993,34 @@ class CreateInvoiceModal extends Component
         }
 
         try {
-            // Preparar detalles para guardar
-            $details = array_map(function($item) {
-                $detail = [
-                    'product_id' => $item['product_id'],
-                    'unit_price' => $item['price'],
-                    'quantity' => $item['quantity'],
-                    'subtotal' => $item['subtotal'],
-                ];
-
-                if (! empty($item['product_variant_id'])) {
-                    $detail['product_variant_id'] = (int) $item['product_variant_id'];
+            // Preparar detalles para guardar (productos y/o suscripciones)
+            $details = [];
+            foreach ($this->productosSeleccionados as $item) {
+                if (! empty($item['is_subscription']) && ! empty($item['store_plan_id'])) {
+                    $details[] = [
+                        'product_name' => $item['name'],
+                        'unit_price' => (float) $item['price'],
+                        'quantity' => (int) ($item['quantity'] ?? 1),
+                        'subtotal' => (float) $item['subtotal'],
+                        'store_plan_id' => (int) $item['store_plan_id'],
+                        'subscription_starts_at' => $item['subscription_starts_at'] ?? now()->toDateString(),
+                    ];
+                } else {
+                    $detail = [
+                        'product_id' => $item['product_id'],
+                        'unit_price' => $item['price'],
+                        'quantity' => $item['quantity'],
+                        'subtotal' => $item['subtotal'],
+                    ];
+                    if (! empty($item['product_variant_id'])) {
+                        $detail['product_variant_id'] = (int) $item['product_variant_id'];
+                    }
+                    if (isset($item['serial_numbers']) && is_array($item['serial_numbers'])) {
+                        $detail['serial_numbers'] = $item['serial_numbers'];
+                    }
+                    $details[] = $detail;
                 }
-
-                if (isset($item['serial_numbers']) && is_array($item['serial_numbers'])) {
-                    $detail['serial_numbers'] = $item['serial_numbers'];
-                }
-
-                return $detail;
-            }, $this->productosSeleccionados);
+            }
 
             $payload = [
                 'customer_id' => $this->customer_id,

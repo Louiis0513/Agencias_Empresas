@@ -231,10 +231,14 @@ class InvoiceService
             ]);
 
             foreach ($datos['details'] ?? [] as $item) {
-                $this->crearDetalleSinValidarStock($store, $factura, $item);
+                if (! empty($item['store_plan_id']) && (int) $item['store_plan_id'] > 0) {
+                    $this->crearDetalleSuscripcion($store, $factura, $item);
+                } else {
+                    $this->crearDetalleSinValidarStock($store, $factura, $item);
+                }
             }
 
-            return $factura->load(['details.product', 'customer', 'user']);
+            return $factura->load(['details.product', 'details.storePlan', 'customer', 'user']);
         });
     }
 
@@ -495,6 +499,29 @@ class InvoiceService
             'unit_price'   => $item['unit_price'],
             'quantity'     => $qty,
             'subtotal'     => $item['subtotal'],
+        ]);
+    }
+
+    /**
+     * Crea un detalle de factura para una línea de suscripción (sin producto de inventario).
+     *
+     * @param  array  $item  product_name, unit_price, quantity, subtotal, store_plan_id, subscription_starts_at (Y-m-d)
+     */
+    private function crearDetalleSuscripcion(Store $store, Invoice $factura, array $item): void
+    {
+        $startsAt = isset($item['subscription_starts_at'])
+            ? \Carbon\Carbon::parse($item['subscription_starts_at'])->toDateString()
+            : null;
+
+        InvoiceDetail::create([
+            'invoice_id'             => $factura->id,
+            'product_id'             => null,
+            'product_name'           => $item['product_name'] ?? 'Suscripción',
+            'unit_price'             => $item['unit_price'],
+            'quantity'               => (int) ($item['quantity'] ?? 1),
+            'subtotal'               => $item['subtotal'],
+            'store_plan_id'          => (int) $item['store_plan_id'],
+            'subscription_starts_at' => $startsAt,
         ]);
     }
 
