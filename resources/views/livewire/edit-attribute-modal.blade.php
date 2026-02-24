@@ -1,10 +1,10 @@
 <div x-on:open-edit-attribute-modal.window="$wire.loadAttribute($event.detail.id || $event.detail)">
     <x-modal name="edit-attribute" focusable maxWidth="2xl">
         <form wire:submit="update" class="p-6">
-            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">
+            <h2 class="text-lg font-medium text-white">
                 {{ __('Editar atributo') }}
             </h2>
-            <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+            <p class="mt-1 text-sm text-gray-400">
                 {{ __('Modifica los datos del atributo. Puedes cambiar el nombre, tipo, grupo y si es requerido.') }}
             </p>
 
@@ -20,7 +20,7 @@
                         <x-input-label for="edit_attribute_group_id" value="{{ __('Grupo de atributos') }} *" />
                         <select wire:model="attribute_group_id"
                                 id="edit_attribute_group_id"
-                                class="block mt-1 w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                                class="block mt-1 w-full rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand">
                             <option value="">{{ __('Selecciona un grupo') }}</option>
                             @foreach($this->groups as $g)
                                 <option value="{{ $g->id }}">{{ $g->name }}</option>
@@ -54,7 +54,7 @@
                                   class="block mt-1 w-full" 
                                   type="text" 
                                   placeholder="Ej: size, color, material (se genera automáticamente si se deja vacío)" />
-                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    <p class="mt-1 text-xs text-gray-400">
                         Código único para identificar el atributo. Si se deja vacío, se generará automáticamente desde el nombre.
                     </p>
                     <x-input-error :messages="$errors->get('code')" class="mt-1" />
@@ -64,7 +64,7 @@
                     <x-input-label for="edit_attribute_type" value="{{ __('Tipo de atributo') }}" />
                     <select wire:model.live="type" 
                             id="edit_attribute_type" 
-                            class="block mt-1 w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                            class="block mt-1 w-full rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand">
                         <option value="text">Texto</option>
                         <option value="number">Número</option>
                         <option value="select">Selección (con opciones predefinidas)</option>
@@ -76,7 +76,7 @@
                 @if($this->type === 'select')
                     <div>
                         <x-input-label value="{{ __('Opciones del atributo') }}" />
-                        <p class="mt-1 mb-3 text-xs text-gray-500 dark:text-gray-400">
+                        <p class="mt-1 mb-3 text-xs text-gray-400">
                             Define las opciones disponibles para este atributo (ej: S, M, L, XL para Talla).
                         </p>
                         <div class="space-y-2">

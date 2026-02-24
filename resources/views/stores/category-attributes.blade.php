@@ -1,11 +1,11 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex justify-between items-center">
-            <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
+            <h2 class="font-semibold text-xl text-white leading-tight">
                 Atributos de "{{ $category->name }}" - {{ $store->name }}
             </h2>
             <div class="flex items-center space-x-4">
-                <a href="{{ route('stores.categories', $store) }}" class="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+                <a href="{{ route('stores.categories', $store) }}" class="text-sm text-gray-400 hover:text-brand transition">
                     ← Volver a Categorías
                 </a>
             </div>
@@ -28,9 +28,9 @@
                 </div>
             @endif
 
-            <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
+            <div class="bg-dark-card border border-white/5 overflow-hidden sm:rounded-xl">
                 <div class="p-6">
-                    <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
+                    <h3 class="text-lg font-medium text-gray-100 mb-4">
                         Grupos de atributos
                     </h3>
 
@@ -67,7 +67,7 @@
                                             </label>
                                             <button type="button"
                                                     @click="open = !open"
-                                                    class="ml-auto flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+                                                    class="ml-auto flex items-center gap-2 text-sm text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
                                                 <span x-text="open ? 'Ocultar' : 'Ver atributos'">Ver atributos</span>
                                                 <span class="text-gray-400 dark:text-gray-500">({{ $totalInGroup }})</span>
                                                 <svg class="w-5 h-5 shrink-0 transition-transform"
@@ -86,19 +86,19 @@
                                              x-transition:leave-end="opacity-0"
                                              class="border-t border-gray-200 dark:border-gray-600">
                                             <div class="p-4 pt-3 space-y-2 bg-white dark:bg-gray-800">
-                                                <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Atributos de este grupo (definidos al crear el atributo en el grupo):</p>
+                                                <p class="text-xs text-gray-400 mb-2">Atributos de este grupo (definidos al crear el atributo en el grupo):</p>
                                                 @foreach($group->attributes as $attribute)
                                                     @php
                                                         $requiredInGroup = $attribute->pivot->is_required ?? false;
                                                     @endphp
                                                     <div class="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50/50 dark:bg-gray-700/30">
-                                                        <span class="font-medium text-gray-900 dark:text-gray-100">{{ $attribute->name }}</span>
-                                                        <span class="text-xs text-gray-500 dark:text-gray-400">({{ $attribute->type }})</span>
+                                                        <span class="font-medium text-gray-100">{{ $attribute->name }}</span>
+                                                        <span class="text-xs text-gray-400">({{ $attribute->type }})</span>
                                                         @if($requiredInGroup)
                                                             <span class="px-2 py-0.5 text-xs font-medium rounded bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">Requerido</span>
                                                         @endif
                                                         @if($attribute->isSelectType() && $attribute->options->count() > 0)
-                                                            <span class="text-xs text-gray-500 dark:text-gray-400">Opciones: {{ $attribute->options->pluck('value')->join(', ') }}</span>
+                                                            <span class="text-xs text-gray-400">Opciones: {{ $attribute->options->pluck('value')->join(', ') }}</span>
                                                         @endif
                                                     </div>
                                                 @endforeach
@@ -115,7 +115,7 @@
                         </form>
                     @else
                         <div class="text-center py-8">
-                            <p class="text-sm text-gray-500 dark:text-gray-400">No hay atributos. Crea grupos y atributos en <strong>Grupos de atributos</strong>.</p>
+                            <p class="text-sm text-gray-400">No hay atributos. Crea grupos y atributos en <strong>Grupos de atributos</strong>.</p>
                             <a href="{{ route('stores.attribute-groups', $store) }}" class="mt-4 inline-flex items-center px-4 py-2 bg-indigo-600 rounded-md text-white text-sm font-medium hover:bg-indigo-700">
                                 Ir a Grupos de atributos
                             </a>
@@ -126,9 +126,9 @@
 
             {{-- Atributos actualmente asignados (por grupo) --}}
             @if($categoryAttributes->count() > 0)
-                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
+                <div class="bg-dark-card border border-white/5 overflow-hidden sm:rounded-xl">
                     <div class="p-6">
-                        <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
+                        <h3 class="text-lg font-medium text-gray-100 mb-4">
                             Atributos Asignados a esta Categoría
                         </h3>
                         @php
@@ -150,13 +150,13 @@
                                         @foreach($attrs as $attribute)
                                             <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                                                 <div>
-                                                    <span class="font-medium text-gray-900 dark:text-gray-100">{{ $attribute->name }}</span>
-                                                    <span class="ml-2 text-xs text-gray-500 dark:text-gray-400">({{ $attribute->type }})</span>
+                                                    <span class="font-medium text-gray-100">{{ $attribute->name }}</span>
+                                                    <span class="ml-2 text-xs text-gray-400">({{ $attribute->type }})</span>
                                                     @if($attribute->pivot->is_required)
                                                         <span class="ml-2 px-2 py-0.5 text-xs bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 rounded">Requerido</span>
                                                     @endif
                                                     @if($attribute->isSelectType() && $attribute->options->count() > 0)
-                                                        <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                                        <div class="mt-1 text-xs text-gray-400">
                                                             Opciones: {{ $attribute->options->pluck('value')->join(', ') }}
                                                         </div>
                                                     @endif

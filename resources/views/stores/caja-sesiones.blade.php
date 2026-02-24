@@ -1,10 +1,10 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex justify-between items-center">
-            <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
+            <h2 class="font-semibold text-xl text-white leading-tight">
                 Historial de sesiones de caja — {{ $store->name }}
             </h2>
-            <a href="{{ route('stores.cajas', $store) }}" class="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">← Volver a Caja</a>
+            <a href="{{ route('stores.cajas', $store) }}" class="text-sm text-gray-400 hover:text-brand transition">← Volver a Caja</a>
         </div>
     </x-slot>
 
@@ -13,34 +13,34 @@
             <div class="mb-4">
                 <form method="GET" action="{{ route('stores.cajas.sesiones', $store) }}" class="flex flex-wrap gap-2 items-end">
                     <div>
-                        <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Desde</label>
-                        <input type="date" name="fecha_desde" value="{{ request('fecha_desde') }}" class="rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                        <label class="block text-xs text-gray-400 mb-1">Desde</label>
+                        <input type="date" name="fecha_desde" value="{{ request('fecha_desde') }}" class="rounded-md border-white/10 bg-white/5 text-gray-100">
                     </div>
                     <div>
-                        <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Hasta</label>
-                        <input type="date" name="fecha_hasta" value="{{ request('fecha_hasta') }}" class="rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                        <label class="block text-xs text-gray-400 mb-1">Hasta</label>
+                        <input type="date" name="fecha_hasta" value="{{ request('fecha_hasta') }}" class="rounded-md border-white/10 bg-white/5 text-gray-100">
                     </div>
-                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Filtrar</button>
+                    <button type="submit" class="px-4 py-2 bg-brand text-white rounded-xl shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)]">Filtrar</button>
                 </form>
             </div>
 
-            <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
+            <div class="bg-dark-card border border-white/5 overflow-hidden sm:rounded-xl">
                 <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                        <thead class="bg-gray-50 dark:bg-gray-900">
+                    <table class="min-w-full divide-y divide-white/5">
+                        <thead class="border-b border-white/5">
                             <tr>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Apertura</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Abierta por</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Cierre</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Cerrada por</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Estado</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Acciones</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Apertura</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Abierta por</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Cierre</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Cerrada por</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Estado</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Acciones</th>
                             </tr>
                         </thead>
-                        <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                        <tbody class="divide-y divide-white/5">
                             @forelse($sesiones as $s)
-                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
-                                    <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{{ $s->opened_at->format('d/m/Y H:i') }}</td>
+                                <tr class="hover:bg-white/5 transition">
+                                    <td class="px-4 py-3 text-sm text-gray-100">{{ $s->opened_at->format('d/m/Y H:i') }}</td>
                                     <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ $s->user->name ?? '—' }}</td>
                                     <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ $s->closed_at ? $s->closed_at->format('d/m/Y H:i') : '—' }}</td>
                                     <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ $s->closedByUser->name ?? '—' }}</td>
@@ -57,7 +57,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="6" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">No hay sesiones registradas.</td>
+                                    <td colspan="6" class="px-4 py-8 text-center text-gray-400">No hay sesiones registradas.</td>
                                 </tr>
                             @endforelse
                         </tbody>

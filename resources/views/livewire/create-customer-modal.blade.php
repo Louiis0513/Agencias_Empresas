@@ -1,10 +1,10 @@
 <div>
     <x-modal name="create-customer" focusable maxWidth="2xl">
         <form wire:submit="save" class="p-6">
-            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">
+            <h2 class="text-lg font-medium text-white">
                 {{ __('Crear Cliente') }}
             </h2>
-            <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+            <p class="mt-1 text-sm text-gray-400">
                 {{ __('El cliente se vinculará automáticamente a un usuario si existe uno con el mismo email.') }}
             </p>
 
@@ -18,7 +18,7 @@
                 <div>
                     <x-input-label for="email" value="{{ __('Email') }}" />
                     <x-text-input wire:model="email" id="email" class="block mt-1 w-full" type="email" placeholder="correo@ejemplo.com" required />
-                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    <p class="mt-1 text-xs text-gray-400">
                         Si existe un usuario con este email, se vinculará automáticamente.
                     </p>
                     <x-input-error :messages="$errors->get('email')" class="mt-1" />
@@ -39,7 +39,7 @@
 
                 <div>
                     <x-input-label for="address" value="{{ __('Dirección') }}" />
-                    <textarea wire:model="address" id="address" class="block mt-1 w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500" rows="3" placeholder="Dirección completa"></textarea>
+                    <textarea wire:model="address" id="address" class="block mt-1 w-full rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand" rows="3" placeholder="Dirección completa"></textarea>
                     <x-input-error :messages="$errors->get('address')" class="mt-1" />
                 </div>
             </div>

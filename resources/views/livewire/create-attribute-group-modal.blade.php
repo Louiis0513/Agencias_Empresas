@@ -1,10 +1,10 @@
 <div>
     <x-modal name="create-attribute-group" focusable maxWidth="lg">
         <form wire:submit="save" class="p-6">
-            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">
+            <h2 class="text-lg font-medium text-white">
                 {{ __('Crear grupo de atributos') }}
             </h2>
-            <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+            <p class="mt-1 text-sm text-gray-400">
                 {{ __('Ej: Talla, Marca, Detalles. Luego añade atributos a cada grupo e indica si son requeridos.') }}
             </p>
 

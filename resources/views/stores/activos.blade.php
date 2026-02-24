@@ -1,10 +1,10 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex justify-between items-center">
-            <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
+            <h2 class="font-semibold text-xl text-white leading-tight">
                 Activos - {{ $store->name }}
             </h2>
-            <a href="{{ route('stores.dashboard', $store) }}" class="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+            <a href="{{ route('stores.dashboard', $store) }}" class="text-sm text-gray-400 hover:text-brand transition">
                 ← Volver al Resumen
             </a>
         </div>
@@ -23,20 +23,20 @@
                 </div>
             @endif
 
-            <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
+            <div class="bg-dark-card border border-white/5 overflow-hidden sm:rounded-xl">
                 <div class="p-6">
                     <div class="mb-6 flex flex-wrap justify-between items-center gap-4">
                         <form method="GET" action="{{ route('stores.activos', $store) }}" class="flex flex-wrap gap-2 items-end">
                             <input type="text" name="search" value="{{ request('search') }}"
                                    placeholder="Buscar por nombre, código, serial..."
-                                   class="rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
-                            <select name="status" class="rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                                   class="rounded-md border-white/10 bg-white/5 text-gray-100">
+                            <select name="status" class="rounded-md border-white/10 bg-white/5 text-gray-100">
                                 <option value="">Todos los estados</option>
                                 @foreach(\App\Models\Activo::estadosDisponibles() as $k => $v)
                                     <option value="{{ $k }}" {{ request('status') === $k ? 'selected' : '' }}>{{ $v }}</option>
                                 @endforeach
                             </select>
-                            <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Buscar</button>
+                            <button type="submit" class="px-4 py-2 bg-brand text-white rounded-xl shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)]">Buscar</button>
                             @if(request()->anyFilled(['search', 'status']))
                                 <a href="{{ route('stores.activos', $store) }}" class="px-4 py-2 bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md">Limpiar</a>
                             @endif
@@ -48,7 +48,7 @@
                                 Historial
                             </a>
                             <button type="button" x-on:click="$dispatch('open-modal', 'create-activo')"
-                                    class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700">
+                                    class="inline-flex items-center px-4 py-2 bg-brand text-white font-semibold text-xs rounded-xl uppercase tracking-wider shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)]">
                                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                                 Crear Activo
                             </button>
@@ -57,24 +57,24 @@
 
                     @if($activos->count() > 0)
                         <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                                <thead class="bg-gray-50 dark:bg-gray-900">
+                            <table class="min-w-full divide-y divide-white/5">
+                                <thead class="border-b border-white/5">
                                     <tr>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Nombre</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Serial</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Valor</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Ubicación</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Estado</th>
-                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Acciones</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Nombre</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Serial</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Valor</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Ubicación</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Estado</th>
+                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Acciones</th>
                                     </tr>
                                 </thead>
-                                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                                <tbody class="divide-y divide-white/5">
                                     @foreach($activos as $activo)
-                                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
-                                            <td class="px-4 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">{{ $activo->name }}</td>
-                                            <td class="px-4 py-4 text-sm text-gray-900 dark:text-gray-100">{{ $activo->serial_number }}</td>
-                                            <td class="px-4 py-4 text-sm text-gray-900 dark:text-gray-100">{{ number_format($activo->unit_cost, 2) }}</td>
-                                            <td class="px-4 py-4 text-sm text-gray-900 dark:text-gray-100">{{ $activo->locationRelation?->name ?? $activo->location ?? '-' }}</td>
+                                        <tr class="hover:bg-white/5 transition">
+                                            <td class="px-4 py-4 text-sm font-medium text-gray-100">{{ $activo->name }}</td>
+                                            <td class="px-4 py-4 text-sm text-gray-100">{{ $activo->serial_number }}</td>
+                                            <td class="px-4 py-4 text-sm text-gray-100">{{ number_format($activo->unit_cost, 2) }}</td>
+                                            <td class="px-4 py-4 text-sm text-gray-100">{{ $activo->locationRelation?->name ?? $activo->location ?? '-' }}</td>
                                             <td class="px-4 py-4">
                                                 <span class="px-2 py-1 text-xs font-medium rounded-full
                                                     @if($activo->status === \App\Models\Activo::STATUS_OPERATIVO) bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200
@@ -84,7 +84,7 @@
                                                 ">{{ \App\Models\Activo::estadosDisponibles()[$activo->status] ?? $activo->status }}</span>
                                             </td>
                                             <td class="px-4 py-4 text-right text-sm font-medium">
-                                                <a href="{{ route('stores.activos.show', [$store, $activo]) }}" class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 mr-3">Ver</a>
+                                                <a href="{{ route('stores.activos.show', [$store, $activo]) }}" class="text-brand hover:text-white transition mr-3">Ver</a>
                                                 <a href="{{ route('stores.activos.edit', [$store, $activo]) }}" class="text-emerald-600 hover:text-emerald-900 dark:text-emerald-400 dark:hover:text-emerald-300">Editar</a>
                                             </td>
                                         </tr>
@@ -94,7 +94,7 @@
                         </div>
                         <div class="mt-4">{{ $activos->links() }}</div>
                     @else
-                        <p class="text-center text-gray-500 dark:text-gray-400 py-8">
+                        <p class="text-center text-gray-400 py-8">
                             @if(request('search'))
                                 No hay activos que coincidan con la búsqueda.
                             @else

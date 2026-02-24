@@ -4,7 +4,7 @@
             <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 pb-2 border-b border-gray-200 dark:border-gray-600">
                 {{ __('Modificar unidad serializada') }}
             </h2>
-            <p class="mt-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+            <p class="mt-2 text-sm font-medium text-gray-300">
                 {{ __('Edita precio de venta, estado, número de serie o atributos.') }}
             </p>
 
@@ -18,7 +18,7 @@
                 <div>
                     <x-input-label for="item_price" value="{{ __('Precio de venta') }}" />
                     <x-text-input wire:model="price" id="item_price" class="block mt-1 w-full" type="number" step="0.01" min="0" placeholder="0.00 (vacío = sin asignar)" />
-                    <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Dejar vacío si aún no tiene precio de venta asignado.</p>
+                    <p class="mt-0.5 text-xs text-gray-400">Dejar vacío si aún no tiene precio de venta asignado.</p>
                     <x-input-error :messages="$errors->get('price')" class="mt-1" />
                 </div>
 

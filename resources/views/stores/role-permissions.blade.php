@@ -1,10 +1,10 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex justify-between items-center">
-            <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
+            <h2 class="font-semibold text-xl text-white leading-tight">
                 Permisos del rol «{{ $role->name }}» - {{ $store->name }}
             </h2>
-            <a href="{{ route('stores.roles', $store) }}" class="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+            <a href="{{ route('stores.roles', $store) }}" class="text-sm text-gray-400 hover:text-brand transition">
                 ← Volver a Roles
             </a>
         </div>
@@ -19,28 +19,28 @@
             @endif
 
             {{-- Tabla: Trabajadores con este rol --}}
-            <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
+            <div class="bg-dark-card border border-white/5 overflow-hidden sm:rounded-xl">
                 <div class="p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                    <h3 class="text-lg font-semibold text-gray-100 mb-4">
                         Trabajadores con este rol
                     </h3>
                     @if($workersWithRole->count() > 0)
                         <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                                <thead class="bg-gray-50 dark:bg-gray-900">
+                            <table class="min-w-full divide-y divide-white/5">
+                                <thead class="border-b border-white/5">
                                     <tr>
-                                        <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nombre</th>
-                                        <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Email</th>
-                                        <th scope="col" class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Acciones</th>
+                                        <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Nombre</th>
+                                        <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Email</th>
+                                        <th scope="col" class="px-4 py-2 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">Acciones</th>
                                     </tr>
                                 </thead>
-                                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                                <tbody class="divide-y divide-white/5">
                                     @foreach($workersWithRole as $worker)
-                                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
-                                            <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">{{ $worker->name }}</td>
-                                            <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{{ $worker->email }}</td>
+                                        <tr class="hover:bg-white/5 transition">
+                                            <td class="px-4 py-3 text-sm font-medium text-gray-100">{{ $worker->name }}</td>
+                                            <td class="px-4 py-3 text-sm text-gray-400">{{ $worker->email }}</td>
                                             <td class="px-4 py-3 text-right text-sm">
-                                                <a href="{{ route('stores.workers.edit', [$store, $worker]) }}" class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300">Editar</a>
+                                                <a href="{{ route('stores.workers.edit', [$store, $worker]) }}" class="text-brand hover:text-white transition">Editar</a>
                                             </td>
                                         </tr>
                                     @endforeach
@@ -48,15 +48,15 @@
                             </table>
                         </div>
                     @else
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Ningún trabajador tiene asignado este rol.</p>
+                        <p class="text-sm text-gray-400">Ningún trabajador tiene asignado este rol.</p>
                     @endif
                 </div>
             </div>
 
             {{-- Pecera: Permisos que ya tiene este rol --}}
-            <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
+            <div class="bg-dark-card border border-white/5 overflow-hidden sm:rounded-xl">
                 <div class="p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">
+                    <h3 class="text-lg font-semibold text-gray-100 mb-3">
                         Permisos asignados a este rol
                     </h3>
                     @if($role->permissions->count() > 0)
@@ -68,18 +68,18 @@
                             @endforeach
                         </div>
                     @else
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Este rol no tiene permisos asignados. Marca los que desees más abajo y guarda.</p>
+                        <p class="text-sm text-gray-400">Este rol no tiene permisos asignados. Marca los que desees más abajo y guarda.</p>
                     @endif
                 </div>
             </div>
 
             {{-- Gran contenedor: Gestionar permisos (desplegable) --}}
-            <div x-data="{ open: false }" class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg border border-gray-200 dark:border-gray-600">
+            <div x-data="{ open: false }" class="bg-dark-card border border-white/5 overflow-hidden sm:rounded-xl border border-gray-200 dark:border-gray-600">
                 <button type="button"
                         @click="open = !open"
-                        class="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
-                    <span class="text-lg font-semibold text-gray-900 dark:text-gray-100">Gestionar permisos</span>
-                    <span class="text-sm text-gray-500 dark:text-gray-400">Añadir o quitar permisos de este rol</span>
+                        class="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-white/5 transition/50 transition">
+                    <span class="text-lg font-semibold text-gray-100">Gestionar permisos</span>
+                    <span class="text-sm text-gray-400">Añadir o quitar permisos de este rol</span>
                     <svg class="w-6 h-6 text-gray-400 transition-transform shrink-0 ml-2" :class="{ 'rotate-180': open }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                     </svg>
@@ -123,8 +123,8 @@
                                     <button type="button"
                                             @click="openModule = !openModule"
                                             class="w-full flex items-center justify-between px-4 py-3 text-left bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition">
-                                        <span class="font-medium text-gray-900 dark:text-gray-100">{{ $moduleLabels[$moduleKey] ?? str_replace('-', ' ', $moduleKey) }}</span>
-                                        <span class="text-sm text-gray-500 dark:text-gray-400">{{ $groupPermissions->count() }} permiso(s)</span>
+                                        <span class="font-medium text-gray-100">{{ $moduleLabels[$moduleKey] ?? str_replace('-', ' ', $moduleKey) }}</span>
+                                        <span class="text-sm text-gray-400">{{ $groupPermissions->count() }} permiso(s)</span>
                                         <svg class="w-5 h-5 text-gray-400 transition-transform" :class="{ 'rotate-180': openModule }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                                         </svg>
@@ -138,7 +138,7 @@
                                                            value="{{ $permission->id }}"
                                                            {{ isset($rolePermissionIds[$permission->id]) ? 'checked' : '' }}
                                                            class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500">
-                                                    <span class="text-sm font-medium text-gray-900 dark:text-gray-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">{{ $permission->name }}</span>
+                                                    <span class="text-sm font-medium text-gray-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">{{ $permission->name }}</span>
                                                 </label>
                                             @endforeach
                                         </div>

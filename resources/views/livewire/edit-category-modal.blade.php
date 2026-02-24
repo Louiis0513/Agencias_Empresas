@@ -1,10 +1,10 @@
 <div x-on:open-edit-modal.window="$wire.loadCategory($event.detail)">
     <x-modal name="edit-category" focusable maxWidth="lg">
         <form wire:submit="update" class="p-6">
-            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">
+            <h2 class="text-lg font-medium text-white">
                 {{ __('Editar categoría') }}
             </h2>
-            <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+            <p class="mt-1 text-sm text-gray-400">
                 {{ __('Modifica el nombre o la categoría padre de esta categoría.') }}
             </p>
 
@@ -31,13 +31,13 @@
                         <x-input-label for="edit_parent_id" value="{{ __('Categoría padre (opcional)') }}" />
                         <select wire:model="parent_id" 
                                 id="edit_parent_id" 
-                                class="block mt-1 w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                                class="block mt-1 w-full rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand">
                             <option value="">{{ __('Sin categoría padre (categoría raíz)') }}</option>
                             @foreach($this->availableCategories as $cat)
                                 <option value="{{ $cat->id }}">{{ $cat->name }}</option>
                             @endforeach
                         </select>
-                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        <p class="mt-1 text-xs text-gray-400">
                             {{ __('Deja vacío para convertir en categoría principal, o selecciona una categoría existente para convertirla en subcategoría.') }}
                         </p>
                         <x-input-error :messages="$errors->get('parent_id')" class="mt-1" />

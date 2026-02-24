@@ -1,10 +1,10 @@
 <div x-on:open-edit-bolsillo-modal.window="$wire.loadBolsillo($event.detail?.id ?? $event.detail)">
     <x-modal name="edit-bolsillo" focusable maxWidth="2xl">
         <form wire:submit="update" class="p-6">
-            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">
+            <h2 class="text-lg font-medium text-white">
                 {{ __('Editar Bolsillo') }}
             </h2>
-            <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+            <p class="mt-1 text-sm text-gray-400">
                 {{ __('El saldo solo se modifica mediante movimientos.') }}
             </p>
 
@@ -17,7 +17,7 @@
 
                 <div>
                     <x-input-label for="edit_detalles" value="{{ __('Detalles') }}" />
-                    <textarea wire:model="detalles" id="edit_detalles" class="block mt-1 w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500" rows="3" placeholder="Nº cuenta, etc."></textarea>
+                    <textarea wire:model="detalles" id="edit_detalles" class="block mt-1 w-full rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand" rows="3" placeholder="Nº cuenta, etc."></textarea>
                     <x-input-error :messages="$errors->get('detalles')" class="mt-1" />
                 </div>
 

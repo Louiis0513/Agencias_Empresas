@@ -1,10 +1,10 @@
 <div>
     <x-modal name="select-item-compra" focusable maxWidth="4xl" :zIndex="100">
         <div class="p-6">
-            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">
+            <h2 class="text-lg font-medium text-white">
                 Seleccionar {{ $itemType === 'INVENTARIO' ? 'Producto (Inventario)' : 'Activo Fijo' }}
             </h2>
-            <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+            <p class="mt-1 text-sm text-gray-400">
                 Busca y selecciona un {{ $itemType === 'INVENTARIO' ? 'producto' : 'activo' }} de la tabla{{ $itemType === 'ACTIVO_FIJO' ? ', o crea uno nuevo si aún no existe' : '' }}.
             </p>
 
@@ -13,7 +13,7 @@
                     <input type="text"
                            wire:model.live.debounce.300ms="search"
                            placeholder="Buscar por nombre, SKU o código (mín. 2 letras)..."
-                           class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                           class="w-full rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand">
                 </div>
                 @if($itemType === 'ACTIVO_FIJO')
                 <div>

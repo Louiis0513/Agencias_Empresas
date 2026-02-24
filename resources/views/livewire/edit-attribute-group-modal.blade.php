@@ -1,10 +1,10 @@
 <div x-on:open-edit-attribute-group-modal.window="$wire.loadGroup($event.detail.id || $event.detail)">
     <x-modal name="edit-attribute-group" focusable maxWidth="lg">
         <form wire:submit="update" class="p-6">
-            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">
+            <h2 class="text-lg font-medium text-white">
                 {{ __('Editar grupo de atributos') }}
             </h2>
-            <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+            <p class="mt-1 text-sm text-gray-400">
                 {{ __('Modifica el nombre del grupo de atributos.') }}
             </p>
 

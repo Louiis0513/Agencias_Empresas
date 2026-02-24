@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex justify-between items-center">
-            <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
+            <h2 class="font-semibold text-xl text-white leading-tight">
                 Trabajadores - {{ $store->name }}
             </h2>
         </div>
@@ -19,7 +19,7 @@
                     <p class="text-sm text-red-800 dark:text-red-200">{{ session('error') }}</p>
                 </div>
             @endif
-            <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
+            <div class="bg-dark-card border border-white/5 overflow-hidden sm:rounded-xl">
                 <div class="p-6">
                     {{-- Botones de acción --}}
                     <div class="mb-6 flex justify-between items-center">
@@ -32,7 +32,7 @@
                             </a>
                         @endstoreCan
                         @storeCan($store, 'workers.create')
-                            <a href="{{ route('stores.workers.create', $store) }}" class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 focus:bg-indigo-700 active:bg-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150">
+                            <a href="{{ route('stores.workers.create', $store) }}" class="inline-flex items-center px-4 py-2 bg-brand text-white font-semibold text-xs rounded-xl uppercase tracking-wider shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)] transition">
                                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                                 </svg>
@@ -44,36 +44,36 @@
                     {{-- Tabla de trabajadores --}}
                     @if($workersList->count() > 0)
                         <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                                <thead class="bg-gray-50 dark:bg-gray-900">
+                            <table class="min-w-full divide-y divide-white/5">
+                                <thead class="border-b border-white/5">
                                     <tr>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                                             Nombre
                                         </th>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                                             Email
                                         </th>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                                             Rol
                                         </th>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                                             Estado
                                         </th>
-                                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">
                                             Acciones
                                         </th>
                                     </tr>
                                 </thead>
-                                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                                <tbody class="divide-y divide-white/5">
                                     @foreach($workersList as $item)
-                                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                        <tr class="hover:bg-white/5 transition">
                                             <td class="px-6 py-4 whitespace-nowrap">
-                                                <div class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                                <div class="text-sm font-medium text-gray-100">
                                                     {{ $item['name'] }}
                                                 </div>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
-                                                <div class="text-sm text-gray-500 dark:text-gray-400">
+                                                <div class="text-sm text-gray-400">
                                                     {{ $item['email'] }}
                                                 </div>
                                             </td>
@@ -97,7 +97,7 @@
                                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                 @if($item['worker_id'])
                                                     @storeCan($store, 'workers.edit')
-                                                        <a href="{{ route('stores.workers.edit', [$store, $item['worker_id']]) }}" class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 mr-3">
+                                                        <a href="{{ route('stores.workers.edit', [$store, $item['worker_id']]) }}" class="text-brand hover:text-white transition mr-3">
                                                             Editar
                                                         </a>
                                                     @endstoreCan
@@ -124,8 +124,8 @@
                             <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                             </svg>
-                            <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No hay trabajadores</h3>
-                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Comienza añadiendo un trabajador a esta tienda.</p>
+                            <h3 class="mt-2 text-sm font-medium text-gray-100">No hay trabajadores</h3>
+                            <p class="mt-1 text-sm text-gray-400">Comienza añadiendo un trabajador a esta tienda.</p>
                         </div>
                     @endif
                 </div>

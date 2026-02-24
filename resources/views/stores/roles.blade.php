@@ -1,10 +1,10 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex justify-between items-center">
-            <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
+            <h2 class="font-semibold text-xl text-white leading-tight">
                 Roles y Permisos - {{ $store->name }}
             </h2>
-            <a href="{{ route('stores.workers', $store) }}" class="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+            <a href="{{ route('stores.workers', $store) }}" class="text-sm text-gray-400 hover:text-brand transition">
                 ← Volver a Trabajadores
             </a>
         </div>
@@ -44,7 +44,7 @@
             <div class="flex justify-end">
                 <button type="button"
                         x-on:click="$dispatch('open-modal', 'create-role')"
-                        class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 focus:bg-indigo-700 active:bg-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150">
+                        class="inline-flex items-center px-4 py-2 bg-brand text-white font-semibold text-xs rounded-xl uppercase tracking-wider shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)] transition">
                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                     </svg>
@@ -57,15 +57,15 @@
             @if($roles->count() > 0)
                 <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                     @foreach($roles as $role)
-                        <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
+                        <div class="bg-dark-card border border-white/5 overflow-hidden sm:rounded-xl">
                             <div class="p-6">
                                 {{-- Header del rol --}}
                                 <div class="flex justify-between items-start">
                                     <div>
-                                        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                                        <h3 class="text-lg font-semibold text-gray-100">
                                             {{ $role->name }}
                                         </h3>
-                                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                        <p class="text-sm text-gray-400 mt-1">
                                             {{ $role->permissions->count() }} permiso(s) asignado(s)
                                         </p>
                                     </div>
@@ -73,7 +73,7 @@
                                         @storeCan($store, 'roles.edit')
                                         <button type="button"
                                                 x-on:click="$dispatch('open-edit-role-modal', { id: {{ $role->id }} })"
-                                                class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
+                                                class="text-brand hover:text-white transition"
                                                 title="Editar rol">
                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
@@ -97,7 +97,7 @@
                                 {{-- Botón para gestionar permisos --}}
                                 @storeCan($store, 'roles.permissions')
                                 <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                                    <a href="{{ route('stores.roles.permissions', [$store, $role]) }}" class="block w-full text-sm text-center text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium">
+                                    <a href="{{ route('stores.roles.permissions', [$store, $role]) }}" class="block w-full text-sm text-center text-brand hover:text-white transition font-medium">
                                         Gestionar Permisos →
                                     </a>
                                 </div>
@@ -107,13 +107,13 @@
                     @endforeach
                 </div>
             @else
-                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
+                <div class="bg-dark-card border border-white/5 overflow-hidden sm:rounded-xl">
                     <div class="p-12 text-center">
                         <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                         </svg>
-                        <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No hay roles creados</h3>
-                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Comienza creando un rol para organizar los permisos de tus trabajadores.</p>
+                        <h3 class="mt-2 text-sm font-medium text-gray-100">No hay roles creados</h3>
+                        <p class="mt-1 text-sm text-gray-400">Comienza creando un rol para organizar los permisos de tus trabajadores.</p>
                     </div>
                 </div>
             @endif
@@ -143,20 +143,20 @@
                     ];
                     $permissionsByModule = $allPermissions->groupBy(fn ($p) => explode('.', $p->slug)[0]);
                 @endphp
-                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
+                <div class="bg-dark-card border border-white/5 overflow-hidden sm:rounded-xl">
                     <div class="p-6">
-                        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                        <h3 class="text-lg font-semibold text-gray-100 mb-4">
                             Permisos disponibles en el sistema
                         </h3>
-                        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Despliega cada módulo para ver los permisos que puedes asignar a los roles.</p>
+                        <p class="text-sm text-gray-400 mb-4">Despliega cada módulo para ver los permisos que puedes asignar a los roles.</p>
                         <div class="space-y-2">
                             @foreach($permissionsByModule as $moduleKey => $perms)
                                 <div x-data="{ open: false }" class="border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden">
                                     <button type="button"
                                             @click="open = !open"
                                             class="w-full flex items-center justify-between px-4 py-3 text-left bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition">
-                                        <span class="font-medium text-gray-900 dark:text-gray-100">{{ $moduleLabels[$moduleKey] ?? str_replace('-', ' ', $moduleKey) }}</span>
-                                        <span class="text-sm text-gray-500 dark:text-gray-400">{{ $perms->count() }} permiso(s)</span>
+                                        <span class="font-medium text-gray-100">{{ $moduleLabels[$moduleKey] ?? str_replace('-', ' ', $moduleKey) }}</span>
+                                        <span class="text-sm text-gray-400">{{ $perms->count() }} permiso(s)</span>
                                         <svg class="w-5 h-5 text-gray-400 transition-transform" :class="{ 'rotate-180': open }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                                         </svg>
@@ -168,9 +168,9 @@
                                                     <svg class="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                                                         <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
                                                     </svg>
-                                                    <span class="font-medium text-gray-900 dark:text-gray-100">{{ $permission->name }}</span>
+                                                    <span class="font-medium text-gray-100">{{ $permission->name }}</span>
                                                     @if($permission->description)
-                                                        <span class="text-gray-500 dark:text-gray-400">— {{ $permission->description }}</span>
+                                                        <span class="text-gray-400">— {{ $permission->description }}</span>
                                                     @endif
                                                 </div>
                                             @endforeach

@@ -1,10 +1,10 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex justify-between items-center">
-            <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
+            <h2 class="font-semibold text-xl text-white leading-tight">
                 Membresías - {{ $store->name }}
             </h2>
-            <a href="{{ route('stores.dashboard', $store) }}" class="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+            <a href="{{ route('stores.dashboard', $store) }}" class="text-sm text-gray-400 hover:text-brand transition">
                 ← Volver al Resumen
             </a>
         </div>
@@ -23,12 +23,12 @@
                 </div>
             @endif
 
-            <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
+            <div class="bg-dark-card border border-white/5 overflow-hidden sm:rounded-xl">
                 <div class="p-6">
                     <div class="mb-6 flex flex-wrap justify-between items-center gap-4">
                         <div></div>
                         <button type="button" x-on:click="$dispatch('open-modal', 'create-invoice')"
-                                class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700">
+                                class="inline-flex items-center px-4 py-2 bg-brand text-white font-semibold text-xs rounded-xl uppercase tracking-wider shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)]">
                             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                             Suscribir cliente
                         </button>
@@ -36,26 +36,26 @@
 
                     @if($subscriptions->count() > 0)
                         <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                                <thead class="bg-gray-50 dark:bg-gray-900">
+                            <table class="min-w-full divide-y divide-white/5">
+                                <thead class="border-b border-white/5">
                                     <tr>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Cliente</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Plan</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Fecha inicio</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Fecha vencimiento</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Entradas usadas</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Última entrada</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Estado</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Cliente</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Plan</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Fecha inicio</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Fecha vencimiento</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Entradas usadas</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Última entrada</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Estado</th>
                                     </tr>
                                 </thead>
-                                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                                <tbody class="divide-y divide-white/5">
                                     @foreach($subscriptions as $subscription)
-                                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
-                                            <td class="px-4 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">{{ $subscription->customer?->name ?? '—' }}</td>
+                                        <tr class="hover:bg-white/5 transition">
+                                            <td class="px-4 py-4 text-sm font-medium text-gray-100">{{ $subscription->customer?->name ?? '—' }}</td>
                                             <td class="px-4 py-4 text-sm text-gray-600 dark:text-gray-400">{{ $subscription->storePlan?->name ?? '—' }}</td>
-                                            <td class="px-4 py-4 text-sm text-gray-900 dark:text-gray-100">{{ $subscription->starts_at?->format('d/m/Y') ?? '—' }}</td>
-                                            <td class="px-4 py-4 text-sm text-gray-900 dark:text-gray-100">{{ $subscription->expires_at?->format('d/m/Y') ?? '—' }}</td>
-                                            <td class="px-4 py-4 text-sm text-gray-900 dark:text-gray-100">{{ $subscription->entries_used }}</td>
+                                            <td class="px-4 py-4 text-sm text-gray-100">{{ $subscription->starts_at?->format('d/m/Y') ?? '—' }}</td>
+                                            <td class="px-4 py-4 text-sm text-gray-100">{{ $subscription->expires_at?->format('d/m/Y') ?? '—' }}</td>
+                                            <td class="px-4 py-4 text-sm text-gray-100">{{ $subscription->entries_used }}</td>
                                             <td class="px-4 py-4 text-sm text-gray-600 dark:text-gray-400">{{ $subscription->last_entry_at?->format('d/m/Y H:i') ?? '—' }}</td>
                                             <td class="px-4 py-4 text-sm">
                                                 @if($subscription->getStatus() === 'active')
@@ -72,7 +72,7 @@
                             </table>
                         </div>
                     @else
-                        <p class="text-center text-gray-500 dark:text-gray-400 py-8">
+                        <p class="text-center text-gray-400 py-8">
                             No hay membresías registradas.
                             <button type="button" x-on:click="$dispatch('open-modal', 'create-invoice')" class="text-indigo-600 dark:text-indigo-400 hover:underline bg-transparent border-0 p-0 cursor-pointer font-inherit">Suscribir a un cliente</button>
                         </p>

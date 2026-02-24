@@ -1,10 +1,10 @@
 <div>
     <x-modal name="create-proveedor" focusable maxWidth="2xl">
         <form wire:submit="save" class="p-6">
-            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">
+            <h2 class="text-lg font-medium text-white">
                 {{ __('Crear Proveedor') }}
             </h2>
-            <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+            <p class="mt-1 text-sm text-gray-400">
                 {{ __('Registra un nuevo proveedor para tu tienda.') }}
             </p>
 
@@ -43,7 +43,7 @@
 
                 <div>
                     <x-input-label for="direccion" value="{{ __('Dirección') }}" />
-                    <textarea wire:model="direccion" id="direccion" class="block mt-1 w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500" rows="3" placeholder="Dirección completa"></textarea>
+                    <textarea wire:model="direccion" id="direccion" class="block mt-1 w-full rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand" rows="3" placeholder="Dirección completa"></textarea>
                     <x-input-error :messages="$errors->get('direccion')" class="mt-1" />
                 </div>
 
@@ -56,7 +56,7 @@
 
                 <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 p-4">
                     <x-input-label value="{{ __('Productos que suministra este proveedor') }}" />
-                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400 mb-3">
+                    <p class="mt-1 text-xs text-gray-400 mb-3">
                         {{ __('Busca y agrega los productos que este proveedor puede suministrar.') }}
                     </p>
 
@@ -64,7 +64,7 @@
                     <div class="flex gap-2 mb-3">
                         <input type="text"
                                wire:model="busquedaProducto"
-                               class="flex-1 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                               class="flex-1 rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand"
                                placeholder="Buscar por nombre, SKU o código de barras">
                         <button type="button"
                                 wire:click="buscarProductos"

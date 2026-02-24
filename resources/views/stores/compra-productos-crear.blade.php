@@ -7,10 +7,10 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex justify-between items-center">
-            <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
+            <h2 class="font-semibold text-xl text-white leading-tight">
                 {{ $editing ? 'Editar compra' : 'Nueva Compra de Productos' }} - {{ $store->name }}
             </h2>
-            <a href="{{ $editing ? route('stores.purchases.show', [$store, $purchase]) : route('stores.product-purchases', $store) }}" class="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+            <a href="{{ $editing ? route('stores.purchases.show', [$store, $purchase]) : route('stores.product-purchases', $store) }}" class="text-sm text-gray-400 hover:text-brand transition">
                 ← {{ $editing ? 'Volver a compra' : 'Volver a Compra de productos' }}
             </a>
         </div>
@@ -23,7 +23,7 @@
     <div class="py-12" x-data="compraProductosSelection()">
         <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
             @if(!$editing)
-            <p class="mb-4 text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/30 border border-gray-200 dark:border-gray-700 rounded-lg px-4 py-3">
+            <p class="mb-4 text-sm text-gray-600 dark:text-gray-400 border-b border-white/5/30 border border-gray-200 dark:border-gray-700 rounded-lg px-4 py-3">
                 La compra se guardará como borrador. Podrás editarla o aprobarla después desde el listado de compras de productos.
             </p>
             @endif
@@ -40,7 +40,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Proveedor</label>
-                        <select name="proveedor_id" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                        <select name="proveedor_id" class="w-full rounded-md border-white/10 bg-white/5 text-gray-100">
                             <option value="">Sin proveedor</option>
                             @foreach($proveedores as $prov)
                                 <option value="{{ $prov->id }}" {{ old('proveedor_id', $editing ? $purchase->proveedor_id : null) == $prov->id ? 'selected' : '' }}>{{ $prov->nombre }}</option>
@@ -49,44 +49,44 @@
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Forma de Pago</label>
-                        <select name="payment_status" x-model="paymentStatus" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                        <select name="payment_status" x-model="paymentStatus" class="w-full rounded-md border-white/10 bg-white/5 text-gray-100">
                             <option value="PAGADO" {{ old('payment_status', $editing ? $purchase->payment_status : 'PAGADO') == 'PAGADO' ? 'selected' : '' }}>Contado (Pagado)</option>
                             <option value="PENDIENTE" {{ old('payment_status', $editing ? $purchase->payment_status : null) == 'PENDIENTE' ? 'selected' : '' }}>A Crédito (Pendiente)</option>
                         </select>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nº Factura Externa</label>
-                        <input type="text" name="invoice_number" value="{{ old('invoice_number', $editing ? $purchase->invoice_number : '') }}" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" placeholder="Ej: F-001-0001234">
+                        <input type="text" name="invoice_number" value="{{ old('invoice_number', $editing ? $purchase->invoice_number : '') }}" class="w-full rounded-md border-white/10 bg-white/5 text-gray-100" placeholder="Ej: F-001-0001234">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha Factura Externa</label>
-                        <input type="date" name="invoice_date" value="{{ old('invoice_date', $editing && $purchase->invoice_date ? $purchase->invoice_date->format('Y-m-d') : '') }}" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                        <input type="date" name="invoice_date" value="{{ old('invoice_date', $editing && $purchase->invoice_date ? $purchase->invoice_date->format('Y-m-d') : '') }}" class="w-full rounded-md border-white/10 bg-white/5 text-gray-100">
                     </div>
                     <div x-show="paymentStatus === 'PENDIENTE'" x-transition>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha de vencimiento de la factura</label>
-                        <input type="date" name="due_date" value="{{ old('due_date', $editing && $purchase->due_date ? $purchase->due_date->format('Y-m-d') : '') }}" x-bind:required="paymentStatus === 'PENDIENTE'" x-bind:disabled="paymentStatus !== 'PENDIENTE'" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" placeholder="Cuando vence la cuenta por pagar">
-                        <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Solo para compras a crédito. Cuándo vence el pago.</p>
+                        <input type="date" name="due_date" value="{{ old('due_date', $editing && $purchase->due_date ? $purchase->due_date->format('Y-m-d') : '') }}" x-bind:required="paymentStatus === 'PENDIENTE'" x-bind:disabled="paymentStatus !== 'PENDIENTE'" class="w-full rounded-md border-white/10 bg-white/5 text-gray-100" placeholder="Cuando vence la cuenta por pagar">
+                        <p class="mt-0.5 text-xs text-gray-400">Solo para compras a crédito. Cuándo vence el pago.</p>
                     </div>
                 </div>
 
                 <div class="mb-6">
                     <div class="flex justify-between items-center mb-2">
-                        <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">Detalle (productos de inventario)</h3>
+                        <h3 class="text-sm font-medium text-gray-100">Detalle (productos de inventario)</h3>
                         <button type="button" id="add-row-productos" class="text-sm text-indigo-600 hover:text-indigo-800">+ Agregar línea</button>
                     </div>
                     <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                            <thead class="bg-gray-50 dark:bg-gray-900">
+                        <table class="min-w-full divide-y divide-white/5">
+                            <thead class="border-b border-white/5">
                                 <tr>
-                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Producto</th>
-                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Cantidad</th>
-                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Costo Unit.</th>
-                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Caducidad</th>
-                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Subtotal</th>
-                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400"></th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-400">Producto</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-400">Cantidad</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-400">Costo Unit.</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-400">Caducidad</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-400">Subtotal</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-400"></th>
                                 </tr>
                             </thead>
-                            <tbody id="details-body-productos" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                            <tbody id="details-body-productos" class="bg-white dark:bg-gray-800 divide-y divide-white/5">
                                 @php
                                     $defaultDetail = ['item_type' => 'INVENTARIO', 'product_id' => '', 'description' => '', 'quantity' => 1, 'unit_cost' => 0];
                                     $oldDetails = old('details');
@@ -142,9 +142,9 @@
                                                 <span class="detail-serial-qty text-sm text-gray-700 dark:text-gray-300">{{ $qty }}</span>
                                             @elseif($isBatchRow)
                                                 <input type="hidden" name="details[{{ $i }}][quantity]" value="{{ $qty }}" class="detail-qty-hidden">
-                                                <input type="number" name="details[{{ $i }}][batch_items][0][quantity]" value="{{ $qty }}" min="1" class="detail-qty w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
+                                                <input type="number" name="details[{{ $i }}][batch_items][0][quantity]" value="{{ $qty }}" min="1" class="detail-qty w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm">
                                             @else
-                                                <input type="number" name="details[{{ $i }}][quantity]" value="{{ $qty }}" min="1" class="detail-qty w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
+                                                <input type="number" name="details[{{ $i }}][quantity]" value="{{ $qty }}" min="1" class="detail-qty w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm">
                                             @endif
                                             <span class="detail-serial-qty text-sm text-gray-600 dark:text-gray-400 hidden"></span>
                                             <span class="detail-batch-qty text-sm text-gray-700 dark:text-gray-300 hidden"></span>
@@ -152,16 +152,16 @@
                                         <td class="px-3 py-2 detail-cost-cell">
                                             @if($isBatchRow)
                                                 <input type="hidden" name="details[{{ $i }}][unit_cost]" value="{{ $cost }}" class="detail-cost-hidden">
-                                                <input type="number" name="details[{{ $i }}][batch_items][0][unit_cost]" value="{{ $cost }}" min="0" step="0.01" class="detail-cost w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
+                                                <input type="number" name="details[{{ $i }}][batch_items][0][unit_cost]" value="{{ $cost }}" min="0" step="0.01" class="detail-cost w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm">
                                             @else
-                                                <input type="number" name="details[{{ $i }}][unit_cost]" value="{{ $cost }}" min="0" step="0.01" class="detail-cost w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
+                                                <input type="number" name="details[{{ $i }}][unit_cost]" value="{{ $cost }}" min="0" step="0.01" class="detail-cost w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm">
                                             @endif
                                             <span class="detail-serial-dash hidden">—</span>
                                             <span class="detail-batch-cost text-sm text-gray-700 dark:text-gray-300 hidden"></span>
                                         </td>
-                                        <td class="px-3 py-2 detail-expiration-cell text-sm {{ $isBatchRow ? '' : 'text-gray-500 dark:text-gray-400' }}">
+                                        <td class="px-3 py-2 detail-expiration-cell text-sm {{ $isBatchRow ? '' : 'text-gray-400' }}">
                                             @if($isBatchRow)
-                                                <input type="date" class="detail-batch-expiration w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" name="details[{{ $i }}][batch_items][0][expiration_date]" value="{{ $batchExpiration }}" placeholder="Opcional">
+                                                <input type="date" class="detail-batch-expiration w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" name="details[{{ $i }}][batch_items][0][expiration_date]" value="{{ $batchExpiration }}" placeholder="Opcional">
                                             @else
                                                 —
                                             @endif
@@ -175,7 +175,7 @@
                                     </tr>
                                     @if($editing && !empty($d['serial_items']) && is_array($d['serial_items']))
                                         {{-- Fila de unidades serializadas: debe enviarse al guardar para no perder los seriales al editar --}}
-                                        <tr class="serial-details-row bg-gray-50 dark:bg-gray-900/50" data-parent-row-id="{{ $i }}" data-product-id="{{ $d['product_id'] ?? '' }}">
+                                        <tr class="serial-details-row border-b border-white/5/50" data-parent-row-id="{{ $i }}" data-product-id="{{ $d['product_id'] ?? '' }}">
                                             <td colspan="6" class="px-3 py-3 border-t border-gray-200 dark:border-gray-700">
                                                 <div class="space-y-4 text-sm">
                                                     <div class="p-2 rounded bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800">
@@ -194,7 +194,7 @@
                                                                 $uc = (float) ($unit['cost'] ?? 0);
                                                                 $feats = $unit['features'] ?? [];
                                                             @endphp
-                                                            <div class="serial-item border rounded-lg p-4 space-y-3 bg-gray-50 dark:bg-gray-900/30 border-gray-200 dark:border-gray-700" data-serial-index="{{ $j }}">
+                                                            <div class="serial-item border rounded-lg p-4 space-y-3 border-b border-white/5/30 border-gray-200 dark:border-gray-700" data-serial-index="{{ $j }}">
                                                                 <div class="flex justify-between items-center serial-item-header">
                                                                     <span class="text-sm font-semibold text-gray-600 dark:text-gray-300">Unidad #{{ $j + 1 }}</span>
                                                                     <button type="button" class="btn-remove-serial text-red-600 hover:underline text-sm">Eliminar</button>
@@ -202,11 +202,11 @@
                                                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                                     <div>
                                                                         <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Número de serie (IMEI, etc.)</label>
-                                                                        <input type="text" class="serial-number w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" placeholder="Ej: IMEI-123456789" name="details[{{ $i }}][serial_items][{{ $j }}][serial_number]" value="{{ old('details.'.$i.'.serial_items.'.$j.'.serial_number', $sn) }}">
+                                                                        <input type="text" class="serial-number w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" placeholder="Ej: IMEI-123456789" name="details[{{ $i }}][serial_items][{{ $j }}][serial_number]" value="{{ old('details.'.$i.'.serial_items.'.$j.'.serial_number', $sn) }}">
                                                                     </div>
                                                                     <div>
                                                                         <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Costo de esta unidad (€)</label>
-                                                                        <input type="number" step="0.01" min="0" class="serial-cost w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" placeholder="0.00" name="details[{{ $i }}][serial_items][{{ $j }}][cost]" value="{{ old('details.'.$i.'.serial_items.'.$j.'.cost', $uc) }}">
+                                                                        <input type="number" step="0.01" min="0" class="serial-cost w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" placeholder="0.00" name="details[{{ $i }}][serial_items][{{ $j }}][cost]" value="{{ old('details.'.$i.'.serial_items.'.$j.'.cost', $uc) }}">
                                                                     </div>
                                                                 </div>
                                                                 @if(!empty($feats))
@@ -214,7 +214,7 @@
                                                                         @foreach($feats as $attrId => $attrVal)
                                                                             <div>
                                                                                 <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Atributo {{ $attrId }}</label>
-                                                                                <input type="text" class="serial-attr-feature w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" data-attr-id="{{ $attrId }}" name="details[{{ $i }}][serial_items][{{ $j }}][features][{{ $attrId }}]" value="{{ is_scalar($attrVal) ? $attrVal : '' }}">
+                                                                                <input type="text" class="serial-attr-feature w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" data-attr-id="{{ $attrId }}" name="details[{{ $i }}][serial_items][{{ $j }}][features][{{ $attrId }}]" value="{{ is_scalar($attrVal) ? $attrVal : '' }}">
                                                                             </div>
                                                                         @endforeach
                                                                     </div>
@@ -230,12 +230,12 @@
                             </tbody>
                         </table>
                     </div>
-                    <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    <p class="mt-2 text-xs text-gray-400">
                         Productos de inventario (para reventa). Busca por nombre o SKU en «Seleccionar» o crea un producto nuevo.
                     </p>
                 </div>
 
-                <div class="compra-productos-validation-error hidden mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+                <div class="compra-productos-validation-error hidden mb-4 bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded relative" role="alert">
                     <span class="block sm:inline">Debes seleccionar al menos un producto en el detalle. Haz clic en «Seleccionar» en cada línea.</span>
                     <button type="button" class="absolute top-2 right-2 text-red-600 hover:text-red-800" onclick="this.parentElement.classList.add('hidden')" aria-label="Cerrar">×</button>
                 </div>
@@ -244,7 +244,7 @@
                     <a href="{{ $editing ? route('stores.purchases.show', [$store, $purchase]) : route('stores.product-purchases', $store) }}" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600">
                         Cancelar
                     </a>
-                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800">
+                    <button type="submit" class="px-4 py-2 bg-brand text-white rounded-xl shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)] focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800">
                         {{ $editing ? 'Guardar cambios' : 'Guardar como borrador' }}
                     </button>
                 </div>
@@ -467,7 +467,7 @@
                         expCell.classList.remove('text-gray-500', 'dark:text-gray-400');
                         const expInput = document.createElement('input');
                         expInput.type = 'date';
-                        expInput.className = 'detail-batch-expiration w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm';
+                        expInput.className = 'detail-batch-expiration w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm';
                         expInput.name = `details[${rowId}][batch_items][0][expiration_date]`;
                         expInput.placeholder = 'Opcional';
                         expCell.appendChild(expInput);
@@ -498,16 +498,16 @@
                         </div>
                     </td>
                     <td class="px-3 py-2 detail-qty-cell">
-                        <input type="number" name="details[${idx}][quantity]" value="1" min="1" class="detail-qty w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
+                        <input type="number" name="details[${idx}][quantity]" value="1" min="1" class="detail-qty w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm">
                         <span class="detail-serial-qty text-sm text-gray-600 dark:text-gray-400 hidden"></span>
                         <span class="detail-batch-qty text-sm text-gray-700 dark:text-gray-300 hidden"></span>
                     </td>
                     <td class="px-3 py-2 detail-cost-cell">
-                        <input type="number" name="details[${idx}][unit_cost]" value="0" min="0" step="0.01" class="detail-cost w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
+                        <input type="number" name="details[${idx}][unit_cost]" value="0" min="0" step="0.01" class="detail-cost w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm">
                         <span class="detail-serial-dash hidden">—</span>
                         <span class="detail-batch-cost text-sm text-gray-700 dark:text-gray-300 hidden"></span>
                     </td>
-                    <td class="px-3 py-2 detail-expiration-cell text-sm text-gray-500 dark:text-gray-400">—</td>
+                    <td class="px-3 py-2 detail-expiration-cell text-sm text-gray-400">—</td>
                     <td class="px-3 py-2">
                         <span class="detail-subtotal text-sm font-medium">0.00</span>
                     </td>
@@ -519,7 +519,7 @@
 
             function createSerialDetailsRowUnidades(rowId, productId, detailRow) {
                 const tr = document.createElement('tr');
-                tr.className = 'serial-details-row bg-gray-50 dark:bg-gray-900/50';
+                tr.className = 'serial-details-row border-b border-white/5/50';
                 tr.setAttribute('data-parent-row-id', rowId);
                 tr.setAttribute('data-product-id', productId);
                 tr.innerHTML = `
@@ -548,14 +548,14 @@
                         const attrs = data.attributes || [];
                         function addUnit(index) {
                             const unitDiv = document.createElement('div');
-                            unitDiv.className = 'serial-item border rounded-lg p-4 space-y-3 bg-gray-50 dark:bg-gray-900/30 border-gray-200 dark:border-gray-700';
+                            unitDiv.className = 'serial-item border rounded-lg p-4 space-y-3 border-b border-white/5/30 border-gray-200 dark:border-gray-700';
                             unitDiv.setAttribute('data-serial-index', index);
                             let attrsHtml = '';
                             attrs.forEach(function(attr) {
                                 attrsHtml += `
                                     <div>
                                         <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">${escapeHtml(attr.name)}</label>
-                                        <input type="text" class="serial-attr-feature w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" placeholder="Ej: valor para ${escapeHtml(attr.name)}" data-attr-id="${attr.id}" name="details[${rowId}][serial_items][${index}][features][${attr.id}]">
+                                        <input type="text" class="serial-attr-feature w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" placeholder="Ej: valor para ${escapeHtml(attr.name)}" data-attr-id="${attr.id}" name="details[${rowId}][serial_items][${index}][features][${attr.id}]">
                                     </div>
                                 `;
                             });
@@ -567,11 +567,11 @@
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <div>
                                         <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Número de serie (IMEI, etc.)</label>
-                                        <input type="text" class="serial-number w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" placeholder="Ej: IMEI-123456789" name="details[${rowId}][serial_items][${index}][serial_number]">
+                                        <input type="text" class="serial-number w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" placeholder="Ej: IMEI-123456789" name="details[${rowId}][serial_items][${index}][serial_number]">
                                     </div>
                                     <div>
                                         <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Costo de esta unidad (€)</label>
-                                        <input type="number" step="0.01" min="0" class="serial-cost w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" placeholder="0.00" name="details[${rowId}][serial_items][${index}][cost]">
+                                        <input type="number" step="0.01" min="0" class="serial-cost w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" placeholder="0.00" name="details[${rowId}][serial_items][${index}][cost]">
                                     </div>
                                 </div>
                                 ${attrs.length ? '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">' + attrsHtml + '</div>' : ''}
@@ -603,17 +603,17 @@
                     .catch(function() {
                         container.innerHTML = '<p class="text-xs text-amber-600 dark:text-amber-400">No se pudieron cargar los atributos. Añade al menos una unidad con serial y costo.</p>';
                         const unitDiv = document.createElement('div');
-                        unitDiv.className = 'serial-item border rounded-lg p-4 space-y-3 bg-gray-50 dark:bg-gray-900/30';
+                        unitDiv.className = 'serial-item border rounded-lg p-4 space-y-3 border-b border-white/5/30';
                         unitDiv.innerHTML = `
                             <div class="text-sm font-semibold text-gray-600 dark:text-gray-300">Unidad #1</div>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div>
                                     <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Número de serie (IMEI, etc.)</label>
-                                    <input type="text" class="serial-number w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" name="details[${rowId}][serial_items][0][serial_number]">
+                                    <input type="text" class="serial-number w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" name="details[${rowId}][serial_items][0][serial_number]">
                                 </div>
                                 <div>
                                     <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Costo de esta unidad (€)</label>
-                                    <input type="number" step="0.01" min="0" class="serial-cost w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" name="details[${rowId}][serial_items][0][cost]">
+                                    <input type="number" step="0.01" min="0" class="serial-cost w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" name="details[${rowId}][serial_items][0][cost]">
                                 </div>
                             </div>
                         `;
@@ -622,12 +622,12 @@
                         tr.querySelector('.btn-add-serial-unit').addEventListener('click', function() {
                             const n = container.querySelectorAll('.serial-item').length;
                             const u = document.createElement('div');
-                            u.className = 'serial-item border rounded-lg p-4 space-y-3 bg-gray-50 dark:bg-gray-900/30';
+                            u.className = 'serial-item border rounded-lg p-4 space-y-3 border-b border-white/5/30';
                             u.innerHTML = `
                                 <div class="flex justify-between"><span class="text-sm font-semibold">Unidad #${n + 1}</span><button type="button" class="btn-remove-serial text-red-600 hover:underline text-sm">Eliminar</button></div>
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Número de serie</label><input type="text" class="serial-number w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" name="details[${rowId}][serial_items][${n}][serial_number]"></div>
-                                    <div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Costo (€)</label><input type="number" step="0.01" min="0" class="serial-cost w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" name="details[${rowId}][serial_items][${n}][cost]"></div>
+                                    <div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Número de serie</label><input type="text" class="serial-number w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" name="details[${rowId}][serial_items][${n}][serial_number]"></div>
+                                    <div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Costo (€)</label><input type="number" step="0.01" min="0" class="serial-cost w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" name="details[${rowId}][serial_items][${n}][cost]"></div>
                                 </div>
                             `;
                             container.appendChild(u);
@@ -647,7 +647,7 @@
             /*
             function createBatchDetailsRow(rowId, productId, detailRow) {
                 const tr = document.createElement('tr');
-                tr.className = 'batch-details-row bg-gray-50 dark:bg-gray-900/50';
+                tr.className = 'batch-details-row border-b border-white/5/50';
                 tr.setAttribute('data-parent-row-id', rowId);
                 tr.setAttribute('data-product-id', productId);
                 tr.innerHTML = `
@@ -676,7 +676,7 @@
                         const attrs = data.attributes || [];
                         function addBatchVariant(index) {
                             const div = document.createElement('div');
-                            div.className = 'batch-item border rounded-lg p-4 space-y-3 bg-gray-50 dark:bg-gray-900/30 border-gray-200 dark:border-gray-700';
+                            div.className = 'batch-item border rounded-lg p-4 space-y-3 border-b border-white/5/30 border-gray-200 dark:border-gray-700';
                             div.setAttribute('data-batch-index', index);
                             let attrsHtml = '';
                             attrs.forEach(function(attr) {
@@ -688,7 +688,7 @@
                                 attrsHtml += `
                                     <div>
                                         <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">${escapeHtml(attr.name)}</label>
-                                        <select class="batch-attr-feature w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" data-attr-id="${attr.id}" name="details[${rowId}][batch_items][${index}][features][${attr.id}]">${opts}</select>
+                                        <select class="batch-attr-feature w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" data-attr-id="${attr.id}" name="details[${rowId}][batch_items][${index}][features][${attr.id}]">${opts}</select>
                                     </div>
                                 `;
                             });
@@ -700,15 +700,15 @@
                                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                                     <div>
                                         <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Cantidad</label>
-                                        <input type="number" min="1" class="batch-item-qty w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" value="1" name="details[${rowId}][batch_items][${index}][quantity]">
+                                        <input type="number" min="1" class="batch-item-qty w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" value="1" name="details[${rowId}][batch_items][${index}][quantity]">
                                     </div>
                                     <div>
                                         <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Costo unit. (€)</label>
-                                        <input type="number" step="0.01" min="0" class="batch-item-cost w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" value="0" name="details[${rowId}][batch_items][${index}][unit_cost]">
+                                        <input type="number" step="0.01" min="0" class="batch-item-cost w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" value="0" name="details[${rowId}][batch_items][${index}][unit_cost]">
                                     </div>
                                     <div>
                                         <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Precio venta (€, opcional)</label>
-                                        <input type="number" step="0.01" min="0" class="batch-item-price w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" placeholder="—" name="details[${rowId}][batch_items][${index}][price]">
+                                        <input type="number" step="0.01" min="0" class="batch-item-price w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" placeholder="—" name="details[${rowId}][batch_items][${index}][price]">
                                     </div>
                                 </div>
                                 ${attrs.length ? '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">' + attrsHtml + '</div>' : ''}
@@ -741,13 +741,13 @@
                             if (p) p.remove();
                             const n = container.querySelectorAll('.batch-item').length;
                             const div = document.createElement('div');
-                            div.className = 'batch-item border rounded-lg p-4 space-y-3 bg-gray-50 dark:bg-gray-900/30';
+                            div.className = 'batch-item border rounded-lg p-4 space-y-3 border-b border-white/5/30';
                             div.innerHTML = `
                                 <div class="flex justify-between"><span class="text-sm font-semibold">Variante #${n + 1}</span><button type="button" class="btn-remove-batch-variant text-red-600 hover:underline text-sm">Eliminar</button></div>
                                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                    <div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Cantidad</label><input type="number" min="1" class="batch-item-qty w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" value="1" name="details[${rowId}][batch_items][${n}][quantity]"></div>
-                                    <div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Costo unit. (€)</label><input type="number" step="0.01" min="0" class="batch-item-cost w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" value="0" name="details[${rowId}][batch_items][${n}][unit_cost]"></div>
-                                    <div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Precio venta (€)</label><input type="number" step="0.01" min="0" class="batch-item-price w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" name="details[${rowId}][batch_items][${n}][price]"></div>
+                                    <div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Cantidad</label><input type="number" min="1" class="batch-item-qty w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" value="1" name="details[${rowId}][batch_items][${n}][quantity]"></div>
+                                    <div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Costo unit. (€)</label><input type="number" step="0.01" min="0" class="batch-item-cost w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" value="0" name="details[${rowId}][batch_items][${n}][unit_cost]"></div>
+                                    <div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Precio venta (€)</label><input type="number" step="0.01" min="0" class="batch-item-price w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" name="details[${rowId}][batch_items][${n}][price]"></div>
                                 </div>
                             `;
                             container.appendChild(div);
@@ -1018,9 +1018,9 @@
                     addBtn.addEventListener('click', function() {
                         const j = container.querySelectorAll('.serial-item').length;
                         const div = document.createElement('div');
-                        div.className = 'serial-item border rounded-lg p-4 space-y-3 bg-gray-50 dark:bg-gray-900/30 border-gray-200 dark:border-gray-700';
+                        div.className = 'serial-item border rounded-lg p-4 space-y-3 border-b border-white/5/30 border-gray-200 dark:border-gray-700';
                         div.setAttribute('data-serial-index', j);
-                        div.innerHTML = '<div class="flex justify-between items-center serial-item-header"><span class="text-sm font-semibold text-gray-600 dark:text-gray-300">Unidad #' + (j + 1) + '</span><button type="button" class="btn-remove-serial text-red-600 hover:underline text-sm">Eliminar</button></div><div class="grid grid-cols-1 sm:grid-cols-2 gap-3"><div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Número de serie</label><input type="text" class="serial-number w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" name="details[' + rowId + '][serial_items][' + j + '][serial_number]"></div><div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Costo (€)</label><input type="number" step="0.01" min="0" class="serial-cost w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" name="details[' + rowId + '][serial_items][' + j + '][cost]" value="0"></div></div>';
+                        div.innerHTML = '<div class="flex justify-between items-center serial-item-header"><span class="text-sm font-semibold text-gray-600 dark:text-gray-300">Unidad #' + (j + 1) + '</span><button type="button" class="btn-remove-serial text-red-600 hover:underline text-sm">Eliminar</button></div><div class="grid grid-cols-1 sm:grid-cols-2 gap-3"><div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Número de serie</label><input type="text" class="serial-number w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" name="details[' + rowId + '][serial_items][' + j + '][serial_number]"></div><div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Costo (€)</label><input type="number" step="0.01" min="0" class="serial-cost w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" name="details[' + rowId + '][serial_items][' + j + '][cost]" value="0"></div></div>';
                         container.appendChild(div);
                         div.querySelector('.serial-cost').addEventListener('input', function() { updateSerialQtyAndSubtotal(parentRow); });
                         div.querySelector('.btn-remove-serial').addEventListener('click', function() {

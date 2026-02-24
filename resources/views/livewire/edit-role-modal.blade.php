@@ -1,10 +1,10 @@
 <div x-on:open-edit-role-modal.window="$wire.loadRole($event.detail.id || $event.detail)">
     <x-modal name="edit-role" focusable maxWidth="lg">
         <form wire:submit="update" class="p-6">
-            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">
+            <h2 class="text-lg font-medium text-white">
                 {{ __('Editar rol') }}
             </h2>
-            <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+            <p class="mt-1 text-sm text-gray-400">
                 {{ __('Modifica el nombre del rol.') }}
             </p>
 
@@ -20,7 +20,7 @@
             </div>
 
             <div class="mt-6 max-h-64 overflow-y-auto space-y-4">
-                <p class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Permisos del rol') }}</p>
+                <p class="text-sm font-medium text-gray-300">{{ __('Permisos del rol') }}</p>
                 @foreach($this->permissionsByGroup as $groupName => $permissions)
                     <div>
                         <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">{{ ucfirst($groupName) }}</h3>

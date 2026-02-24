@@ -3,10 +3,10 @@
      x-on:open-create-subcategory.window="$wire.setParentId($event.detail.parentId).then(() => $dispatch('open-modal', 'create-category'))">
     <x-modal name="create-category" focusable maxWidth="lg">
         <form wire:submit="save" class="p-6">
-            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">
+            <h2 class="text-lg font-medium text-white">
                 {{ $parent_id ? __('Crear subcategoría') : __('Crear categoría') }}
             </h2>
-            <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+            <p class="mt-1 text-sm text-gray-400">
                 @if($parent_id)
                     {{ __('Se creará dentro de:') }} <strong>{{ $this->getParentCategoryName() }}</strong>
                 @else

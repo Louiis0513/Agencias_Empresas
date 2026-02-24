@@ -4,10 +4,10 @@
     @endphp
     <x-modal :name="$modalName" focusable maxWidth="2xl">
         <form wire:submit="save" class="p-6">
-            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">
+            <h2 class="text-lg font-medium text-white">
                 Crear Activo
             </h2>
-            <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+            <p class="mt-1 text-sm text-gray-400">
                 Un activo es un ítem único identificado por su número de serie (único en la tienda).
                 @if($fromPurchase)
                     Al aprobar la compra podrás indicar más seriales si la cantidad es mayor a 1.
@@ -24,7 +24,7 @@
                 <div>
                     <x-input-label for="activo_serial_number" value="Número de serie *" />
                     <x-text-input wire:model="serial_number" id="activo_serial_number" class="block mt-1 w-full" type="text" placeholder="Ej: SN123456" />
-                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Único en esta tienda.</p>
+                    <p class="mt-1 text-xs text-gray-400">Único en esta tienda.</p>
                     <x-input-error :messages="$errors->get('serial_number')" class="mt-1" />
                 </div>
 
@@ -50,7 +50,7 @@
                 <div>
                     <x-input-label for="activo_description" value="Descripción" />
                     <textarea wire:model="description" id="activo_description" rows="2"
-                              class="block mt-1 w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                              class="block mt-1 w-full rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand"
                               placeholder="Descripción opcional"></textarea>
                     <x-input-error :messages="$errors->get('description')" class="mt-1" />
                 </div>
@@ -80,7 +80,7 @@
                 <div>
                     <x-input-label for="activo_assigned_to" value="Custodia (quién lo tiene)" />
                     <select wire:model="assigned_to_user_id" id="activo_assigned_to"
-                            class="block mt-1 w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                            class="block mt-1 w-full rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand">
                         <option value="">— Sin asignar</option>
                         @foreach($workers ?? [] as $w)
                             <option value="{{ $w->id }}">{{ $w->name }}</option>

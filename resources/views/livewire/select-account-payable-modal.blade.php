@@ -1,10 +1,10 @@
 <div>
     <x-modal name="select-account-payable" focusable maxWidth="6xl">
         <div class="p-6">
-            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">
+            <h2 class="text-lg font-medium text-white">
                 Seleccionar cuenta por pagar
             </h2>
-            <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+            <p class="mt-1 text-sm text-gray-400">
                 @if($forComprobante && count($excludeIds) > 0)
                     Facturas pendientes del proveedor seleccionado. Haz clic en "Seleccionar" para agregar cada factura.
                 @else
@@ -16,7 +16,7 @@
                 <input type="text"
                        wire:model.live.debounce.300ms="search"
                        placeholder="Buscar por Compra #, factura o proveedor (ej: 123, Acme)..."
-                       class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                       class="w-full rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand">
             </div>
 
             <div class="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">

@@ -1,10 +1,10 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex justify-between items-center">
-            <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
+            <h2 class="font-semibold text-xl text-white leading-tight">
                 Añadir trabajador - {{ $store->name }}
             </h2>
-            <a href="{{ route('stores.workers', $store) }}" class="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+            <a href="{{ route('stores.workers', $store) }}" class="text-sm text-gray-400 hover:text-brand transition">
                 ← Volver a Trabajadores
             </a>
         </div>
@@ -18,7 +18,7 @@
                 </div>
             @endif
 
-            <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
+            <div class="bg-dark-card border border-white/5 overflow-hidden sm:rounded-xl">
                 <form method="POST" action="{{ route('stores.workers.store', $store) }}" class="p-6 space-y-4">
                     @csrf
 
@@ -43,7 +43,7 @@
                                       :value="old('email')"
                                       placeholder="correo@ejemplo.com"
                                       required />
-                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Puedes añadir trabajadores aunque aún no tengan cuenta. Si el correo ya está registrado, quedará vinculado automáticamente. Cuando se registre con este email, se vinculará solo.</p>
+                        <p class="mt-1 text-xs text-gray-400">Puedes añadir trabajadores aunque aún no tengan cuenta. Si el correo ya está registrado, quedará vinculado automáticamente. Cuando se registre con este email, se vinculará solo.</p>
                         <x-input-error :messages="$errors->get('email')" class="mt-1" />
                     </div>
 
@@ -72,7 +72,7 @@
                         <select id="role_id"
                                 name="role_id"
                                 required
-                                class="block mt-1 w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                                class="block mt-1 w-full rounded-md border-white/10 bg-white/5 text-gray-100 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
                             @foreach($rolesList as $role)
                                 <option value="{{ $role->id }}" {{ old('role_id') == $role->id ? 'selected' : '' }}>{{ $role->name }}</option>
                             @endforeach

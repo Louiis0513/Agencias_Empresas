@@ -4,7 +4,7 @@
             <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 pb-2 border-b border-gray-200 dark:border-gray-600">
                 {{ __('Editar producto') }}
             </h2>
-            <p class="mt-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+            <p class="mt-2 text-sm font-medium text-gray-300">
                 @if($productType === 'simple')
                     {{ __('Modifica nombre, precio, ubicación y atributos del producto.') }}
                 @else
@@ -38,9 +38,9 @@
                     <label class="flex items-center gap-2">
                         <input type="checkbox" wire:model="is_active" value="1"
                                class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 shadow-sm focus:ring-indigo-500">
-                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Activo') }}</span>
+                        <span class="text-sm font-medium text-gray-300">{{ __('Activo') }}</span>
                     </label>
-                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ __('Los productos inactivos no aparecerán en ventas, compras ni movimientos de inventario.') }}</p>
+                    <p class="mt-1 text-xs text-gray-400">{{ __('Los productos inactivos no aparecerán en ventas, compras ni movimientos de inventario.') }}</p>
                     <x-input-error :messages="$errors->get('is_active')" class="mt-1" />
                 </div>
 
@@ -69,7 +69,7 @@
                                         <x-input-label for="edit-attr-{{ $attr->id }}" value="{{ $attr->name }}" class="dark:text-white font-semibold" />
                                         <select wire:model="attribute_values.{{ $attr->id }}"
                                                 id="edit-attr-{{ $attr->id }}"
-                                                class="block mt-1 w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                                                class="block mt-1 w-full rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand">
                                             <option value="">{{ __('Selecciona') }}</option>
                                             @foreach($attr->options as $opt)
                                                 <option value="{{ $opt->value }}">{{ $opt->value }}</option>

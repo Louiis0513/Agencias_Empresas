@@ -18,10 +18,10 @@
             @endif
 
             <div class="flex-1">
-                <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                <h3 class="text-sm font-medium text-gray-100">
                     {{ $category->name }}
                 </h3>
-                <div class="mt-1 flex items-center space-x-4 text-xs text-gray-500 dark:text-gray-400">
+                <div class="mt-1 flex items-center space-x-4 text-xs text-gray-400">
                     <span>{{ $category->products->count() }} producto(s)</span>
                     @if($hasChildren)
                         <span>{{ $category->children->count() }} subcategoría(s)</span>
@@ -32,15 +32,15 @@
 
         <div class="flex items-center space-x-2">
             <a href="{{ route('stores.category.show', [$store, $category]) }}"
-               class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 text-sm font-medium">
+               class="text-brand hover:text-white transition text-sm font-medium">
                 Ver
             </a>
             <button type="button"
-                    class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 text-sm font-medium"
+                    class="text-brand hover:text-white transition text-sm font-medium"
                     x-on:click="$dispatch('open-create-subcategory', { parentId: {{ $category->id }} })">
                 Crear subcategoría
             </button>
-            <button class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 text-sm font-medium"
+            <button class="text-brand hover:text-white transition text-sm font-medium"
                     x-on:click="$dispatch('open-edit-modal', {{ $category->id }})">
                 Editar
             </button>

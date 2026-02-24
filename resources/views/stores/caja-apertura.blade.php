@@ -1,10 +1,10 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex justify-between items-center">
-            <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
+            <h2 class="font-semibold text-xl text-white leading-tight">
                 Abrir caja — {{ $store->name }}
             </h2>
-            <a href="{{ route('stores.cajas', $store) }}" class="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">← Volver a Caja</a>
+            <a href="{{ route('stores.cajas', $store) }}" class="text-sm text-gray-400 hover:text-brand transition">← Volver a Caja</a>
         </div>
     </x-slot>
 
@@ -26,23 +26,23 @@
 
             <form method="POST" action="{{ route('stores.cajas.apertura.store', $store) }}">
                 @csrf
-                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6 space-y-6">
+                <div class="bg-dark-card border border-white/5 overflow-hidden sm:rounded-xl p-6 space-y-6">
                     @foreach($bolsillos as $b)
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ $b->name }}</label>
-                                <p class="text-xs text-gray-500 dark:text-gray-400">Saldo esperado: ${{ number_format($saldosEsperados[$b->id] ?? 0, 2) }}</p>
+                                <p class="text-xs text-gray-400">Saldo esperado: ${{ number_format($saldosEsperados[$b->id] ?? 0, 2) }}</p>
                             </div>
                             <div class="md:col-span-2">
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Saldo físico contado</label>
-                                <input type="number" name="saldo_fisico[{{ $b->id }}]" value="{{ old('saldo_fisico.'.$b->id, '0') }}" step="0.01" min="0" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" required>
+                                <input type="number" name="saldo_fisico[{{ $b->id }}]" value="{{ old('saldo_fisico.'.$b->id, '0') }}" step="0.01" min="0" class="w-full rounded-md border-white/10 bg-white/5 text-gray-100" required>
                             </div>
                         </div>
                     @endforeach
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nota (opcional)</label>
-                        <textarea name="nota_apertura" rows="2" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" placeholder="Ej: Caja revisada por la mañana">{{ old('nota_apertura') }}</textarea>
+                        <textarea name="nota_apertura" rows="2" class="w-full rounded-md border-white/10 bg-white/5 text-gray-100" placeholder="Ej: Caja revisada por la mañana">{{ old('nota_apertura') }}</textarea>
                     </div>
 
                     <div class="flex gap-2 pt-4">

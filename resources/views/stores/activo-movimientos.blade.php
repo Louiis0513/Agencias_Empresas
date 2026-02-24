@@ -1,10 +1,10 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex justify-between items-center">
-            <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
+            <h2 class="font-semibold text-xl text-white leading-tight">
                 Movimientos de Activos — {{ $store->name }}
             </h2>
-            <a href="{{ route('stores.activos', $store) }}" class="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+            <a href="{{ route('stores.activos', $store) }}" class="text-sm text-gray-400 hover:text-brand transition">
                 ← Volver a Activos
             </a>
         </div>
@@ -31,7 +31,7 @@
             <form method="GET" action="{{ route('stores.activos.movimientos', $store) }}" class="mb-6 flex flex-wrap gap-2 items-end">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Activo</label>
-                    <select name="activo_id" class="rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                    <select name="activo_id" class="rounded-md border-white/10 bg-white/5 text-gray-100">
                         <option value="">Todos</option>
                         @foreach($activosParaMovimientos as $a)
                             <option value="{{ $a->id }}" {{ request('activo_id') == $a->id ? 'selected' : '' }}>{{ $a->name }} {{ $a->serial_number ? "({$a->serial_number})" : '' }}</option>
@@ -40,7 +40,7 @@
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo</label>
-                    <select name="type" class="rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                    <select name="type" class="rounded-md border-white/10 bg-white/5 text-gray-100">
                         <option value="">Todos</option>
                         <option value="ALTA" {{ request('type') === 'ALTA' ? 'selected' : '' }}>Alta</option>
                         <option value="BAJA" {{ request('type') === 'BAJA' ? 'selected' : '' }}>Baja</option>
@@ -49,39 +49,39 @@
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Desde</label>
-                    <input type="date" name="fecha_desde" value="{{ request('fecha_desde') }}" class="rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                    <input type="date" name="fecha_desde" value="{{ request('fecha_desde') }}" class="rounded-md border-white/10 bg-white/5 text-gray-100">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Hasta</label>
-                    <input type="date" name="fecha_hasta" value="{{ request('fecha_hasta') }}" class="rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                    <input type="date" name="fecha_hasta" value="{{ request('fecha_hasta') }}" class="rounded-md border-white/10 bg-white/5 text-gray-100">
                 </div>
-                <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Filtrar</button>
+                <button type="submit" class="px-4 py-2 bg-brand text-white rounded-xl shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)]">Filtrar</button>
                 @if(request()->anyFilled(['activo_id', 'type', 'fecha_desde', 'fecha_hasta']))
                     <a href="{{ route('stores.activos.movimientos', $store) }}" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600">Limpiar</a>
                 @endif
             </form>
 
-            <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
+            <div class="bg-dark-card border border-white/5 overflow-hidden sm:rounded-xl">
                 <div class="p-6">
                     @if($movimientos->count() > 0)
                         <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                                <thead class="bg-gray-50 dark:bg-gray-900">
+                            <table class="min-w-full divide-y divide-white/5">
+                                <thead class="border-b border-white/5">
                                     <tr>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Fecha</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Activo</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Tipo</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Cantidad</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Costo unit.</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Descripción</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Usuario</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Fecha</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Activo</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Tipo</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Cantidad</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Costo unit.</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Descripción</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Usuario</th>
                                     </tr>
                                 </thead>
-                                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                                <tbody class="divide-y divide-white/5">
                                     @foreach($movimientos as $m)
-                                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
-                                            <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{{ $m->created_at->format('d/m/Y H:i') }}</td>
-                                            <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
+                                        <tr class="hover:bg-white/5 transition">
+                                            <td class="px-4 py-3 text-sm text-gray-100">{{ $m->created_at->format('d/m/Y H:i') }}</td>
+                                            <td class="px-4 py-3 text-sm text-gray-100">
                                                 <a href="{{ route('stores.activos.show', [$store, $m->activo]) }}" class="text-indigo-600 dark:text-indigo-400 hover:underline">{{ $m->activo->name ?? '—' }}</a>
                                             </td>
                                             <td class="px-4 py-3">
@@ -90,12 +90,12 @@
                                                     {{ $m->type }}
                                                 </span>
                                             </td>
-                                            <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{{ $m->quantity !== null ? $m->quantity : '—' }}</td>
-                                            <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                                            <td class="px-4 py-3 text-sm text-gray-400">{{ $m->quantity !== null ? $m->quantity : '—' }}</td>
+                                            <td class="px-4 py-3 text-sm text-gray-400">
                                                 {{ $m->unit_cost !== null ? number_format($m->unit_cost, 2) : '—' }}
                                             </td>
-                                            <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{{ $m->description ?? '—' }}</td>
-                                            <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{{ $m->user->name ?? '—' }}</td>
+                                            <td class="px-4 py-3 text-sm text-gray-400">{{ $m->description ?? '—' }}</td>
+                                            <td class="px-4 py-3 text-sm text-gray-400">{{ $m->user->name ?? '—' }}</td>
                                         </tr>
                                     @endforeach
                                 </tbody>
@@ -103,7 +103,7 @@
                         </div>
                         <div class="mt-4">{{ $movimientos->links() }}</div>
                     @else
-                        <p class="text-center text-gray-500 dark:text-gray-400 py-8">
+                        <p class="text-center text-gray-400 py-8">
                             @if(request()->anyFilled(['activo_id', 'type', 'fecha_desde', 'fecha_hasta']))
                                 No hay movimientos con los filtros aplicados.
                             @else

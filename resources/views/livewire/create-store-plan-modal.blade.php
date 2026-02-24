@@ -1,10 +1,10 @@
 <div>
     <x-modal name="create-store-plan" focusable maxWidth="2xl" contentClass="bg-white dark:bg-gray-800">
         <form wire:submit="save" class="p-6">
-            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">
+            <h2 class="text-lg font-medium text-white">
                 Crear plan
             </h2>
-            <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+            <p class="mt-1 text-sm text-gray-400">
                 Define un plan de suscripción o membresía (ej. mensualidad gym, tiquetera de clases).
             </p>
 
@@ -17,7 +17,7 @@
 
                 <div>
                     <x-input-label for="plan_description" value="Descripción" />
-                    <textarea wire:model="description" id="plan_description" rows="3" class="block mt-1 w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="Descripción opcional del plan"></textarea>
+                    <textarea wire:model="description" id="plan_description" rows="3" class="block mt-1 w-full rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand" placeholder="Descripción opcional del plan"></textarea>
                     <x-input-error :messages="$errors->get('description')" class="mt-1" />
                 </div>
 
@@ -37,14 +37,14 @@
                 <div>
                     <x-input-label for="plan_daily_entries_limit" value="Límite de entradas por día" />
                     <x-text-input wire:model="daily_entries_limit" id="plan_daily_entries_limit" class="block mt-1 w-full" type="number" min="1" placeholder="Vacío = ilimitado" />
-                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">1 = una vez al día. Vacío = ilimitado por día.</p>
+                    <p class="mt-1 text-xs text-gray-400">1 = una vez al día. Vacío = ilimitado por día.</p>
                     <x-input-error :messages="$errors->get('daily_entries_limit')" class="mt-1" />
                 </div>
 
                 <div>
                     <x-input-label for="plan_total_entries_limit" value="Límite total de entradas" />
                     <x-text-input wire:model="total_entries_limit" id="plan_total_entries_limit" class="block mt-1 w-full" type="number" min="1" placeholder="Vacío = ilimitado" />
-                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Ej: 12 = tiquetera de 12 clases. Vacío = ilimitado.</p>
+                    <p class="mt-1 text-xs text-gray-400">Ej: 12 = tiquetera de 12 clases. Vacío = ilimitado.</p>
                     <x-input-error :messages="$errors->get('total_entries_limit')" class="mt-1" />
                 </div>
             </div>

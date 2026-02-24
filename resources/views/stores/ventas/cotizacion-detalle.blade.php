@@ -38,7 +38,7 @@
     @endphp
     <x-slot name="header">
         <div class="flex justify-between items-center">
-            <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
+            <h2 class="font-semibold text-xl text-white leading-tight">
                 Cotización #{{ $cotizacion->id }} - {{ $store->name }}
             </h2>
             <div class="flex items-center gap-3">
@@ -60,7 +60,7 @@
                         </button>
                     </form>
                 @endif
-                <a href="{{ route('stores.ventas.cotizaciones', $store) }}" class="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+                <a href="{{ route('stores.ventas.cotizaciones', $store) }}" class="text-sm text-gray-400 hover:text-brand transition">
                     ← Volver a Cotizaciones
                 </a>
             </div>
@@ -128,36 +128,36 @@
                     </p>
                 </div>
             @endif
-            <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
+            <div class="bg-dark-card border border-white/5 overflow-hidden sm:rounded-xl">
                 <div class="p-6">
                     {{-- Información de la cotización --}}
                     <div class="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">Número</p>
-                            <p class="text-lg font-semibold text-gray-900 dark:text-gray-100">#{{ $cotizacion->id }}</p>
+                            <p class="text-sm text-gray-400">Número</p>
+                            <p class="text-lg font-semibold text-gray-100">#{{ $cotizacion->id }}</p>
                         </div>
                         <div>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">Fecha y hora</p>
-                            <p class="text-lg font-semibold text-gray-900 dark:text-gray-100"
+                            <p class="text-sm text-gray-400">Fecha y hora</p>
+                            <p class="text-lg font-semibold text-gray-100"
                                x-data="{ d: new Date('{{ $cotizacion->created_at->utc()->toIso8601String() }}') }"
                                x-text="d.toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' })">
                                 {{ $cotizacion->created_at->format('d/m/Y H:i') }}
                             </p>
                         </div>
                         <div>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">Creada por</p>
-                            <p class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ $cotizacion->user->name ?? '—' }}</p>
+                            <p class="text-sm text-gray-400">Creada por</p>
+                            <p class="text-lg font-semibold text-gray-100">{{ $cotizacion->user->name ?? '—' }}</p>
                         </div>
                         <div>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">Cliente</p>
-                            <p class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ $cotizacion->customer?->name ?? '—' }}</p>
+                            <p class="text-sm text-gray-400">Cliente</p>
+                            <p class="text-lg font-semibold text-gray-100">{{ $cotizacion->customer?->name ?? '—' }}</p>
                         </div>
                     </div>
 
                     @if($cotizacion->nota)
                         <div class="mb-6 border-t border-gray-200 dark:border-gray-700 pt-4">
-                            <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Nota</p>
-                            <p class="text-gray-900 dark:text-gray-100 whitespace-pre-wrap">{{ $cotizacion->nota }}</p>
+                            <p class="text-sm text-gray-400 mb-1">Nota</p>
+                            <p class="text-gray-100 whitespace-pre-wrap">{{ $cotizacion->nota }}</p>
                         </div>
                     @endif
 
@@ -165,27 +165,27 @@
                     <div class="border-t border-gray-200 dark:border-gray-700 pt-4"
                          wire:ignore
                          x-data="cotizacionFacturar({{ \Illuminate\Support\Js::from($itemsParaFacturarData) }}, {{ $cotizacion->customer_id ?? 'null' }}, {{ $cotizacion->id }})">
-                        <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Productos</h3>
+                        <h3 class="text-sm font-medium text-gray-100 mb-3">Productos</h3>
                         <div class="border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden">
                             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-600">
                                 <thead class="bg-gray-50 dark:bg-gray-800">
                                     <tr>
-                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Producto</th>
-                                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Cantidad</th>
-                                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Precio cotizado</th>
-                                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Precio actual</th>
-                                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Subtotal</th>
-                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Usar precio</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-400 uppercase">Producto</th>
+                                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-400 uppercase">Cantidad</th>
+                                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-400 uppercase">Precio cotizado</th>
+                                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-400 uppercase">Precio actual</th>
+                                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-400 uppercase">Subtotal</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-400 uppercase">Usar precio</th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-600">
                                     @foreach($itemsParaFacturarData as $index => $rd)
                                         <tr>
-                                            <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{{ $rd['name'] }}</td>
-                                            <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100 text-right">{{ $rd['quantity'] }}</td>
-                                            <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100 text-right">{{ number_format($rd['unit_price'], 2) }}</td>
-                                            <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100 text-right">{{ number_format($rd['unit_price_actual'], 2) }}</td>
-                                            <td class="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-100 text-right" x-text="formatNum(getSubtotal(rows[{{ $index }}], {{ $index }}))">{{ number_format($rd['unit_price'] * $rd['quantity'], 2) }}</td>
+                                            <td class="px-4 py-2 text-sm text-gray-100">{{ $rd['name'] }}</td>
+                                            <td class="px-4 py-2 text-sm text-gray-100 text-right">{{ $rd['quantity'] }}</td>
+                                            <td class="px-4 py-2 text-sm text-gray-100 text-right">{{ number_format($rd['unit_price'], 2) }}</td>
+                                            <td class="px-4 py-2 text-sm text-gray-100 text-right">{{ number_format($rd['unit_price_actual'], 2) }}</td>
+                                            <td class="px-4 py-2 text-sm font-medium text-gray-100 text-right" x-text="formatNum(getSubtotal(rows[{{ $index }}], {{ $index }}))">{{ number_format($rd['unit_price'] * $rd['quantity'], 2) }}</td>
                                             <td class="px-4 py-2 text-sm">
                                                 @if($rd['precio_cambio'])
                                                     <div class="flex flex-wrap gap-2">
@@ -217,7 +217,7 @@
                                 </div>
                                 <button type="button"
                                     x-on:click="facturar()"
-                                    class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 focus:bg-indigo-700 active:bg-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150 shadow-sm">
+                                    class="inline-flex items-center px-4 py-2 bg-brand text-white font-semibold text-xs rounded-xl uppercase tracking-wider shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)] transition shadow-sm">
                                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                     Facturar Cotización
                                 </button>

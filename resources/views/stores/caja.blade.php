@@ -1,10 +1,10 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex justify-between items-center">
-            <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
+            <h2 class="font-semibold text-xl text-white leading-tight">
                 Caja — {{ $store->name }}
             </h2>
-            <a href="{{ route('stores.dashboard', $store) }}" class="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+            <a href="{{ route('stores.dashboard', $store) }}" class="text-sm text-gray-400 hover:text-brand transition">
                 ← Volver al Resumen
             </a>
         </div>
@@ -57,44 +57,44 @@
 
             <div class="mb-6 flex flex-wrap gap-2 justify-between items-center">
                 <form method="GET" action="{{ route('stores.cajas', $store) }}" class="flex gap-2 flex-wrap">
-                    <input type="text" name="search" value="{{ request('search') }}" placeholder="Buscar bolsillo" class="rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
-                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Buscar</button>
+                    <input type="text" name="search" value="{{ request('search') }}" placeholder="Buscar bolsillo" class="rounded-md border-white/10 bg-white/5 text-gray-100 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                    <button type="submit" class="px-4 py-2 bg-brand text-white rounded-xl shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)]">Buscar</button>
                     @if(request('search'))
                         <a href="{{ route('stores.cajas', $store) }}" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600">Limpiar</a>
                     @endif
                 </form>
-                <button type="button" x-on:click="$dispatch('open-modal', 'create-bolsillo')" class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 font-medium">
+                <button type="button" x-on:click="$dispatch('open-modal', 'create-bolsillo')" class="inline-flex items-center px-4 py-2 bg-brand text-white rounded-xl shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)] font-medium">
                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                     Crear bolsillo
                 </button>
             </div>
 
             @if($bolsillos->count() > 0)
-                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
+                <div class="bg-dark-card border border-white/5 overflow-hidden sm:rounded-xl">
                     <div class="p-6">
                         <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                                <thead class="bg-gray-50 dark:bg-gray-900">
+                            <table class="min-w-full divide-y divide-white/5">
+                                <thead class="border-b border-white/5">
                                     <tr>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Nombre</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Detalles</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Saldo</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Tipo</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Estado</th>
-                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Acciones</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Nombre</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Detalles</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Saldo</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Tipo</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Estado</th>
+                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Acciones</th>
                                     </tr>
                                 </thead>
-                                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                                <tbody class="divide-y divide-white/5">
                                     @foreach($bolsillos as $b)
-                                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                        <tr class="hover:bg-white/5 transition">
                                             <td class="px-4 py-3">
                                                 <a href="{{ route('stores.cajas.bolsillos.show', [$store, $b]) }}" class="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:underline">
                                                     {{ $b->name }}
                                                 </a>
                                             </td>
-                                            <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate" title="{{ $b->detalles }}">{{ $b->detalles ?? '—' }}</td>
-                                            <td class="px-4 py-3 text-sm font-semibold text-gray-900 dark:text-gray-100">${{ number_format($b->saldo, 2) }}</td>
-                                            <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{{ $b->is_bank_account ? 'Cuenta bancaria' : 'Efectivo' }}</td>
+                                            <td class="px-4 py-3 text-sm text-gray-400 max-w-xs truncate" title="{{ $b->detalles }}">{{ $b->detalles ?? '—' }}</td>
+                                            <td class="px-4 py-3 text-sm font-semibold text-gray-100">${{ number_format($b->saldo, 2) }}</td>
+                                            <td class="px-4 py-3 text-sm text-gray-400">{{ $b->is_bank_account ? 'Cuenta bancaria' : 'Efectivo' }}</td>
                                             <td class="px-4 py-3">
                                                 <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ $b->is_active ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300' }}">
                                                     {{ $b->is_active ? 'Activo' : 'Inactivo' }}
@@ -118,11 +118,11 @@
                     </div>
                 </div>
             @else
-                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
+                <div class="bg-dark-card border border-white/5 overflow-hidden sm:rounded-xl">
                     <div class="p-6 text-center py-12">
-                        <p class="text-gray-500 dark:text-gray-400">No hay bolsillos. La caja está vacía. Crea Caja 1, Caja 2, cuentas bancarias, etc.</p>
+                        <p class="text-gray-400">No hay bolsillos. La caja está vacía. Crea Caja 1, Caja 2, cuentas bancarias, etc.</p>
                         <div class="mt-4">
-                            <button type="button" x-on:click="$dispatch('open-modal', 'create-bolsillo')" class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+                            <button type="button" x-on:click="$dispatch('open-modal', 'create-bolsillo')" class="inline-flex items-center px-4 py-2 bg-brand text-white rounded-xl shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)]">
                                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                                 Crear bolsillo
                             </button>

@@ -19,13 +19,13 @@ new class extends Component
 @php
     $store = request()->route('store');
 @endphp
-<nav x-data="{ open: false }" class="bg-white border-b border-gray-100 dark:bg-gray-800 dark:border-gray-700">
+<nav x-data="{ open: false }" class="bg-dark-card/80 backdrop-blur-md border-b border-white/5">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between items-center h-16">
             <div class="flex">
                 <div class="shrink-0 flex items-center">
                     <a href="{{ route('dashboard') }}" wire:navigate>
-                        <x-application-logo class="block h-9 w-auto fill-current text-gray-800 dark:text-gray-200" />
+                        <x-application-logo class="block h-9 w-auto fill-current text-white" />
                     </a>
                 </div>
 
@@ -95,8 +95,8 @@ new class extends Component
                         @endif
 
                         {{-- Botón de Salir (Volver al panel general) --}}
-                        <div class="flex items-center ml-4 pl-4 border-l border-gray-300 dark:border-gray-600 h-6 my-auto">
-                            <a href="{{ route('dashboard') }}" class="text-sm text-gray-500 hover:text-red-500 transition dark:text-gray-400 dark:hover:text-red-400" wire:navigate>
+                        <div class="flex items-center ml-4 pl-4 border-l border-white/10 h-6 my-auto">
+                            <a href="{{ route('dashboard') }}" class="text-sm text-gray-400 hover:text-red-400 transition" wire:navigate>
                                 &larr; Salir
                             </a>
                         </div>
@@ -114,7 +114,7 @@ new class extends Component
             <div class="hidden sm:flex sm:items-center sm:ms-6">
                 <x-dropdown align="right" width="48">
                     <x-slot name="trigger">
-                        <button class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-500 bg-white dark:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300 focus:outline-none transition ease-in-out duration-150">
+                        <button class="inline-flex items-center px-3 py-2 border border-white/10 text-sm leading-4 font-medium rounded-lg text-gray-300 bg-white/5 hover:text-white hover:border-brand/50 focus:outline-none transition ease-in-out duration-150">
                             <div x-data="{{ json_encode(['name' => auth()->user()->name]) }}" x-text="name" x-on:profile-updated.window="name = $event.detail.name"></div>
 
                             <div class="ms-1">
@@ -140,7 +140,7 @@ new class extends Component
             </div>
 
             <div class="-me-2 flex items-center sm:hidden">
-                <button @click="open = ! open" class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 focus:text-gray-500 transition duration-150 ease-in-out">
+                <button @click="open = ! open" class="inline-flex items-center justify-center p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 focus:outline-none focus:bg-white/10 focus:text-white transition duration-150 ease-in-out">
                     <svg class="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24">
                         <path :class="{'hidden': open, 'inline-flex': ! open }" class="inline-flex" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
                         <path :class="{'hidden': ! open, 'inline-flex': open }" class="hidden" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -172,113 +172,113 @@ new class extends Component
                 $inAsistencias = request()->routeIs('stores.asistencias*');
             @endphp
             @if($inPersonas || $inProductos || $inFinanciero || $inVentas || $inSuscripciones || $inAsistencias)
-                <div class="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                <div class="border-t border-white/5 bg-dark/80">
                     <div class="flex gap-1 py-2 overflow-x-auto">
                         @if($inPersonas)
                             @storeCan($store, 'customers.view')
-                            <a href="{{ route('stores.customers', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.customers*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
+                            <a href="{{ route('stores.customers', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.customers*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
                                 {{ __('Clientes') }}
                             </a>
                             @endstoreCan
                             @storeCan($store, 'workers.view')
-                            <a href="{{ route('stores.workers', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.workers*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
+                            <a href="{{ route('stores.workers', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.workers*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
                                 {{ __('Trabajadores') }}
                             </a>
                             @endstoreCan
                         @endif
                         @if($inProductos)
                             @storeCan($store, 'products.view')
-                            <a href="{{ route('stores.products', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.products*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
+                            <a href="{{ route('stores.products', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.products*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
                                 {{ __('Productos') }}
                             </a>
                             @endstoreCan
                             @storeCan($store, 'categories.view')
-                            <a href="{{ route('stores.categories', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.categories*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
+                            <a href="{{ route('stores.categories', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.categories*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
                                 {{ __('Categorías') }}
                             </a>
                             @endstoreCan
                             @storeCan($store, 'attribute-groups.view')
-                            <a href="{{ route('stores.attribute-groups', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.attribute-groups*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
+                            <a href="{{ route('stores.attribute-groups', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.attribute-groups*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
                                 {{ __('Atributos') }}
                             </a>
                             @endstoreCan
                             @storeCan($store, 'inventario.view')
-                            <a href="{{ route('stores.inventario', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.inventario*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
+                            <a href="{{ route('stores.inventario', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.inventario*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
                                 {{ __('Inventario') }}
                             </a>
                             @endstoreCan
                             @storeCan($store, 'proveedores.view')
-                            <a href="{{ route('stores.proveedores', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.proveedores*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
+                            <a href="{{ route('stores.proveedores', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.proveedores*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
                                 {{ __('Proveedores') }}
                             </a>
                             @endstoreCan
                             @storeCan($store, 'product-purchases.view')
-                            <a href="{{ route('stores.product-purchases', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.product-purchases*') || (request()->routeIs('stores.purchases.show') && $isProductPurchase) ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
+                            <a href="{{ route('stores.product-purchases', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.product-purchases*') || (request()->routeIs('stores.purchases.show') && $isProductPurchase) ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
                                 {{ __('Compra de productos') }}
                             </a>
                             @endstoreCan
                         @endif
                         @if($inFinanciero)
                             @storeCan($store, 'purchases.view')
-                            <a href="{{ route('stores.purchases', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ (request()->routeIs('stores.purchases*') && !$isProductPurchase) ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
+                            <a href="{{ route('stores.purchases', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ (request()->routeIs('stores.purchases*') && !$isProductPurchase) ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
                                 {{ __('Compra de activos') }}
                             </a>
                             @endstoreCan
                             @storeCan($store, 'caja.view')
-                            <a href="{{ route('stores.cajas', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.cajas*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
+                            <a href="{{ route('stores.cajas', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.cajas*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
                                 {{ __('Caja') }}
                             </a>
                             @endstoreCan
                             @storeCan($store, 'activos.view')
-                            <a href="{{ route('stores.activos', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.activos*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
+                            <a href="{{ route('stores.activos', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.activos*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
                                 {{ __('Activos') }}
                             </a>
                             @endstoreCan
                             @storeCan($store, 'accounts-payables.view')
-                            <a href="{{ route('stores.accounts-payables', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.accounts-payables*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
+                            <a href="{{ route('stores.accounts-payables', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.accounts-payables*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
                                 {{ __('Cuentas por pagar') }}
                             </a>
                             @endstoreCan
                             @storeCan($store, 'comprobantes-egreso.view')
-                            <a href="{{ route('stores.comprobantes-egreso.index', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.comprobantes-egreso*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
+                            <a href="{{ route('stores.comprobantes-egreso.index', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.comprobantes-egreso*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
                                 {{ __('Comprobantes de egreso') }}
                             </a>
                             @endstoreCan
                             @storeCan($store, 'accounts-receivables.view')
-                            <a href="{{ route('stores.accounts-receivables', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.accounts-receivables*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
+                            <a href="{{ route('stores.accounts-receivables', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.accounts-receivables*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
                                 {{ __('Cuentas por cobrar') }}
                             </a>
                             @endstoreCan
                             @storeCan($store, 'comprobantes-ingreso.view')
-                            <a href="{{ route('stores.comprobantes-ingreso.index', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.comprobantes-ingreso*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
+                            <a href="{{ route('stores.comprobantes-ingreso.index', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.comprobantes-ingreso*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
                                 {{ __('Comprobantes de ingreso') }}
                             </a>
                             @endstoreCan
                             @storeCan($store, 'invoices.view')
-                            <a href="{{ route('stores.invoices', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.invoices*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
+                            <a href="{{ route('stores.invoices', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.invoices*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
                                 {{ __('Facturas') }}
                             </a>
                             @endstoreCan
                         @endif
                         @if($inVentas)
                             @storeCan($store, 'invoices.view')
-                            <a href="{{ route('stores.ventas.carrito', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.ventas.carrito*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
+                            <a href="{{ route('stores.ventas.carrito', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.ventas.carrito*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
                                 {{ __('Carrito') }}
                             </a>
-                            <a href="{{ route('stores.ventas.cotizaciones', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.ventas.cotizaciones*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
+                            <a href="{{ route('stores.ventas.cotizaciones', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.ventas.cotizaciones*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
                                 {{ __('Cotizaciones') }}
                             </a>
                             @endstoreCan
                         @endif
                         @if($inSuscripciones || $inAsistencias)
                             @storeCan($store, 'subscriptions.view')
-                            <a href="{{ route('stores.subscriptions.memberships', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.subscriptions.memberships*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
+                            <a href="{{ route('stores.subscriptions.memberships', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.subscriptions.memberships*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
                                 {{ __('Membresías') }}
                             </a>
-                            <a href="{{ route('stores.subscriptions.plans', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.subscriptions.plans*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
+                            <a href="{{ route('stores.subscriptions.plans', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.subscriptions.plans*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
                                 {{ __('Planes') }}
                             </a>
-                            <a href="{{ route('stores.asistencias', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-md text-sm font-medium {{ request()->routeIs('stores.asistencias*') ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200' : 'text-gray-600 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700' }}">
+                            <a href="{{ route('stores.asistencias', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.asistencias*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
                                 {{ __('Asistencias') }}
                             </a>
                             @endstoreCan
@@ -310,7 +310,7 @@ new class extends Component
                     {{ __('Resumen') }}
                 </x-responsive-nav-link>
                 @if($canP)
-                <div class="px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">{{ __('Personas') }}</div>
+                <div class="px-4 py-2 text-xs font-semibold text-gray-400 uppercase">{{ __('Personas') }}</div>
                 @storeCan($store, 'customers.view')
                 <x-responsive-nav-link :href="route('stores.customers', $store)" :active="request()->routeIs('stores.customers*')" wire:navigate>
                     {{ __('Clientes') }}
@@ -323,7 +323,7 @@ new class extends Component
                 @endstoreCan
                 @endif
                 @if($canProd)
-                <div class="px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">{{ __('Productos') }}</div>
+                <div class="px-4 py-2 text-xs font-semibold text-gray-400 uppercase">{{ __('Productos') }}</div>
                 @storeCan($store, 'products.view')
                 <x-responsive-nav-link :href="route('stores.products', $store)" :active="request()->routeIs('stores.products*')" wire:navigate>
                     {{ __('Productos') }}
@@ -356,7 +356,7 @@ new class extends Component
                 @endstoreCan
                 @endif
                 @if($canF)
-                <div class="px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">{{ __('Financiero') }}</div>
+                <div class="px-4 py-2 text-xs font-semibold text-gray-400 uppercase">{{ __('Financiero') }}</div>
                 @storeCan($store, 'purchases.view')
                 <x-responsive-nav-link :href="route('stores.purchases', $store)" :active="request()->routeIs('stores.purchases*')" wire:navigate>
                     {{ __('Compra de activos') }}
@@ -399,7 +399,7 @@ new class extends Component
                 @endstoreCan
                 @endif
                 @if($canV)
-                <div class="px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">{{ __('Ventas') }}</div>
+                <div class="px-4 py-2 text-xs font-semibold text-gray-400 uppercase">{{ __('Ventas') }}</div>
                 <x-responsive-nav-link :href="route('stores.ventas.carrito', $store)" :active="request()->routeIs('stores.ventas.carrito*')" wire:navigate>
                     {{ __('Carrito') }}
                 </x-responsive-nav-link>
@@ -408,7 +408,7 @@ new class extends Component
                 </x-responsive-nav-link>
                 @endif
                 @if($canSuscripciones)
-                <div class="px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">{{ __('Suscripciones') }}</div>
+                <div class="px-4 py-2 text-xs font-semibold text-gray-400 uppercase">{{ __('Suscripciones') }}</div>
                 <x-responsive-nav-link :href="route('stores.subscriptions.memberships', $store)" :active="request()->routeIs('stores.subscriptions.memberships*')" wire:navigate>
                     {{ __('Membresías') }}
                 </x-responsive-nav-link>
@@ -419,7 +419,7 @@ new class extends Component
                     {{ __('Asistencias') }}
                 </x-responsive-nav-link>
                 @endif
-                <div class="border-t border-gray-200 dark:border-gray-600 my-2"></div>
+                <div class="border-t border-white/10 my-2"></div>
                 <x-responsive-nav-link :href="route('dashboard')" wire:navigate class="text-red-500">
                     {{ __('← Salir de la Tienda') }}
                 </x-responsive-nav-link>
@@ -432,10 +432,10 @@ new class extends Component
 
         </div>
 
-        <div class="pt-4 pb-1 border-t border-gray-200 dark:border-gray-600">
+        <div class="pt-4 pb-1 border-t border-white/10">
             <div class="px-4">
-                <div class="font-medium text-base text-gray-800 dark:text-gray-200" x-data="{{ json_encode(['name' => auth()->user()->name]) }}" x-text="name" x-on:profile-updated.window="name = $event.detail.name"></div>
-                <div class="font-medium text-sm text-gray-500">{{ auth()->user()->email }}</div>
+                <div class="font-medium text-base text-white" x-data="{{ json_encode(['name' => auth()->user()->name]) }}" x-text="name" x-on:profile-updated.window="name = $event.detail.name"></div>
+                <div class="font-medium text-sm text-gray-400">{{ auth()->user()->email }}</div>
             </div>
 
             <div class="mt-3 space-y-1">

@@ -1,10 +1,10 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex justify-between items-center">
-            <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
+            <h2 class="font-semibold text-xl text-white leading-tight">
                 Grupos de atributos - {{ $store->name }}
             </h2>
-            <a href="{{ route('stores.dashboard', $store) }}" class="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+            <a href="{{ route('stores.dashboard', $store) }}" class="text-sm text-gray-400 hover:text-brand transition">
                 ← Volver al Resumen
             </a>
         </div>
@@ -50,13 +50,13 @@
                 <div class="space-y-6">
                     @foreach($groups as $group)
                         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-                            <div class="px-6 py-4 bg-gray-50 dark:bg-gray-900 flex justify-between items-center">
-                                <h3 class="font-semibold text-gray-900 dark:text-gray-100">{{ $group->name }}</h3>
+                            <div class="px-6 py-4 border-b border-white/5 flex justify-between items-center">
+                                <h3 class="font-semibold text-gray-100">{{ $group->name }}</h3>
                                 <div class="flex items-center gap-2">
                                     <span class="text-sm text-gray-500">{{ $group->attributes->count() }} atributo(s)</span>
                                     <button type="button"
                                             x-on:click="$dispatch('open-create-attribute', { groupId: {{ $group->id }} })"
-                                            class="inline-flex items-center px-3 py-1.5 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700">
+                                            class="inline-flex items-center px-3 py-1.5 bg-brand text-white font-semibold text-xs rounded-xl uppercase tracking-wider shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)]">
                                         Crear atributo
                                     </button>
                                     <button x-on:click="$dispatch('open-edit-attribute-group-modal', { id: {{ $group->id }} })"
@@ -77,7 +77,7 @@
                                         @foreach($group->attributes as $attr)
                                             <div class="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
                                                 <div class="flex items-center gap-3">
-                                                    <span class="font-medium text-gray-900 dark:text-gray-100">{{ $attr->name }}</span>
+                                                    <span class="font-medium text-gray-100">{{ $attr->name }}</span>
                                                     <span class="text-xs text-gray-500">({{ $attr->type }})</span>
                                                     @if($attr->pivot->is_required)
                                                         <span class="px-2 py-0.5 text-xs rounded bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">Requerido</span>
@@ -96,7 +96,7 @@
                                         @endforeach
                                     </div>
                                 @else
-                                    <p class="text-sm text-gray-500 dark:text-gray-400">Sin atributos. Usa el botón «Crear atributo» en la cabecera del grupo para añadir el primero.</p>
+                                    <p class="text-sm text-gray-400">Sin atributos. Usa el botón «Crear atributo» en la cabecera del grupo para añadir el primero.</p>
                                 @endif
                             </div>
                         </div>
@@ -104,7 +104,7 @@
                 </div>
             @else
                 <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-12 text-center">
-                    <p class="text-gray-500 dark:text-gray-400">No hay grupos. Crea un grupo y luego añade atributos.</p>
+                    <p class="text-gray-400">No hay grupos. Crea un grupo y luego añade atributos.</p>
                     <button type="button"
                             x-on:click="$dispatch('open-modal', 'create-attribute-group')"
                             class="mt-4 inline-flex items-center px-4 py-2 bg-indigo-600 rounded-md text-white text-sm font-medium hover:bg-indigo-700">

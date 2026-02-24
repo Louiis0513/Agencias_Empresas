@@ -1,17 +1,17 @@
 <div x-on:open-modal.window="if ($event.detail === 'create-movimiento-inventario') { $wire.resetForm(); }">
     <x-modal name="create-movimiento-inventario" focusable maxWidth="2xl">
         <form wire:submit="save" class="p-6">
-            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">
+            <h2 class="text-lg font-medium text-white">
                 {{ __('Registrar movimiento de inventario') }}
             </h2>
-            <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+            <p class="mt-1 text-sm text-gray-400">
                 {{ __('Selecciona un producto ya creado. La estrategia (serializado / lote) se detecta automáticamente.') }}
             </p>
 
             <div class="mt-6 space-y-4">
                 <div>
                     <x-input-label for="product_id" value="{{ __('Producto') }}" />
-                    <select wire:model.live="product_id" id="product_id" class="block mt-1 w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500" required>
+                    <select wire:model.live="product_id" id="product_id" class="block mt-1 w-full rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand" required>
                         <option value="">Selecciona un producto</option>
                         @foreach($this->productos as $p)
                             <option value="{{ $p->id }}">{{ $p->name }} {{ $p->sku ? "({$p->sku})" : '' }} — Stock: {{ $p->stock }}</option>
@@ -24,7 +24,7 @@
                 </div>
 
                 @if($this->productoSeleccionado)
-                    <div class="p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                    <div class="p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg text-sm text-gray-400 space-y-1">
                         <div>
                             Tipo: <strong>
                                 @if($this->productoSeleccionado->type === 'serialized') Serializado
@@ -38,7 +38,7 @@
 
                 <div>
                     <x-input-label for="type" value="{{ __('Tipo') }}" />
-                    <select wire:model.live="type" id="type" class="block mt-1 w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                    <select wire:model.live="type" id="type" class="block mt-1 w-full rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand">
                         <option value="ENTRADA">Entrada</option>
                         <option value="SALIDA">Salida</option>
                     </select>
@@ -51,7 +51,7 @@
                                 <div>
                                     <x-input-label for="serial_reference" value="Referencia de compra/origen (obligatoria)" />
                                     <x-text-input wire:model="serial_reference" id="serial_reference" class="block mt-1 w-full" type="text" placeholder="Ej: Compra-123, Factura-X, INI-2025" />
-                                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Si es carga inicial, usa INI-2025 o similar. Todo debe tener origen.</p>
+                                    <p class="mt-1 text-xs text-gray-400">Si es carga inicial, usa INI-2025 o similar. Todo debe tener origen.</p>
                                     <x-input-error :messages="$errors->get('serial_reference')" class="mt-1" />
                                 </div>
                                 <div class="space-y-3">
@@ -103,7 +103,7 @@
                                             <option value="{{ $serial }}">{{ $serial }}</option>
                                         @endforeach
                                     </select>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Selecciona uno o más seriales. La cantidad se calcula automáticamente.</p>
+                                    <p class="text-xs text-gray-400 mt-1">Selecciona uno o más seriales. La cantidad se calcula automáticamente.</p>
                                 @endif
                                 <x-input-error :messages="$errors->get('serials_selected')" class="mt-1" />
                             </div>
@@ -114,7 +114,7 @@
                                 <div>
                                     <x-input-label for="batch_reference" value="Referencia de compra/lote (obligatoria)" />
                                     <x-text-input wire:model="batch_reference" id="batch_reference" class="block mt-1 w-full" type="text" placeholder="Ej: Compra-123, Factura-X, INI-2025" />
-                                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Todo ingreso debe tener origen. Si es carga inicial, usa INI-2025.</p>
+                                    <p class="mt-1 text-xs text-gray-400">Todo ingreso debe tener origen. Si es carga inicial, usa INI-2025.</p>
                                     <x-input-error :messages="$errors->get('batch_reference')" class="mt-1" />
                                 </div>
                                 <div>
@@ -154,13 +154,13 @@
                                                     @endforeach
                                                 </div>
                                             @else
-                                                <p class="text-xs text-gray-500 dark:text-gray-400">Sin atributos configurados para esta categoría.</p>
+                                                <p class="text-xs text-gray-400">Sin atributos configurados para esta categoría.</p>
                                             @endif
                                         </div>
                                     @endforeach
                                     <x-input-error :messages="$errors->get('batch_items')" class="mt-1" />
                                 </div>
-                                <p class="text-xs text-gray-500 dark:text-gray-400">La cantidad total se calculará sumando las variantes.</p>
+                                <p class="text-xs text-gray-400">La cantidad total se calculará sumando las variantes.</p>
                             </div>
                         @else
                             <div class="space-y-4">
@@ -195,7 +195,7 @@
 
                 <div>
                     <x-input-label for="description" value="{{ __('Descripción') }}" />
-                    <textarea wire:model="description" id="description" class="block mt-1 w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500" rows="2" placeholder="Ej: Ajuste por conteo, Compra a proveedor"></textarea>
+                    <textarea wire:model="description" id="description" class="block mt-1 w-full rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand" rows="2" placeholder="Ej: Ajuste por conteo, Compra a proveedor"></textarea>
                     <x-input-error :messages="$errors->get('description')" class="mt-1" />
                 </div>
             </div>

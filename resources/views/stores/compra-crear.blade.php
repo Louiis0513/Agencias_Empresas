@@ -6,10 +6,10 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex justify-between items-center">
-            <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
+            <h2 class="font-semibold text-xl text-white leading-tight">
                 {{ $editingActivos ? 'Editar compra' : 'Nueva Compra de Activos' }} - {{ $store->name }}
             </h2>
-            <a href="{{ $editingActivos ? route('stores.purchases.show', [$store, $purchase]) : route('stores.purchases', $store) }}" class="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+            <a href="{{ $editingActivos ? route('stores.purchases.show', [$store, $purchase]) : route('stores.purchases', $store) }}" class="text-sm text-gray-400 hover:text-brand transition">
                 ← {{ $editingActivos ? 'Volver a compra' : 'Volver a Compra de activos' }}
             </a>
         </div>
@@ -21,7 +21,7 @@
     <div class="py-12" x-data="compraItemSelection({ paymentStatus: '{{ old('payment_status', $editingActivos ? $purchase->payment_status : 'PAGADO') }}' })">
         <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
             @if(session('error'))
-                <div class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+                <div class="mb-4 bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded relative" role="alert">
                     <span class="block sm:inline">{{ session('error') }}</span>
                 </div>
             @endif
@@ -38,13 +38,13 @@
                 }
             @endphp
             @if($detailError)
-                <div id="compra-error-message" class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative flex items-start gap-2" role="alert">
+                <div id="compra-error-message" class="mb-4 bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded relative flex items-start gap-2" role="alert">
                     <span class="flex-1 font-medium">{{ $detailError }}</span>
                 </div>
             @endif
 
             @if($errors->any() && !$detailError)
-                <div id="compra-error-message" class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+                <div id="compra-error-message" class="mb-4 bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded relative" role="alert">
                     <p class="font-medium mb-1">Por favor corrige los siguientes errores:</p>
                     <ul class="list-disc list-inside text-sm">
                         @foreach($errors->all() as $error)
@@ -54,7 +54,7 @@
                 </div>
             @endif
 
-            <div class="compra-validation-error hidden mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+            <div class="compra-validation-error hidden mb-4 bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded relative" role="alert">
                 <span class="block sm:inline">Debes seleccionar al menos un activo fijo en el detalle. Haz clic en "Seleccionar" en cada línea.</span>
                 <button type="button" class="absolute top-2 right-2 text-red-600 hover:text-red-800" onclick="this.parentElement.classList.add('hidden')" aria-label="Cerrar">×</button>
             </div>
@@ -69,7 +69,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Proveedor</label>
-                        <select name="proveedor_id" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                        <select name="proveedor_id" class="w-full rounded-md border-white/10 bg-white/5 text-gray-100">
                             <option value="">Sin proveedor</option>
                             @foreach($proveedores as $prov)
                                 <option value="{{ $prov->id }}" {{ old('proveedor_id', $editingActivos ? $purchase->proveedor_id : null) == $prov->id ? 'selected' : '' }}>{{ $prov->nombre }}</option>
@@ -78,38 +78,38 @@
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Forma de Pago</label>
-                        <select name="payment_status" x-model="paymentStatus" x-init="paymentStatus = @js(old('payment_status', $editingActivos ? $purchase->payment_status : 'PAGADO'))" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                        <select name="payment_status" x-model="paymentStatus" x-init="paymentStatus = @js(old('payment_status', $editingActivos ? $purchase->payment_status : 'PAGADO'))" class="w-full rounded-md border-white/10 bg-white/5 text-gray-100">
                             <option value="PAGADO" {{ old('payment_status', $editingActivos ? $purchase->payment_status : 'PAGADO') == 'PAGADO' ? 'selected' : '' }}>Contado (Pagado)</option>
                             <option value="PENDIENTE" {{ old('payment_status', $editingActivos ? $purchase->payment_status : null) == 'PENDIENTE' ? 'selected' : '' }}>A Crédito (Pendiente)</option>
                         </select>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nº Factura Externa</label>
-                        <input type="text" name="invoice_number" value="{{ old('invoice_number', $editingActivos ? $purchase->invoice_number : '') }}" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" placeholder="Ej: F-001-0001234" required>
+                        <input type="text" name="invoice_number" value="{{ old('invoice_number', $editingActivos ? $purchase->invoice_number : '') }}" class="w-full rounded-md border-white/10 bg-white/5 text-gray-100" placeholder="Ej: F-001-0001234" required>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha Factura Externa</label>
-                        <input type="date" name="invoice_date" value="{{ old('invoice_date', $editingActivos && $purchase->invoice_date ? $purchase->invoice_date->format('Y-m-d') : '') }}" class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" required>
+                        <input type="date" name="invoice_date" value="{{ old('invoice_date', $editingActivos && $purchase->invoice_date ? $purchase->invoice_date->format('Y-m-d') : '') }}" class="w-full rounded-md border-white/10 bg-white/5 text-gray-100" required>
                     </div>
                 </div>
 
                 <div class="mb-6">
                     <div class="flex justify-between items-center mb-2">
-                        <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">Detalle (activos fijos)</h3>
+                        <h3 class="text-sm font-medium text-gray-100">Detalle (activos fijos)</h3>
                         <button type="button" id="add-row" class="text-sm text-indigo-600 hover:text-indigo-800">+ Agregar línea</button>
                     </div>
                     <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                            <thead class="bg-gray-50 dark:bg-gray-900">
+                        <table class="min-w-full divide-y divide-white/5">
+                            <thead class="border-b border-white/5">
                                 <tr>
-                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Activo fijo</th>
-                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Cantidad</th>
-                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Costo Unit.</th>
-                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Subtotal</th>
-                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400"></th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-400">Activo fijo</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-400">Cantidad</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-400">Costo Unit.</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-400">Subtotal</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-400"></th>
                                 </tr>
                             </thead>
-                            <tbody id="details-body" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                            <tbody id="details-body" class="bg-white dark:bg-gray-800 divide-y divide-white/5">
                                 @php
                                     $defaultDetail = ['item_type' => 'ACTIVO_FIJO', 'product_id' => '', 'activo_id' => '', 'description' => '', 'quantity' => 1, 'unit_cost' => 0];
                                     $oldDetailsActivos = old('details');
@@ -155,10 +155,10 @@
                                             </div>
                                         </td>
                                         <td class="px-3 py-2">
-                                            <input type="number" name="details[{{ $i }}][quantity]" value="{{ $qty }}" min="1" class="detail-qty w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" required>
+                                            <input type="number" name="details[{{ $i }}][quantity]" value="{{ $qty }}" min="1" class="detail-qty w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" required>
                                         </td>
                                         <td class="px-3 py-2">
-                                            <input type="number" name="details[{{ $i }}][unit_cost]" value="{{ $cost }}" min="0" step="0.01" class="detail-cost w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" required>
+                                            <input type="number" name="details[{{ $i }}][unit_cost]" value="{{ $cost }}" min="0" step="0.01" class="detail-cost w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" required>
                                         </td>
                                         <td class="px-3 py-2">
                                             <span class="detail-subtotal text-sm font-medium">{{ number_format($subtotal, 2) }}</span>
@@ -171,22 +171,22 @@
                             </tbody>
                         </table>
                     </div>
-                    <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    <p class="mt-2 text-xs text-gray-400">
                         Solo activos fijos (computadores, muebles, etc.). Se suman al módulo Activos al aprobar la compra.
                     </p>
                 </div>
 
-                <div class="mb-6 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700" x-show="paymentStatus === 'PENDIENTE'" x-transition>
+                <div class="mb-6 p-4 border-b border-white/5/50 rounded-lg border border-gray-200 dark:border-gray-700" x-show="paymentStatus === 'PENDIENTE'" x-transition>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Fecha de vencimiento de la factura</label>
-                    <input type="date" name="due_date" value="{{ old('due_date', $editingActivos && $purchase->due_date ? $purchase->due_date->format('Y-m-d') : '') }}" :required="paymentStatus === 'PENDIENTE'" :disabled="paymentStatus !== 'PENDIENTE'" class="w-full max-w-xs rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300" placeholder="Cuando vence la cuenta por pagar">
-                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Indica cuándo vence el pago según la factura real o acuerdos con el proveedor.</p>
+                    <input type="date" name="due_date" value="{{ old('due_date', $editingActivos && $purchase->due_date ? $purchase->due_date->format('Y-m-d') : '') }}" :required="paymentStatus === 'PENDIENTE'" :disabled="paymentStatus !== 'PENDIENTE'" class="w-full max-w-xs rounded-md border-white/10 bg-white/5 text-gray-100" placeholder="Cuando vence la cuenta por pagar">
+                    <p class="mt-1 text-xs text-gray-400">Indica cuándo vence el pago según la factura real o acuerdos con el proveedor.</p>
                 </div>
 
                 <div class="flex justify-end gap-3">
                     <a href="{{ $editingActivos ? route('stores.purchases.show', [$store, $purchase]) : route('stores.purchases', $store) }}" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600">
                         Cancelar
                     </a>
-                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700" id="btn-submit-compra">
+                    <button type="submit" class="px-4 py-2 bg-brand text-white rounded-xl shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)]" id="btn-submit-compra">
                         {{ $editingActivos ? 'Guardar cambios' : 'Guardar Compra (Borrador)' }}
                     </button>
                 </div>
@@ -251,10 +251,10 @@
                         </div>
                     </td>
                     <td class="px-3 py-2">
-                        <input type="number" name="details[${idx}][quantity]" value="1" min="1" class="detail-qty w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" required>
+                        <input type="number" name="details[${idx}][quantity]" value="1" min="1" class="detail-qty w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" required>
                     </td>
                     <td class="px-3 py-2">
-                        <input type="number" name="details[${idx}][unit_cost]" value="0" min="0" step="0.01" class="detail-cost w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm" required>
+                        <input type="number" name="details[${idx}][unit_cost]" value="0" min="0" step="0.01" class="detail-cost w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" required>
                     </td>
                     <td class="px-3 py-2">
                         <span class="detail-subtotal text-sm font-medium">0.00</span>

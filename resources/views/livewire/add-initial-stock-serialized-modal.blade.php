@@ -1,10 +1,10 @@
 <div>
     <x-modal name="add-initial-stock-serialized" focusable maxWidth="4xl">
         <form wire:submit="save" class="p-6">
-            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">
+            <h2 class="text-lg font-medium text-white">
                 {{ __('Añadir stock inicial') }}
             </h2>
-            <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+            <p class="mt-1 text-sm text-gray-400">
                 {{ __('Agrega unidades serializadas con sus atributos, costo, precio y número de serie.') }}
             </p>
 
@@ -21,7 +21,7 @@
             @if($product && $product->category)
                 <div class="mt-6">
                     <div class="flex items-center justify-between mb-4">
-                        <p class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        <p class="text-sm font-medium text-gray-300">
                             Unidades serializadas ({{ count($serializedItems) }})
                         </p>
                         <button type="button"
@@ -35,7 +35,7 @@
                     </div>
 
                     @if(empty($serializedItems))
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                        <p class="text-xs text-gray-400 mb-3">
                             Haz clic en "Agregar unidad" para añadir la primera unidad serializada.
                         </p>
                     @endif
@@ -92,7 +92,7 @@
                                                     <x-input-label for="item-{{ $index }}-attr-{{ $attr->id }}" value="{{ $attr->name }}" />
                                                     <select wire:model="serializedItems.{{ $index }}.attribute_values.{{ $attr->id }}"
                                                             id="item-{{ $index }}-attr-{{ $attr->id }}"
-                                                            class="block mt-1 w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                                                            class="block mt-1 w-full rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand">
                                                         <option value="">{{ __('Selecciona') }}</option>
                                                         @foreach($attr->options as $opt)
                                                             <option value="{{ $opt->value }}">{{ $opt->value }}</option>
@@ -105,7 +105,7 @@
                                                            wire:model.live="serializedItems.{{ $index }}.attribute_values.{{ $attr->id }}"
                                                            value="1"
                                                            class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 shadow-sm focus:ring-indigo-500">
-                                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $attr->name }}</span>
+                                                    <span class="text-sm font-medium text-gray-300">{{ $attr->name }}</span>
                                                 </label>
                                             @endif
                                         @endforeach

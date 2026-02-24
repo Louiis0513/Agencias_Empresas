@@ -1,10 +1,10 @@
 <div>
     <x-modal name="create-subscription" focusable maxWidth="2xl" contentClass="bg-white dark:bg-gray-800">
         <form wire:submit="save" class="p-6">
-            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">
+            <h2 class="text-lg font-medium text-white">
                 Suscribir cliente
             </h2>
-            <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+            <p class="mt-1 text-sm text-gray-400">
                 Asigna un plan de membresía a un cliente con fecha de inicio.
             </p>
 
@@ -18,7 +18,7 @@
                 <div>
                     <x-input-label for="subscription_plan_id" value="Plan *" />
                     <select wire:model="plan_id" id="subscription_plan_id"
-                            class="block mt-1 w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                            class="block mt-1 w-full rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand">
                         <option value="">Seleccione un plan</option>
                         @foreach($plans as $plan)
                             <option value="{{ $plan->id }}">{{ $plan->name }} ({{ number_format($plan->price, 2) }} — {{ $plan->duration_days }} días)</option>

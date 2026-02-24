@@ -4,10 +4,10 @@
     @endphp
     <x-modal :name="$modalName" focusable maxWidth="2xl">
         <form wire:submit="save" class="p-6">
-            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">
+            <h2 class="text-lg font-medium text-white">
                 {{ __('Crear producto') }}
             </h2>
-            <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+            <p class="mt-1 text-sm text-gray-400">
                 {{ __('Define el producto y su categoría (atributos). El ingreso a tienda se hace por Compras.') }}
             </p>
 
@@ -17,7 +17,7 @@
                     <x-input-label for="type" value="{{ __('Tipo de producto') }}" />
                     <select wire:model.live="type"
                             id="type"
-                            class="block mt-1 w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                            class="block mt-1 w-full rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand">
                         @foreach($this->typeOptions as $value => $label)
                             <option value="{{ $value }}">{{ $label }}</option>
                         @endforeach
@@ -51,7 +51,7 @@
                             <x-input-label for="category_id" value="{{ __('Categoría') }}" />
                             <select wire:model.live="category_id"
                                     id="category_id"
-                                    class="block mt-1 w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                                    class="block mt-1 w-full rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand">
                                 <option value="">{{ __('Selecciona una categoría') }}</option>
                                 @foreach($this->categoriesWithAttributes as $cat)
                                     <option value="{{ $cat->id }}">{{ $cat->name }} ({{ $cat->attributes->count() }} atributo(s))</option>
@@ -62,8 +62,8 @@
 
                         {{-- Atributos de la categoría (se muestran al seleccionar categoría) --}}
                         @if($this->selectedCategory && $this->selectedCategory->attributes->isNotEmpty())
-                            <div class="rounded-lg border border-gray-200 dark:border-gray-600 p-4 bg-gray-50 dark:bg-gray-900/40">
-                                <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">{{ __('Atributos de la categoría') }}</p>
+                            <div class="rounded-lg border border-white/10 p-4 bg-white/5">
+                                <p class="text-sm font-medium text-gray-300 mb-3">{{ __('Atributos de la categoría') }}</p>
                                 <div class="space-y-4">
                                     @foreach($this->selectedCategory->attributes as $attr)
                                         <div>
@@ -80,7 +80,7 @@
                                                 <x-input-label for="attr-{{ $attr->id }}" value="{{ $attr->name }}" />
                                                 <select wire:model="attribute_values.{{ $attr->id }}"
                                                         id="attr-{{ $attr->id }}"
-                                                        class="block mt-1 w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                                                        class="block mt-1 w-full rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand">
                                                     <option value="">{{ __('Selecciona') }}</option>
                                                     @foreach($attr->options as $opt)
                                                         <option value="{{ $opt->value }}">{{ $opt->value }}</option>
@@ -92,7 +92,7 @@
                                                            wire:model.live="attribute_values.{{ $attr->id }}"
                                                            value="1"
                                                            class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 shadow-sm focus:ring-indigo-500">
-                                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $attr->name }}</span>
+                                                    <span class="text-sm font-medium text-gray-300">{{ $attr->name }}</span>
                                                 </label>
                                             @else
                                                 <x-input-label for="attr-{{ $attr->id }}" value="{{ $attr->name }}" />
@@ -181,7 +181,7 @@
                             <x-input-label for="category_id_batch" value="{{ __('Categoría') }}" />
                             <select wire:model.live="category_id"
                                     id="category_id_batch"
-                                    class="block mt-1 w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                                    class="block mt-1 w-full rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand">
                                 <option value="">{{ __('Selecciona una categoría') }}</option>
                                 @foreach($this->categoriesWithAttributes as $cat)
                                     <option value="{{ $cat->id }}">{{ $cat->name }} ({{ $cat->attributes->count() }} atributo(s))</option>
@@ -192,10 +192,10 @@
 
                         {{-- Variantes del producto --}}
                         @if($this->selectedCategory && $this->selectedCategory->attributes->isNotEmpty())
-                            <div class="rounded-lg border border-gray-200 dark:border-gray-600 p-4 bg-gray-50 dark:bg-gray-900/40">
+                            <div class="rounded-lg border border-white/10 p-4 bg-white/5">
                                 <div class="flex items-center justify-between mb-4">
                                     <div>
-                                        <p class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Variantes de este producto') }}</p>
+                                        <p class="text-sm font-medium text-gray-300">{{ __('Variantes de este producto') }}</p>
                                         <x-input-error :messages="$errors->get('variants')" class="mt-1" />
                                     </div>
                                     <button type="button"
@@ -209,7 +209,7 @@
                                 </div>
 
                                 @if(empty($variants))
-                                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                                    <p class="text-xs text-gray-400 mb-3">
                                         Selecciona una categoría para que aparezca automáticamente la primera variante.
                                     </p>
                                 @endif
@@ -251,7 +251,7 @@
                                                             <x-input-label for="variant-{{ $index }}-attr-{{ $attr->id }}" value="{{ $attr->name }}" />
                                                             <select wire:model="variants.{{ $index }}.attribute_values.{{ $attr->id }}"
                                                                     id="variant-{{ $index }}-attr-{{ $attr->id }}"
-                                                                    class="block mt-1 w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                                                                    class="block mt-1 w-full rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand">
                                                                 <option value="">{{ __('Selecciona') }}</option>
                                                                 @foreach($attr->options as $opt)
                                                                     <option value="{{ $opt->value }}">{{ $opt->value }}</option>
@@ -264,7 +264,7 @@
                                                                    wire:model.live="variants.{{ $index }}.attribute_values.{{ $attr->id }}"
                                                                    value="1"
                                                                    class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 shadow-sm focus:ring-indigo-500">
-                                                            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $attr->name }}</span>
+                                                            <span class="text-sm font-medium text-gray-300">{{ $attr->name }}</span>
                                                         </label>
                                                     @endif
                                                 @endforeach
@@ -293,7 +293,7 @@
                                                     <input type="checkbox"
                                                            wire:model.live="variants.{{ $index }}.has_stock"
                                                            class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 shadow-sm focus:ring-indigo-500">
-                                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Tiene stock inicial</span>
+                                                    <span class="text-sm font-medium text-gray-300">Tiene stock inicial</span>
                                                 </label>
                                             </div>
 
@@ -379,7 +379,7 @@
                             <x-input-label for="category_id_serial" value="{{ __('Categoría') }}" />
                             <select wire:model.live="category_id"
                                     id="category_id_serial"
-                                    class="block mt-1 w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                                    class="block mt-1 w-full rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand">
                                 <option value="">{{ __('Selecciona una categoría') }}</option>
                                 @foreach($this->categoriesWithAttributes as $cat)
                                     <option value="{{ $cat->id }}">{{ $cat->name }} ({{ $cat->attributes->count() }} atributo(s))</option>
@@ -405,9 +405,9 @@
                                  x-transition:leave="transition ease-in duration-150"
                                  x-transition:leave-start="opacity-100"
                                  x-transition:leave-end="opacity-0"
-                                 class="rounded-lg border border-gray-200 dark:border-gray-600 p-4 bg-gray-50 dark:bg-gray-900/40">
+                                 class="rounded-lg border border-white/10 p-4 bg-white/5">
                                 <div class="flex items-center justify-between mb-4">
-                                    <p class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Stock inicial') }}</p>
+                                    <p class="text-sm font-medium text-gray-300">{{ __('Stock inicial') }}</p>
                                     <button type="button"
                                             wire:click="addSerializedItem"
                                             class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
@@ -419,7 +419,7 @@
                                 </div>
 
                                 @if(empty($serializedItems))
-                                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                                    <p class="text-xs text-gray-400 mb-3">
                                         Haz clic en «Añadir stock» para agregar unidades con número de serie.
                                     </p>
                                 @endif
@@ -472,7 +472,7 @@
                                                             <x-input-label for="item-{{ $index }}-attr-{{ $attr->id }}" value="{{ $attr->name }}" />
                                                             <select wire:model="serializedItems.{{ $index }}.attribute_values.{{ $attr->id }}"
                                                                     id="item-{{ $index }}-attr-{{ $attr->id }}"
-                                                                    class="block mt-1 w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                                                                    class="block mt-1 w-full rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand">
                                                                 <option value="">{{ __('Selecciona') }}</option>
                                                                 @foreach($attr->options as $opt)
                                                                     <option value="{{ $opt->value }}">{{ $opt->value }}</option>
@@ -485,7 +485,7 @@
                                                                    wire:model.live="serializedItems.{{ $index }}.attribute_values.{{ $attr->id }}"
                                                                    value="1"
                                                                    class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 shadow-sm focus:ring-indigo-500">
-                                                            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $attr->name }}</span>
+                                                            <span class="text-sm font-medium text-gray-300">{{ $attr->name }}</span>
                                                         </label>
                                                     @endif
                                                 @endforeach
