@@ -15,7 +15,7 @@
 
 <body class="font-sans antialiased bg-dark text-white">
     <div
-        x-data="{ sidebarCollapsed: false, sidebarMobileOpen: false }"
+        x-data="{ sidebarMobileOpen: false }"
         class="flex min-h-screen bg-dark"
     >
         {{-- Overlay móvil: al tocar fuera se cierra el sidebar --}}
@@ -29,7 +29,6 @@
             x-transition:leave-end="opacity-0"
             @click="sidebarMobileOpen = false"
             class="fixed inset-0 z-30 bg-black/50 lg:hidden"
-            style="display: none;"
             aria-hidden="true"
         ></div>
 
@@ -38,8 +37,7 @@
         {{-- Espaciador: mismo ancho que el sidebar para no tapar contenido --}}
         {{-- Contenedor principal: en desktop se desplaza con el ancho del sidebar (estilo TailAdmin) --}}
         <div
-            :class="sidebarCollapsed ? 'lg:ml-[72px]' : 'lg:ml-64'"
-            class="flex min-w-0 flex-1 flex-col transition-[margin] duration-300"
+            class="flex min-w-0 flex-1 flex-col lg:ml-64"
         >
             @include('livewire.layout.partials.navbar')
 
