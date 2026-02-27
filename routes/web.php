@@ -67,6 +67,7 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     // Grupos de atributos (gestión global)
     Route::get('/atributos', [StoreController::class, 'attributeGroups'])->name('attribute-groups');
     Route::delete('/atributos/grupos/{attributeGroup}', [StoreController::class, 'destroyAttributeGroup'])->name('attribute-groups.destroy');
+    Route::delete('/atributos/items/{attribute}', [StoreController::class, 'destroyAttribute'])->name('attribute-groups.attributes.destroy');
 
     // Atributos de categorías
     Route::get('/categorias/{category}/atributos', [StoreCategoryController::class, 'attributes'])->name('category.attributes');

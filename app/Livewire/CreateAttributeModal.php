@@ -69,20 +69,24 @@ class CreateAttributeModal extends Component
             abort(403, 'No tienes permiso para crear atributos en esta tienda.');
         }
 
-        $service->createAttribute($store, [
-            'name' => $this->name,
-            'attribute_group_id' => $this->attribute_group_id,
-            'is_required' => $this->is_required,
-        ]);
+        try {
+            $service->createAttribute($store, [
+                'name' => $this->name,
+                'attribute_group_id' => $this->attribute_group_id,
+                'is_required' => $this->is_required,
+            ]);
 
-        $this->reset(['name', 'attribute_group_id', 'is_required']);
-        $this->resetValidation();
+            $this->reset(['name', 'attribute_group_id', 'is_required']);
+            $this->resetValidation();
 
-        if ($this->fromGroupsPage) {
-            return redirect()->route('stores.attribute-groups', $store);
+            if ($this->fromGroupsPage) {
+                return redirect()->route('stores.attribute-groups', $store);
+            }
+
+            return redirect()->back();
+        } catch (\Exception $e) {
+            $this->addError('general', $e->getMessage());
         }
-
-        return redirect()->back();
     }
 
     public function render()

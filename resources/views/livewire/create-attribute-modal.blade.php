@@ -13,6 +13,12 @@
                 @endif
             </p>
 
+            @if($errors->has('general'))
+                <div class="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+                    <p class="text-sm text-red-800 dark:text-red-200">{{ $errors->first('general') }}</p>
+                </div>
+            @endif
+
             <div class="mt-6 space-y-4">
                 @if($this->groups->isNotEmpty() && !$attribute_group_id)
                     <div>

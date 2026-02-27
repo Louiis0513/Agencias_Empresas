@@ -6,8 +6,9 @@ use App\Models\Attribute;
 use App\Models\AttributeGroup;
 use App\Models\Category;
 use App\Models\Store;
-use Illuminate\Support\Facades\DB;
 use Exception;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 class AttributeService
 {
@@ -21,6 +22,27 @@ class AttributeService
             ->orderBy('position')
             ->orderBy('name')
             ->get();
+    }
+
+    /**
+     * Grupos de atributos de la tienda paginados, con filtro por nombre del grupo o de los atributos.
+     */
+    public function getStoreAttributeGroupsPaginated(Store $store, ?string $search = null, int $perPage = 10): LengthAwarePaginator
+    {
+        $query = AttributeGroup::where('store_id', $store->id)
+            ->with(['attributes' => fn ($q) => $q->orderByPivot('position')])
+            ->orderBy('position')
+            ->orderBy('name');
+
+        if ($search !== null && trim($search) !== '') {
+            $searchTerm = '%' . trim($search) . '%';
+            $query->where(function ($q) use ($searchTerm) {
+                $q->where('name', 'like', $searchTerm)
+                    ->orWhereHas('attributes', fn ($attr) => $attr->where('name', 'like', $searchTerm));
+            });
+        }
+
+        return $query->paginate($perPage)->withQueryString();
     }
 
     /**
@@ -113,6 +135,14 @@ class AttributeService
 
             $group = AttributeGroup::where('store_id', $store->id)->findOrFail($groupId);
 
+            $name = trim($data['name'] ?? '');
+            $exists = $group->attributes()
+                ->whereRaw('LOWER(attributes.name) = ?', [strtolower($name)])
+                ->exists();
+            if ($exists) {
+                throw new Exception("Ya existe un atributo con el nombre \"{$name}\" en este grupo.");
+            }
+
             $attribute = Attribute::create([
                 'store_id' => $store->id,
                 'name' => $data['name'],
@@ -138,6 +168,24 @@ class AttributeService
             $attribute = Attribute::where('id', $attributeId)
                 ->where('store_id', $store->id)
                 ->firstOrFail();
+
+            $groupId = isset($data['attribute_group_id']) && $data['attribute_group_id']
+                ? (int) $data['attribute_group_id']
+                : $attribute->groups->first()?->id;
+
+            if ($groupId) {
+                $group = AttributeGroup::where('store_id', $store->id)->find($groupId);
+                if ($group) {
+                    $name = trim($data['name'] ?? $attribute->name ?? '');
+                    $exists = $group->attributes()
+                        ->where('attributes.id', '!=', $attributeId)
+                        ->whereRaw('LOWER(attributes.name) = ?', [strtolower($name)])
+                        ->exists();
+                    if ($exists) {
+                        throw new Exception("Ya existe un atributo con el nombre \"{$name}\" en este grupo.");
+                    }
+                }
+            }
 
             $attribute->update([
                 'name' => $data['name'] ?? $attribute->name,

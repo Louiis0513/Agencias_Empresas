@@ -86,7 +86,7 @@ class StoreController extends Controller
         return view('stores.category-show', compact('store', 'category', 'products'));
     }
 
-    public function attributeGroups(Store $store, AttributeService $attributeService, StorePermissionService $permission)
+    public function attributeGroups(Request $request, Store $store, AttributeService $attributeService, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
@@ -95,7 +95,7 @@ class StoreController extends Controller
 
         session(['current_store_id' => $store->id]);
 
-        $groups = $attributeService->getStoreAttributeGroups($store);
+        $groups = $attributeService->getStoreAttributeGroupsPaginated($store, $request->input('search'), 10);
 
         return view('stores.attribute-groups', compact('store', 'groups'));
     }
@@ -168,6 +168,24 @@ class StoreController extends Controller
         try {
             $attributeService->deleteAttributeGroup($store, $attributeGroup->id);
             return redirect()->route('stores.attribute-groups', $store)->with('success', 'Grupo eliminado.');
+        } catch (\Exception $e) {
+            return redirect()->route('stores.attribute-groups', $store)->with('error', $e->getMessage());
+        }
+    }
+
+    public function destroyAttribute(Store $store, \App\Models\Attribute $attribute, AttributeService $attributeService, StorePermissionService $permission)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        $permission->authorize($store, 'attribute-groups.edit');
+        if ($attribute->store_id !== $store->id) {
+            abort(404);
+        }
+
+        try {
+            $attributeService->deleteAttribute($store, $attribute->id);
+            return redirect()->route('stores.attribute-groups', $store)->with('success', 'Atributo eliminado.');
         } catch (\Exception $e) {
             return redirect()->route('stores.attribute-groups', $store)->with('error', $e->getMessage());
         }
