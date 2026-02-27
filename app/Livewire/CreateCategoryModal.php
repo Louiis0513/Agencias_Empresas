@@ -42,11 +42,18 @@ class CreateCategoryModal extends Component
         $categoryIds = $store ? $store->categories()->pluck('id')->toArray() : [];
 
         return [
-            'name' => ['required', 'string', 'min:1', 'max:255'],
+            'name' => ['required', 'string', 'min:1', 'max:25'],
             'parent_id' => [
                 'nullable',
                 ...(count($categoryIds) > 0 ? [Rule::in($categoryIds)] : []),
             ],
+        ];
+    }
+
+    protected function messages(): array
+    {
+        return [
+            'name.max' => 'max 25 caracteres del nombre',
         ];
     }
 

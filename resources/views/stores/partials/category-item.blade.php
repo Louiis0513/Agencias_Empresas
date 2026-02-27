@@ -2,65 +2,75 @@
     $category->load(['children', 'products']);
     $hasChildren = $category->children->count() > 0;
     $hasProducts = $category->products->count() > 0;
+    $indentClass = match($level) {
+        0 => '',
+        1 => 'pl-3 border-l-2 border-l-white/20',
+        2 => 'pl-6 border-l-2 border-l-white/30',
+        3 => 'pl-9 border-l-2 border-l-white/40',
+        default => 'pl-12 border-l-2 border-l-white/50',
+    };
 @endphp
 
-<div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 {{ $level > 0 ? 'ml-8 mt-2' : '' }}" x-data="{ expanded: {{ $level === 0 ? 'true' : 'false' }} }">
-    <div class="flex items-center justify-between">
-        <div class="flex items-center space-x-3 flex-1">
+<div x-data="{ expanded: {{ $level === 0 ? 'true' : 'false' }} }" class="{{ $indentClass }}">
+    {{-- Header tipo acordeón --}}
+    <div class="flex items-center justify-between px-4 py-4 transition-colors"
+         :class="expanded ? 'bg-white/10' : 'bg-white/5 hover:bg-white/[0.07]'">
+        <div class="flex items-center gap-3 flex-1 min-w-0">
             @if($hasChildren)
-                <button @click="expanded = !expanded" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                    <svg class="w-5 h-5 transition-transform" :class="{ 'rotate-90': expanded }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                <button type="button"
+                        @click="expanded = !expanded"
+                        class="shrink-0 p-1 -m-1 text-gray-400 hover:text-gray-200 transition-colors">
+                    <svg class="w-5 h-5 transition-transform duration-200" :class="{ 'rotate-180': expanded }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                     </svg>
                 </button>
             @else
-                <div class="w-5"></div>
+                <div class="w-5 shrink-0"></div>
             @endif
 
-            <div class="flex-1">
-                <h3 class="text-sm font-medium text-gray-100">
-                    {{ $category->name }}
-                </h3>
-                <div class="mt-1 flex items-center space-x-4 text-xs text-gray-400">
-                    <span>{{ $category->products->count() }} producto(s)</span>
+            <div class="min-w-0 flex-1">
+                <h3 class="text-sm font-medium text-gray-100 truncate">{{ $category->name }}</h3>
+                <div class="mt-0.5 flex items-center gap-4 text-xs text-gray-400">
+                    <span>{{ $category->products->count() }} Pd</span>
                     @if($hasChildren)
-                        <span>{{ $category->children->count() }} subcategoría(s)</span>
+                        <span>{{ $category->children->count() }} SC</span>
                     @endif
                 </div>
             </div>
         </div>
 
-        <div class="flex items-center space-x-2">
-            <a href="{{ route('stores.category.show', [$store, $category]) }}"
-               class="text-brand hover:text-white transition text-sm font-medium">
-                Ver
-            </a>
-            <button type="button"
-                    class="text-brand hover:text-white transition text-sm font-medium"
-                    x-on:click="$dispatch('open-create-subcategory', { parentId: {{ $category->id }} })">
-                Crear subcategoría
-            </button>
-            <button class="text-brand hover:text-white transition text-sm font-medium"
-                    x-on:click="$dispatch('open-edit-modal', {{ $category->id }})">
-                Editar
-            </button>
-            <form method="POST" action="{{ route('stores.categories.destroy', [$store, $category]) }}" 
-                  onsubmit="return confirm('¿Estás seguro de eliminar esta categoría?{{ $hasChildren ? '\\n\\nADVERTENCIA: Esta categoría tiene ' . $category->children->count() . ' subcategoría(s) que también serán eliminadas.' : '' }}{{ $hasProducts ? '\\n\\nADVERTENCIA: Esta categoría tiene ' . $category->products->count() . ' producto(s) asociado(s) que quedarán sin categoría.' : '' }}');"
-                  class="inline">
-                @csrf
-                @method('DELETE')
-                <button type="submit" 
-                        class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 text-sm font-medium"
-                        title="Eliminar categoría{{ $hasChildren ? ' (incluye subcategorías)' : '' }}{{ $hasProducts ? ' (los productos quedarán sin categoría)' : '' }}">
-                    Eliminar
-                </button>
-            </form>
+        <div class="shrink-0 ml-2" @click.stop>
+            <x-dropdown align="right" width="48">
+                <x-slot name="trigger">
+                    <button type="button" class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-300 hover:text-white border border-white/10 rounded-lg hover:bg-white/5 transition">
+                        Opciones
+                        <svg class="ml-2 -mr-0.5 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                </x-slot>
+                <x-slot name="content">
+                    <a href="{{ route('stores.category.show', [$store, $category]) }}" class="block px-4 py-2 text-sm text-gray-200 hover:bg-white/5">Ver</a>
+                    <button type="button" class="block w-full px-4 py-2 text-left text-sm text-gray-200 hover:bg-white/5" x-on:click="$dispatch('open-edit-modal', {{ $category->id }})">Editar</button>
+                    <button type="button" class="block w-full px-4 py-2 text-left text-sm text-gray-200 hover:bg-white/5" x-on:click="$dispatch('open-create-subcategory', { parentId: {{ $category->id }} })">Crear subcategoría</button>
+                    <form method="POST" action="{{ route('stores.categories.destroy', [$store, $category]) }}"
+                          onsubmit="return confirm('¿Estás seguro de eliminar esta categoría?{{ $hasChildren ? '\\n\\nADVERTENCIA: Esta categoría tiene ' . $category->children->count() . ' subcategoría(s) que también serán eliminadas.' : '' }}{{ $hasProducts ? '\\n\\nADVERTENCIA: Esta categoría tiene ' . $category->products->count() . ' producto(s) asociado(s) que quedarán sin categoría.' : '' }}');"
+                          class="block">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="block w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-white/5">Eliminar</button>
+                    </form>
+                </x-slot>
+            </x-dropdown>
         </div>
     </div>
 
+    {{-- Contenido expandible: subcategorías con mismo ancho --}}
     @if($hasChildren)
-        <div x-show="expanded" x-collapse class="mt-3 space-y-2">
-            @foreach($category->children as $child)
+        <div x-show="expanded"
+             x-collapse
+             class="divide-y divide-white/10">
+            @foreach($category->children->sortBy('name')->values() as $child)
                 @include('stores.partials.category-item', ['category' => $child, 'level' => $level + 1, 'store' => $store])
             @endforeach
         </div>

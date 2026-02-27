@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Category;
 use App\Models\Store;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Exception;
 
@@ -23,6 +24,26 @@ class CategoryService
             ->withCount('products')
             ->orderBy('name')
             ->get();
+    }
+
+    /**
+     * Obtener el árbol de categorías raíz paginado, con filtro por nombre.
+     */
+    public function getCategoryTreePaginated(Store $store, ?string $search = null, int $perPage = 10): LengthAwarePaginator
+    {
+        $query = Category::where('store_id', $store->id)
+            ->whereNull('parent_id')
+            ->with(['children' => function ($query) {
+                $query->with('products');
+            }, 'products'])
+            ->withCount('products')
+            ->orderBy('name');
+
+        if ($search) {
+            $query->where('name', 'like', '%' . $search . '%');
+        }
+
+        return $query->paginate($perPage)->withQueryString();
     }
 
     /**

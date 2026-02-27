@@ -27,10 +27,43 @@
             @endif
             <div class="bg-dark-card border border-white/5 overflow-hidden sm:rounded-xl">
                 <div class="p-6">
-                    <div class="mb-6 flex justify-end">
+                    {{-- Filtros y botón crear --}}
+                    <div class="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+                        <form method="GET" action="{{ route('stores.products', $store) }}" class="flex-1 w-full flex flex-wrap gap-2 items-end">
+                            <div class="min-w-0 flex-1">
+                                <label for="search" class="block text-xs font-medium text-gray-400 mb-1">Buscar</label>
+                                <input type="text"
+                                       id="search"
+                                       name="search"
+                                       value="{{ request('search') }}"
+                                       placeholder="Nombre, SKU, código de barras..."
+                                       class="w-full rounded-md border-white/10 bg-white/5 text-gray-100">
+                            </div>
+                            <div class="min-w-[140px]">
+                                <label for="category_id" class="block text-xs font-medium text-gray-400 mb-1">Categoría</label>
+                                <select id="category_id" name="category_id" class="w-full rounded-md border-white/10 bg-white/5 text-gray-100">
+                                    <option value="">Todas</option>
+                                    @foreach($categories as $cat)
+                                        <option value="{{ $cat->id }}" {{ request('category_id') == $cat->id ? 'selected' : '' }}>{{ $cat->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="flex gap-2 shrink-0">
+                                <button type="submit"
+                                        class="px-4 py-2 bg-brand text-white rounded-xl shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)] transition">
+                                    Buscar
+                                </button>
+                                @if(request('search') || request('category_id'))
+                                    <a href="{{ route('stores.products', $store) }}"
+                                       class="px-4 py-2 bg-white/10 text-gray-300 rounded-xl hover:bg-white/20 border border-white/10">
+                                        Limpiar
+                                    </a>
+                                @endif
+                            </div>
+                        </form>
                         <button type="button"
                                 x-on:click="$dispatch('open-modal', 'create-product')"
-                                class="inline-flex items-center px-4 py-2.5 bg-brand text-white font-semibold text-xs rounded-xl uppercase tracking-wider shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)] transition">
+                                class="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2.5 bg-brand text-white font-semibold text-xs rounded-xl uppercase tracking-wider shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)] transition shrink-0">
                             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                             </svg>
@@ -79,19 +112,35 @@
                                 </tbody>
                             </table>
                         </div>
+
+                        {{-- Paginación --}}
+                        <div class="mt-4">
+                            {{ $products->links() }}
+                        </div>
                     @else
+                        @php $hasFilters = request('search') || request('category_id'); @endphp
                         <div class="text-center py-12">
                             <svg class="mx-auto h-12 w-12 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8 4-8-4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                             </svg>
-                            <h3 class="mt-2 text-sm font-medium text-gray-100">No hay productos</h3>
-                            <p class="mt-1 text-sm text-gray-400">Comienza creando tu primer producto para esta tienda.</p>
-                            <div class="mt-4">
-                                <button type="button" x-on:click="$dispatch('open-modal', 'create-product')" class="inline-flex items-center px-4 py-2.5 bg-brand text-white font-semibold text-xs rounded-xl uppercase tracking-wider shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)] transition">
-                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                                    Crear Producto
-                                </button>
-                            </div>
+                            @if($hasFilters)
+                                <h3 class="mt-2 text-sm font-medium text-gray-100">No se encontraron productos</h3>
+                                <p class="mt-1 text-sm text-gray-400">No hay productos con los filtros indicados. Prueba con otros criterios.</p>
+                                <div class="mt-4">
+                                    <a href="{{ route('stores.products', $store) }}" class="inline-flex items-center px-4 py-2.5 bg-white/10 text-gray-300 rounded-xl hover:bg-white/20 border border-white/10">
+                                        Limpiar filtros
+                                    </a>
+                                </div>
+                            @else
+                                <h3 class="mt-2 text-sm font-medium text-gray-100">No hay productos</h3>
+                                <p class="mt-1 text-sm text-gray-400">Comienza creando tu primer producto para esta tienda.</p>
+                                <div class="mt-4">
+                                    <button type="button" x-on:click="$dispatch('open-modal', 'create-product')" class="inline-flex items-center px-4 py-2.5 bg-brand text-white font-semibold text-xs rounded-xl uppercase tracking-wider shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)] transition">
+                                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                        Crear Producto
+                                    </button>
+                                </div>
+                            @endif
                         </div>
                     @endif
                 </div>

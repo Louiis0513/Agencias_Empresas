@@ -1,3 +1,9 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Legibilidad en opciones de selectores - texto oscuro sobre fondo claro */
+select option {
+  background-color: #ffffff;
+  color: #1f2937;
+}

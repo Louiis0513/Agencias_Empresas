@@ -3,24 +3,43 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreProductRequest;
+use App\Models\Category;
 use App\Models\Product;
 use App\Models\Store;
 use App\Services\ProductService;
 use App\Services\StorePermissionService;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class StoreProductController extends Controller
 {
-    public function index(Store $store, StorePermissionService $permission)
+    public function index(Store $store, Request $request, StorePermissionService $permission)
     {
         $permission->authorize($store, 'products.view');
 
-        $products = $store->products()
-            ->with('category')
-            ->orderBy('name')
-            ->get();
+        $query = $store->products()->with('category');
 
-        return view('stores.productos', compact('store', 'products'));
+        // Filtro texto (nombre, sku, barcode, serial en variantes y product_items)
+        if ($search = trim((string) $request->get('search'))) {
+            $term = '%'.$search.'%';
+            $query->where(function ($q) use ($term) {
+                $q->where('name', 'like', $term)
+                    ->orWhere('sku', 'like', $term)
+                    ->orWhere('barcode', 'like', $term)
+                    ->orWhereHas('variants', fn ($v) => $v->where('sku', 'like', $term)->orWhere('barcode', 'like', $term))
+                    ->orWhereHas('productItems', fn ($pi) => $pi->where('serial_number', 'like', $term));
+            });
+        }
+
+        // Filtro categoría
+        if ($categoryId = $request->get('category_id')) {
+            $query->where('category_id', $categoryId);
+        }
+
+        $products = $query->orderBy('name')->paginate(10)->withQueryString();
+        $categories = Category::where('store_id', $store->id)->orderBy('name')->get();
+
+        return view('stores.productos', compact('store', 'products', 'categories'));
     }
 
     public function show(Store $store, Product $product, StorePermissionService $permission)

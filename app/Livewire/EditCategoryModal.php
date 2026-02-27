@@ -23,11 +23,18 @@ class EditCategoryModal extends Component
         $availableCategoryIds = $this->getAvailableParentIds();
 
         return [
-            'name' => ['required', 'string', 'min:1', 'max:255'],
+            'name' => ['required', 'string', 'min:1', 'max:25'],
             'parent_id' => [
                 'nullable',
                 ...(count($availableCategoryIds) > 0 ? [Rule::in($availableCategoryIds)] : []),
             ],
+        ];
+    }
+
+    protected function messages(): array
+    {
+        return [
+            'name.max' => 'max 25 caracteres del nombre',
         ];
     }
 

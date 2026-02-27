@@ -8,14 +8,15 @@ use App\Models\Store;
 use App\Services\AttributeService;
 use App\Services\CategoryService;
 use App\Services\StorePermissionService;
+use Illuminate\Http\Request;
 
 class StoreCategoryController extends Controller
 {
-    public function index(Store $store, CategoryService $categoryService, StorePermissionService $permission)
+    public function index(Request $request, Store $store, CategoryService $categoryService, StorePermissionService $permission)
     {
         $permission->authorize($store, 'categories.view');
 
-        $categoryTree = $categoryService->getCategoryTree($store);
+        $categoryTree = $categoryService->getCategoryTreePaginated($store, $request->input('search'), 10);
         $categoriesFlat = $categoryService->getFlatList($store);
 
         return view('stores.categorias', compact('store', 'categoryTree', 'categoriesFlat'));
