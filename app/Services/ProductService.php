@@ -20,7 +20,7 @@ class ProductService
      * - La categoría debe tener al menos un atributo asignado.
      * - Valida que los atributos requeridos estén llenos.
      * - Se guardan los valores de atributos (attribute_values) del producto.
-     * - Para productos tipo batch: puede recibir 'variants' y 'attribute_option_ids'.
+     * - Para productos tipo batch: puede recibir 'variants'.
      * - Para productos tipo serialized: puede recibir 'serializedItems'.
      * - Para productos simples con stock inicial: puede recibir 'has_initial_stock' y llamará a InventarioService.
      * 
@@ -49,11 +49,10 @@ class ProductService
             $variants = $data['variants'] ?? null;
             // Serializado: normalizar a array (vacío si no hay stock inicial)
             $serializedItems = isset($data['serializedItems']) && is_array($data['serializedItems']) ? $data['serializedItems'] : [];
-            $attributeOptionIds = $data['attribute_option_ids'] ?? null;
             $hasInitialStock = $data['has_initial_stock'] ?? false;
             $simpleInitialStockQty = 0;
             
-            unset($data['attribute_values'], $data['proveedor_ids'], $data['variants'], $data['serializedItems'], $data['attribute_option_ids'], $data['has_initial_stock']);
+            unset($data['attribute_values'], $data['proveedor_ids'], $data['variants'], $data['serializedItems'], $data['has_initial_stock']);
 
             // Validar que los atributos requeridos estén llenos
             // Solo para productos simples: los atributos están a nivel de producto
@@ -106,17 +105,8 @@ class ProductService
                 ]);
             }
 
-            // Para productos tipo batch: guardar opciones permitidas y crear lotes si hay variantes con stock
+            // Para productos tipo batch: crear lotes si hay variantes con stock
             if ($product->isBatch()) {
-                if ($attributeOptionIds !== null && ! empty($attributeOptionIds)) {
-                    $categoryAttributeIds = $category->attributes->pluck('id')->toArray();
-                    $validIds = \App\Models\AttributeOption::whereIn('id', $attributeOptionIds)
-                        ->whereIn('attribute_id', $categoryAttributeIds)
-                        ->pluck('id')
-                        ->toArray();
-                    $product->allowedVariantOptions()->sync($validIds);
-                }
-
                 if ($variants !== null && ! empty($variants)) {
                     $this->validateNoDuplicateVariants($variants);
                     $this->createBatchFromVariants($product, $store, $variants, $userId);
@@ -153,7 +143,7 @@ class ProductService
             $isRequired = $attribute->pivot->is_required ?? false;
             if ($isRequired) {
                 $value = $attributeValues[$attribute->id] ?? null;
-                if ($value === null || $value === '' || ($attribute->type === 'boolean' && $value === '0')) {
+                if ($value === null || $value === '') {
                     throw new Exception("El atributo «{$attribute->name}» es obligatorio y debe tener un valor.");
                 }
             }
@@ -171,7 +161,7 @@ class ProductService
                 $isRequired = $attribute->pivot->is_required ?? false;
                 if ($isRequired) {
                     $value = $attributeValues[$attribute->id] ?? null;
-                    if ($value === null || $value === '' || ($attribute->type === 'boolean' && $value === '0')) {
+                    if ($value === null || $value === '') {
                         throw new Exception("En la variante " . ($index + 1) . ", el atributo «{$attribute->name}» es obligatorio y debe tener un valor.");
                     }
                 }
@@ -190,7 +180,7 @@ class ProductService
                 $isRequired = $attribute->pivot->is_required ?? false;
                 if ($isRequired) {
                     $value = $attributeValues[$attribute->id] ?? null;
-                    if ($value === null || $value === '' || ($attribute->type === 'boolean' && $value === '0')) {
+                    if ($value === null || $value === '') {
                         throw new Exception("En la unidad " . ($index + 1) . ", el atributo «{$attribute->name}» es obligatorio y debe tener un valor.");
                     }
                 }

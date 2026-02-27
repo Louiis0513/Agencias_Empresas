@@ -56,7 +56,6 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::put('/productos/compras/{purchase}', [StoreController::class, 'updateProductPurchase'])->name('product-purchases.update');
     Route::get('/productos/{product}', [StoreProductController::class, 'show'])->name('products.show');
     Route::get('/productos/{productId}/atributos-categoria', [StoreProductController::class, 'atributosCategoria'])->name('productos.atributos-categoria')->whereNumber('productId');
-    Route::put('/productos/{product}/variantes-permitidas', [StoreProductController::class, 'updateProductVariantOptions'])->name('productos.variant-options.update');
     Route::put('/productos/{product}/variante', [StoreProductController::class, 'updateVariant'])->name('productos.variant.update');
     Route::post('/productos/{product}/variantes', [StoreProductController::class, 'storeVariants'])->name('productos.variants.store');
     Route::delete('/productos/{product}', [StoreProductController::class, 'destroy'])->name('products.destroy');

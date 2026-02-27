@@ -14,8 +14,6 @@ class StoreProductRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'attribute_option_ids' => ['nullable', 'array'],
-            'attribute_option_ids.*' => ['integer', 'exists:attribute_options,id'],
             'attribute_values' => ['nullable', 'array'],
             'attribute_values.*' => ['nullable'],
             'product_variant_id' => ['nullable', 'integer'],

@@ -85,13 +85,7 @@
                             @if($attrValue->attribute)
                                 <div>
                                     <dt class="text-xs font-medium text-gray-400">{{ $attrValue->attribute->name }}</dt>
-                                    <dd class="mt-0.5 text-sm text-gray-100">
-                                        @if($attrValue->attribute->type === 'boolean')
-                                            {{ $attrValue->value === '1' ? 'Sí' : 'No' }}
-                                        @else
-                                            {{ $attrValue->value ?? '—' }}
-                                        @endif
-                                    </dd>
+                                    <dd class="mt-0.5 text-sm text-gray-100">{{ $attrValue->value ?? '—' }}</dd>
                                 </div>
                             @endif
                         @endforeach
@@ -473,40 +467,13 @@
                                     <input type="hidden" name="product_variant_id" value="{{ $uv->id }}" />
                                     @foreach($product->category->attributes as $attr)
                                         @php
-                                            $currentValue = $uv->features[$attr->id] ?? $uv->features[(string)$attr->id] ?? ($attr->type === 'boolean' ? '0' : '');
+                                            $currentValue = $uv->features[$attr->id] ?? $uv->features[(string)$attr->id] ?? '';
                                             $isRequired = $attr->pivot->is_required ?? $attr->is_required ?? false;
                                         @endphp
-                                        @if($attr->type === 'text')
-                                            <div>
-                                                <x-input-label for="mod-var-{{ $loop->parent->index }}-attr-{{ $attr->id }}" :value="$attr->name . ($isRequired ? ' *' : '')" class="dark:text-white font-semibold" />
-                                                <x-text-input name="attribute_values[{{ $attr->id }}]" id="mod-var-{{ $loop->parent->index }}-attr-{{ $attr->id }}" class="block mt-1 w-full" type="text" :value="$currentValue" />
-                                            </div>
-                                        @elseif($attr->type === 'number')
-                                            <div>
-                                                <x-input-label for="mod-var-{{ $loop->parent->index }}-attr-{{ $attr->id }}" :value="$attr->name . ($isRequired ? ' *' : '')" class="dark:text-white font-semibold" />
-                                                <x-text-input name="attribute_values[{{ $attr->id }}]" id="mod-var-{{ $loop->parent->index }}-attr-{{ $attr->id }}" class="block mt-1 w-full" type="number" step="any" :value="$currentValue" />
-                                            </div>
-                                        @elseif($attr->type === 'select')
-                                            <div>
-                                                <x-input-label for="mod-var-{{ $loop->parent->index }}-attr-{{ $attr->id }}" :value="$attr->name . ($isRequired ? ' *' : '')" class="dark:text-white font-semibold" />
-                                                <select name="attribute_values[{{ $attr->id }}]" id="mod-var-{{ $loop->parent->index }}-attr-{{ $attr->id }}"
-                                                        class="block mt-1 w-full rounded-md border-white/10 bg-white/5 text-gray-100 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
-                                                    <option value="">{{ __('Selecciona') }}</option>
-                                                    @foreach($attr->options as $opt)
-                                                        <option value="{{ $opt->value }}" {{ (string)$currentValue === (string)$opt->value ? 'selected' : '' }}>{{ $opt->value }}</option>
-                                                    @endforeach
-                                                </select>
-                                            </div>
-                                        @elseif($attr->type === 'boolean')
-                                            <div>
-                                                <label class="flex items-center gap-2">
-                                                    <input type="checkbox" name="attribute_values[{{ $attr->id }}]" value="1"
-                                                           {{ in_array($currentValue, ['1', 1, true], true) ? 'checked' : '' }}
-                                                           class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 shadow-sm focus:ring-indigo-500">
-                                                    <span class="text-sm font-semibold text-gray-900 dark:text-white">{{ $attr->name }}{{ $isRequired ? ' *' : '' }}</span>
-                                                </label>
-                                            </div>
-                                        @endif
+                                        <div>
+                                            <x-input-label for="mod-var-{{ $loop->parent->index }}-attr-{{ $attr->id }}" :value="$attr->name . ($isRequired ? ' *' : '')" class="dark:text-white font-semibold" />
+                                            <x-text-input name="attribute_values[{{ $attr->id }}]" id="mod-var-{{ $loop->parent->index }}-attr-{{ $attr->id }}" class="block mt-1 w-full" type="text" :value="$currentValue" />
+                                        </div>
                                     @endforeach
                                     <div class="pt-3 border-t border-gray-200 dark:border-gray-600 grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div>
@@ -563,36 +530,10 @@
                                     <h3 class="text-lg font-bold text-gray-100 mb-4 pb-3 border-b-2 border-gray-300 dark:border-gray-600">Nueva variante</h3>
                                     @foreach($product->category->attributes as $attr)
                                         @php $isRequired = $attr->pivot->is_required ?? $attr->is_required ?? false; @endphp
-                                        @if($attr->type === 'text')
-                                            <div class="mb-3">
-                                                <x-input-label for="crear-var-attr-{{ $attr->id }}" :value="$attr->name . ($isRequired ? ' *' : '')" class="dark:text-gray-200 font-semibold" />
-                                                <x-text-input name="attribute_values[{{ $attr->id }}]" id="crear-var-attr-{{ $attr->id }}" class="block mt-1 w-full" type="text" />
-                                            </div>
-                                        @elseif($attr->type === 'number')
-                                            <div class="mb-3">
-                                                <x-input-label for="crear-var-attr-{{ $attr->id }}" :value="$attr->name . ($isRequired ? ' *' : '')" class="dark:text-gray-200 font-semibold" />
-                                                <x-text-input name="attribute_values[{{ $attr->id }}]" id="crear-var-attr-{{ $attr->id }}" class="block mt-1 w-full" type="number" step="any" />
-                                            </div>
-                                        @elseif($attr->type === 'select')
-                                            <div class="mb-3">
-                                                <x-input-label for="crear-var-attr-{{ $attr->id }}" :value="$attr->name . ($isRequired ? ' *' : '')" class="dark:text-gray-200 font-semibold" />
-                                                <select name="attribute_values[{{ $attr->id }}]" id="crear-var-attr-{{ $attr->id }}"
-                                                        class="block mt-1 w-full rounded-md border-white/10 bg-white/5 text-gray-100 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
-                                                    <option value="">{{ __('Selecciona') }}</option>
-                                                    @foreach($attr->options as $opt)
-                                                        <option value="{{ $opt->value }}">{{ $opt->value }}</option>
-                                                    @endforeach
-                                                </select>
-                                            </div>
-                                        @elseif($attr->type === 'boolean')
-                                            <div class="mb-3">
-                                                <label class="flex items-center gap-2">
-                                                    <input type="checkbox" name="attribute_values[{{ $attr->id }}]" value="1"
-                                                           class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 shadow-sm focus:ring-indigo-500">
-                                                    <span class="text-sm font-semibold text-gray-900 dark:text-gray-200">{{ $attr->name }}{{ $isRequired ? ' *' : '' }}</span>
-                                                </label>
-                                            </div>
-                                        @endif
+                                        <div class="mb-3">
+                                            <x-input-label for="crear-var-attr-{{ $attr->id }}" :value="$attr->name . ($isRequired ? ' *' : '')" class="dark:text-gray-200 font-semibold" />
+                                            <x-text-input name="attribute_values[{{ $attr->id }}]" id="crear-var-attr-{{ $attr->id }}" class="block mt-1 w-full" type="text" />
+                                        </div>
                                     @endforeach
                                     {{-- Precio --}}
                                     <div class="mt-4 pt-3 border-t border-gray-200 dark:border-gray-600">

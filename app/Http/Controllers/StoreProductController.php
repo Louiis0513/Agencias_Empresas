@@ -31,41 +31,9 @@ class StoreProductController extends Controller
             abort(404);
         }
 
-        $product->load(['category.attributes.options', 'productItems', 'batches.batchItems', 'variants.batchItems.batch', 'allowedVariantOptions', 'attributeValues.attribute']);
+        $product->load(['category.attributes', 'productItems', 'batches.batchItems', 'variants.batchItems.batch', 'attributeValues.attribute']);
 
         return view('stores.producto-detalle', compact('store', 'product'));
-    }
-
-    public function updateProductVariantOptions(Store $store, Product $product, StoreProductRequest $request, StorePermissionService $permission)
-    {
-        $permission->authorize($store, 'products.edit');
-
-        if ($product->store_id !== $store->id) {
-            abort(404);
-        }
-
-        $product->load('category.attributes');
-        $categoryAttributeIds = $product->category?->attributes?->pluck('id') ?? collect();
-
-        $request->validate([
-            'attribute_option_ids' => ['nullable', 'array'],
-            'attribute_option_ids.*' => [
-                'integer',
-                'exists:attribute_options,id',
-                function ($attribute, $value, $fail) use ($categoryAttributeIds) {
-                    $opt = \App\Models\AttributeOption::find($value);
-                    if (! $opt || ! $categoryAttributeIds->contains($opt->attribute_id)) {
-                        $fail('La opción no pertenece a un atributo de la categoría del producto.');
-                    }
-                },
-            ],
-        ]);
-
-        $ids = array_values(array_unique(array_map('intval', $request->input('attribute_option_ids', []))));
-        $product->allowedVariantOptions()->sync($ids);
-
-        return redirect()->route('stores.products.show', [$store, $product])
-            ->with('success', 'Variantes permitidas actualizadas. En compras solo se podrán elegir estas opciones.');
     }
 
     public function updateVariant(Store $store, Product $product, StoreProductRequest $request, ProductService $productService, StorePermissionService $permission)
@@ -92,8 +60,8 @@ class StoreProductController extends Controller
         $rawNew = $request->input('attribute_values', []);
         $newFeatures = [];
         foreach ($category->attributes as $attr) {
-            $v = $rawNew[$attr->id] ?? ($attr->type === 'boolean' ? '0' : null);
-            if ($v === null || $v === '' || $v === '0') {
+            $v = $rawNew[$attr->id] ?? null;
+            if ($v === null || $v === '') {
                 continue;
             }
             $newFeatures[$attr->id] = $v;
@@ -151,11 +119,11 @@ class StoreProductController extends Controller
         $rawAttributeValues = $request->input('attribute_values', []);
         $attributeValues = [];
         foreach ($category->attributes as $attr) {
-            $v = $rawAttributeValues[$attr->id] ?? ($attr->type === 'boolean' ? '0' : null);
-            if ($v === null && $attr->type !== 'boolean') {
+            $v = $rawAttributeValues[$attr->id] ?? null;
+            if ($v === null || $v === '') {
                 continue;
             }
-            $attributeValues[$attr->id] = $v ?? '0';
+            $attributeValues[$attr->id] = $v;
         }
 
         $variant = [
@@ -168,7 +136,7 @@ class StoreProductController extends Controller
             'expiration_date' => $request->input('expiration_date') ?: null,
         ];
 
-        $features = array_filter($attributeValues, fn ($v) => $v !== '' && $v !== null && $v !== '0');
+        $features = array_filter($attributeValues, fn ($v) => $v !== '' && $v !== null);
         if ($productService->variantExists($store, $product, $features)) {
             return redirect()->route('stores.products.show', [$store, $product])
                 ->with('error', 'Esa variante ya existe. Elige una combinación de atributos distinta.');
@@ -219,13 +187,11 @@ class StoreProductController extends Controller
             return response()->json(['attributes' => []]);
         }
 
-        $product->load('category.attributes.options');
+        $product->load('category.attributes');
         $category = $product->category;
         $attributes = $category ? $category->attributes->map(fn ($a) => [
             'id' => $a->id,
             'name' => $a->name,
-            'type' => $a->type ?? 'text',
-            'options' => $a->options ? $a->options->map(fn ($o) => ['id' => $o->id, 'value' => $o->value])->values()->all() : [],
         ])->values()->all() : [];
 
         return response()->json(['attributes' => $attributes]);

@@ -93,12 +93,8 @@
                                                     @endphp
                                                     <div class="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50/50 dark:bg-gray-700/30">
                                                         <span class="font-medium text-gray-100">{{ $attribute->name }}</span>
-                                                        <span class="text-xs text-gray-400">({{ $attribute->type }})</span>
                                                         @if($requiredInGroup)
                                                             <span class="px-2 py-0.5 text-xs font-medium rounded bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">Requerido</span>
-                                                        @endif
-                                                        @if($attribute->isSelectType() && $attribute->options->count() > 0)
-                                                            <span class="text-xs text-gray-400">Opciones: {{ $attribute->options->pluck('value')->join(', ') }}</span>
                                                         @endif
                                                     </div>
                                                 @endforeach
@@ -151,14 +147,8 @@
                                             <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                                                 <div>
                                                     <span class="font-medium text-gray-100">{{ $attribute->name }}</span>
-                                                    <span class="ml-2 text-xs text-gray-400">({{ $attribute->type }})</span>
                                                     @if($attribute->pivot->is_required)
                                                         <span class="ml-2 px-2 py-0.5 text-xs bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 rounded">Requerido</span>
-                                                    @endif
-                                                    @if($attribute->isSelectType() && $attribute->options->count() > 0)
-                                                        <div class="mt-1 text-xs text-gray-400">
-                                                            Opciones: {{ $attribute->options->pluck('value')->join(', ') }}
-                                                        </div>
                                                     @endif
                                                 </div>
                                             </div>

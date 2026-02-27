@@ -78,14 +78,10 @@
                                             <div class="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
                                                 <div class="flex items-center gap-3">
                                                     <span class="font-medium text-gray-100">{{ $attr->name }}</span>
-                                                    <span class="text-xs text-gray-500">({{ $attr->type }})</span>
                                                     @if($attr->pivot->is_required)
                                                         <span class="px-2 py-0.5 text-xs rounded bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">Requerido</span>
                                                     @else
                                                         <span class="px-2 py-0.5 text-xs rounded bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400">Opcional</span>
-                                                    @endif
-                                                    @if($attr->isSelectType() && $attr->options->count() > 0)
-                                                        <span class="text-xs text-gray-400">{{ $attr->options->pluck('value')->join(', ') }}</span>
                                                     @endif
                                                 </div>
                                                 <button x-on:click="$dispatch('open-edit-attribute-modal', { id: {{ $attr->id }} })"

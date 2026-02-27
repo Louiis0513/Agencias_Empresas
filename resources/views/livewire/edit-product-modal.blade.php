@@ -49,52 +49,11 @@
                         <p class="text-base font-bold text-gray-900 dark:text-white mb-4 pb-2 border-b-2 border-gray-300 dark:border-gray-600">{{ __('Atributos de la categoría') }}</p>
                         <div class="space-y-4">
                             @foreach($category->attributes as $attr)
-                                @php
-                                    $val = $attribute_values[$attr->id] ?? ($attr->type === 'boolean' ? '0' : '');
-                                @endphp
-                                @if($attr->type === 'text')
-                                    <div>
-                                        <x-input-label for="edit-attr-{{ $attr->id }}" value="{{ $attr->name }}" class="dark:text-white font-semibold" />
-                                        <x-text-input wire:model="attribute_values.{{ $attr->id }}" id="edit-attr-{{ $attr->id }}" class="block mt-1 w-full" type="text" />
-                                        <x-input-error :messages="$errors->get('attribute_values.' . $attr->id)" class="mt-1" />
-                                    </div>
-                                @elseif($attr->type === 'number')
-                                    <div>
-                                        <x-input-label for="edit-attr-{{ $attr->id }}" value="{{ $attr->name }}" class="dark:text-white font-semibold" />
-                                        <x-text-input wire:model="attribute_values.{{ $attr->id }}" id="edit-attr-{{ $attr->id }}" class="block mt-1 w-full" type="number" step="any" />
-                                        <x-input-error :messages="$errors->get('attribute_values.' . $attr->id)" class="mt-1" />
-                                    </div>
-                                @elseif($attr->type === 'select')
-                                    <div>
-                                        <x-input-label for="edit-attr-{{ $attr->id }}" value="{{ $attr->name }}" class="dark:text-white font-semibold" />
-                                        <select wire:model="attribute_values.{{ $attr->id }}"
-                                                id="edit-attr-{{ $attr->id }}"
-                                                class="block mt-1 w-full rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand">
-                                            <option value="">{{ __('Selecciona') }}</option>
-                                            @foreach($attr->options as $opt)
-                                                <option value="{{ $opt->value }}">{{ $opt->value }}</option>
-                                            @endforeach
-                                        </select>
-                                        <x-input-error :messages="$errors->get('attribute_values.' . $attr->id)" class="mt-1" />
-                                    </div>
-                                @elseif($attr->type === 'boolean')
-                                    <div>
-                                        <label class="flex items-center gap-2">
-                                            <input type="checkbox"
-                                                   wire:model.live="attribute_values.{{ $attr->id }}"
-                                                   value="1"
-                                                   class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 shadow-sm focus:ring-indigo-500">
-                                            <span class="text-sm font-semibold text-gray-900 dark:text-white">{{ $attr->name }}</span>
-                                        </label>
-                                        <x-input-error :messages="$errors->get('attribute_values.' . $attr->id)" class="mt-1" />
-                                    </div>
-                                @else
-                                    <div>
-                                        <x-input-label for="edit-attr-{{ $attr->id }}" value="{{ $attr->name }}" class="dark:text-white font-semibold" />
-                                        <x-text-input wire:model="attribute_values.{{ $attr->id }}" id="edit-attr-{{ $attr->id }}" class="block mt-1 w-full" type="text" />
-                                        <x-input-error :messages="$errors->get('attribute_values.' . $attr->id)" class="mt-1" />
-                                    </div>
-                                @endif
+                                <div>
+                                    <x-input-label for="edit-attr-{{ $attr->id }}" value="{{ $attr->name }}" class="dark:text-white font-semibold" />
+                                    <x-text-input wire:model="attribute_values.{{ $attr->id }}" id="edit-attr-{{ $attr->id }}" class="block mt-1 w-full" type="text" />
+                                    <x-input-error :messages="$errors->get('attribute_values.' . $attr->id)" class="mt-1" />
+                                </div>
                             @endforeach
                         </div>
                     </div>

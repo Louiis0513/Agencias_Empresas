@@ -29,7 +29,7 @@ class StoreCategoryController extends Controller
             abort(404);
         }
 
-        $category->load(['attributes' => ['options']]);
+        $category->load(['attributes']);
         $products = $category->products()->orderBy('name')->get();
 
         return view('stores.category-show', compact('store', 'category', 'products'));
@@ -54,7 +54,7 @@ class StoreCategoryController extends Controller
         }
 
         $storeAttributeGroups = $attributeService->getStoreAttributeGroups($store);
-        $categoryAttributes = $category->attributes()->with(['options', 'groups'])->get();
+        $categoryAttributes = $category->attributes()->with(['groups'])->get();
 
         return view('stores.category-attributes', compact('store', 'category', 'storeAttributeGroups', 'categoryAttributes'));
     }

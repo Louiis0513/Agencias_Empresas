@@ -80,16 +80,12 @@ class EditProductModal extends Component
             $this->attribute_values = [];
             $category = Category::where('id', $this->category_id)
                 ->where('store_id', $store->id)
-                ->with(['attributes.options'])
+                ->with(['attributes'])
                 ->first();
             if ($category) {
                 foreach ($category->attributes as $attr) {
                     $existingValue = $product->attributeValues->firstWhere('attribute_id', $attr->id);
-                    if ($attr->type === 'boolean') {
-                        $this->attribute_values[$attr->id] = $existingValue && $existingValue->value === '1' ? '1' : '0';
-                    } else {
-                        $this->attribute_values[$attr->id] = $existingValue ? $existingValue->value : '';
-                    }
+                    $this->attribute_values[$attr->id] = $existingValue ? $existingValue->value : '';
                 }
             }
 
@@ -183,7 +179,7 @@ class EditProductModal extends Component
         
         return Category::where('id', $this->category_id)
             ->where('store_id', $store->id)
-            ->with(['attributes.options'])
+            ->with(['attributes'])
             ->first();
     }
 

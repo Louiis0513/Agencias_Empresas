@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Models\AttributeOption;
 use App\Services\InventarioService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -93,12 +92,7 @@ class ProductVariant extends Model
 
         $resolvedFeatures = [];
         foreach ($features as $attrId => $value) {
-            if (is_numeric($value) && (string) (int) $value === (string) $value) {
-                $opt = AttributeOption::find((int) $value);
-                $resolvedFeatures[$attrId] = $opt ? $opt->value : $value;
-            } else {
-                $resolvedFeatures[$attrId] = $value;
-            }
+            $resolvedFeatures[$attrId] = $value;
         }
 
         $attrIds = array_map('intval', array_keys($features));

@@ -12,8 +12,6 @@ class Attribute extends Model
     protected $fillable = [
         'store_id',
         'name',
-        'code',
-        'type',
         'is_required',
     ];
 
@@ -42,13 +40,4 @@ class Attribute extends Model
                     ->orderByPivot('position');
     }
 
-    public function options()
-    {
-        return $this->hasMany(AttributeOption::class)->orderBy('position');
-    }
-
-    public function isSelectType(): bool
-    {
-        return $this->type === 'select';
-    }
 }

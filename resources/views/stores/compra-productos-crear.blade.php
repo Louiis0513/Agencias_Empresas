@@ -655,7 +655,7 @@
                         <div class="space-y-4 text-sm">
                             <div class="p-2 rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
                                 <p class="text-sm font-medium text-amber-800 dark:text-amber-200">Variantes del lote (opcional)</p>
-                                <p class="mt-0.5 text-xs text-amber-700 dark:text-amber-300">Elige en los desplegables solo las opciones definidas para este producto (configura «Variantes permitidas» en el detalle del producto). Cantidad, costo y precio de venta por variante.</p>
+                                <p class="mt-0.5 text-xs text-amber-700 dark:text-amber-300">Introduce los valores de los atributos de cada variante. Cantidad, costo y precio de venta por variante.</p>
                             </div>
                             <div class="flex items-center justify-between">
                                 <span class="font-semibold text-gray-700 dark:text-gray-200">Variantes (atributos, cantidad, costo, precio venta)</span>
@@ -680,15 +680,10 @@
                             div.setAttribute('data-batch-index', index);
                             let attrsHtml = '';
                             attrs.forEach(function(attr) {
-                                const options = attr.options || [];
-                                let opts = '<option value="">—</option>';
-                                options.forEach(function(opt) {
-                                    opts += '<option value="' + escapeHtml(opt.value) + '">' + escapeHtml(opt.value) + '</option>';
-                                });
                                 attrsHtml += `
                                     <div>
                                         <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">${escapeHtml(attr.name)}</label>
-                                        <select class="batch-attr-feature w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" data-attr-id="${attr.id}" name="details[${rowId}][batch_items][${index}][features][${attr.id}]">${opts}</select>
+                                        <input type="text" class="batch-attr-feature w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" data-attr-id="${attr.id}" name="details[${rowId}][batch_items][${index}][features][${attr.id}]" placeholder="">
                                     </div>
                                 `;
                             });

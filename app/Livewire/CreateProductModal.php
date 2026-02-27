@@ -37,9 +37,6 @@ class CreateProductModal extends Component
     /** @var array<int, string> Valores de atributos: [attribute_id => value] */
     public array $attribute_values = [];
 
-    /** IDs de opciones de atributos permitidas para este producto (variantes: Talla S, M, L, etc.). */
-    public array $attribute_option_ids = [];
-
     /** Variantes para productos tipo Lote: [['attribute_values' => [...], 'price' => '', 'cost' => '', 'stock_initial' => '', 'batch_number' => '', 'expiration_date' => ''], ...] */
     public array $variants = [];
 
@@ -155,7 +152,7 @@ class CreateProductModal extends Component
 
         return Category::where('store_id', $store->id)
             ->whereHas('attributes')
-            ->with(['attributes' => fn ($q) => $q->with('options')])
+            ->with(['attributes'])
             ->orderBy('name')
             ->get();
     }
@@ -174,20 +171,19 @@ class CreateProductModal extends Component
 
         return Category::where('id', $this->category_id)
             ->where('store_id', $this->getStoreProperty()?->id)
-            ->with(['attributes' => fn ($q) => $q->with(['options', 'groups'])->orderByPivot('position')])
+            ->with(['attributes' => fn ($q) => $q->with(['groups'])->orderByPivot('position')])
             ->first();
     }
 
     public function updatedCategoryId(): void
     {
         $this->attribute_values = [];
-        $this->attribute_option_ids = [];
         $this->variants = [];
         $this->serializedItems = [];
         $cat = $this->getSelectedCategoryProperty();
         if ($cat) {
             foreach ($cat->attributes as $attr) {
-                $this->attribute_values[$attr->id] = $attr->type === 'boolean' ? '0' : '';
+                $this->attribute_values[$attr->id] = '';
             }
             
             // Si es tipo Lote, agregar automáticamente la primera variante
@@ -205,7 +201,6 @@ class CreateProductModal extends Component
         $this->variants = [];
         $this->serializedItems = [];
         $this->attribute_values = [];
-        $this->attribute_option_ids = [];
         
         // Si cambia a tipo Lote y ya hay una categoría seleccionada, agregar automáticamente la primera variante
         if ($this->type === MovimientoInventario::PRODUCT_TYPE_BATCH && $this->category_id) {
@@ -257,7 +252,7 @@ class CreateProductModal extends Component
         ];
 
         foreach ($category->attributes as $attr) {
-            $variant['attribute_values'][$attr->id] = $attr->type === 'boolean' ? '0' : '';
+            $variant['attribute_values'][$attr->id] = '';
         }
 
         $this->variants[] = $variant;
@@ -292,7 +287,7 @@ class CreateProductModal extends Component
         ];
 
         foreach ($category->attributes as $attr) {
-            $item['attribute_values'][$attr->id] = $attr->type === 'boolean' ? '0' : '';
+            $item['attribute_values'][$attr->id] = '';
         }
 
         $this->serializedItems[] = $item;
@@ -309,60 +304,8 @@ class CreateProductModal extends Component
         }
     }
 
-    /**
-     * Manejar cambios en valores de atributos booleanos para asegurar que siempre sean strings.
-     */
-    public function updatedAttributeValues($value, $key): void
-    {
-        // Extraer el ID del atributo de la clave (formato: "attribute_values.7")
-        $parts = explode('.', $key);
-        if (count($parts) !== 2 || $parts[0] !== 'attribute_values') {
-            return;
-        }
-
-        $attrId = (int) $parts[1];
-        $this->normalizeBooleanAttribute($attrId);
-    }
-
-    /**
-     * Normalizar todos los atributos booleanos antes de validar.
-     * Asegura que cada atributo booleano de la categoría tenga '0' o '1'.
-     */
-    protected function normalizeBooleanAttributes(): void
-    {
-        $category = $this->getSelectedCategoryProperty();
-        if (! $category) {
-            return;
-        }
-
-        foreach ($category->attributes as $attr) {
-            if ($attr->type === 'boolean') {
-                $this->normalizeBooleanAttribute((int) $attr->id);
-            }
-        }
-    }
-
-    /**
-     * Normalizar un atributo booleano específico.
-     */
-    protected function normalizeBooleanAttribute(int $attrId): void
-    {
-        $val = $this->attribute_values[$attrId] ?? null;
-        
-        // Convertir cualquier valor booleano a string '0' o '1'
-        if ($val === true || $val === '1' || $val === 1 || $val === 'true') {
-            $this->attribute_values[$attrId] = '1';
-        } else {
-            $this->attribute_values[$attrId] = '0';
-        }
-    }
-
     public function save(ProductService $service)
     {
-        if ($this->type === 'simple') {
-            $this->normalizeBooleanAttributes();
-        }
-
         // Serializado sin stock inicial: asegurar que no enviamos datos residuales y que el servicio recibe un array
         if ($this->type === MovimientoInventario::PRODUCT_TYPE_SERIALIZED && ! $this->has_initial_stock) {
             $this->serializedItems = [];
@@ -426,7 +369,6 @@ class CreateProductModal extends Component
             // Para productos tipo batch: añadir variantes y opciones permitidas
             if ($this->type === MovimientoInventario::PRODUCT_TYPE_BATCH) {
                 $productData['variants'] = $this->variants;
-                $productData['attribute_option_ids'] = $this->attribute_option_ids;
             }
 
             // Para productos tipo serialized: siempre enviar array de unidades (vacío si no hay stock inicial)
@@ -447,7 +389,7 @@ class CreateProductModal extends Component
 
         $this->reset([
             'name', 'barcode', 'sku', 'category_id', 'location',
-            'type', 'is_active', 'attribute_values', 'attribute_option_ids', 'compraRowId',
+            'type', 'is_active', 'attribute_values', 'compraRowId',
             'price', 'cost', 'stock', 'variants', 'serializedItems', 'has_initial_stock',
         ]);
         $this->price = '0';

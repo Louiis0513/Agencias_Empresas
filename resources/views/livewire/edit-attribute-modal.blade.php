@@ -5,7 +5,7 @@
                 {{ __('Editar atributo') }}
             </h2>
             <p class="mt-1 text-sm text-gray-400">
-                {{ __('Modifica los datos del atributo. Puedes cambiar el nombre, tipo, grupo y si es requerido.') }}
+                {{ __('Modifica los datos del atributo. Puedes cambiar el nombre, grupo y si es requerido.') }}
             </p>
 
             @if($errors->has('general'))
@@ -46,67 +46,6 @@
                                   autofocus />
                     <x-input-error :messages="$errors->get('name')" class="mt-1" />
                 </div>
-
-                <div>
-                    <x-input-label for="edit_attribute_code" value="{{ __('Código (opcional)') }}" />
-                    <x-text-input wire:model="code" 
-                                  id="edit_attribute_code" 
-                                  class="block mt-1 w-full" 
-                                  type="text" 
-                                  placeholder="Ej: size, color, material (se genera automáticamente si se deja vacío)" />
-                    <p class="mt-1 text-xs text-gray-400">
-                        Código único para identificar el atributo. Si se deja vacío, se generará automáticamente desde el nombre.
-                    </p>
-                    <x-input-error :messages="$errors->get('code')" class="mt-1" />
-                </div>
-
-                <div>
-                    <x-input-label for="edit_attribute_type" value="{{ __('Tipo de atributo') }}" />
-                    <select wire:model.live="type" 
-                            id="edit_attribute_type" 
-                            class="block mt-1 w-full rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand">
-                        <option value="text">Texto</option>
-                        <option value="number">Número</option>
-                        <option value="select">Selección (con opciones predefinidas)</option>
-                        <option value="boolean">Sí/No (Booleano)</option>
-                    </select>
-                    <x-input-error :messages="$errors->get('type')" class="mt-1" />
-                </div>
-
-                @if($this->type === 'select')
-                    <div>
-                        <x-input-label value="{{ __('Opciones del atributo') }}" />
-                        <p class="mt-1 mb-3 text-xs text-gray-400">
-                            Define las opciones disponibles para este atributo (ej: S, M, L, XL para Talla).
-                        </p>
-                        <div class="space-y-2">
-                            @foreach($this->options as $index => $option)
-                                <div class="flex items-center space-x-2">
-                                    <x-text-input wire:model="options.{{ $index }}" 
-                                                  class="block flex-1" 
-                                                  type="text" 
-                                                  placeholder="Ej: S, M, L, XL..." />
-                                    @if(count($this->options) > 1)
-                                        <button type="button" 
-                                                wire:click="removeOption({{ $index }})"
-                                                class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300">
-                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                                            </svg>
-                                        </button>
-                                    @endif
-                                </div>
-                            @endforeach
-                            <button type="button" 
-                                    wire:click="addOption"
-                                    class="text-sm text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300">
-                                + Añadir otra opción
-                            </button>
-                        </div>
-                        <x-input-error :messages="$errors->get('options')" class="mt-1" />
-                        <x-input-error :messages="$errors->get('options.*')" class="mt-1" />
-                    </div>
-                @endif
 
                 <div class="flex items-center">
                     <input wire:model="is_required"

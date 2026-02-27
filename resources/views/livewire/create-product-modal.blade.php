@@ -67,37 +67,8 @@
                                 <div class="space-y-4">
                                     @foreach($this->selectedCategory->attributes as $attr)
                                         <div>
-                                            @php
-                                                $val = $attribute_values[$attr->id] ?? ($attr->type === 'boolean' ? '0' : '');
-                                            @endphp
-                                            @if($attr->type === 'text')
-                                                <x-input-label for="attr-{{ $attr->id }}" value="{{ $attr->name }}" />
-                                                <x-text-input wire:model="attribute_values.{{ $attr->id }}" id="attr-{{ $attr->id }}" class="block mt-1 w-full" type="text" />
-                                            @elseif($attr->type === 'number')
-                                                <x-input-label for="attr-{{ $attr->id }}" value="{{ $attr->name }}" />
-                                                <x-text-input wire:model="attribute_values.{{ $attr->id }}" id="attr-{{ $attr->id }}" class="block mt-1 w-full" type="number" step="any" />
-                                            @elseif($attr->type === 'select')
-                                                <x-input-label for="attr-{{ $attr->id }}" value="{{ $attr->name }}" />
-                                                <select wire:model="attribute_values.{{ $attr->id }}"
-                                                        id="attr-{{ $attr->id }}"
-                                                        class="block mt-1 w-full rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand">
-                                                    <option value="">{{ __('Selecciona') }}</option>
-                                                    @foreach($attr->options as $opt)
-                                                        <option value="{{ $opt->value }}">{{ $opt->value }}</option>
-                                                    @endforeach
-                                                </select>
-                                            @elseif($attr->type === 'boolean')
-                                                <label class="flex items-center gap-2">
-                                                    <input type="checkbox"
-                                                           wire:model.live="attribute_values.{{ $attr->id }}"
-                                                           value="1"
-                                                           class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 shadow-sm focus:ring-indigo-500">
-                                                    <span class="text-sm font-medium text-gray-300">{{ $attr->name }}</span>
-                                                </label>
-                                            @else
-                                                <x-input-label for="attr-{{ $attr->id }}" value="{{ $attr->name }}" />
-                                                <x-text-input wire:model="attribute_values.{{ $attr->id }}" id="attr-{{ $attr->id }}" class="block mt-1 w-full" type="text" />
-                                            @endif
+                                            <x-input-label for="attr-{{ $attr->id }}" value="{{ $attr->name . (($attr->pivot->is_required ?? false) ? ' *' : '') }}" />
+                                            <x-text-input wire:model="attribute_values.{{ $attr->id }}" id="attr-{{ $attr->id }}" class="block mt-1 w-full" type="text" />
                                         </div>
                                     @endforeach
                                 </div>
@@ -233,40 +204,10 @@
                                             {{-- Atributos de la variante --}}
                                             <div class="space-y-3 mb-4">
                                                 @foreach($this->selectedCategory->attributes as $attr)
-                                                    @php
-                                                        $val = $variant['attribute_values'][$attr->id] ?? ($attr->type === 'boolean' ? '0' : '');
-                                                    @endphp
-                                                    @if($attr->type === 'text')
-                                                        <div>
-                                                            <x-input-label for="variant-{{ $index }}-attr-{{ $attr->id }}" value="{{ $attr->name }}" />
-                                                            <x-text-input wire:model="variants.{{ $index }}.attribute_values.{{ $attr->id }}" id="variant-{{ $index }}-attr-{{ $attr->id }}" class="block mt-1 w-full" type="text" />
-                                                        </div>
-                                                    @elseif($attr->type === 'number')
-                                                        <div>
-                                                            <x-input-label for="variant-{{ $index }}-attr-{{ $attr->id }}" value="{{ $attr->name }}" />
-                                                            <x-text-input wire:model="variants.{{ $index }}.attribute_values.{{ $attr->id }}" id="variant-{{ $index }}-attr-{{ $attr->id }}" class="block mt-1 w-full" type="number" step="any" />
-                                                        </div>
-                                                    @elseif($attr->type === 'select')
-                                                        <div>
-                                                            <x-input-label for="variant-{{ $index }}-attr-{{ $attr->id }}" value="{{ $attr->name }}" />
-                                                            <select wire:model="variants.{{ $index }}.attribute_values.{{ $attr->id }}"
-                                                                    id="variant-{{ $index }}-attr-{{ $attr->id }}"
-                                                                    class="block mt-1 w-full rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand">
-                                                                <option value="">{{ __('Selecciona') }}</option>
-                                                                @foreach($attr->options as $opt)
-                                                                    <option value="{{ $opt->value }}">{{ $opt->value }}</option>
-                                                                @endforeach
-                                                            </select>
-                                                        </div>
-                                                    @elseif($attr->type === 'boolean')
-                                                        <label class="flex items-center gap-2">
-                                                            <input type="checkbox"
-                                                                   wire:model.live="variants.{{ $index }}.attribute_values.{{ $attr->id }}"
-                                                                   value="1"
-                                                                   class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 shadow-sm focus:ring-indigo-500">
-                                                            <span class="text-sm font-medium text-gray-300">{{ $attr->name }}</span>
-                                                        </label>
-                                                    @endif
+                                                    <div>
+                                                        <x-input-label for="variant-{{ $index }}-attr-{{ $attr->id }}" value="{{ $attr->name . (($attr->pivot->is_required ?? false) ? ' *' : '') }}" />
+                                                        <x-text-input wire:model="variants.{{ $index }}.attribute_values.{{ $attr->id }}" id="variant-{{ $index }}-attr-{{ $attr->id }}" class="block mt-1 w-full" type="text" />
+                                                    </div>
                                                 @endforeach
                                             </div>
 
@@ -454,40 +395,10 @@
                                             {{-- Atributos de la unidad --}}
                                             <div class="space-y-3 mb-4">
                                                 @foreach($this->selectedCategory->attributes as $attr)
-                                                    @php
-                                                        $val = $item['attribute_values'][$attr->id] ?? ($attr->type === 'boolean' ? '0' : '');
-                                                    @endphp
-                                                    @if($attr->type === 'text')
-                                                        <div>
-                                                            <x-input-label for="item-{{ $index }}-attr-{{ $attr->id }}" value="{{ $attr->name }}" />
-                                                            <x-text-input wire:model="serializedItems.{{ $index }}.attribute_values.{{ $attr->id }}" id="item-{{ $index }}-attr-{{ $attr->id }}" class="block mt-1 w-full" type="text" />
-                                                        </div>
-                                                    @elseif($attr->type === 'number')
-                                                        <div>
-                                                            <x-input-label for="item-{{ $index }}-attr-{{ $attr->id }}" value="{{ $attr->name }}" />
-                                                            <x-text-input wire:model="serializedItems.{{ $index }}.attribute_values.{{ $attr->id }}" id="item-{{ $index }}-attr-{{ $attr->id }}" class="block mt-1 w-full" type="number" step="any" />
-                                                        </div>
-                                                    @elseif($attr->type === 'select')
-                                                        <div>
-                                                            <x-input-label for="item-{{ $index }}-attr-{{ $attr->id }}" value="{{ $attr->name }}" />
-                                                            <select wire:model="serializedItems.{{ $index }}.attribute_values.{{ $attr->id }}"
-                                                                    id="item-{{ $index }}-attr-{{ $attr->id }}"
-                                                                    class="block mt-1 w-full rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand">
-                                                                <option value="">{{ __('Selecciona') }}</option>
-                                                                @foreach($attr->options as $opt)
-                                                                    <option value="{{ $opt->value }}">{{ $opt->value }}</option>
-                                                                @endforeach
-                                                            </select>
-                                                        </div>
-                                                    @elseif($attr->type === 'boolean')
-                                                        <label class="flex items-center gap-2">
-                                                            <input type="checkbox"
-                                                                   wire:model.live="serializedItems.{{ $index }}.attribute_values.{{ $attr->id }}"
-                                                                   value="1"
-                                                                   class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 shadow-sm focus:ring-indigo-500">
-                                                            <span class="text-sm font-medium text-gray-300">{{ $attr->name }}</span>
-                                                        </label>
-                                                    @endif
+                                                    <div>
+                                                        <x-input-label for="item-{{ $index }}-attr-{{ $attr->id }}" value="{{ $attr->name . (($attr->pivot->is_required ?? false) ? ' *' : '') }}" />
+                                                        <x-text-input wire:model="serializedItems.{{ $index }}.attribute_values.{{ $attr->id }}" id="item-{{ $index }}-attr-{{ $attr->id }}" class="block mt-1 w-full" type="text" />
+                                                    </div>
                                                 @endforeach
                                             </div>
 

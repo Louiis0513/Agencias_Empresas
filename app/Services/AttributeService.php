@@ -4,11 +4,9 @@ namespace App\Services;
 
 use App\Models\Attribute;
 use App\Models\AttributeGroup;
-use App\Models\AttributeOption;
 use App\Models\Category;
 use App\Models\Store;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Exception;
 
 class AttributeService
@@ -19,7 +17,7 @@ class AttributeService
     public function getStoreAttributeGroups(Store $store)
     {
         return AttributeGroup::where('store_id', $store->id)
-            ->with(['attributes' => fn ($q) => $q->with('options')->orderByPivot('position')])
+            ->with(['attributes' => fn ($q) => $q->orderByPivot('position')])
             ->orderBy('position')
             ->orderBy('name')
             ->get();
@@ -31,7 +29,7 @@ class AttributeService
     public function getStoreAttributes(Store $store)
     {
         return Attribute::where('store_id', $store->id)
-            ->with(['options', 'groups'])
+            ->with(['groups'])
             ->orderBy('name')
             ->get();
     }
@@ -41,7 +39,7 @@ class AttributeService
      */
     public function getCategoryAttributesGrouped(Category $category)
     {
-        $category->load(['attributes' => fn ($q) => $q->with(['options', 'groups'])->orderByPivot('position')]);
+        $category->load(['attributes' => fn ($q) => $q->with(['groups'])->orderByPivot('position')]);
         $byGroup = [];
         foreach ($category->attributes as $attr) {
             $g = $attr->groups->first();
@@ -59,7 +57,7 @@ class AttributeService
      */
     public function getCategoryAttributes(Category $category)
     {
-        return $category->attributes()->with('options')->get();
+        return $category->attributes()->get();
     }
 
     /**
@@ -115,21 +113,9 @@ class AttributeService
 
             $group = AttributeGroup::where('store_id', $store->id)->findOrFail($groupId);
 
-            if (empty($data['code'])) {
-                $data['code'] = Str::slug($data['name']);
-            }
-            $code = $data['code'];
-            $counter = 1;
-            while (Attribute::where('store_id', $store->id)->where('code', $code)->exists()) {
-                $code = ($data['code'] ?? '') . '-' . $counter;
-                $counter++;
-            }
-
             $attribute = Attribute::create([
                 'store_id' => $store->id,
                 'name' => $data['name'],
-                'code' => $code,
-                'type' => $data['type'],
                 'is_required' => $data['is_required'] ?? false,
             ]);
 
@@ -139,19 +125,7 @@ class AttributeService
                 'is_required' => $data['is_required'] ?? false,
             ]);
 
-            if ($attribute->type === 'select' && isset($data['options']) && is_array($data['options'])) {
-                foreach ($data['options'] as $index => $optionValue) {
-                    if (!empty($optionValue)) {
-                        AttributeOption::create([
-                            'attribute_id' => $attribute->id,
-                            'value' => $optionValue,
-                            'position' => $index,
-                        ]);
-                    }
-                }
-            }
-
-            return $attribute->load(['options', 'groups']);
+            return $attribute->load(['groups']);
         });
     }
 
@@ -165,33 +139,10 @@ class AttributeService
                 ->where('store_id', $store->id)
                 ->firstOrFail();
 
-            // Si cambia de tipo select a otro, eliminar opciones
-            if ($attribute->type === 'select' && ($data['type'] ?? $attribute->type) !== 'select') {
-                $attribute->options()->delete();
-            }
-
             $attribute->update([
                 'name' => $data['name'] ?? $attribute->name,
-                'type' => $data['type'] ?? $attribute->type,
                 'is_required' => $data['is_required'] ?? $attribute->is_required,
             ]);
-
-            // Si es tipo select, actualizar opciones
-            if (($data['type'] ?? $attribute->type) === 'select' && isset($data['options']) && is_array($data['options'])) {
-                // Eliminar opciones existentes
-                $attribute->options()->delete();
-
-                // Crear nuevas opciones
-                foreach ($data['options'] as $index => $optionValue) {
-                    if (!empty($optionValue)) {
-                        AttributeOption::create([
-                            'attribute_id' => $attribute->id,
-                            'value' => $optionValue,
-                            'position' => $index,
-                        ]);
-                    }
-                }
-            }
 
             // Si se proporciona un nuevo grupo, actualizar la relación
             if (isset($data['attribute_group_id']) && $data['attribute_group_id']) {
@@ -230,7 +181,7 @@ class AttributeService
                 }
             }
 
-            return $attribute->fresh()->load(['options', 'groups']);
+            return $attribute->fresh()->load(['groups']);
         });
     }
 

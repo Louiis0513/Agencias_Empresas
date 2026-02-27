@@ -80,7 +80,7 @@ class StoreController extends Controller
 
         session(['current_store_id' => $store->id]);
 
-        $category->load(['attributes' => ['options']]);
+        $category->load(['attributes']);
         $products = $category->products()->orderBy('name')->get();
 
         return view('stores.category-show', compact('store', 'category', 'products'));
@@ -114,7 +114,7 @@ class StoreController extends Controller
         session(['current_store_id' => $store->id]);
 
         $storeAttributeGroups = $attributeService->getStoreAttributeGroups($store);
-        $categoryAttributes = $category->attributes()->with(['options', 'groups'])->get();
+        $categoryAttributes = $category->attributes()->with(['groups'])->get();
 
         return view('stores.category-attributes', compact('store', 'category', 'storeAttributeGroups', 'categoryAttributes'));
     }

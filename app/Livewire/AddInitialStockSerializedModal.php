@@ -27,7 +27,7 @@ class AddInitialStockSerializedModal extends Component
     {
         return Product::where('id', $this->productId)
             ->where('store_id', $this->storeId)
-            ->with(['category.attributes' => fn ($q) => $q->with('options')->orderByPivot('position')])
+            ->with(['category.attributes' => fn ($q) => $q->orderByPivot('position')])
             ->first();
     }
 
@@ -49,7 +49,7 @@ class AddInitialStockSerializedModal extends Component
         ];
 
         foreach ($product->category->attributes as $attr) {
-            $item['attribute_values'][$attr->id] = $attr->type === 'boolean' ? '0' : '';
+            $item['attribute_values'][$attr->id] = '';
         }
 
         $this->serializedItems[] = $item;
