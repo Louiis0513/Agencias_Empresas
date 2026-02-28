@@ -276,15 +276,14 @@ class StoreController extends Controller
         $filtros = [
             'status' => $request->get('status'),
             'payment_status' => $request->get('payment_status'),
-            'proveedor_id' => $request->get('proveedor_id'),
+            'proveedor_nombre' => $request->get('proveedor_nombre'),
             'purchase_type' => Purchase::TYPE_PRODUCTO,
             'per_page' => $request->get('per_page', 15),
         ];
 
         $purchases = $purchaseService->listarCompras($store, $filtros);
-        $proveedores = $store->proveedores()->orderBy('nombre')->get();
 
-        return view('stores.compras-productos', compact('store', 'purchases', 'proveedores'));
+        return view('stores.compras-productos', compact('store', 'purchases'));
     }
 
     public function createProductPurchase(Store $store, StorePermissionService $permission)

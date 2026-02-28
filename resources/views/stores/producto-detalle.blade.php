@@ -540,6 +540,17 @@
                                         <x-input-label for="crear-var-price" value="{{ __('Precio al público') }}" class="dark:text-gray-200 font-semibold" />
                                         <x-text-input name="price" id="crear-var-price" class="block mt-1 w-full" type="number" step="0.01" min="0" placeholder="0.00" />
                                     </div>
+                                    {{-- SKU y Barcode --}}
+                                    <div class="mt-4 pt-3 border-t border-gray-200 dark:border-gray-600 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div>
+                                            <x-input-label for="crear-var-sku" value="{{ __('SKU') }}" class="dark:text-gray-200 font-semibold" />
+                                            <x-text-input name="sku" id="crear-var-sku" class="block mt-1 w-full" type="text" placeholder="Ej: SKU-V001" />
+                                        </div>
+                                        <div>
+                                            <x-input-label for="crear-var-barcode" value="{{ __('Código de barras') }}" class="dark:text-gray-200 font-semibold" />
+                                            <x-text-input name="barcode" id="crear-var-barcode" class="block mt-1 w-full" type="text" placeholder="Ej: 8412345678901" />
+                                        </div>
+                                    </div>
                                     {{-- Opcional: stock inicial (como en crear producto lote) --}}
                                     <div class="mt-4 pt-3 border-t border-gray-200 dark:border-gray-600" x-data="{ hasStock: false }">
                                         <label class="flex items-center gap-2 mb-3">

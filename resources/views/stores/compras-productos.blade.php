@@ -25,30 +25,29 @@
 
             <div class="bg-dark-card border border-white/5 overflow-hidden sm:rounded-xl">
                 <div class="p-6">
-                    <div class="mb-6 flex justify-between items-center gap-4">
-                        <form method="GET" action="{{ route('stores.product-purchases', $store) }}" class="flex gap-2 flex-wrap">
-                            <select name="status" class="rounded-md border-white/10 bg-white/5 text-gray-100">
+                    <div class="mb-6 flex flex-col sm:flex-row sm:flex-nowrap gap-4">
+                        <form method="GET" action="{{ route('stores.product-purchases', $store) }}" class="flex flex-1 flex-wrap gap-2 min-w-0">
+                            <select name="status" class="rounded-md border-white/10 bg-white/5 text-gray-100 min-w-0">
                                 <option value="">Todos los estados</option>
                                 <option value="BORRADOR" {{ request('status') == 'BORRADOR' ? 'selected' : '' }}>Borrador</option>
                                 <option value="APROBADO" {{ request('status') == 'APROBADO' ? 'selected' : '' }}>Aprobado</option>
                                 <option value="ANULADO" {{ request('status') == 'ANULADO' ? 'selected' : '' }}>Anulado</option>
                             </select>
-                            <select name="payment_status" class="rounded-md border-white/10 bg-white/5 text-gray-100">
+                            <select name="payment_status" class="rounded-md border-white/10 bg-white/5 text-gray-100 min-w-0">
                                 <option value="">Todos los pagos</option>
                                 <option value="PAGADO" {{ request('payment_status') == 'PAGADO' ? 'selected' : '' }}>Pagado</option>
                                 <option value="PENDIENTE" {{ request('payment_status') == 'PENDIENTE' ? 'selected' : '' }}>Pendiente</option>
                             </select>
-                            <select name="proveedor_id" class="rounded-md border-white/10 bg-white/5 text-gray-100">
-                                <option value="">Todos los proveedores</option>
-                                @foreach($proveedores as $prov)
-                                    <option value="{{ $prov->id }}" {{ request('proveedor_id') == $prov->id ? 'selected' : '' }}>{{ $prov->nombre }}</option>
-                                @endforeach
-                            </select>
-                            <button type="submit" class="px-4 py-2 bg-brand text-white rounded-xl shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)]">Filtrar</button>
+                            <input type="text"
+                                   name="proveedor_nombre"
+                                   value="{{ request('proveedor_nombre') }}"
+                                   placeholder="Buscar por proveedor..."
+                                   class="rounded-md border-white/10 bg-white/5 text-gray-100 min-w-0">
+                            <button type="submit" class="px-4 py-2 bg-brand text-white rounded-xl shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)] whitespace-nowrap">Filtrar</button>
                         </form>
                         <a href="{{ route('stores.product-purchases.create', $store) }}"
-                           class="inline-flex items-center px-4 py-2 bg-brand text-white font-semibold text-xs rounded-xl uppercase tracking-wider shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)]">
-                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                           class="inline-flex items-center justify-center px-4 py-2 bg-brand text-white font-semibold text-xs rounded-xl uppercase tracking-wider shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)] flex-shrink-0 w-full sm:w-auto">
+                            <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                             </svg>
                             Nueva compra de productos

@@ -148,6 +148,8 @@ class StoreProductController extends Controller
         $variant = [
             'attribute_values' => $attributeValues,
             'price' => $request->input('price') !== '' && $request->input('price') !== null ? (float) $request->input('price') : null,
+            'sku' => $request->input('sku'),
+            'barcode' => $request->input('barcode'),
             'has_stock' => $request->boolean('has_stock'),
             'stock_initial' => $request->input('stock_initial'),
             'cost' => $request->input('cost'),

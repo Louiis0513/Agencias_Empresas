@@ -323,8 +323,9 @@ class PurchaseService
         if (! empty($filtros['payment_status'])) {
             $query->porPaymentStatus($filtros['payment_status']);
         }
-        if (! empty($filtros['proveedor_id'])) {
-            $query->where('proveedor_id', $filtros['proveedor_id']);
+        if (! empty(trim($filtros['proveedor_nombre'] ?? ''))) {
+            $term = trim($filtros['proveedor_nombre']);
+            $query->whereHas('proveedor', fn ($q) => $q->where('nombre', 'like', '%'.$term.'%'));
         }
         if (! empty($filtros['fecha_desde'])) {
             $query->whereDate('created_at', '>=', $filtros['fecha_desde']);

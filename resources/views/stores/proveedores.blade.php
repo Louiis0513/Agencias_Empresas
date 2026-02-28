@@ -29,28 +29,31 @@
 
             <div class="bg-dark-card border border-white/5 overflow-hidden sm:rounded-xl">
                 <div class="p-6">
-                    <div class="mb-6 flex justify-between items-center gap-4">
-                        <form method="GET" action="{{ route('stores.proveedores', $store) }}" class="flex-1 flex gap-2">
+                    <div class="mb-6 flex flex-col sm:flex-row sm:flex-nowrap gap-4">
+                        <form method="GET" action="{{ route('stores.proveedores', $store) }}" class="flex flex-col sm:flex-row flex-1 gap-2 min-w-0">
                             <input type="text"
                                    name="search"
                                    value="{{ request('search') }}"
-                                   placeholder="Buscar por nombre, email, NIT, teléfono o productos..."
-                                   class="flex-1 rounded-md border-white/10 bg-white/5 text-gray-100">
-                            <button type="submit"
-                                    class="px-4 py-2 bg-brand text-white rounded-xl shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)]">
-                                Buscar
-                            </button>
-                            @if(request('search'))
-                                <a href="{{ route('stores.proveedores', $store) }}"
-                                   class="px-4 py-2 bg-white/10 text-gray-300 rounded-xl hover:bg-white/20 border border-white/10">
-                                    Limpiar
-                                </a>
-                            @endif
+                                   placeholder="Buscar por nombre, email, NIT, teléfono..."
+                                   class="flex-1 min-w-0 rounded-md border-white/10 bg-white/5 text-gray-100"
+                            >
+                            <div class="flex gap-2 flex-shrink-0">
+                                <button type="submit"
+                                        class="px-4 py-2 bg-brand text-white rounded-xl shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)] whitespace-nowrap">
+                                    Buscar
+                                </button>
+                                @if(request('search'))
+                                    <a href="{{ route('stores.proveedores', $store) }}"
+                                       class="px-4 py-2 bg-white/10 text-gray-300 rounded-xl hover:bg-white/20 border border-white/10 whitespace-nowrap">
+                                        Limpiar
+                                    </a>
+                                @endif
+                            </div>
                         </form>
                         <button type="button"
                                 x-on:click="$dispatch('open-modal', 'create-proveedor')"
-                                class="inline-flex items-center px-4 py-2 bg-brand text-white font-semibold text-xs rounded-xl uppercase tracking-wider shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)] transition">
-                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                class="inline-flex items-center justify-center px-4 py-2 bg-brand text-white font-semibold text-xs rounded-xl uppercase tracking-wider shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)] transition flex-shrink-0 w-full sm:w-auto">
+                            <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                             </svg>
                             Crear Proveedor
