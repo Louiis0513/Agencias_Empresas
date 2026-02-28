@@ -242,24 +242,26 @@
                     </tbody>
                 </table>
             </div>
-            <div class="mt-4 flex justify-end items-center gap-4">
-            <button type="button"
-                        wire:click="enviarAFacturacion"
-                        wire:loading.attr="disabled"
-                        class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition disabled:opacity-50 disabled:cursor-not-allowed">
-                    <span wire:loading.remove wire:target="enviarAFacturacion">
-                        Facturar
-                    </span>
-                    <span wire:loading wire:target="enviarAFacturacion">
-                        Procesando...
-                    </span>
-                </button>
-                <button type="button"
-                        wire:click="abrirModalCotizacion"
-                        class="inline-flex items-center px-4 py-2 bg-emerald-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-emerald-700 focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition">
-                    Guardar como cotización
-                </button>
-                <div class="rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 px-6 py-4 min-w-[200px]">
+            <div class="mt-4 flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 sm:justify-end sm:items-center">
+                <div class="flex flex-wrap gap-3 sm:gap-4 order-2 sm:order-1">
+                    <button type="button"
+                            wire:click="enviarAFacturacion"
+                            wire:loading.attr="disabled"
+                            class="inline-flex items-center justify-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-sm text-white hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap">
+                        <span wire:loading.remove wire:target="enviarAFacturacion">
+                            Facturar
+                        </span>
+                        <span wire:loading wire:target="enviarAFacturacion">
+                            Procesando...
+                        </span>
+                    </button>
+                    <button type="button"
+                            wire:click="abrirModalCotizacion"
+                            class="inline-flex items-center justify-center px-4 py-2 bg-emerald-600 border border-transparent rounded-md font-semibold text-sm text-white hover:bg-emerald-700 focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition whitespace-nowrap">
+                        Guardar como cotización
+                    </button>
+                </div>
+                <div class="rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 px-6 py-4 min-w-[160px] order-1 sm:order-2">
                     <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Total</p>
                     <p class="text-xl font-bold text-gray-900 dark:text-white mt-1">{{ number_format($this->carritoTotal, 2) }}</p>
                 </div>

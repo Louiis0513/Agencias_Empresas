@@ -28,6 +28,15 @@
             </p>
             @endif
 
+            @if($proveedores->isEmpty())
+            <div class="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-amber-700 dark:text-amber-300">
+                <p class="font-medium">Debes crear al menos un proveedor para registrar compras de productos.</p>
+                <a href="{{ route('stores.proveedores', $store) }}" class="mt-2 inline-block text-sm font-medium text-amber-600 dark:text-amber-400 hover:underline">
+                    Ir a crear proveedor →
+                </a>
+            </div>
+            @endif
+
             <form method="POST" action="{{ $formAction }}" class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg p-6" id="form-compra-productos"
                   data-atributos-url="{{ route('stores.productos.atributos-categoria', [$store, 0]) }}"
                   x-on:item-selected.window="onItemSelected($event.detail)"
@@ -39,32 +48,36 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Proveedor</label>
-                        <select name="proveedor_id" class="w-full rounded-md border-white/10 bg-white/5 text-gray-100">
-                            <option value="">Sin proveedor</option>
-                            @foreach($proveedores as $prov)
-                                <option value="{{ $prov->id }}" {{ old('proveedor_id', $editing ? $purchase->proveedor_id : null) == $prov->id ? 'selected' : '' }}>{{ $prov->nombre }}</option>
-                            @endforeach
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Proveedor <span class="text-red-500">*</span></label>
+                        <select name="proveedor_id" class="w-full rounded-md border-white/10 bg-white/5 text-gray-100 py-2 px-3" required {{ $proveedores->isEmpty() ? 'disabled' : '' }}>
+                            @if($proveedores->isEmpty())
+                                <option value="">Debe crear un proveedor primero</option>
+                            @else
+                                <option value="">Seleccione un proveedor</option>
+                                @foreach($proveedores as $prov)
+                                    <option value="{{ $prov->id }}" {{ old('proveedor_id', $editing ? $purchase->proveedor_id : null) == $prov->id ? 'selected' : '' }}>{{ $prov->nombre }}</option>
+                                @endforeach
+                            @endif
                         </select>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Forma de Pago</label>
-                        <select name="payment_status" x-model="paymentStatus" class="w-full rounded-md border-white/10 bg-white/5 text-gray-100">
+                        <select name="payment_status" x-model="paymentStatus" class="w-full rounded-md border-white/10 bg-white/5 text-gray-100 py-2 px-3">
                             <option value="PAGADO" {{ old('payment_status', $editing ? $purchase->payment_status : 'PAGADO') == 'PAGADO' ? 'selected' : '' }}>Contado (Pagado)</option>
                             <option value="PENDIENTE" {{ old('payment_status', $editing ? $purchase->payment_status : null) == 'PENDIENTE' ? 'selected' : '' }}>A Crédito (Pendiente)</option>
                         </select>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nº Factura Externa</label>
-                        <input type="text" name="invoice_number" value="{{ old('invoice_number', $editing ? $purchase->invoice_number : '') }}" class="w-full rounded-md border-white/10 bg-white/5 text-gray-100" placeholder="Ej: F-001-0001234">
+                        <input type="text" name="invoice_number" value="{{ old('invoice_number', $editing ? $purchase->invoice_number : '') }}" class="w-full rounded-md border-white/10 bg-white/5 text-gray-100 py-2 px-3" placeholder="Ej: F-001-0001234">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha Factura Externa</label>
-                        <input type="date" name="invoice_date" value="{{ old('invoice_date', $editing && $purchase->invoice_date ? $purchase->invoice_date->format('Y-m-d') : '') }}" class="w-full rounded-md border-white/10 bg-white/5 text-gray-100">
+                        <input type="date" name="invoice_date" value="{{ old('invoice_date', $editing && $purchase->invoice_date ? $purchase->invoice_date->format('Y-m-d') : '') }}" class="w-full rounded-md border-white/10 bg-white/5 text-gray-100 py-2 px-3">
                     </div>
                     <div x-show="paymentStatus === 'PENDIENTE'" x-transition>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha de vencimiento de la factura</label>
-                        <input type="date" name="due_date" value="{{ old('due_date', $editing && $purchase->due_date ? $purchase->due_date->format('Y-m-d') : '') }}" x-bind:required="paymentStatus === 'PENDIENTE'" x-bind:disabled="paymentStatus !== 'PENDIENTE'" class="w-full rounded-md border-white/10 bg-white/5 text-gray-100" placeholder="Cuando vence la cuenta por pagar">
+                        <input type="date" name="due_date" value="{{ old('due_date', $editing && $purchase->due_date ? $purchase->due_date->format('Y-m-d') : '') }}" x-bind:required="paymentStatus === 'PENDIENTE'" x-bind:disabled="paymentStatus !== 'PENDIENTE'" class="w-full rounded-md border-white/10 bg-white/5 text-gray-100 py-2 px-3" placeholder="Cuando vence la cuenta por pagar">
                         <p class="mt-0.5 text-xs text-gray-400">Solo para compras a crédito. Cuándo vence el pago.</p>
                     </div>
                 </div>
@@ -244,7 +257,7 @@
                     <a href="{{ $editing ? route('stores.purchases.show', [$store, $purchase]) : route('stores.product-purchases', $store) }}" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600">
                         Cancelar
                     </a>
-                    <button type="submit" class="px-4 py-2 bg-brand text-white rounded-xl shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)] focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800">
+                    <button type="submit" class="px-4 py-2 bg-brand text-white rounded-xl shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)] focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 disabled:opacity-50 disabled:cursor-not-allowed" {{ $proveedores->isEmpty() ? 'disabled' : '' }}>
                         {{ $editing ? 'Guardar cambios' : 'Guardar como borrador' }}
                     </button>
                 </div>

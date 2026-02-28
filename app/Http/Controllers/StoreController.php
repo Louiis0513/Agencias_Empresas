@@ -308,7 +308,7 @@ class StoreController extends Controller
         $permission->authorize($store, 'product-purchases.create');
 
         $data = $request->validate([
-            'proveedor_id' => ['nullable', 'exists:proveedores,id'],
+            'proveedor_id' => ['required', 'exists:proveedores,id'],
             'payment_status' => ['required', 'in:PAGADO,PENDIENTE'],
             'invoice_number' => ['nullable', 'string', 'max:255'],
             'invoice_date' => ['nullable', 'date'],
@@ -330,6 +330,9 @@ class StoreController extends Controller
             'details.*.serial_items.*.cost' => ['nullable', 'numeric', 'min:0'],
             'details.*.serial_items.*.features' => ['nullable', 'array'],
             'details.*.serial_items.*.features.*' => ['nullable'],
+        ], [
+            'proveedor_id.required' => 'Las compras de productos deben tener un proveedor seleccionado.',
+            'proveedor_id.exists' => 'El proveedor seleccionado no es válido.',
         ]);
 
         $data['purchase_type'] = Purchase::TYPE_PRODUCTO;
@@ -439,7 +442,7 @@ class StoreController extends Controller
         }
 
         $data = $request->validate([
-            'proveedor_id' => ['nullable', 'exists:proveedores,id'],
+            'proveedor_id' => ['required', 'exists:proveedores,id'],
             'payment_status' => ['required', 'in:PAGADO,PENDIENTE'],
             'invoice_number' => ['nullable', 'string', 'max:255'],
             'invoice_date' => ['nullable', 'date'],
@@ -461,6 +464,9 @@ class StoreController extends Controller
             'details.*.serial_items.*.cost' => ['nullable', 'numeric', 'min:0'],
             'details.*.serial_items.*.features' => ['nullable', 'array'],
             'details.*.serial_items.*.features.*' => ['nullable'],
+        ], [
+            'proveedor_id.required' => 'Las compras de productos deben tener un proveedor seleccionado.',
+            'proveedor_id.exists' => 'El proveedor seleccionado no es válido.',
         ]);
 
         $data['purchase_type'] = Purchase::TYPE_PRODUCTO;

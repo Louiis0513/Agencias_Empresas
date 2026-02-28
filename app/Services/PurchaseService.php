@@ -433,6 +433,12 @@ class PurchaseService
             throw new ValidationException($validator);
         }
 
+        if ($purchase->purchase_type === Purchase::TYPE_PRODUCTO && empty($purchase->proveedor_id)) {
+            $validator = Validator::make([], []);
+            $validator->errors()->add('proveedor_id', 'Las compras de productos deben tener un proveedor seleccionado.');
+            throw new ValidationException($validator);
+        }
+
         if ($purchase->payment_status === Purchase::PAYMENT_PENDIENTE) {
             $rules = [
                 'due_date' => ['required', 'date', 'after_or_equal:invoice_date'],
@@ -546,6 +552,21 @@ class PurchaseService
             $validator = Validator::make([], []);
             $validator->errors()->add('details', 'Debes seleccionar al menos un producto o bien en el detalle de la compra.');
             throw new ValidationException($validator);
+        }
+
+        $purchaseType = $data['purchase_type'] ?? $purchase?->purchase_type ?? Purchase::TYPE_ACTIVO;
+        if ($purchaseType === Purchase::TYPE_PRODUCTO) {
+            $proveedorId = $data['proveedor_id'] ?? $purchase?->proveedor_id ?? null;
+            if (empty($proveedorId)) {
+                $validator = Validator::make([], []);
+                $validator->errors()->add('proveedor_id', 'Las compras de productos deben tener un proveedor seleccionado.');
+                throw new ValidationException($validator);
+            }
+            Validator::make(
+                ['proveedor_id' => $proveedorId],
+                ['proveedor_id' => ['required', 'exists:proveedores,id']],
+                ['proveedor_id.exists' => 'El proveedor seleccionado no es válido.']
+            )->validate();
         }
 
         $paymentStatus = $data['payment_status'] ?? $purchase?->payment_status ?? Purchase::PAYMENT_PAGADO;
