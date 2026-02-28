@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\BatchItem;
+use App\Models\MovimientoInventario;
 use App\Models\Product;
 use App\Models\ProductItem;
 use App\Models\ProductVariant;
@@ -41,8 +42,10 @@ class CreateMovimientoInventarioModal extends Component
             'features' => [],
         ],
     ];
-    /** Batch → salir (selección de variante) */
+    /** Batch → salir (selección de variante) o entrada (variante seleccionada en modal) */
     public ?int $product_variant_id = null;
+    /** Nombre legible de la variante seleccionada (para mostrar en formulario ENTRADA batch) */
+    public ?string $selectedVariantDisplayName = null;
     public array $batch_items_available = [];
 
     public array $categoryAttributes = [];
@@ -103,6 +106,15 @@ class CreateMovimientoInventarioModal extends Component
         $this->dispatch('open-select-item-for-row', rowId: 'movimiento-inventario', itemType: 'INVENTARIO');
     }
 
+    public function abrirSelectorVarianteBatch(): void
+    {
+        $product = $this->productoSeleccionado;
+        if (! $product || ! $product->isBatch()) {
+            return;
+        }
+        $this->dispatch('open-select-batch-variant', productId: $product->id, rowId: 'movimiento-inventario', productName: $product->name, variantKeysInCart: []);
+    }
+
     public function clearProduct(): void
     {
         $this->product_id = 0;
@@ -123,7 +135,7 @@ class CreateMovimientoInventarioModal extends Component
             ->first();
 
         if ($product) {
-            if ($productType === 'batch' && $this->type === 'SALIDA') {
+            if ($productType === 'batch') {
                 $this->updatedProductId($this->product_id);
                 $this->dispatch('open-select-batch-variant', productId: $id, rowId: 'movimiento-inventario', productName: $name, variantKeysInCart: []);
             } elseif ($productType === 'serialized' && $this->type === 'SALIDA') {
@@ -143,9 +155,15 @@ class CreateMovimientoInventarioModal extends Component
             return;
         }
         $this->product_id = (int) $productId;
-        $this->product_variant_id = (int) $productVariantId;
-        $this->quantity = (string) min(1, (int) $totalStock);
         $this->updatedProductId($this->product_id);
+        $this->product_variant_id = (int) $productVariantId;
+        $this->selectedVariantDisplayName = $displayName ?: null;
+        if ($this->type === MovimientoInventario::TYPE_SALIDA) {
+            $this->quantity = (string) min(1, (int) $totalStock);
+        } else {
+            $this->quantity = '1';
+        }
+        $this->unit_cost = $price !== null && (float) $price >= 0 ? (string) $price : null;
     }
 
     public function resetForm(): void
@@ -170,6 +188,7 @@ class CreateMovimientoInventarioModal extends Component
             ],
         ];
         $this->product_variant_id = null;
+        $this->selectedVariantDisplayName = null;
         $this->batch_items_available = [];
         $this->productoSerializadoIdMov = null;
         $this->productoSerializadoNombreMov = '';
@@ -255,6 +274,7 @@ class CreateMovimientoInventarioModal extends Component
             ],
         ];
         $this->product_variant_id = null;
+        $this->selectedVariantDisplayName = null;
         $this->batch_items_available = [];
         $this->productoSerializadoIdMov = null;
         $this->productoSerializadoNombreMov = '';
@@ -583,41 +603,31 @@ class CreateMovimientoInventarioModal extends Component
             ]);
         }
 
-        $items = [];
-        foreach ($this->batch_items as $index => $item) {
-            $qty = (int) ($item['quantity'] ?? 0);
-            $unitCost = (float) ($item['unit_cost'] ?? 0);
-
-            if ($qty < 1) {
-                continue;
-            }
-
-            $features = [];
-            foreach ($this->categoryAttributes as $attr) {
-                $attrId = (string) $attr['id'];
-                $value = $item['features'][$attrId] ?? null;
-                if ($value !== null && $value !== '') {
-                    $features[$attrId] = (string) $value;
-                }
-            }
-
-            $items[] = [
-                'quantity' => $qty,
-                'unit_cost' => $unitCost,
-                'features' => $features,
-            ];
-        }
-
-        if (empty($items)) {
+        if (! $this->product_variant_id) {
             throw ValidationException::withMessages([
-                'batch_items' => 'Debes agregar al menos una variante del lote con cantidad válida.',
+                'product_variant_id' => 'Debes seleccionar una variante del producto.',
             ]);
         }
 
+        $qty = (int) $this->quantity;
+        if ($qty < 1) {
+            throw ValidationException::withMessages([
+                'quantity' => 'La cantidad debe ser mayor a 0.',
+            ]);
+        }
+
+        $unitCost = $this->unit_cost !== null && $this->unit_cost !== '' ? (float) $this->unit_cost : 0;
+
         return [
-            'reference' => $this->batch_reference,
+            'reference'       => $this->batch_reference,
             'expiration_date' => $this->batch_expiration ?: null,
-            'items' => $items,
+            'items'           => [
+                [
+                    'product_variant_id' => $this->product_variant_id,
+                    'quantity'           => $qty,
+                    'unit_cost'          => $unitCost,
+                ],
+            ],
         ];
     }
 

@@ -123,6 +123,20 @@
                         @if($this->type === 'ENTRADA')
                             <div class="space-y-4">
                                 <div>
+                                    <x-input-label for="batch_variant" value="Variante seleccionada" />
+                                    @if($product_variant_id && $selectedVariantDisplayName)
+                                        <div class="flex gap-2 items-center mt-1">
+                                            <span class="flex-1 px-3 py-2 rounded-md border border-white/10 bg-white/5 text-gray-100 text-sm">{{ $selectedVariantDisplayName }}</span>
+                                            <button type="button" wire:click="abrirSelectorVarianteBatch" class="px-4 py-2 rounded-md border border-white/10 bg-brand/80 hover:bg-brand text-white text-sm font-medium">Cambiar</button>
+                                        </div>
+                                    @else
+                                        <button type="button" wire:click="abrirSelectorVarianteBatch" class="mt-1 px-4 py-2 rounded-md border border-dashed border-white/30 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-gray-200 text-sm font-medium">
+                                            Seleccionar variante
+                                        </button>
+                                    @endif
+                                    <x-input-error :messages="$errors->get('product_variant_id')" class="mt-1" />
+                                </div>
+                                <div>
                                     <x-input-label for="batch_reference" value="Referencia de compra/lote (obligatoria)" />
                                     <x-text-input wire:model="batch_reference" id="batch_reference" class="block mt-1 w-full" type="text" placeholder="Ej: Compra-123, Factura-X, INI-2025" />
                                     <p class="mt-1 text-xs text-gray-400">Todo ingreso debe tener origen. Si es carga inicial, usa INI-2025.</p>
@@ -130,48 +144,20 @@
                                 </div>
                                 <div>
                                     <x-input-label for="batch_expiration" value="Fecha de vencimiento (opcional)" />
-                                    <x-text-input wire:model="batch_expiration" id="batch_expiration" class="block mt-1" type="date" />
+                                    <x-text-input wire:model="batch_expiration" id="batch_expiration" class="block mt-1 w-full" type="date" />
                                 </div>
-                                <div class="space-y-3">
-                                    <div class="flex items-center justify-between">
-                                        <span class="text-sm font-semibold text-gray-700 dark:text-gray-200">Variantes del lote</span>
-                                        <button type="button" wire:click="addBatchItem" class="text-indigo-600 hover:underline text-sm">+ Agregar variante</button>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <x-input-label for="quantity" value="Cantidad" />
+                                        <x-text-input wire:model="quantity" id="quantity" class="block mt-1 w-full" type="number" min="1" placeholder="1" />
+                                        <x-input-error :messages="$errors->get('quantity')" class="mt-1" />
                                     </div>
-                                    @foreach($batch_items as $index => $item)
-                                        <div class="border rounded-lg p-4 space-y-3">
-                                            <div class="flex justify-between items-center">
-                                                <span class="text-sm font-semibold text-gray-600 dark:text-gray-300">Variante #{{ $index + 1 }}</span>
-                                                @if(count($batch_items) > 1)
-                                                    <button type="button" wire:click="removeBatchItem({{ $index }})" class="text-red-600 hover:underline text-sm">Eliminar</button>
-                                                @endif
-                                            </div>
-                                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                <div>
-                                                    <x-input-label value="Cantidad" />
-                                                    <x-text-input wire:model="batch_items.{{ $index }}.quantity" class="block mt-1 w-full" type="number" min="1" placeholder="0" />
-                                                </div>
-                                                <div>
-                                                    <x-input-label value="Costo unitario" />
-                                                    <x-text-input wire:model="batch_items.{{ $index }}.unit_cost" class="block mt-1 w-full" type="number" min="0" step="0.01" placeholder="0.00" />
-                                                </div>
-                                            </div>
-                                            @if(!empty($categoryAttributes))
-                                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                    @foreach($categoryAttributes as $attr)
-                                                        <div>
-                                                            <x-input-label :value="$attr['name']" />
-                                                            <x-text-input wire:model="batch_items.{{ $index }}.features.{{ $attr['id'] }}" class="block mt-1 w-full" type="text" placeholder="Valor" />
-                                                        </div>
-                                                    @endforeach
-                                                </div>
-                                            @else
-                                                <p class="text-xs text-gray-400">Sin atributos configurados para esta categoría.</p>
-                                            @endif
-                                        </div>
-                                    @endforeach
-                                    <x-input-error :messages="$errors->get('batch_items')" class="mt-1" />
+                                    <div>
+                                        <x-input-label for="unit_cost" value="Costo unitario" />
+                                        <x-text-input wire:model="unit_cost" id="unit_cost" class="block mt-1 w-full" type="number" min="0" step="0.01" placeholder="0.00" />
+                                        <x-input-error :messages="$errors->get('unit_cost')" class="mt-1" />
+                                    </div>
                                 </div>
-                                <p class="text-xs text-gray-400">La cantidad total se calculará sumando las variantes.</p>
                             </div>
                         @else
                             <div class="space-y-4">
