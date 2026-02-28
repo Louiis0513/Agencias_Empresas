@@ -10,18 +10,64 @@
         </div>
     </x-slot>
 
-    @livewire('select-item-modal', ['storeId' => $store->id, 'itemType' => 'INVENTARIO', 'rowId' => ''])
+    @livewire('select-item-modal', ['storeId' => $store->id, 'itemType' => 'INVENTARIO', 'rowId' => 'inventario-filtro'])
     @livewire('select-batch-variant-modal', ['storeId' => $store->id])
+    @livewire('select-serial-for-filter-modal', ['storeId' => $store->id])
     <livewire:create-movimiento-inventario-modal :store-id="$store->id" />
 
     <div class="py-12" x-data="{
         productId: '{{ request('product_id') ?? '' }}',
-        productName: @js($productoSeleccionado?->name ?? '')
+        productName: @js($productoSeleccionado?->name ?? ''),
+        productDisplay: @js($productoSeleccionadoDisplay ?? ''),
+        productVariantId: '{{ request('product_variant_id') ?? '' }}',
+        productItemId: '{{ request('product_item_id') ?? '' }}',
+        pendingProductId: '',
+        pendingProductName: '',
+        pendingProductType: ''
     }"
     @item-selected.window="
         if ($event.detail.rowId === 'inventario-filtro') {
-            productId = String($event.detail.id ?? '');
-            productName = $event.detail.name ?? '';
+            const pt = $event.detail.productType || 'simple';
+            if (pt === 'simple') {
+                productId = String($event.detail.id ?? '');
+                productName = $event.detail.name ?? '';
+                productDisplay = productName;
+                productVariantId = '';
+                productItemId = '';
+            } else if (pt === 'batch') {
+                pendingProductId = $event.detail.id;
+                pendingProductName = $event.detail.name ?? '';
+                pendingProductType = 'batch';
+                Livewire.dispatch('open-select-batch-variant', { productId: parseInt($event.detail.id), rowId: 'inventario-filtro', productName: pendingProductName, variantKeysInCart: [] });
+            } else if (pt === 'serialized') {
+                pendingProductId = $event.detail.id;
+                pendingProductName = $event.detail.name ?? '';
+                pendingProductType = 'serialized';
+                Livewire.dispatch('open-select-serial-for-filter', { productId: parseInt($event.detail.id), productName: pendingProductName });
+            }
+        }
+    "
+    @batch-variant-selected.window="
+        if ($event.detail.rowId === 'inventario-filtro') {
+            productId = String($event.detail.productId ?? '');
+            productVariantId = String($event.detail.productVariantId ?? '');
+            productDisplay = (pendingProductName || productName || '') + ($event.detail.displayName ? ' (' + $event.detail.displayName + ')' : '');
+            productItemId = '';
+            pendingProductId = '';
+            pendingProductName = '';
+            pendingProductType = '';
+        }
+    "
+    @filter-serial-selected.window="
+        const d = $event.detail;
+        if (d && d.productId) {
+            productId = String(d.productId);
+            productItemId = String(d.productItemId ?? '');
+            productDisplay = (d.productName || '') + (d.serialNumber ? ' (Serial: ' + d.serialNumber + ')' : '');
+            productVariantId = '';
+            pendingProductId = '';
+            pendingProductName = '';
+            pendingProductType = '';
         }
     ">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
@@ -46,14 +92,16 @@
 
             <form method="GET" action="{{ route('stores.inventario', $store) }}" class="mb-6 flex flex-wrap gap-2 items-end">
                 <input type="hidden" name="product_id" :value="productId">
+                <input type="hidden" name="product_variant_id" :value="productVariantId">
+                <input type="hidden" name="product_item_id" :value="productItemId">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Producto</label>
                     <div class="flex gap-1 items-center">
-                        <span class="min-w-[160px] px-3 py-2 rounded-md border border-white/10 bg-white/5 text-gray-100 text-sm" x-text="productName || 'Todos'"></span>
-                        <button type="button" @click="Livewire.dispatch('open-select-item-for-row', { rowId: 'inventario-filtro', itemType: 'INVENTARIO' })" class="px-3 py-2 rounded-md border border-white/10 bg-white/5 text-gray-300 hover:bg-white/10 text-sm">
+                        <span class="min-w-[160px] px-3 py-2 rounded-md border border-white/10 bg-white/5 text-gray-100 text-sm" x-text="productDisplay || productName || 'Todos'"></span>
+                        <button type="button" @click="Livewire.dispatch('open-select-item-for-row', { rowId: 'inventario-filtro', itemType: 'INVENTARIO', productIdsInCartSimple: [] })" class="px-3 py-2 rounded-md border border-white/10 bg-white/5 text-gray-300 hover:bg-white/10 text-sm">
                             Seleccionar
                         </button>
-                        <button type="button" x-show="productId" @click="productId = ''; productName = ''" class="px-3 py-2 rounded-md border border-white/10 bg-white/5 text-gray-400 hover:bg-white/10 text-sm">Limpiar</button>
+                        <button type="button" x-show="productId" @click="productId = ''; productName = ''; productDisplay = ''; productVariantId = ''; productItemId = ''" class="px-3 py-2 rounded-md border border-white/10 bg-white/5 text-gray-400 hover:bg-white/10 text-sm">Limpiar</button>
                     </div>
                 </div>
                 <div>
@@ -77,7 +125,7 @@
                     <input type="text" name="search" value="{{ request('search') }}" placeholder="Descripción del movimiento..." class="rounded-md border-white/10 bg-white/5 text-gray-100 min-w-[180px]">
                 </div>
                 <button type="submit" class="px-4 py-2 bg-brand text-white rounded-xl shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)]">Filtrar</button>
-                @if(request()->anyFilled(['product_id', 'type', 'fecha_desde', 'fecha_hasta', 'search']))
+                @if(request()->anyFilled(['product_id', 'product_variant_id', 'product_item_id', 'type', 'fecha_desde', 'fecha_hasta', 'search']))
                     <a href="{{ route('stores.inventario', $store) }}" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600">Limpiar</a>
                 @endif
             </form>
@@ -118,7 +166,7 @@
                         <div class="mt-4">{{ $movimientos->withQueryString()->links() }}</div>
                     @else
                         <p class="text-center text-gray-400 py-8">
-                            @if(request()->anyFilled(['product_id', 'type', 'fecha_desde', 'fecha_hasta', 'search']))
+                            @if(request()->anyFilled(['product_id', 'product_variant_id', 'product_item_id', 'type', 'fecha_desde', 'fecha_hasta', 'search']))
                                 No hay movimientos con los filtros aplicados.
                             @else
                                 No hay movimientos de inventario. Registra una entrada o salida (solo productos con type «producto»).

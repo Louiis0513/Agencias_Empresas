@@ -50,7 +50,7 @@ class SelectItemModal extends Component
 
         if ($this->itemType === 'INVENTARIO') {
             // Vista de ventas (carrito) o facturas: búsqueda con tipo (simple/batch/serialized) para selector coherente
-            $productos = in_array($this->rowId, ['venta', 'factura'], true)
+            $productos = in_array($this->rowId, ['venta', 'factura', 'inventario-filtro'], true)
                 ? app(VentaService::class)->buscarProductos($store, $this->search, 25)
                 : app(InventarioService::class)->buscarProductosInventario($store, $this->search, 25);
             return $productos->map(fn ($p) => [

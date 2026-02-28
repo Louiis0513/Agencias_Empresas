@@ -1078,6 +1078,12 @@ class InventarioService
         if (! empty($filtros['product_id'])) {
             $query->porProducto((int) $filtros['product_id']);
         }
+        if (! empty($filtros['product_variant_id'])) {
+            $query->where('product_variant_id', (int) $filtros['product_variant_id']);
+        }
+        if (! empty($filtros['product_item_id'])) {
+            $query->where('product_item_id', (int) $filtros['product_item_id']);
+        }
         if (! empty($filtros['type'])) {
             $query->porTipo($filtros['type']);
         }
