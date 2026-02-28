@@ -375,14 +375,16 @@ class InventarioService
                 }
 
                 $mov = MovimientoInventario::create([
-                    'store_id'    => $store->id,
-                    'user_id'     => $userId,
-                    'product_id'  => $product->id,
-                    'purchase_id' => $datos['purchase_id'] ?? null,
-                    'type'        => $type,
-                    'quantity'    => $quantity,
-                    'description' => $datos['description'] ?? null,
-                    'unit_cost'   => $unitCost,
+                    'store_id'           => $store->id,
+                    'user_id'            => $userId,
+                    'product_id'         => $product->id,
+                    'product_variant_id' => null,
+                    'product_item_id'    => null,
+                    'purchase_id'        => $datos['purchase_id'] ?? null,
+                    'type'               => $type,
+                    'quantity'           => $quantity,
+                    'description'        => $datos['description'] ?? null,
+                    'unit_cost'          => $unitCost,
                 ]);
 
                 return $mov;
@@ -397,6 +399,9 @@ class InventarioService
             }
 
             $isSerialized = $product->isSerialized();
+
+            $productVariantIdForMov = null;
+            $productItemIdForMov = null;
 
             if ($isSerialized) {
                 if ($type === MovimientoInventario::TYPE_ENTRADA) {
@@ -438,7 +443,10 @@ class InventarioService
                         if (isset($row['price']) && $row['price'] !== '' && $row['price'] !== null) {
                             $productItemData['price'] = (float) $row['price'];
                         }
-                        ProductItem::create($productItemData);
+                        $created = ProductItem::create($productItemData);
+                        if ($productItemIdForMov === null) {
+                            $productItemIdForMov = $created->id;
+                        }
                     }
                 } else {
                     $serials = array_values(array_filter(array_map('trim', $serialNumbers)));
@@ -447,6 +455,9 @@ class InventarioService
                             ->where('product_id', $product->id)
                             ->where('serial_number', $serial)
                             ->firstOrFail();
+                        if ($productItemIdForMov === null) {
+                            $productItemIdForMov = $item->id;
+                        }
                         $item->update(['status' => ProductItem::STATUS_SOLD]);
                     }
                 }
@@ -523,12 +534,17 @@ class InventarioService
                             'unit_cost' => $unitCost,
                         ];
                     }
+                    $uniqueVariantIds = array_unique(array_column($resolvedEntradaItems, 'product_variant_id'));
+                    if (count($uniqueVariantIds) === 1) {
+                        $productVariantIdForMov = (int) $uniqueVariantIds[0];
+                    }
                 } else {
                     $batchItem = BatchItem::where('id', $datos['batch_item_id'])
                         ->whereHas('batch', function ($q) use ($store, $product) {
                             $q->where('store_id', $store->id)->where('product_id', $product->id);
                         })
                         ->firstOrFail();
+                    $productVariantIdForMov = $batchItem->product_variant_id;
                     $batchItem->decrement('quantity', $quantity);
                 }
             }
@@ -536,14 +552,16 @@ class InventarioService
             $unitCostForMov = $this->resolveUnitCostForMovement($datos, $type, $quantity, $product->isBatch());
 
             $mov = MovimientoInventario::create([
-                'store_id'    => $store->id,
-                'user_id'     => $userId,
-                'product_id'  => $product->id,
-                'purchase_id' => $datos['purchase_id'] ?? null,
-                'type'        => $type,
-                'quantity'    => $quantity,
-                'description' => $datos['description'] ?? null,
-                'unit_cost'   => $unitCostForMov,
+                'store_id'           => $store->id,
+                'user_id'            => $userId,
+                'product_id'         => $product->id,
+                'product_variant_id' => $productVariantIdForMov,
+                'product_item_id'    => $productItemIdForMov,
+                'purchase_id'        => $datos['purchase_id'] ?? null,
+                'type'               => $type,
+                'quantity'           => $quantity,
+                'description'        => $datos['description'] ?? null,
+                'unit_cost'          => $unitCostForMov,
             ]);
 
             $this->actualizarStock($product, $type, $quantity);
@@ -1049,7 +1067,12 @@ class InventarioService
     public function listarMovimientos(Store $store, array $filtros = []): LengthAwarePaginator
     {
         $query = MovimientoInventario::deTienda($store->id)
-            ->with(['product:id,store_id,name,sku,stock', 'user:id,name'])
+            ->with([
+                'product:id,store_id,name,sku,stock,type',
+                'productVariant',
+                'productItem',
+                'user:id,name',
+            ])
             ->orderByDesc('created_at');
 
         if (! empty($filtros['product_id'])) {
@@ -1063,6 +1086,11 @@ class InventarioService
         }
         if (! empty($filtros['fecha_hasta'])) {
             $query->whereDate('created_at', '<=', $filtros['fecha_hasta']);
+        }
+
+        $search = trim($filtros['search'] ?? '');
+        if ($search !== '') {
+            $query->where('description', 'like', '%' . $search . '%');
         }
 
         return $query->paginate($filtros['per_page'] ?? 15);

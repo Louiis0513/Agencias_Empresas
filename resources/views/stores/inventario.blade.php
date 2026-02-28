@@ -10,9 +10,20 @@
         </div>
     </x-slot>
 
+    @livewire('select-item-modal', ['storeId' => $store->id, 'itemType' => 'INVENTARIO', 'rowId' => ''])
+    @livewire('select-batch-variant-modal', ['storeId' => $store->id])
     <livewire:create-movimiento-inventario-modal :store-id="$store->id" />
 
-    <div class="py-12" x-data>
+    <div class="py-12" x-data="{
+        productId: '{{ request('product_id') ?? '' }}',
+        productName: @js($productoSeleccionado?->name ?? '')
+    }"
+    @item-selected.window="
+        if ($event.detail.rowId === 'inventario-filtro') {
+            productId = String($event.detail.id ?? '');
+            productName = $event.detail.name ?? '';
+        }
+    ">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             @if(session('success'))
                 <div class="mb-4 bg-green-100 dark:bg-green-900/30 border border-green-400 dark:border-green-700 text-green-700 dark:text-green-300 px-4 py-3 rounded relative" role="alert">
@@ -34,14 +45,16 @@
             
 
             <form method="GET" action="{{ route('stores.inventario', $store) }}" class="mb-6 flex flex-wrap gap-2 items-end">
+                <input type="hidden" name="product_id" :value="productId">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Producto</label>
-                    <select name="product_id" class="rounded-md border-white/10 bg-white/5 text-gray-100">
-                        <option value="">Todos</option>
-                        @foreach($productosInventario as $p)
-                            <option value="{{ $p->id }}" {{ request('product_id') == $p->id ? 'selected' : '' }}>{{ $p->name }} {{ $p->sku ? "({$p->sku})" : '' }}</option>
-                        @endforeach
-                    </select>
+                    <div class="flex gap-1 items-center">
+                        <span class="min-w-[160px] px-3 py-2 rounded-md border border-white/10 bg-white/5 text-gray-100 text-sm" x-text="productName || 'Todos'"></span>
+                        <button type="button" @click="Livewire.dispatch('open-select-item-for-row', { rowId: 'inventario-filtro', itemType: 'INVENTARIO' })" class="px-3 py-2 rounded-md border border-white/10 bg-white/5 text-gray-300 hover:bg-white/10 text-sm">
+                            Seleccionar
+                        </button>
+                        <button type="button" x-show="productId" @click="productId = ''; productName = ''" class="px-3 py-2 rounded-md border border-white/10 bg-white/5 text-gray-400 hover:bg-white/10 text-sm">Limpiar</button>
+                    </div>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo</label>
@@ -59,8 +72,12 @@
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Hasta</label>
                     <input type="date" name="fecha_hasta" value="{{ request('fecha_hasta') }}" class="rounded-md border-white/10 bg-white/5 text-gray-100">
                 </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buscar por descripción</label>
+                    <input type="text" name="search" value="{{ request('search') }}" placeholder="Descripción del movimiento..." class="rounded-md border-white/10 bg-white/5 text-gray-100 min-w-[180px]">
+                </div>
                 <button type="submit" class="px-4 py-2 bg-brand text-white rounded-xl shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)]">Filtrar</button>
-                @if(request()->anyFilled(['product_id', 'type', 'fecha_desde', 'fecha_hasta']))
+                @if(request()->anyFilled(['product_id', 'type', 'fecha_desde', 'fecha_hasta', 'search']))
                     <a href="{{ route('stores.inventario', $store) }}" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600">Limpiar</a>
                 @endif
             </form>
@@ -74,7 +91,6 @@
                                     <tr>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Fecha</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Producto</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Tipo</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Cantidad</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Costo unit.</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Descripción</th>
@@ -85,12 +101,7 @@
                                     @foreach($movimientos as $m)
                                         <tr class="hover:bg-white/5 transition">
                                             <td class="px-4 py-3 text-sm text-gray-100">{{ $m->created_at->format('d/m/Y H:i') }}</td>
-                                            <td class="px-4 py-3 text-sm text-gray-100">{{ $m->product->name ?? '—' }}</td>
-                                            <td class="px-4 py-3">
-                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ $m->type === 'ENTRADA' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' }}">
-                                                    {{ $m->type === 'ENTRADA' ? 'Entrada' : 'Salida' }}
-                                                </span>
-                                            </td>
+                                            <td class="px-4 py-3 text-sm text-gray-100">{{ $m->product_display ?? '—' }}</td>
                                             <td class="px-4 py-3 text-sm font-semibold {{ $m->type === 'ENTRADA' ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300' }}">
                                                 {{ $m->type === 'ENTRADA' ? '+' : '-' }}{{ $m->quantity }}
                                             </td>
@@ -104,10 +115,10 @@
                                 </tbody>
                             </table>
                         </div>
-                        <div class="mt-4">{{ $movimientos->links() }}</div>
+                        <div class="mt-4">{{ $movimientos->withQueryString()->links() }}</div>
                     @else
                         <p class="text-center text-gray-400 py-8">
-                            @if(request()->anyFilled(['product_id', 'type', 'fecha_desde', 'fecha_hasta']))
+                            @if(request()->anyFilled(['product_id', 'type', 'fecha_desde', 'fecha_hasta', 'search']))
                                 No hay movimientos con los filtros aplicados.
                             @else
                                 No hay movimientos de inventario. Registra una entrada o salida (solo productos con type «producto»).

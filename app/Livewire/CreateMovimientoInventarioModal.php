@@ -10,6 +10,7 @@ use App\Models\Store;
 use App\Services\InventarioService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
+use Livewire\Attributes\On;
 use Livewire\Component;
 
 class CreateMovimientoInventarioModal extends Component
@@ -46,6 +47,16 @@ class CreateMovimientoInventarioModal extends Component
 
     public array $categoryAttributes = [];
 
+    /** Modal seriales (producto serializado SALIDA): unidades disponibles con búsqueda/paginación */
+    public ?int $productoSerializadoIdMov = null;
+    public string $productoSerializadoNombreMov = '';
+    public string $unidadesDisponiblesSearchMov = '';
+    public int $unidadesDisponiblesPageMov = 1;
+    public int $unidadesDisponiblesPerPageMov = 15;
+    public int $unidadesDisponiblesTotalMov = 0;
+    public array $unidadesDisponiblesMov = [];
+    public array $serialesSeleccionadosMov = [];
+
     protected function rules(): array
     {
         return [
@@ -71,21 +82,70 @@ class CreateMovimientoInventarioModal extends Component
         return Store::find($this->storeId);
     }
 
-    public function getProductosProperty()
-    {
-        $store = $this->getStoreProperty();
-        if (! $store) {
-            return collect();
-        }
-        return app(InventarioService::class)->productosConInventario($store);
-    }
-
     public function getProductoSeleccionadoProperty(): ?Product
     {
         if (! $this->product_id) {
             return null;
         }
-        return $this->productos->firstWhere('id', $this->product_id);
+        $store = $this->getStoreProperty();
+        if (! $store) {
+            return null;
+        }
+
+        return Product::where('store_id', $store->id)
+            ->where('id', $this->product_id)
+            ->with(['category.attributes' => fn ($q) => $q->orderBy('name')])
+            ->first();
+    }
+
+    public function abrirSelectorProducto(): void
+    {
+        $this->dispatch('open-select-item-for-row', rowId: 'movimiento-inventario', itemType: 'INVENTARIO');
+    }
+
+    public function clearProduct(): void
+    {
+        $this->product_id = 0;
+        $this->resetTypeSpecificFields();
+    }
+
+    #[On('item-selected')]
+    public function onItemSelected($rowId, $id, $name, $type, $productType = null): void
+    {
+        if ($rowId !== 'movimiento-inventario' || $type !== 'INVENTARIO') {
+            return;
+        }
+        $productType = $productType ?? 'simple';
+        $this->product_id = (int) $id;
+
+        $product = Product::where('id', $this->product_id)
+            ->where('store_id', $this->getStoreProperty()?->id)
+            ->first();
+
+        if ($product) {
+            if ($productType === 'batch' && $this->type === 'SALIDA') {
+                $this->updatedProductId($this->product_id);
+                $this->dispatch('open-select-batch-variant', productId: $id, rowId: 'movimiento-inventario', productName: $name, variantKeysInCart: []);
+            } elseif ($productType === 'serialized' && $this->type === 'SALIDA') {
+                $this->abrirModalSerialesMovimiento($id);
+            } else {
+                $this->updatedProductId($this->product_id);
+            }
+        } else {
+            $this->updatedProductId($this->product_id);
+        }
+    }
+
+    #[On('batch-variant-selected')]
+    public function onBatchVariantSelected($rowId, $productId, $productName, $variantFeatures, $displayName, $totalStock = 0, $price = null, $productVariantId = null): void
+    {
+        if ($rowId !== 'movimiento-inventario') {
+            return;
+        }
+        $this->product_id = (int) $productId;
+        $this->product_variant_id = (int) $productVariantId;
+        $this->quantity = (string) min(1, (int) $totalStock);
+        $this->updatedProductId($this->product_id);
     }
 
     public function resetForm(): void
@@ -111,6 +171,13 @@ class CreateMovimientoInventarioModal extends Component
         ];
         $this->product_variant_id = null;
         $this->batch_items_available = [];
+        $this->productoSerializadoIdMov = null;
+        $this->productoSerializadoNombreMov = '';
+        $this->unidadesDisponiblesSearchMov = '';
+        $this->unidadesDisponiblesPageMov = 1;
+        $this->unidadesDisponiblesTotalMov = 0;
+        $this->unidadesDisponiblesMov = [];
+        $this->serialesSeleccionadosMov = [];
         $this->categoryAttributes = [];
         $this->resetValidation();
     }
@@ -189,6 +256,100 @@ class CreateMovimientoInventarioModal extends Component
         ];
         $this->product_variant_id = null;
         $this->batch_items_available = [];
+        $this->productoSerializadoIdMov = null;
+        $this->productoSerializadoNombreMov = '';
+        $this->unidadesDisponiblesSearchMov = '';
+        $this->unidadesDisponiblesPageMov = 1;
+        $this->unidadesDisponiblesTotalMov = 0;
+        $this->unidadesDisponiblesMov = [];
+        $this->serialesSeleccionadosMov = [];
+    }
+
+    public function abrirModalSerialesMovimiento(int $productId): void
+    {
+        $store = $this->getStoreProperty();
+        if (! $store) {
+            return;
+        }
+        $producto = Product::where('id', $productId)
+            ->where('store_id', $store->id)
+            ->where('is_active', true)
+            ->first();
+        if (! $producto || ! $producto->isSerialized()) {
+            return;
+        }
+        $this->product_id = $productId;
+        $this->productoSerializadoIdMov = $producto->id;
+        $this->productoSerializadoNombreMov = $producto->name;
+        $this->serialesSeleccionadosMov = [];
+        $this->unidadesDisponiblesSearchMov = '';
+        $this->unidadesDisponiblesPageMov = 1;
+        $this->categoryAttributes = $producto->category?->attributes->map(fn ($a) => ['id' => $a->id, 'name' => $a->name])->values()->toArray() ?? [];
+        $this->loadAvailableSerials($producto);
+        $this->cargarPaginaUnidadesMovimiento();
+    }
+
+    public function cargarPaginaUnidadesMovimiento(): void
+    {
+        $store = $this->getStoreProperty();
+        if (! $store || $this->productoSerializadoIdMov === null) {
+            return;
+        }
+        $query = ProductItem::where('store_id', $store->id)
+            ->where('product_id', $this->productoSerializadoIdMov)
+            ->where('status', ProductItem::STATUS_AVAILABLE);
+
+        $search = trim($this->unidadesDisponiblesSearchMov);
+        if ($search !== '') {
+            $query->where('serial_number', 'like', '%' . $search . '%');
+        }
+        $this->unidadesDisponiblesTotalMov = $query->count();
+        $this->unidadesDisponiblesMov = $query->orderBy('serial_number')
+            ->offset(($this->unidadesDisponiblesPageMov - 1) * $this->unidadesDisponiblesPerPageMov)
+            ->limit($this->unidadesDisponiblesPerPageMov)
+            ->get()
+            ->map(fn (ProductItem $item) => [
+                'id' => $item->id,
+                'serial_number' => $item->serial_number,
+                'features' => $item->features,
+            ])
+            ->values()
+            ->toArray();
+    }
+
+    public function irAPaginaUnidadesMovimiento(int $page): void
+    {
+        $maxPage = (int) max(1, ceil($this->unidadesDisponiblesTotalMov / $this->unidadesDisponiblesPerPageMov));
+        $this->unidadesDisponiblesPageMov = max(1, min($page, $maxPage));
+        $this->cargarPaginaUnidadesMovimiento();
+    }
+
+    public function updatedUnidadesDisponiblesSearchMov(): void
+    {
+        $this->unidadesDisponiblesPageMov = 1;
+        $this->cargarPaginaUnidadesMovimiento();
+    }
+
+    public function cerrarModalSerialesMovimiento(): void
+    {
+        $product = $this->productoSeleccionado;
+        $this->productoSerializadoIdMov = null;
+        $this->productoSerializadoNombreMov = '';
+        $this->unidadesDisponiblesMov = [];
+        $this->unidadesDisponiblesTotalMov = 0;
+        $this->serialesSeleccionadosMov = [];
+        if ($product && $product->isSerialized()) {
+            $this->loadAvailableSerials($product);
+        }
+    }
+
+    public function confirmarSerialesMovimiento(): void
+    {
+        if (empty($this->serialesSeleccionadosMov)) {
+            return;
+        }
+        $this->serials_selected = array_values($this->serialesSeleccionadosMov);
+        $this->cerrarModalSerialesMovimiento();
     }
 
     protected function loadAvailableSerials(Product $product): void

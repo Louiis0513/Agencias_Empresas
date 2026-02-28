@@ -16,6 +16,8 @@ class MovimientoInventario extends Model
         'store_id',
         'user_id',
         'product_id',
+        'product_variant_id',
+        'product_item_id',
         'purchase_id',
         'type',
         'quantity',
@@ -55,6 +57,16 @@ class MovimientoInventario extends Model
         return $this->belongsTo(Product::class);
     }
 
+    public function productVariant()
+    {
+        return $this->belongsTo(ProductVariant::class);
+    }
+
+    public function productItem()
+    {
+        return $this->belongsTo(ProductItem::class);
+    }
+
     public function purchase()
     {
         return $this->belongsTo(Purchase::class);
@@ -73,5 +85,39 @@ class MovimientoInventario extends Model
     public function scopePorTipo(Builder $query, string $type): void
     {
         $query->where('type', $type);
+    }
+
+    /**
+     * Nombre a mostrar en la columna Producto de la vista de inventario.
+     * Simple: nombre. Lote: nombre + variante. Serializado: nombre + serial + features.
+     */
+    public function getProductDisplayAttribute(): string
+    {
+        $product = $this->relationLoaded('product') ? $this->product : $this->product;
+        $name = $product?->name ?? '—';
+
+        if ($this->productVariant) {
+            $variantName = $this->productVariant->display_name;
+            return $variantName !== '—'
+                ? "{$name} ({$variantName})"
+                : $name;
+        }
+
+        if ($this->productItem) {
+            $item = $this->productItem;
+            $serial = $item->serial_number ?? '';
+            $features = $item->features;
+            $attrIds = ! empty($features) && is_array($features)
+                ? array_map('intval', array_keys($features))
+                : [];
+            $attrNames = $attrIds ? Attribute::whereIn('id', $attrIds)->pluck('name', 'id')->all() : [];
+            $formatted = ProductVariant::formatFeaturesWithAttributeNames($features ?? [], $attrNames);
+            $extra = $serial !== ''
+                ? ($formatted !== '' ? "Serial: {$serial}, {$formatted}" : "Serial: {$serial}")
+                : $formatted;
+            return $extra !== '' ? "{$name} ({$extra})" : $name;
+        }
+
+        return $name;
     }
 }

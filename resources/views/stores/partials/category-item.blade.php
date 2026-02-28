@@ -2,16 +2,9 @@
     $category->load(['children', 'products']);
     $hasChildren = $category->children->count() > 0;
     $hasProducts = $category->products->count() > 0;
-    $indentClass = match($level) {
-        0 => '',
-        1 => 'pl-3 border-l-2 border-l-white/20',
-        2 => 'pl-6 border-l-2 border-l-white/30',
-        3 => 'pl-9 border-l-2 border-l-white/40',
-        default => 'pl-12 border-l-2 border-l-white/50',
-    };
 @endphp
 
-<div x-data="{ expanded: {{ $level === 0 ? 'true' : 'false' }} }" class="{{ $indentClass }}">
+<div x-data="{ expanded: {{ $level === 0 ? 'true' : 'false' }} }">
     {{-- Header tipo acordeón --}}
     <div class="flex items-center justify-between px-4 py-4 transition-colors"
          :class="expanded ? 'bg-white/10' : 'bg-white/5 hover:bg-white/[0.07]'">
@@ -31,9 +24,9 @@
             <div class="min-w-0 flex-1">
                 <h3 class="text-sm font-medium text-gray-100 truncate">{{ $category->name }}</h3>
                 <div class="mt-0.5 flex items-center gap-4 text-xs text-gray-400">
-                    <span>{{ $category->products->count() }} Pd</span>
+                    <span class="whitespace-nowrap">{{ $category->products->count() }} Pd</span>
                     @if($hasChildren)
-                        <span>{{ $category->children->count() }} SC</span>
+                        <span class="whitespace-nowrap">{{ $category->children->count() }} SC</span>
                     @endif
                 </div>
             </div>

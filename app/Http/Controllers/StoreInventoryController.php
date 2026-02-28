@@ -25,12 +25,19 @@ class StoreInventoryController extends Controller
             'type' => $request->get('type'),
             'fecha_desde' => $request->get('fecha_desde'),
             'fecha_hasta' => $request->get('fecha_hasta'),
-            'per_page' => 15,
+            'search' => $request->get('search'),
+            'per_page' => 10,
         ];
 
-        $productosInventario = $inventarioService->productosConInventario($store);
         $movimientos = $inventarioService->listarMovimientos($store, $filtros);
 
-        return view('stores.inventario', compact('store', 'productosInventario', 'movimientos'));
+        $productoSeleccionado = null;
+        if (! empty($filtros['product_id'])) {
+            $productoSeleccionado = \App\Models\Product::where('store_id', $store->id)
+                ->where('id', $filtros['product_id'])
+                ->first(['id', 'name', 'sku']);
+        }
+
+        return view('stores.inventario', compact('store', 'movimientos', 'productoSeleccionado'));
     }
 }

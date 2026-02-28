@@ -11,15 +11,24 @@
             <div class="mt-6 space-y-4">
                 <div>
                     <x-input-label for="product_id" value="{{ __('Producto') }}" />
-                    <select wire:model.live="product_id" id="product_id" class="block mt-1 w-full rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand" required>
-                        <option value="">Selecciona un producto</option>
-                        @foreach($this->productos as $p)
-                            <option value="{{ $p->id }}">{{ $p->name }} {{ $p->sku ? "({$p->sku})" : '' }} — Stock: {{ $p->stock }}</option>
-                        @endforeach
-                    </select>
-                    @if($this->productos->isEmpty())
-                        <p class="mt-1 text-sm text-amber-600 dark:text-amber-400">No hay productos con type «producto» en esta tienda.</p>
-                    @endif
+                    <div class="flex gap-2 items-center mt-1">
+                        <span class="flex-1 px-3 py-2 rounded-md border border-white/10 bg-white/5 text-gray-100 text-sm min-h-[42px] flex items-center" wire:key="product-display">
+                            @if($this->productoSeleccionado)
+                                {{ $this->productoSeleccionado->name }} {{ $this->productoSeleccionado->sku ? "({$this->productoSeleccionado->sku})" : '' }} — Stock: {{ $this->productoSeleccionado->stock }}
+                            @else
+                                <span class="text-gray-500">Ningún producto seleccionado</span>
+                            @endif
+                        </span>
+                        <button type="button" wire:click="abrirSelectorProducto" class="px-4 py-2 rounded-md border border-white/10 bg-brand/80 hover:bg-brand text-white text-sm font-medium">
+                            {{ $this->productoSeleccionado ? 'Cambiar' : 'Seleccionar' }}
+                        </button>
+                        @if($this->productoSeleccionado)
+                            <button type="button" wire:click="clearProduct" class="px-3 py-2 rounded-md border border-white/10 bg-white/5 text-gray-400 hover:text-gray-200 text-sm">
+                                Limpiar
+                            </button>
+                        @endif
+                    </div>
+                    <input type="hidden" wire:model="product_id" id="product_id">
                     <x-input-error :messages="$errors->get('product_id')" class="mt-1" />
                 </div>
 
@@ -95,15 +104,17 @@
                         @else
                             <div>
                                 <x-input-label value="Selecciona los seriales a descontar" />
-                                @if(empty($serials_available))
-                                    <p class="text-sm text-amber-600 dark:text-amber-400">No hay seriales disponibles.</p>
-                                @else
-                                    <select multiple wire:model="serials_selected" class="block mt-1 w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm" size="6">
-                                        @foreach($serials_available as $serial)
-                                            <option value="{{ $serial }}">{{ $serial }}</option>
+                                @if(!empty($serials_selected))
+                                    <div class="flex flex-wrap gap-2 mt-1">
+                                        @foreach($serials_selected as $sn)
+                                            <span class="px-2 py-1 rounded-md bg-gray-700 text-gray-200 text-sm">{{ $sn }}</span>
                                         @endforeach
-                                    </select>
-                                    <p class="text-xs text-gray-400 mt-1">Selecciona uno o más seriales. La cantidad se calcula automáticamente.</p>
+                                        <button type="button" wire:click="abrirModalSerialesMovimiento({{ $product_id }})" class="px-2 py-1 text-sm text-indigo-400 hover:text-indigo-300">Cambiar</button>
+                                    </div>
+                                @else
+                                    <button type="button" wire:click="abrirModalSerialesMovimiento({{ $product_id }})" class="mt-1 px-4 py-2 rounded-md border border-white/10 bg-brand/80 hover:bg-brand text-white text-sm font-medium">
+                                        Seleccionar seriales
+                                    </button>
                                 @endif
                                 <x-input-error :messages="$errors->get('serials_selected')" class="mt-1" />
                             </div>
@@ -169,11 +180,11 @@
                                     @if(empty($batch_items_available))
                                         <p class="text-sm text-amber-600 dark:text-amber-400">No hay lotes con stock disponible.</p>
                                     @else
-                                        <select wire:model="batch_item_id" id="batch_item_id" class="block mt-1 w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm">
-                                            <option value="">Selecciona un lote</option>
+                                        <select wire:model="product_variant_id" id="product_variant_id" class="block mt-1 w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm">
+                                            <option value="">Selecciona una variante</option>
                                             @foreach($batch_items_available as $item)
-                                                <option value="{{ $item['id'] }}">
-                                                    {{ $item['reference'] }} — Disp: {{ $item['quantity'] }}
+                                                <option value="{{ $item['product_variant_id'] }}">
+                                                    {{ $item['display_name'] }} — Disp: {{ $item['quantity'] }}
                                                     @if(!empty($item['features']))
                                                         ({{ collect($item['features'])->map(fn($v, $k) => "$k: $v")->implode(', ') }})
                                                     @endif
@@ -181,7 +192,7 @@
                                             @endforeach
                                         </select>
                                     @endif
-                                    <x-input-error :messages="$errors->get('batch_item_id')" class="mt-1" />
+                                    <x-input-error :messages="$errors->get('product_variant_id')" class="mt-1" />
                                 </div>
                                 <div>
                                     <x-input-label for="quantity" value="Cantidad a descontar" />
@@ -210,4 +221,90 @@
             </div>
         </form>
     </x-modal>
+
+    {{-- Modal: Unidades disponibles (producto serializado SALIDA) --}}
+    @if($productoSerializadoIdMov !== null)
+        @php
+            $totalUnidades = $unidadesDisponiblesTotalMov;
+            $perPage = $unidadesDisponiblesPerPageMov ?: 15;
+            $maxPage = $totalUnidades > 0 ? (int) ceil($totalUnidades / $perPage) : 1;
+            $from = $totalUnidades === 0 ? 0 : ($unidadesDisponiblesPageMov - 1) * $perPage + 1;
+            $to = min($unidadesDisponiblesPageMov * $perPage, $totalUnidades);
+        @endphp
+        <div class="fixed inset-0 overflow-y-auto" style="z-index: 200;" aria-modal="true">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="fixed inset-0 bg-slate-900/80 transition-opacity" wire:click="cerrarModalSerialesMovimiento"></div>
+                <div class="relative bg-slate-800 rounded-2xl shadow-2xl border border-slate-600 max-w-lg w-full max-h-[90vh] flex flex-col">
+                    <div class="p-4 border-b border-slate-600">
+                        <h3 class="text-lg font-bold text-white">Seleccionar seriales — {{ $productoSerializadoNombreMov }}</h3>
+                        <p class="text-sm text-slate-400 mt-1">Elige los ítems que salen del inventario.</p>
+                        <div class="mt-3">
+                            <input type="text"
+                                   wire:model.live.debounce.400ms="unidadesDisponiblesSearchMov"
+                                   placeholder="Buscar por número de serie..."
+                                   class="w-full rounded-md border-slate-600 bg-slate-900 text-white text-sm focus:ring-brand focus:border-brand">
+                        </div>
+                    </div>
+                    <div class="p-4 overflow-y-auto flex-1">
+                        @if(count($unidadesDisponiblesMov) > 0)
+                            <ul class="space-y-2">
+                                @foreach($unidadesDisponiblesMov as $unit)
+                                    <li class="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-700/50">
+                                        <input type="checkbox"
+                                               id="serial-mov-{{ $unit['id'] }}"
+                                               wire:model.live="serialesSeleccionadosMov"
+                                               value="{{ $unit['serial_number'] }}"
+                                               class="rounded border-slate-600 text-brand focus:ring-brand bg-slate-800">
+                                        <label for="serial-mov-{{ $unit['id'] }}" class="flex-1 text-sm text-slate-200 cursor-pointer">
+                                            <span class="font-medium">{{ $unit['serial_number'] }}</span>
+                                            @if(!empty($unit['features']) && is_array($unit['features']))
+                                                <span class="text-slate-500 ml-2">— {{ implode(', ', array_map(fn($k, $v) => "{$k}: {$v}", array_keys($unit['features']), $unit['features'])) }}</span>
+                                            @endif
+                                        </label>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        @else
+                            <p class="text-sm text-slate-500">
+                                @if(!empty(trim($unidadesDisponiblesSearchMov)))
+                                    No hay unidades con ese número de serie.
+                                @else
+                                    No hay unidades disponibles.
+                                @endif
+                            </p>
+                        @endif
+                    </div>
+                    @if($totalUnidades > 0)
+                        <div class="px-4 py-2 border-t border-slate-600 flex items-center justify-between gap-2 flex-wrap">
+                            <p class="text-xs text-slate-500">Mostrando {{ $from }}-{{ $to }} de {{ $totalUnidades }}</p>
+                            <div class="flex gap-1">
+                                <button type="button"
+                                        wire:click="irAPaginaUnidadesMovimiento({{ $unidadesDisponiblesPageMov - 1 }})"
+                                        @if($unidadesDisponiblesPageMov <= 1) disabled @endif
+                                        class="px-2 py-1 text-sm rounded border border-slate-600 text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-700">Anterior</button>
+                                @for($p = max(1, $unidadesDisponiblesPageMov - 2); $p <= min($maxPage, $unidadesDisponiblesPageMov + 2); $p++)
+                                    <button type="button"
+                                            wire:click="irAPaginaUnidadesMovimiento({{ $p }})"
+                                            class="px-2 py-1 text-sm rounded {{ $p === $unidadesDisponiblesPageMov ? 'bg-brand text-white' : 'border border-slate-600 text-slate-300 hover:bg-slate-700' }}">{{ $p }}</button>
+                                @endfor
+                                <button type="button"
+                                        wire:click="irAPaginaUnidadesMovimiento({{ $unidadesDisponiblesPageMov + 1 }})"
+                                        @if($unidadesDisponiblesPageMov >= $maxPage) disabled @endif
+                                        class="px-2 py-1 text-sm rounded border border-slate-600 text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-700">Siguiente</button>
+                            </div>
+                        </div>
+                    @endif
+                    <div class="p-4 border-t border-slate-600 flex justify-end gap-2">
+                        <button type="button" wire:click="cerrarModalSerialesMovimiento" class="px-4 py-2 border border-slate-600 rounded-lg text-slate-300 hover:bg-slate-700 font-bold text-sm">Cerrar</button>
+                        <button type="button"
+                                wire:click="confirmarSerialesMovimiento"
+                                class="px-4 py-2 bg-brand text-white rounded-lg font-bold text-sm hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                                @if(empty($serialesSeleccionadosMov)) disabled @endif>
+                            Confirmar ({{ count($serialesSeleccionadosMov) }})
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
 </div>
