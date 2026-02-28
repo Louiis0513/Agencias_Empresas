@@ -28,9 +28,7 @@
 
     @if($mostrarModal)
         <div class="fixed inset-0 overflow-y-auto z-[100]" aria-modal="true">
-            <div class="flex min-h-full items-center justify-center p-4">
-                <div class="fixed inset-0 bg-slate-900/80 dark:bg-gray-900/80 transition-opacity" wire:click="cerrarModal"></div>
-                <div class="relative bg-slate-800 dark:bg-gray-800 rounded-2xl shadow-2xl border border-slate-600 dark:border-gray-700 max-w-2xl w-full max-h-[90vh] flex flex-col">
+        <div class="flex min-h-full items-start justify-center p-4 pt-6">                <div class="relative bg-slate-800 dark:bg-gray-800 rounded-2xl shadow-2xl border border-slate-600 dark:border-gray-700 max-w-2xl w-full max-h-[90vh] flex flex-col">
                     <div class="p-6 border-b border-slate-600 dark:border-gray-700">
                         <h3 class="text-lg font-bold text-white dark:text-gray-100">{{ __('Buscar cliente') }}</h3>
                         <p class="text-sm text-slate-400 dark:text-gray-400 mt-1">{{ __('Indica al menos un criterio (nombre, documento o teléfono) y pulsa Buscar.') }}</p>

@@ -346,26 +346,28 @@
                                 @endforeach
                             </div>
 
-                            {{-- Barra de Resumen (Sin cambios, solo la mantenemos) --}}
-                            <div class="mt-8 p-4 bg-slate-900 rounded-xl flex items-center justify-between border border-slate-700">
-                                <div class="text-sm font-bold text-slate-400 italic">Resumen de pagos:</div>
-                                <div class="flex space-x-8">
-                                    <div class="text-center">
-                                        <p class="text-[10px] text-slate-500 uppercase font-black">Total Pagado</p>
-                                        <p class="text-lg font-bold text-white">${{ number_format($this->totalPagado, 2) }}</p>
-                                    </div>
-                                    <div class="text-center border-l border-slate-700 pl-8">
-                                        <p class="text-[10px] text-slate-500 uppercase font-black">Pendiente</p>
-                                        @if(abs($this->diferenciaPago) < 0.01)
-                                            <p class="text-lg font-bold text-emerald-400 flex items-center justify-center">
-                                                <svg class="w-5 h-5 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
-                                                ¡Completo!
-                                            </p>
-                                        @else
-                                            <p class="text-lg font-bold text-amber-500 animate-pulse">
-                                                {{ $this->diferenciaPago > 0 ? 'Falta' : 'Sobra' }} ${{ number_format(abs($this->diferenciaPago), 2) }}
-                                            </p>
-                                        @endif
+                            {{-- Barra de Resumen --}}
+                            <div class="mt-8 p-4 bg-slate-900 rounded-xl border border-slate-700 overflow-hidden">
+                                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                                    <div class="text-sm font-bold text-slate-400 italic shrink-0">Resumen de pagos:</div>
+                                    <div class="flex flex-wrap items-center gap-4 sm:gap-8 min-w-0">
+                                        <div class="text-center min-w-0">
+                                            <p class="text-[10px] text-slate-500 uppercase font-black">Total Pagado</p>
+                                            <p class="text-lg font-bold text-white">${{ number_format($this->totalPagado, 2) }}</p>
+                                        </div>
+                                        <div class="text-center border-l border-slate-700 pl-4 sm:pl-8 min-w-0 flex-1 sm:flex-initial">
+                                            <p class="text-[10px] text-slate-500 uppercase font-black">Pendiente</p>
+                                            @if(abs($this->diferenciaPago) < 0.01)
+                                                <p class="text-lg font-bold text-emerald-400 flex items-center justify-center gap-1 flex-wrap">
+                                                    <svg class="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+                                                    <span>¡Completo!</span>
+                                                </p>
+                                            @else
+                                                <p class="text-lg font-bold text-amber-500 animate-pulse">
+                                                    {{ $this->diferenciaPago > 0 ? 'Falta' : 'Sobra' }} ${{ number_format(abs($this->diferenciaPago), 2) }}
+                                                </p>
+                                            @endif
+                                        </div>
                                     </div>
                                 </div>
                             </div>
