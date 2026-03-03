@@ -66,8 +66,6 @@ class StoreVitrinaController extends Controller
             'delete_cover' => ['nullable', 'boolean'],
             'delete_logo' => ['nullable', 'boolean'],
             'delete_background' => ['nullable', 'boolean'],
-            'product_ids' => ['nullable', 'array'],
-            'product_ids.*' => ['integer', 'exists:products,id'],
             'store_plan_ids' => ['nullable', 'array'],
             'store_plan_ids.*' => ['integer', 'exists:store_plans,id'],
         ]);
@@ -181,12 +179,6 @@ class StoreVitrinaController extends Controller
         $vitrinaConfig->locations = array_slice($locations, 0, 5);
 
         $vitrinaConfig->save();
-
-        $productIds = $request->input('product_ids', []);
-        $store->products()->update(['in_showcase' => false]);
-        if (! empty($productIds)) {
-            $store->products()->whereIn('id', $productIds)->update(['in_showcase' => true]);
-        }
 
         $planIds = $request->input('store_plan_ids', []);
         $store->storePlans()->update(['in_showcase' => false]);

@@ -26,6 +26,7 @@ class EditProductItemModal extends Component
     public $image = null;
     public bool $remove_image = false;
     public ?string $current_image_path = null;
+    public bool $in_showcase = false;
     /** Array asociativo: [attribute_id => value] */
     public array $attributeValues = [];
 
@@ -49,6 +50,7 @@ class EditProductItemModal extends Component
             'image' => ['nullable', 'image', 'mimes:jpeg,png,webp', 'max:5120'],
             'remove_image' => ['boolean'],
             'attributeValues.*' => ['nullable', 'string'],
+            'in_showcase' => ['boolean'],
         ];
     }
 
@@ -97,6 +99,7 @@ class EditProductItemModal extends Component
         $this->current_image_path = $item->image_path;
         $this->image = null;
         $this->remove_image = false;
+        $this->in_showcase = (bool) $item->in_showcase;
         
         // Cargar valores de atributos desde features del item
         $this->attributeValues = [];
@@ -146,6 +149,7 @@ class EditProductItemModal extends Component
             'status' => $this->status,
             'features' => ! empty($features) ? $features : null,
         ];
+        $data['in_showcase'] = $this->in_showcase;
 
         if ($this->remove_image) {
             if ($item->image_path) {

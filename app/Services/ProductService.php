@@ -410,6 +410,9 @@ class ProductService
                     if (array_key_exists('is_active', $data)) {
                         $mergeData['is_active'] = $data['is_active'];
                     }
+                    if (array_key_exists('in_showcase', $data)) {
+                        $mergeData['in_showcase'] = $data['in_showcase'];
+                    }
                     if (array_key_exists('image_path', $data)) {
                         $mergeData['image_path'] = $data['image_path'];
                     }
@@ -439,6 +442,9 @@ class ProductService
         }
         if (array_key_exists('is_active', $data)) {
             $updateData['is_active'] = $data['is_active'];
+        }
+        if (array_key_exists('in_showcase', $data)) {
+            $updateData['in_showcase'] = $data['in_showcase'];
         }
         if (array_key_exists('image_path', $data)) {
             $updateData['image_path'] = $data['image_path'];

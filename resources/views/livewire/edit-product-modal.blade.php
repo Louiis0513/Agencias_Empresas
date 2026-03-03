@@ -83,6 +83,15 @@
                     <p class="mt-1 text-xs text-gray-400">{{ __('Los productos inactivos no aparecerán en ventas, compras ni movimientos de inventario.') }}</p>
                     <x-input-error :messages="$errors->get('is_active')" class="mt-1" />
                 </div>
+                <div>
+                    <label class="flex items-center gap-2 mt-2">
+                        <input type="checkbox" wire:model="in_showcase" value="1"
+                               class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 shadow-sm focus:ring-indigo-500">
+                        <span class="text-sm font-medium text-gray-300">{{ __('Mostrar en vitrina') }}</span>
+                    </label>
+                    <p class="mt-1 text-xs text-gray-400">{{ __('Si está marcado, este producto simple podrá mostrarse en la vitrina pública.') }}</p>
+                    <x-input-error :messages="$errors->get('in_showcase')" class="mt-1" />
+                </div>
 
                 @if($category && $category->attributes->isNotEmpty())
                     <div class="rounded-lg border-2 border-gray-300 dark:border-gray-600 p-5 bg-white dark:bg-gray-800 shadow-sm">

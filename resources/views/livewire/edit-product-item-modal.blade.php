@@ -73,6 +73,21 @@
                     </p>
                 </div>
 
+                <div>
+                    <label class="flex items-center gap-2 mt-2">
+                        <input type="checkbox"
+                               wire:model="in_showcase"
+                               class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 shadow-sm focus:ring-indigo-500">
+                        <span class="text-sm font-medium text-gray-300">
+                            {{ __('Mostrar en vitrina') }}
+                        </span>
+                    </label>
+                    <p class="mt-1 text-xs text-gray-400">
+                        {{ __('Si está marcado, esta unidad serializada podrá mostrarse como producto en la vitrina pública.') }}
+                    </p>
+                    <x-input-error :messages="$errors->get('in_showcase')" class="mt-1" />
+                </div>
+
                 @if($attributes->isNotEmpty())
                     <div>
                         <x-input-label value="{{ __('Atributos') }}" />

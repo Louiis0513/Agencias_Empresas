@@ -27,6 +27,7 @@ class EditProductModal extends Component
     public string $price = '0';
     public string $location = '';
     public bool $is_active = true;
+    public bool $in_showcase = false;
 
     /** Imagen actual y nueva imagen (solo productos simples). */
     public ?string $current_image_path = null;
@@ -45,6 +46,7 @@ class EditProductModal extends Component
             'price' => ['required', 'numeric', 'min:0'],
             'location' => ['nullable', 'string', 'max:255'],
             'is_active' => ['boolean'],
+            'in_showcase' => ['boolean'],
             'image' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120'],
             'remove_image' => ['boolean'],
         ];
@@ -87,6 +89,7 @@ class EditProductModal extends Component
             $this->price = (string) $product->price;
             $this->location = $product->location ?? '';
             $this->is_active = (bool) $product->is_active;
+            $this->in_showcase = (bool) $product->in_showcase;
             $this->category_id = $product->category_id ? (string) $product->category_id : null;
             $this->current_image_path = $product->image_path;
             $this->image = null;
@@ -161,6 +164,7 @@ class EditProductModal extends Component
         if ($isSimple) {
             $data['price'] = (float) $this->price;
             $data['is_active'] = $this->is_active;
+            $data['in_showcase'] = $this->in_showcase;
             $data['category_id'] = $this->category_id;
             $data['attribute_values'] = $normalized;
 
@@ -222,6 +226,7 @@ class EditProductModal extends Component
             'price',
             'location',
             'is_active',
+            'in_showcase',
             'category_id',
             'attribute_values',
             'productId',

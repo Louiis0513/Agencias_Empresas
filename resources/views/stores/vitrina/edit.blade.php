@@ -172,21 +172,6 @@
                     @endfor
                 </div>
 
-                {{-- Productos en vitrina --}}
-                <div class="bg-dark-card border border-white/5 rounded-xl p-6">
-                    <h3 class="font-medium text-white mb-4">Productos que aparecen en la vitrina</h3>
-                    <p class="text-sm text-gray-400 mb-4">Marca los productos que quieres mostrar en el catálogo público.</p>
-                    @forelse ($products as $product)
-                        <label class="flex items-center gap-2 py-2 text-gray-300">
-                            <input type="checkbox" name="product_ids[]" value="{{ $product->id }}" {{ (is_array(old('product_ids')) && in_array($product->id, old('product_ids'))) || (!request()->old() && $product->in_showcase) ? 'checked' : '' }}>
-                            <span>{{ $product->name }}</span>
-                            <span class="text-gray-500 text-sm">${{ number_format($product->price, 0) }}</span>
-                        </label>
-                    @empty
-                        <p class="text-gray-500 text-sm">No hay productos. Crea productos en el menú Productos.</p>
-                    @endforelse
-                </div>
-
                 {{-- Planes en vitrina --}}
                 <div class="bg-dark-card border border-white/5 rounded-xl p-6">
                     <h3 class="font-medium text-white mb-4">Planes que aparecen en la vitrina</h3>

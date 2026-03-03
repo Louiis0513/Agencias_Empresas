@@ -25,6 +25,7 @@ class ProductItem extends Model
         'status',
         'image_path',
         'features',
+        'in_showcase',
     ];
 
     protected $casts = [
@@ -32,6 +33,7 @@ class ProductItem extends Model
         'price' => 'decimal:2',
         'expiration_date' => 'date',
         'features' => 'array',
+        'in_showcase' => 'boolean',
     ];
 
     public function store()

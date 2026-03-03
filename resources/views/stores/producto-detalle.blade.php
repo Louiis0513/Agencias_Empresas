@@ -548,6 +548,16 @@
                                         </label>
                                         <p class="mt-1 text-xs text-gray-400">{{ __('Las variantes inactivas no aparecerán al vender ni en compras.') }}</p>
                                     </div>
+                                    <div class="pt-3">
+                                        <label class="flex items-center gap-2">
+                                            <input type="hidden" name="in_showcase" value="0">
+                                            <input type="checkbox" name="in_showcase" value="1"
+                                                   {{ ($uv->in_showcase ?? false) ? 'checked' : '' }}
+                                                   class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 shadow-sm focus:ring-indigo-500">
+                                            <span class="text-sm font-semibold text-gray-900 dark:text-white">{{ __('Mostrar en vitrina') }}</span>
+                                        </label>
+                                        <p class="mt-1 text-xs text-gray-400">{{ __('Si está marcada, esta variante podrá mostrarse como producto en la vitrina pública.') }}</p>
+                                    </div>
                                     <div class="pt-3 border-t border-gray-200 dark:border-gray-600 space-y-2">
                                         <x-input-label value="Imagen de la variante" class="dark:text-white font-semibold" />
                                         @if(!empty($uv->image_path))

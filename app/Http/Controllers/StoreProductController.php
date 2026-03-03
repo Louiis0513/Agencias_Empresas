@@ -94,6 +94,9 @@ class StoreProductController extends Controller
             'is_active' => $request->boolean('is_active'),
         ];
 
+        // Selector de vitrina para la variante
+        $data['in_showcase'] = $request->boolean('in_showcase');
+
         $price = $request->input('price');
         if ($price !== null && $price !== '') {
             $data['price'] = (float) $price;

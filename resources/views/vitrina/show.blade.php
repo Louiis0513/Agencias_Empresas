@@ -82,14 +82,21 @@
 
                 <section id="catalogo" class="mt-12 max-w-5xl mx-auto">
                     <h2 class="text-xl font-semibold text-gray-900 mb-4">Catálogo</h2>
-                    @if ($config->show_products && $products->isNotEmpty())
+                    @if ($config->show_products && isset($catalogItems) && $catalogItems->isNotEmpty())
                         <div class="mb-8">
                             <h3 class="text-lg font-medium text-gray-800 mb-3">Productos</h3>
                             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                @foreach ($products as $product)
-                                    <div class="bg-white/90 rounded-xl shadow p-4">
-                                        <p class="font-medium text-gray-900">{{ $product->name }}</p>
-                                        <p class="text-sm text-gray-600 mt-1">${{ number_format($product->price, 0) }}</p>
+                                @foreach ($catalogItems as $item)
+                                    <div class="bg-white/90 rounded-xl shadow p-4 flex flex-col">
+                                        @if (!empty($item->image_path))
+                                            <div class="mb-3">
+                                                <img src="{{ asset('storage/'.$item->image_path) }}"
+                                                     alt="{{ $item->display_name }}"
+                                                     class="w-full h-40 object-cover rounded-lg border border-gray-100">
+                                            </div>
+                                        @endif
+                                        <p class="font-medium text-gray-900">{{ $item->display_name }}</p>
+                                        <p class="text-sm text-gray-600 mt-1">${{ number_format($item->price, 0) }}</p>
                                     </div>
                                 @endforeach
                             </div>
@@ -111,7 +118,7 @@
                             </div>
                         </div>
                     @endif
-                    @if (($config->show_products && $products->isEmpty()) && ($config->show_plans && $plans->isEmpty()))
+                    @if (($config->show_products && (!isset($catalogItems) || $catalogItems->isEmpty())) && ($config->show_plans && $plans->isEmpty()))
                         <p class="text-gray-500 text-center py-8">Próximamente productos y planes aquí.</p>
                     @endif
                 </section>

@@ -20,6 +20,7 @@ class ProductVariant extends Model
         'sku',
         'image_path',
         'is_active',
+        'in_showcase',
     ];
 
     protected $casts = [
@@ -27,6 +28,7 @@ class ProductVariant extends Model
         'cost_reference' => 'decimal:2',
         'price' => 'decimal:2',
         'is_active' => 'boolean',
+        'in_showcase' => 'boolean',
     ];
 
     public function product()
