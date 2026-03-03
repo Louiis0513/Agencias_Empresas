@@ -17,10 +17,12 @@ class StorePlan extends Model
         'duration_days',
         'daily_entries_limit',
         'total_entries_limit',
+        'in_showcase',
     ];
 
     protected $casts = [
         'price' => 'decimal:2',
+        'in_showcase' => 'boolean',
     ];
 
     public function store()

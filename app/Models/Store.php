@@ -102,4 +102,9 @@ class Store extends Model
     {
         return $this->hasMany(CustomerSubscription::class);
     }
+
+    public function vitrinaConfig()
+    {
+        return $this->hasOne(VitrinaConfig::class);
+    }
 }

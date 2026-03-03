@@ -17,6 +17,8 @@ use App\Http\Controllers\StoreAccountPayableController;
 use App\Http\Controllers\StoreAccountReceivableController;
 use App\Http\Controllers\StoreSubscriptionController;
 use App\Http\Controllers\StoreAsistenciaController;
+use App\Http\Controllers\StoreVitrinaController;
+use App\Http\Controllers\VitrinaController;
 
 Route::view('/', 'welcome');
 
@@ -28,14 +30,18 @@ Route::view('profile', 'profile')
     ->middleware(['auth'])
     ->name('profile');
 
-// Vitrina virtual demo (vista pública sin autenticación)
+// Vitrina virtual: demo estática y vitrina pública por slug
 Route::view('/vitrina/demo', 'vitrina.demo')->name('vitrina.demo');
+Route::get('/vitrina/{slug}', [VitrinaController::class, 'show'])->name('vitrina.show');
 
 
 Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:slug}')->name('stores.')->group(function () {
     
   
     Route::get('/', [StoreController::class, 'show'])->name('dashboard');
+
+    Route::get('/vitrina', [StoreVitrinaController::class, 'edit'])->name('vitrina.edit');
+    Route::put('/vitrina', [StoreVitrinaController::class, 'update'])->name('vitrina.update');
 
     Route::get('/trabajadores', [StoreWorkerController::class, 'index'])->name('workers');
     Route::get('/trabajadores/crear', [StoreWorkerController::class, 'create'])->name('workers.create');

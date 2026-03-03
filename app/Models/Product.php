@@ -21,6 +21,7 @@ class Product extends Model
         'location',
         'type',
         'is_active',
+        'in_showcase',
     ];
 
     protected $casts = [
@@ -28,6 +29,7 @@ class Product extends Model
         'cost' => 'decimal:2',
         'stock' => 'integer',
         'is_active' => 'boolean',
+        'in_showcase' => 'boolean',
     ];
 
     public function store()
