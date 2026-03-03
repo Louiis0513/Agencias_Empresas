@@ -23,6 +23,8 @@ class StoreProductRequest extends FormRequest
             'sku' => ['nullable', 'string', 'max:255'],
             'attribute_group_ids' => ['nullable', 'array'],
             'attribute_group_ids.*' => ['integer', 'exists:attribute_groups,id'],
+            'variant_image' => ['nullable', 'image', 'mimes:jpeg,png,webp', 'max:5120'],
+            'remove_variant_image' => ['nullable', 'boolean'],
         ];
     }
 }

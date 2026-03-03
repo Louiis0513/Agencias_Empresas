@@ -6,10 +6,13 @@ use App\Http\Requests\StoreProductRequest;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\Store;
+use App\Services\ConvertidorImgService;
 use App\Services\ProductService;
 use App\Services\StorePermissionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class StoreProductController extends Controller
 {
@@ -55,7 +58,7 @@ class StoreProductController extends Controller
         return view('stores.producto-detalle', compact('store', 'product'));
     }
 
-    public function updateVariant(Store $store, Product $product, StoreProductRequest $request, ProductService $productService, StorePermissionService $permission)
+    public function updateVariant(Store $store, Product $product, StoreProductRequest $request, ProductService $productService, StorePermissionService $permission, ConvertidorImgService $convertidorImg)
     {
         $permission->authorize($store, 'products.edit');
 
@@ -69,7 +72,7 @@ class StoreProductController extends Controller
                 ->with('error', 'No se especificó la variante a actualizar.');
         }
 
-        $product->load('category.attributes');
+        $product->load('category.attributes', 'variants');
         $category = $product->category;
         if (! $category || $category->attributes->isEmpty()) {
             return redirect()->route('stores.products.show', [$store, $product])
@@ -107,6 +110,44 @@ class StoreProductController extends Controller
 
         if ($request->has('sku')) {
             $data['sku'] = $request->input('sku') ?: null;
+        }
+
+        $variant = $product->variants->firstWhere('id', $productVariantId);
+        if (! $variant) {
+            return redirect()->route('stores.products.show', [$store, $product])
+                ->with('error', 'No se encontró la variante a actualizar.');
+        }
+
+        if ($request->boolean('remove_variant_image')) {
+            if ($variant->image_path) {
+                Storage::disk('public')->delete($variant->image_path);
+            }
+            $data['image_path'] = null;
+        }
+
+        if ($request->hasFile('variant_image')) {
+            if ($variant->image_path) {
+                Storage::disk('public')->delete($variant->image_path);
+            }
+
+            $relativeDir = "products/{$store->id}/{$product->id}/variants/{$productVariantId}";
+            $uploadedFile = $request->file('variant_image');
+            $originalRelativePath = $uploadedFile->store($relativeDir, 'public');
+
+            try {
+                $webpPath = $convertidorImg->convertPublicImageToWebp($originalRelativePath);
+                $data['image_path'] = $webpPath;
+            } catch (\Throwable $e) {
+                Log::error('Error al convertir imagen de variante a WebP', [
+                    'store_id' => $store->id,
+                    'product_id' => $product->id,
+                    'variant_id' => $productVariantId,
+                    'exception' => $e,
+                ]);
+
+                return redirect()->route('stores.products.show', [$store, $product])
+                    ->with('error', 'La imagen se subió pero ocurrió un error al convertirla a WebP. Inténtalo de nuevo más tarde.');
+            }
         }
 
         try {

@@ -5,11 +5,17 @@ namespace App\Livewire;
 use App\Models\Product;
 use App\Models\ProductItem;
 use App\Models\Store;
+use App\Services\ConvertidorImgService;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 class EditProductItemModal extends Component
 {
+    use WithFileUploads;
+
     public int $storeId;
     public int $productId;
 
@@ -17,6 +23,9 @@ class EditProductItemModal extends Component
     public string $serial_number = '';
     public string $price = '';
     public string $status = 'AVAILABLE';
+    public $image = null;
+    public bool $remove_image = false;
+    public ?string $current_image_path = null;
     /** Array asociativo: [attribute_id => value] */
     public array $attributeValues = [];
 
@@ -37,6 +46,8 @@ class EditProductItemModal extends Component
             ],
             'price' => ['nullable', 'numeric', 'min:0'],
             'status' => ['required', 'string', 'in:AVAILABLE,SOLD,RESERVED,DEFECTIVE'],
+            'image' => ['nullable', 'image', 'mimes:jpeg,png,webp', 'max:5120'],
+            'remove_image' => ['boolean'],
             'attributeValues.*' => ['nullable', 'string'],
         ];
     }
@@ -83,6 +94,9 @@ class EditProductItemModal extends Component
         $this->serial_number = $item->serial_number;
         $this->price = $item->price !== null ? (string) $item->price : '';
         $this->status = $item->status ?? ProductItem::STATUS_AVAILABLE;
+        $this->current_image_path = $item->image_path;
+        $this->image = null;
+        $this->remove_image = false;
         
         // Cargar valores de atributos desde features del item
         $this->attributeValues = [];
@@ -126,12 +140,49 @@ class EditProductItemModal extends Component
             }
         }
 
-        $item->update([
+        $data = [
             'serial_number' => trim($this->serial_number),
             'price' => $this->price !== '' ? (float) $this->price : null,
             'status' => $this->status,
-            'features' => !empty($features) ? $features : null,
-        ]);
+            'features' => ! empty($features) ? $features : null,
+        ];
+
+        if ($this->remove_image) {
+            if ($item->image_path) {
+                Storage::disk('public')->delete($item->image_path);
+            }
+            $data['image_path'] = null;
+        }
+
+        if ($this->image) {
+            if ($item->image_path && ! $this->remove_image) {
+                Storage::disk('public')->delete($item->image_path);
+            }
+
+            $relativeDir = "products/{$store->id}/{$this->productId}/items/{$item->id}";
+            $uploadedFile = $this->image;
+            $originalRelativePath = $uploadedFile->store($relativeDir, 'public');
+
+            try {
+                /** @var ConvertidorImgService $convertidorImg */
+                $convertidorImg = app(ConvertidorImgService::class);
+                $webpPath = $convertidorImg->convertPublicImageToWebp($originalRelativePath);
+                $data['image_path'] = $webpPath;
+            } catch (\Throwable $e) {
+                Log::error('Error al convertir imagen de unidad serializada a WebP', [
+                    'store_id' => $store->id,
+                    'product_id' => $this->productId,
+                    'product_item_id' => $item->id,
+                    'exception' => $e,
+                ]);
+
+                Storage::disk('public')->delete($originalRelativePath);
+
+                session()->flash('error', 'La imagen se subió pero ocurrió un error al convertirla a WebP. Inténtalo de nuevo más tarde.');
+            }
+        }
+
+        $item->update($data);
 
         $this->dispatch('close-modal', 'edit-product-item');
         $this->redirect(request()->header('Referer') ?: route('stores.products.show', [$store, $this->productId]), navigate: true);

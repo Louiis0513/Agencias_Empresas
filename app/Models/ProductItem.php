@@ -23,6 +23,7 @@ class ProductItem extends Model
         'cost',
         'price',
         'status',
+        'image_path',
         'features',
     ];
 

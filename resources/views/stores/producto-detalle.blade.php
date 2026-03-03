@@ -71,6 +71,22 @@
                     </div>
                     @endif
                     @if(!$product->isBatch() && !$product->isSerialized())
+                    <div class="lg:col-span-2">
+                        <dt class="text-xs font-medium text-gray-400">Imagen</dt>
+                        <dd class="mt-0.5 text-sm text-gray-100">
+                            @if(!empty($product->image_path))
+                                <a href="{{ asset('storage/'.$product->image_path) }}"
+                                   target="_blank"
+                                   class="text-indigo-500 hover:text-indigo-400 underline">
+                                    Ver imagen
+                                </a>
+                            @else
+                                <span class="text-gray-400 dark:text-gray-500">
+                                    No hay imagen cargada para este producto.
+                                </span>
+                            @endif
+                        </dd>
+                    </div>
                     <div>
                         <dt class="text-xs font-medium text-gray-400">Precio</dt>
                         <dd class="mt-0.5 text-sm text-gray-100">{{ number_format($product->price, 2) }} €</dd>
@@ -138,6 +154,7 @@
                             'price' => $variant->price,
                             'barcode' => $variant->barcode,
                             'sku' => $variant->sku,
+                            'image_path' => $variant->image_path,
                             'is_active' => $variant->is_active,
                             'movimientos' => $movimientos,
                         ];
@@ -251,6 +268,20 @@
                                 <div>
                                     <dt class="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Ubicación</dt>
                                     <dd class="mt-1 text-base font-medium text-gray-100">{{ $product->location ?? '—' }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Imagen</dt>
+                                    <dd class="mt-1 text-base font-medium text-gray-100">
+                                        @if(!empty($vp->image_path))
+                                            <a href="{{ asset('storage/'.$vp->image_path) }}"
+                                               target="_blank"
+                                               class="text-indigo-500 hover:text-indigo-400 underline">
+                                                Ver imagen
+                                            </a>
+                                        @else
+                                            <span class="text-gray-600 dark:text-gray-400">No hay imagen cargada para esta variante.</span>
+                                        @endif
+                                    </dd>
                                 </div>
                             </dl>
                             {{-- Movimientos de inventario de esta variante (ingresos por lote: coste, fecha caducidad) --}}
@@ -434,6 +465,20 @@
                                                 @endif
                                             </dd>
                                         </div>
+                                        <div class="py-2 border-t border-gray-100 dark:border-gray-700 mt-2 pt-3">
+                                            <dt class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">Imagen</dt>
+                                            <dd class="mt-1 text-base font-medium text-gray-100">
+                                                @if(!empty($item->image_path))
+                                                    <a href="{{ asset('storage/'.$item->image_path) }}"
+                                                       target="_blank"
+                                                       class="text-indigo-500 hover:text-indigo-400 underline">
+                                                        Ver imagen
+                                                    </a>
+                                                @else
+                                                    <span class="text-gray-600 dark:text-gray-400">No hay imagen cargada para esta unidad.</span>
+                                                @endif
+                                            </dd>
+                                        </div>
                                     </dl>
                                     <div class="mt-6 pt-4 flex justify-end gap-3 border-t border-gray-200 dark:border-gray-600">
                                         <x-secondary-button type="button" onclick="window.dispatchEvent(new CustomEvent('close-modal', { detail: 'ver-item-{{ $item->id }}', bubbles: true }))">
@@ -461,7 +506,7 @@
                             <div class="p-6 bg-white dark:bg-gray-800">
                                 <h2 class="text-xl font-semibold text-gray-100 mb-2 pb-2 border-b border-gray-200 dark:border-gray-600">Modificar variante</h2>
                                 <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">Edita los datos de esta variante.</p>
-                                <form method="POST" action="{{ route('stores.productos.variant.update', [$store, $product]) }}" class="space-y-4" id="form-modificar-variante-{{ $loop->index }}">
+                                <form method="POST" action="{{ route('stores.productos.variant.update', [$store, $product]) }}" enctype="multipart/form-data" class="space-y-4" id="form-modificar-variante-{{ $loop->index }}">
                                     @csrf
                                     @method('PUT')
                                     <input type="hidden" name="product_variant_id" value="{{ $uv->id }}" />
@@ -502,6 +547,36 @@
                                             <span class="text-sm font-semibold text-gray-900 dark:text-white">{{ __('Activo') }}</span>
                                         </label>
                                         <p class="mt-1 text-xs text-gray-400">{{ __('Las variantes inactivas no aparecerán al vender ni en compras.') }}</p>
+                                    </div>
+                                    <div class="pt-3 border-t border-gray-200 dark:border-gray-600 space-y-2">
+                                        <x-input-label value="Imagen de la variante" class="dark:text-white font-semibold" />
+                                        @if(!empty($uv->image_path))
+                                            <p class="text-xs text-gray-400">
+                                                Imagen actual:
+                                                <a href="{{ asset('storage/'.$uv->image_path) }}" target="_blank" class="text-indigo-500 hover:text-indigo-400 underline">
+                                                    Ver imagen
+                                                </a>
+                                            </p>
+                                        @else
+                                            <p class="text-xs text-gray-400">
+                                                No hay imagen cargada para esta variante.
+                                            </p>
+                                        @endif
+                                        <input type="file"
+                                               name="variant_image"
+                                               accept="image/jpeg,image/png,image/webp"
+                                               class="mt-1 block w-full text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-gray-700 dark:file:text-gray-200" />
+                                        @if(!empty($uv->image_path))
+                                            <label class="flex items-center gap-2 mt-1">
+                                                <input type="checkbox"
+                                                       name="remove_variant_image"
+                                                       value="1"
+                                                       class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 shadow-sm focus:ring-indigo-500">
+                                                <span class="text-xs text-gray-600 dark:text-gray-300">
+                                                    Eliminar imagen actual
+                                                </span>
+                                            </label>
+                                        @endif
                                     </div>
                                     <div class="mt-6 flex flex-wrap gap-3 justify-end pt-4">
                                         <button type="button"

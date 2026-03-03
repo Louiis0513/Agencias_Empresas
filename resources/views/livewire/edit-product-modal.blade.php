@@ -20,6 +20,46 @@
                 </div>
 
                 @if($productType === 'simple')
+                <div class="pt-2 border-t border-gray-200 dark:border-gray-600 space-y-2">
+                    <x-input-label value="{{ __('Imagen del producto') }}" />
+                    @if(!empty($current_image_path))
+                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                            {{ __('Imagen actual:') }}
+                            <a href="{{ asset('storage/'.$current_image_path) }}" target="_blank" class="text-indigo-500 hover:text-indigo-400 underline">
+                                {{ __('Ver imagen') }}
+                            </a>
+                        </p>
+                    @else
+                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                            {{ __('No hay imagen cargada para este producto.') }}
+                        </p>
+                    @endif
+                    <div class="space-y-2 mt-2">
+                        <input type="file"
+                               wire:model="image"
+                               accept="image/jpeg,image/png,image/webp"
+                               class="block w-full text-sm text-gray-900 dark:text-gray-100 file:mr-4 file:py-2 file:px-4
+                                      file:rounded-md file:border-0
+                                      file:text-sm file:font-semibold
+                                      file:bg-indigo-50 file:text-indigo-700
+                                      hover:file:bg-indigo-100
+                                      dark:file:bg-gray-700 dark:file:text-gray-100 dark:hover:file:bg-gray-600" />
+                        <x-input-error :messages="$errors->get('image')" class="mt-1" />
+                    </div>
+                    @if(!empty($current_image_path))
+                        <label class="inline-flex items-center mt-2 gap-2">
+                            <input type="checkbox"
+                                   wire:model="remove_image"
+                                   class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 shadow-sm focus:ring-indigo-500">
+                            <span class="text-xs text-gray-600 dark:text-gray-300">
+                                {{ __('Eliminar imagen actual') }}
+                            </span>
+                        </label>
+                    @endif
+                    <p class="mt-1 text-xs text-gray-400">
+                        {{ __('Formatos permitidos: JPEG, PNG, WebP. Tamaño máximo 5 MB.') }}
+                    </p>
+                </div>
                 <div>
                     <x-input-label for="edit_price" value="{{ __('Precio (€)') }}" />
                     <x-text-input wire:model="price" id="edit_price" class="block mt-1 w-full" type="number" step="0.01" min="0" placeholder="0.00" />

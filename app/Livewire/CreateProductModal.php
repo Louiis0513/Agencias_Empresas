@@ -5,14 +5,18 @@ namespace App\Livewire;
 use App\Models\Category;
 use App\Models\MovimientoInventario;
 use App\Models\Store;
+use App\Services\ConvertidorImgService;
 use App\Services\ProductService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\On;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 class CreateProductModal extends Component
 {
+    use WithFileUploads;
+
     public int $storeId;
 
     public bool $fromPurchase = false;
@@ -42,6 +46,9 @@ class CreateProductModal extends Component
 
     /** Unidades serializadas para productos tipo Serializado: [['serial_number' => '', 'attribute_values' => [...], 'price' => '', 'cost' => ''], ...] */
     public array $serializedItems = [];
+
+    /** Imagen del producto simple (opcional). */
+    public $image = null;
 
     #[On('open-create-product-from-compra')]
     public function setCompraRowId(string $rowId = ''): void
@@ -97,6 +104,7 @@ class CreateProductModal extends Component
             $rules['price'] = ['nullable', 'numeric', 'min:0'];
             $rules['cost'] = ['nullable', 'numeric', 'min:0'];
             $rules['stock'] = ['nullable', 'integer', 'min:0'];
+            $rules['image'] = ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120'];
         }
 
         if ($this->type === MovimientoInventario::PRODUCT_TYPE_BATCH) {
@@ -304,7 +312,7 @@ class CreateProductModal extends Component
         }
     }
 
-    public function save(ProductService $service)
+    public function save(ProductService $service, ConvertidorImgService $convertidorImgService)
     {
         // Serializado sin stock inicial: asegurar que no enviamos datos residuales y que el servicio recibe un array
         if ($this->type === MovimientoInventario::PRODUCT_TYPE_SERIALIZED && ! $this->has_initial_stock) {
@@ -378,6 +386,28 @@ class CreateProductModal extends Component
 
             $userId = Auth::id();
             $product = $service->createProduct($store, $productData, $userId);
+
+            // Imagen solo para producto simple (no batch ni serializado)
+            if ($this->type === 'simple' && $this->image) {
+                $basePath = 'products/' . $store->id . '/' . $product->id;
+                $path = $this->image->store($basePath, 'public');
+
+                try {
+                    $path = $convertidorImgService->convertPublicImageToWebp($path);
+                    $product->image_path = $path;
+                    $product->save();
+                } catch (\Throwable $e) {
+                    // No cancelar la creación del producto; solo registrar el error
+                    \Illuminate\Support\Facades\Log::error('Error al convertir imagen de producto simple a WebP', [
+                        'store_id' => $store->id,
+                        'product_id' => $product->id,
+                        'path' => $path ?? null,
+                        'exception' => $e->getMessage(),
+                    ]);
+
+                    session()->flash('error', 'El producto se creó, pero hubo un problema al procesar la imagen. Intenta nuevamente más tarde.');
+                }
+            }
         } catch (\Exception $e) {
             $field = $this->type === MovimientoInventario::PRODUCT_TYPE_BATCH ? 'variants' : 'category_id';
             $this->addError($field, $e->getMessage());
@@ -391,6 +421,7 @@ class CreateProductModal extends Component
             'name', 'barcode', 'sku', 'category_id', 'location',
             'type', 'is_active', 'attribute_values', 'compraRowId',
             'price', 'cost', 'stock', 'variants', 'serializedItems', 'has_initial_stock',
+            'image',
         ]);
         $this->price = '0';
         $this->cost = '0';

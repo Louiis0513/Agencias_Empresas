@@ -83,6 +83,23 @@
                     @endif
 
                     <div>
+                        <x-input-label for="image" value="{{ __('Imagen del producto (opcional)') }}" />
+                        <input wire:model="image"
+                               id="image"
+                               type="file"
+                               accept="image/jpeg,image/png,image/webp"
+                               class="mt-1 block w-full text-sm text-gray-200 file:mr-4 file:py-2 file:px-4
+                                      file:rounded-md file:border-0
+                                      file:text-sm file:font-semibold
+                                      file:bg-brand file:text-white
+                                      hover:file:bg-brand/90">
+                        <p class="mt-1 text-xs text-gray-400">
+                            {{ __('Formatos permitidos: JPEG, PNG, WebP. Tamaño máximo 5MB.') }}
+                        </p>
+                        <x-input-error :messages="$errors->get('image')" class="mt-1" />
+                    </div>
+
+                    <div>
                         <x-input-label for="location" value="{{ __('Ubicación') }}" />
                         <x-text-input wire:model="location" id="location" class="block mt-1 w-full" type="text" placeholder="Ej: Estantería A2" />
                         <x-input-error :messages="$errors->get('location')" class="mt-1" />

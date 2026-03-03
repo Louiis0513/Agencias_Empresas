@@ -5,12 +5,18 @@ namespace App\Livewire;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\Store;
+use App\Services\ConvertidorImgService;
 use App\Services\ProductService;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 class EditProductModal extends Component
 {
+    use WithFileUploads;
+
     public int $storeId;
     public ?int $productId = null;
 
@@ -21,6 +27,11 @@ class EditProductModal extends Component
     public string $price = '0';
     public string $location = '';
     public bool $is_active = true;
+
+    /** Imagen actual y nueva imagen (solo productos simples). */
+    public ?string $current_image_path = null;
+    public $image = null;
+    public bool $remove_image = false;
 
     /** Solo para reenviar al guardar y no perder categoría/atributos. No se muestran en el formulario. */
     public ?string $category_id = null;
@@ -34,6 +45,8 @@ class EditProductModal extends Component
             'price' => ['required', 'numeric', 'min:0'],
             'location' => ['nullable', 'string', 'max:255'],
             'is_active' => ['boolean'],
+            'image' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120'],
+            'remove_image' => ['boolean'],
         ];
     }
 
@@ -75,6 +88,9 @@ class EditProductModal extends Component
             $this->location = $product->location ?? '';
             $this->is_active = (bool) $product->is_active;
             $this->category_id = $product->category_id ? (string) $product->category_id : null;
+            $this->current_image_path = $product->image_path;
+            $this->image = null;
+            $this->remove_image = false;
 
             // Mantener attribute_values para reenviarlos al guardar (solo se usan en productos simple)
             $this->attribute_values = [];
@@ -93,7 +109,7 @@ class EditProductModal extends Component
         }
     }
 
-    public function update(ProductService $service)
+    public function update(ProductService $service, ConvertidorImgService $convertidorImgService)
     {
         $isSimple = $this->productType === 'simple';
 
@@ -112,6 +128,14 @@ class EditProductModal extends Component
         }
 
         if (! $this->productId) {
+            return;
+        }
+
+        $product = Product::where('id', $this->productId)
+            ->where('store_id', $store->id)
+            ->with('attributeValues')
+            ->first();
+        if (! $product) {
             return;
         }
 
@@ -139,17 +163,51 @@ class EditProductModal extends Component
             $data['is_active'] = $this->is_active;
             $data['category_id'] = $this->category_id;
             $data['attribute_values'] = $normalized;
+
+            // Gestión de imagen solo para productos simples
+            try {
+                if ($this->image) {
+                    if ($product->image_path) {
+                        Storage::disk('public')->delete($product->image_path);
+                    }
+
+                    $basePath = 'products/' . $store->id . '/' . $product->id;
+                    $originalPath = $this->image->store($basePath, 'public');
+
+                    try {
+                        $webpPath = $convertidorImgService->convertPublicImageToWebp($originalPath);
+                        $data['image_path'] = $webpPath;
+                    } catch (\Throwable $e) {
+                        Log::error('Error al convertir imagen de producto simple a WebP en edición', [
+                            'store_id' => $store->id,
+                            'product_id' => $product->id,
+                            'path' => $originalPath ?? null,
+                            'exception' => $e,
+                        ]);
+
+                        Storage::disk('public')->delete($originalPath);
+
+                        session()->flash('error', 'El producto se actualizó, pero hubo un problema al procesar la nueva imagen. Intenta nuevamente más tarde.');
+                    }
+                } elseif ($this->remove_image && $product->image_path) {
+                    Storage::disk('public')->delete($product->image_path);
+                    $data['image_path'] = null;
+                }
+            } catch (\Throwable $e) {
+                Log::error('Error inesperado al actualizar imagen de producto simple', [
+                    'store_id' => $store->id,
+                    'product_id' => $product->id,
+                    'exception' => $e,
+                ]);
+            }
         } else {
             // Para batch/serialized: preservar attribute_values actuales (no modificar)
-            $product = Product::where('id', $this->productId)->where('store_id', $store->id)->with('attributeValues')->first();
-            if ($product) {
-                $data['category_id'] = $product->category_id;
-                $existingAttrs = [];
-                foreach ($product->attributeValues as $av) {
-                    $existingAttrs[$av->attribute_id] = $av->value;
-                }
-                $data['attribute_values'] = $existingAttrs;
+            $data['category_id'] = $product->category_id;
+            $existingAttrs = [];
+            foreach ($product->attributeValues as $av) {
+                $existingAttrs[$av->attribute_id] = $av->value;
             }
+            $data['attribute_values'] = $existingAttrs;
         }
 
         try {
@@ -159,7 +217,19 @@ class EditProductModal extends Component
             return;
         }
 
-        $this->reset(['name', 'price', 'location', 'is_active', 'category_id', 'attribute_values', 'productId', 'productType']);
+        $this->reset([
+            'name',
+            'price',
+            'location',
+            'is_active',
+            'category_id',
+            'attribute_values',
+            'productId',
+            'productType',
+            'current_image_path',
+            'image',
+            'remove_image',
+        ]);
         $this->resetValidation();
 
         return redirect()->route('stores.products', $store)

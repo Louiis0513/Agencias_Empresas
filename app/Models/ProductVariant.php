@@ -18,6 +18,7 @@ class ProductVariant extends Model
         'price',
         'barcode',
         'sku',
+        'image_path',
         'is_active',
     ];
 
