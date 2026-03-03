@@ -28,6 +28,9 @@ Route::view('profile', 'profile')
     ->middleware(['auth'])
     ->name('profile');
 
+// Vitrina virtual demo (vista pública sin autenticación)
+Route::view('/vitrina/demo', 'vitrina.demo')->name('vitrina.demo');
+
 
 Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:slug}')->name('stores.')->group(function () {
     
