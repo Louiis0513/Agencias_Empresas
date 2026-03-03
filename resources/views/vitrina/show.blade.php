@@ -82,11 +82,54 @@
 
                 <section id="catalogo" class="mt-12 max-w-5xl mx-auto">
                     <h2 class="text-xl font-semibold text-gray-900 mb-4">Catálogo</h2>
-                    @if ($config->show_products && isset($catalogItems) && $catalogItems->isNotEmpty())
+                    @if ($config->show_products)
+                        <form method="GET" action="{{ url()->current() }}" class="mb-6 bg-white/90 rounded-xl shadow p-4 grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+                            <div class="md:col-span-2">
+                                <label class="block text-xs font-medium text-gray-700 mb-1">Categoría</label>
+                                <select name="category_id" class="w-full rounded-lg border-gray-200 text-gray-900 px-3 py-2">
+                                    <option value="">Todas las categorías</option>
+                                    @foreach ($categories as $category)
+                                        <option value="{{ $category->id }}" @selected((int) request('category_id', $selectedCategoryId) === $category->id)>
+                                            {{ $category->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700 mb-1">Ordenar por precio</label>
+                                @php
+                                    $currentOrder = request('order', $order ?? 'price_asc');
+                                @endphp
+                                <select name="order" class="w-full rounded-lg border-gray-200 text-gray-900 px-3 py-2">
+                                    <option value="price_asc" @selected($currentOrder === 'price_asc')>Menor a mayor</option>
+                                    <option value="price_desc" @selected($currentOrder === 'price_desc')>Mayor a menor</option>
+                                </select>
+                            </div>
+                            <div class="md:col-span-4 flex flex-wrap items-end justify-between gap-3">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">Productos por página</label>
+                                    <select name="page_size" class="rounded-lg border-gray-200 text-gray-900 px-3 py-2">
+                                        @foreach ($pageSizeOptions as $size)
+                                            <option value="{{ $size }}" @selected((int) request('page_size', $pageSize) === $size)>{{ $size }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <a href="{{ url()->current() }}" class="text-xs text-gray-500 hover:text-gray-700 underline">
+                                        Limpiar filtros
+                                    </a>
+                                    <button type="submit" class="inline-flex items-center px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs font-semibold shadow hover:bg-emerald-700 transition">
+                                        Aplicar filtros
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    @endif
+                    @if ($config->show_products && isset($catalogPaginator) && $catalogPaginator && $catalogPaginator->count())
                         <div class="mb-8">
                             <h3 class="text-lg font-medium text-gray-800 mb-3">Productos</h3>
                             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                @foreach ($catalogItems as $item)
+                                @foreach ($catalogPaginator as $item)
                                     <div class="bg-white/90 rounded-xl shadow p-4 flex flex-col">
                                         @if (!empty($item->image_path))
                                             <div class="mb-3">
@@ -99,6 +142,9 @@
                                         <p class="text-sm text-gray-600 mt-1">${{ number_format($item->price, 0) }}</p>
                                     </div>
                                 @endforeach
+                            </div>
+                            <div class="mt-6">
+                                {{ $catalogPaginator->appends(request()->except('page'))->links() }}
                             </div>
                         </div>
                     @endif
@@ -118,7 +164,10 @@
                             </div>
                         </div>
                     @endif
-                    @if (($config->show_products && (!isset($catalogItems) || $catalogItems->isEmpty())) && ($config->show_plans && $plans->isEmpty()))
+                    @if (
+                        ($config->show_products && (!isset($catalogPaginator) || !$catalogPaginator || $catalogPaginator->isEmpty())) &&
+                        ($config->show_plans && $plans->isEmpty())
+                    )
                         <p class="text-gray-500 text-center py-8">Próximamente productos y planes aquí.</p>
                     @endif
                 </section>

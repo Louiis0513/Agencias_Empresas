@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ProductItem;
 use App\Models\ProductVariant;
 use App\Models\VitrinaConfig;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 
@@ -13,28 +14,49 @@ class VitrinaController extends Controller
     /**
      * Vitrina pública por slug (sin autenticación).
      */
-    public function show(string $slug)
+	public function show(Request $request, string $slug)
     {
         $config = VitrinaConfig::where('slug', $slug)->with('store')->firstOrFail();
         $store = $config->store;
 
-        $catalogItems = collect();
+		$catalogItems = collect();
+		$catalogPaginator = null;
+		$categories = collect();
+
+		$allowedPageSizes = [10, 20, 50];
+		$defaultPageSize = $config->default_page_size && in_array($config->default_page_size, $allowedPageSizes, true)
+			? (int) $config->default_page_size
+			: 10;
+
+		$pageSize = (int) $request->input('page_size', $defaultPageSize);
+		if (! in_array($pageSize, $allowedPageSizes, true)) {
+			$pageSize = $defaultPageSize;
+		}
+
+		$categoryId = $request->filled('category_id') ? (int) $request->input('category_id') : null;
+		$order = $request->input('order', 'price_asc');
 
         if ($config->show_products) {
-            $products = $store->products()
-                ->where('is_active', true)
-                ->with([
-                    'attributeValues.attribute',
-                    'category.attributes',
-                    'variants' => function ($q) {
-                        $q->where('in_showcase', true)->where('is_active', true);
-                    },
-                    'productItems' => function ($q) {
-                        $q->where('in_showcase', true)->where('status', ProductItem::STATUS_AVAILABLE);
-                    },
-                ])
-                ->orderBy('name')
-                ->get();
+			$productsQuery = $store->products()
+				->where('is_active', true)
+				->with([
+					'attributeValues.attribute',
+					'category.attributes',
+					'variants' => function ($q) {
+						$q->where('in_showcase', true)->where('is_active', true);
+					},
+					'productItems' => function ($q) {
+						$q->where('in_showcase', true)->where('status', ProductItem::STATUS_AVAILABLE);
+					},
+				]);
+
+			if ($categoryId !== null) {
+				$productsQuery->where('category_id', $categoryId);
+			}
+
+			$products = $productsQuery
+				->orderBy('name')
+				->get();
 
             foreach ($products as $product) {
                 // Producto simple (sin variantes): usa flag in_showcase del propio producto
@@ -55,6 +77,8 @@ class VitrinaController extends Controller
                         'display_name' => $displayName,
                         'price' => (float) ($product->price ?? 0),
                         'image_path' => $product->image_path,
+						'category_id' => $product->category_id,
+						'category_name' => $product->category ? $product->category->name : null,
                     ]);
                 }
 
@@ -71,6 +95,8 @@ class VitrinaController extends Controller
                             'display_name' => $displayName,
                             'price' => $variant->selling_price,
                             'image_path' => $variant->image_path ?: $product->image_path,
+							'category_id' => $product->category_id,
+							'category_name' => $product->category ? $product->category->name : null,
                         ]);
                     }
                 }
@@ -99,13 +125,42 @@ class VitrinaController extends Controller
                             'display_name' => $displayName,
                             'price' => (float) ($item->price ?? $product->price ?? 0),
                             'image_path' => $item->image_path ?: $product->image_path,
+							'category_id' => $product->category_id,
+							'category_name' => $product->category ? $product->category->name : null,
                         ]);
                     }
                 }
             }
 
-            // Ordenar por nombre para una presentación consistente
-            $catalogItems = $catalogItems->sortBy('display_name')->values();
+			$categories = $products
+				->map(function ($product) {
+					return $product->category;
+				})
+				->filter()
+				->unique('id')
+				->values();
+
+			if ($order === 'price_desc') {
+				$catalogItems = $catalogItems->sortByDesc('price')->values();
+			} else {
+				$catalogItems = $catalogItems->sortBy('price')->values();
+			}
+
+			$total = $catalogItems->count();
+			$currentPage = LengthAwarePaginator::resolveCurrentPage();
+
+			$itemsForCurrentPage = $catalogItems->forPage($currentPage, $pageSize)->values();
+
+			$catalogPaginator = new LengthAwarePaginator(
+				$itemsForCurrentPage,
+				$total,
+				$pageSize,
+				$currentPage,
+				[
+					'path' => url()->current(),
+					'query' => $request->query(),
+				]
+			);
         }
 
         $plans = $config->show_plans
@@ -116,6 +171,12 @@ class VitrinaController extends Controller
             'config' => $config,
             'store' => $store,
             'catalogItems' => $catalogItems,
+			'catalogPaginator' => $catalogPaginator,
+			'categories' => $categories,
+			'selectedCategoryId' => $categoryId,
+			'order' => $order,
+			'pageSize' => $pageSize,
+			'pageSizeOptions' => $allowedPageSizes,
             'plans' => $plans,
         ]);
     }

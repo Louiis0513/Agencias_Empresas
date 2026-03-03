@@ -25,6 +25,7 @@ class StoreVitrinaController extends Controller
             [
                 'show_products' => true,
                 'show_plans' => true,
+				'default_page_size' => 10,
                 'whatsapp_contacts' => [],
                 'phone_contacts' => [],
                 'locations' => [],
@@ -48,6 +49,7 @@ class StoreVitrinaController extends Controller
             [
                 'show_products' => true,
                 'show_plans' => true,
+				'default_page_size' => 10,
                 'whatsapp_contacts' => [],
                 'phone_contacts' => [],
                 'locations' => [],
@@ -60,6 +62,7 @@ class StoreVitrinaController extends Controller
             'schedule' => ['nullable', 'string', 'max:500'],
             'show_products' => ['boolean'],
             'show_plans' => ['boolean'],
+			'default_page_size' => ['nullable', 'integer', 'in:10,20,50'],
             'cover_image' => ['nullable', 'image', 'max:5120'],
             'logo_image' => ['nullable', 'image', 'max:5120'],
             'background_image' => ['nullable', 'image', 'max:5120'],
@@ -78,8 +81,9 @@ class StoreVitrinaController extends Controller
         $vitrinaConfig->slug = $slug;
         $vitrinaConfig->description = $request->filled('description') ? $request->input('description') : null;
         $vitrinaConfig->schedule = $request->filled('schedule') ? $request->input('schedule') : null;
-        $vitrinaConfig->show_products = $request->boolean('show_products');
-        $vitrinaConfig->show_plans = $request->boolean('show_plans');
+		$vitrinaConfig->show_products = $request->boolean('show_products');
+		$vitrinaConfig->show_plans = $request->boolean('show_plans');
+		$vitrinaConfig->default_page_size = $request->input('default_page_size') ?: null;
 
         $basePath = 'vitrina/' . $store->id;
 

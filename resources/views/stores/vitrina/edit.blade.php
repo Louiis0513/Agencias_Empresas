@@ -85,6 +85,19 @@
                         <input type="checkbox" name="show_plans" value="1" {{ old('show_plans', $vitrinaConfig->show_plans) ? 'checked' : '' }}>
                         Mostrar planes / suscripciones
                     </label>
+                    <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div>
+                            <label class="block text-gray-400 mb-1">Productos por página (por defecto)</label>
+                            <select name="default_page_size" class="w-full rounded-lg border-white/10 bg-white/5 text-white px-4 py-2">
+                                <option value="">Usar valor por defecto (10)</option>
+                                @foreach ([10, 20, 50] as $size)
+                                    <option value="{{ $size }}" {{ (int) old('default_page_size', $vitrinaConfig->default_page_size) === $size ? 'selected' : '' }}>
+                                        {{ $size }} por página
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
                 </div>
 
                 {{-- Imágenes --}}
