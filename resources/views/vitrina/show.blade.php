@@ -85,16 +85,46 @@
                     @if ($config->show_products)
                         <form method="GET" action="{{ url()->current() }}" class="mb-6 bg-white/90 rounded-xl shadow p-4 grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
                             <div class="md:col-span-2">
-                                <label class="block text-xs font-medium text-gray-700 mb-1">Categoría</label>
-                                <select name="category_id" class="w-full rounded-lg border-gray-200 text-gray-900 px-3 py-2">
+                                <label class="block text-xs font-medium text-gray-700 mb-1">Categoría principal</label>
+                                <select name="root_category_id" class="w-full rounded-lg border-gray-200 text-gray-900 px-3 py-2">
                                     <option value="">Todas las categorías</option>
-                                    @foreach ($categories as $category)
-                                        <option value="{{ $category->id }}" @selected((int) request('category_id', $selectedCategoryId) === $category->id)>
+                                    @foreach ($rootCategories as $category)
+                                        <option value="{{ $category->id }}" @selected((int) request('root_category_id', $rootCategoryId) === $category->id)>
                                             {{ $category->name }}
                                         </option>
                                     @endforeach
                                 </select>
                             </div>
+                            @if(isset($breadcrumb) && $breadcrumb->isNotEmpty())
+                                <div class="md:col-span-2 flex items-end">
+                                    <p class="text-xs text-gray-600">
+                                        Ruta:
+                                        @foreach ($breadcrumb as $crumb)
+                                            @if (!$loop->first)
+                                                /
+                                            @endif
+                                            <span class="font-medium">{{ $crumb->name }}</span>
+                                        @endforeach
+                                    </p>
+                                </div>
+                            @endif
+                            @if(isset($childCategories) && $childCategories->isNotEmpty())
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">
+                                        Subcategorías de {{ optional($breadcrumb->last())->name ?? 'categoría seleccionada' }}
+                                    </label>
+                                    <select name="category_id" class="w-full rounded-lg border-gray-200 text-gray-900 px-3 py-2">
+                                        <option value="">
+                                            Todas dentro de {{ optional($breadcrumb->last())->name ?? 'esta categoría' }}
+                                        </option>
+                                        @foreach ($childCategories as $child)
+                                            <option value="{{ $child->id }}" @selected((int) request('category_id', $currentCategoryId) === $child->id)>
+                                                {{ $child->name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            @endif
                             <div>
                                 <label class="block text-xs font-medium text-gray-700 mb-1">Ordenar por precio</label>
                                 @php

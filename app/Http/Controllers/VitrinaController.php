@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Category;
 use App\Models\ProductItem;
 use App\Models\ProductVariant;
 use App\Models\VitrinaConfig;
@@ -21,7 +22,18 @@ class VitrinaController extends Controller
 
 		$catalogItems = collect();
 		$catalogPaginator = null;
-		$categories = collect();
+
+		$rootCategories = $store->categories()
+			->whereNull('parent_id')
+			->orderBy('name')
+			->get();
+
+		$rootCategoryId = $request->filled('root_category_id') ? (int) $request->input('root_category_id') : null;
+		$selectedCategoryId = $request->filled('category_id') ? (int) $request->input('category_id') : null;
+		$currentCategoryId = $selectedCategoryId ?: $rootCategoryId;
+		$currentCategory = null;
+		$childCategories = collect();
+		$breadcrumb = collect();
 
 		$allowedPageSizes = [10, 20, 50];
 		$defaultPageSize = $config->default_page_size && in_array($config->default_page_size, $allowedPageSizes, true)
@@ -33,8 +45,28 @@ class VitrinaController extends Controller
 			$pageSize = $defaultPageSize;
 		}
 
-		$categoryId = $request->filled('category_id') ? (int) $request->input('category_id') : null;
 		$order = $request->input('order', 'price_asc');
+
+		if ($currentCategoryId) {
+			$currentCategory = Category::where('store_id', $store->id)
+				->where('id', $currentCategoryId)
+				->first();
+
+			if ($currentCategory) {
+				// Construir breadcrumb desde la raíz hasta la categoría actual
+				$stack = [];
+				$node = $currentCategory;
+				while ($node) {
+					$stack[] = $node;
+					$node = $node->parent;
+				}
+				$breadcrumb = collect(array_reverse($stack));
+
+				$childCategories = $currentCategory->children()
+					->orderBy('name')
+					->get();
+			}
+		}
 
         if ($config->show_products) {
 			$productsQuery = $store->products()
@@ -50,8 +82,9 @@ class VitrinaController extends Controller
 					},
 				]);
 
-			if ($categoryId !== null) {
-				$productsQuery->where('category_id', $categoryId);
+			if ($currentCategory) {
+				$categoryIdsForFilter = $this->collectCategoryAndDescendants($currentCategory);
+				$productsQuery->whereIn('category_id', $categoryIdsForFilter);
 			}
 
 			$products = $productsQuery
@@ -132,14 +165,6 @@ class VitrinaController extends Controller
                 }
             }
 
-			$categories = $products
-				->map(function ($product) {
-					return $product->category;
-				})
-				->filter()
-				->unique('id')
-				->values();
-
 			if ($order === 'price_desc') {
 				$catalogItems = $catalogItems->sortByDesc('price')->values();
 			} else {
@@ -172,12 +197,30 @@ class VitrinaController extends Controller
             'store' => $store,
             'catalogItems' => $catalogItems,
 			'catalogPaginator' => $catalogPaginator,
-			'categories' => $categories,
-			'selectedCategoryId' => $categoryId,
+			'rootCategories' => $rootCategories,
+			'rootCategoryId' => $rootCategoryId,
+			'currentCategoryId' => $currentCategory ? $currentCategory->id : null,
+			'childCategories' => $childCategories,
+			'breadcrumb' => $breadcrumb,
 			'order' => $order,
 			'pageSize' => $pageSize,
 			'pageSizeOptions' => $allowedPageSizes,
             'plans' => $plans,
         ]);
     }
+
+	/**
+	 * Obtener el id de una categoría y todos sus descendientes (cualquier profundidad).
+	 */
+	private function collectCategoryAndDescendants(Category $category): array
+	{
+		$ids = [$category->id];
+
+		$children = $category->children()->get();
+		foreach ($children as $child) {
+			$ids = array_merge($ids, $this->collectCategoryAndDescendants($child));
+		}
+
+		return $ids;
+	}
 }
