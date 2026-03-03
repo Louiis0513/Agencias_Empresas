@@ -15,7 +15,7 @@
 
     <div class="py-12" x-data>
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-            <div class="bg-dark-card border border-white/5 overflow-hidden sm:rounded-xl">
+            <div class="bg-dark-card border border-white/5 overflow-visible sm:rounded-xl">
                 <div class="p-6">
                     {{-- Filtro y botón crear categoría --}}
                     <div class="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
@@ -48,7 +48,7 @@
 
                     {{-- Árbol de categorías --}}
                     @if($categoryTree->count() > 0)
-                        <div class="border border-white/10 rounded-xl overflow-hidden divide-y divide-white/10">
+                        <div class="border border-white/10 rounded-xl overflow-visible divide-y divide-white/10">
                             @foreach($categoryTree as $category)
                                 @include('stores.partials.category-item', ['category' => $category, 'level' => 0, 'store' => $store])
                             @endforeach
