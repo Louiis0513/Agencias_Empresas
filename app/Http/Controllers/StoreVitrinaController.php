@@ -6,8 +6,10 @@ use App\Models\Product;
 use App\Models\Store;
 use App\Models\StorePlan;
 use App\Models\VitrinaConfig;
+use App\Services\ConvertidorImgService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class StoreVitrinaController extends Controller
@@ -35,7 +37,7 @@ class StoreVitrinaController extends Controller
         return view('stores.vitrina.edit', compact('store', 'vitrinaConfig', 'products', 'storePlans'));
     }
 
-    public function update(Request $request, Store $store)
+    public function update(Request $request, Store $store, ConvertidorImgService $convertidorImgService)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
@@ -91,7 +93,24 @@ class StoreVitrinaController extends Controller
             if ($vitrinaConfig->cover_image_path) {
                 Storage::disk('public')->delete($vitrinaConfig->cover_image_path);
             }
+
             $path = $request->file('cover_image')->store($basePath, 'public');
+
+            try {
+                $path = $convertidorImgService->convertPublicImageToWebp($path);
+            } catch (\Throwable $e) {
+                Log::error('Error al convertir cover_image a WebP', [
+                    'store_id' => $store->id,
+                    'path' => $path,
+                    'exception' => $e->getMessage(),
+                ]);
+
+                return redirect()
+                    ->back()
+                    ->withInput()
+                    ->with('error', 'Hubo un problema al procesar la imagen de portada. Intenta nuevamente más tarde.');
+            }
+
             $vitrinaConfig->cover_image_path = $path;
         }
 
@@ -103,7 +122,24 @@ class StoreVitrinaController extends Controller
             if ($vitrinaConfig->logo_image_path) {
                 Storage::disk('public')->delete($vitrinaConfig->logo_image_path);
             }
+
             $path = $request->file('logo_image')->store($basePath, 'public');
+
+            try {
+                $path = $convertidorImgService->convertPublicImageToWebp($path);
+            } catch (\Throwable $e) {
+                Log::error('Error al convertir logo_image a WebP', [
+                    'store_id' => $store->id,
+                    'path' => $path,
+                    'exception' => $e->getMessage(),
+                ]);
+
+                return redirect()
+                    ->back()
+                    ->withInput()
+                    ->with('error', 'Hubo un problema al procesar el logo. Intenta nuevamente más tarde.');
+            }
+
             $vitrinaConfig->logo_image_path = $path;
         }
 
@@ -115,7 +151,24 @@ class StoreVitrinaController extends Controller
             if ($vitrinaConfig->background_image_path) {
                 Storage::disk('public')->delete($vitrinaConfig->background_image_path);
             }
+
             $path = $request->file('background_image')->store($basePath, 'public');
+
+            try {
+                $path = $convertidorImgService->convertPublicImageToWebp($path);
+            } catch (\Throwable $e) {
+                Log::error('Error al convertir background_image a WebP', [
+                    'store_id' => $store->id,
+                    'path' => $path,
+                    'exception' => $e->getMessage(),
+                ]);
+
+                return redirect()
+                    ->back()
+                    ->withInput()
+                    ->with('error', 'Hubo un problema al procesar la imagen de fondo. Intenta nuevamente más tarde.');
+            }
+
             $vitrinaConfig->background_image_path = $path;
         }
 
