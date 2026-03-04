@@ -87,13 +87,10 @@ class DatabaseSeeder extends Seeder
         // ---------------------------------------------------
         $this->call(PermissionSeeder::class);
 
-        // 3. CREAR EL USUARIO DE PRUEBA (ASIGNADO AL PLAN)
+        // 3. CREAR DATOS DE DEMO PARA LA TIENDA PRINCIPAL (SOLO ENTORNO LOCAL)
         // ---------------------------------------------------
-        User::factory()->create([
-            'name' => 'Luis Javier Correa', // Puse tu nombre para que se vea bien
-            'email' => 'test@example.com',
-            'password' => bcrypt('password'), // La clave por defecto suele ser 'password'
-            'plan_id' => $freePlan->id,       // <--- AQUÍ LO CONECTAMOS AL PLAN GRATIS
-        ]);
+        if (app()->environment('local')) {
+            $this->call(DemoDataSeeder::class);
+        }
     }
 }
