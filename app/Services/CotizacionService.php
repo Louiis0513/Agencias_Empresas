@@ -121,12 +121,13 @@ class CotizacionService
             }
 
             if ($variantId !== null && $variantId > 0) {
-                $variant = ProductVariant::where('product_id', $productId)->where('id', $variantId)->first();
+                $variant = ProductVariant::where('product_id', $productId)->where('id', $variantId)->with('product')->first();
+                $productName = $variant && $variant->product ? $variant->product->name : $name;
                 $carrito[] = [
                     'product_id' => $productId,
                     'type' => 'batch',
                     'quantity' => $quantity,
-                    'name' => $name,
+                    'name' => $productName,
                     'product_variant_id' => $variantId,
                     'variant_features' => $variant ? $variant->features : null,
                     'serial_numbers' => null,

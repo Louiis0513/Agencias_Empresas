@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Category;
+use App\Models\Cotizacion;
 use App\Models\Customer;
 use App\Models\ProductItem;
 use App\Models\ProductVariant;
@@ -382,7 +383,7 @@ class VitrinaController extends Controller
         $carritoConvertido = $cotizacionService->carritoVitrinaToCarritoCotizacion($store, $cartItems);
 
         try {
-            $cotizacionService->crearDesdeCarrito(
+            $cotizacion = $cotizacionService->crearDesdeCarrito(
                 $store,
                 $userId,
                 $customerId,
@@ -395,10 +396,59 @@ class VitrinaController extends Controller
                 ->with('error', $e->getMessage());
         }
 
+        $whatsappQuoteUrl = null;
+        $whatsappContacts = $config->whatsapp_contacts ?? [];
+        foreach ($whatsappContacts as $c) {
+            $value = trim((string) ($c['value'] ?? ''));
+            if ($value !== '') {
+                $message = $this->buildWhatsAppQuoteMessage($cotizacion);
+                $numero = preg_replace('/[^0-9]/', '', $value);
+                $whatsappQuoteUrl = 'https://wa.me/' . $numero . '?text=' . rawurlencode($message);
+                break;
+            }
+        }
+
         $this->cartService->clearCart($store);
 
-        return redirect()->route('vitrina.show', ['slug' => $slug])
+        $redirect = redirect()->route('vitrina.show', ['slug' => $slug])
             ->with('success', 'Solicitud enviada. Te contactaremos a la brevedad.');
+        if ($whatsappQuoteUrl !== null) {
+            $redirect->with('whatsapp_quote_url', $whatsappQuoteUrl);
+        }
+        return $redirect;
+    }
+
+    /**
+     * Construye el texto del mensaje de cotización para WhatsApp (número, detalle, subtotal, total).
+     */
+    private function buildWhatsAppQuoteMessage(Cotizacion $cotizacion): string
+    {
+        $sep = ' - - - - - - - - - - ';
+        $lines = [
+            'Hola ! quiero realizar la siguiente compra cotizada #' . $cotizacion->id,
+            $sep,
+            'Detalle :',
+            $sep,
+        ];
+        $subtotal = 0.0;
+        foreach ($cotizacion->items as $item) {
+            $name = (string) ($item->name ?? '');
+            $variantDisplay = $item->variant_display_name ? trim((string) $item->variant_display_name) : null;
+            $quantity = (int) $item->quantity;
+            $unitPrice = (float) $item->unit_price;
+            $line = $name;
+            if ($variantDisplay !== null && $variantDisplay !== '') {
+                $line .= ' (' . $variantDisplay . ')';
+            }
+            $line .= '   x ' . $quantity . ' x ' . number_format($unitPrice, 2, '.', '');
+            $lines[] = $line;
+            $lines[] = $sep;
+            $subtotal += $unitPrice * $quantity;
+        }
+        $lines[] = 'subtotal: ' . number_format($subtotal, 2, '.', '');
+        $lines[] = 'Total: ' . number_format($subtotal, 2, '.', '');
+
+        return implode("\n", $lines);
     }
 
 	/**
