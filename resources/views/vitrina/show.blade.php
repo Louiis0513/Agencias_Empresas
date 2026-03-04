@@ -33,7 +33,7 @@
     <title>{{ $store->name }} - Vitrina</title>
     @vite('resources/css/app.css')
 </head>
-<body class="min-h-screen bg-gray-100" @if(session('show_checkout_modal')) data-show-checkout-modal="1" @endif>
+<body class="min-h-screen bg-gray-100" @if(session('show_checkout_modal')) data-show-checkout-modal="1" @endif @if(session('auth_form')) data-auth-form="{{ session('auth_form') }}" @endif>
     <div
         class="min-h-screen flex flex-col"
         style="background-image: url('{{ $bgUrl }}'); background-size: cover; background-position: center;"
@@ -85,6 +85,96 @@
                         <p class="mt-2 text-sm text-gray-600">Revisa nuestro catálogo y contáctanos por WhatsApp o llamada.</p>
                     @endif
                 </section>
+
+                {{-- Barra Login / Registro / Cerrar sesión (estilo vitrina) --}}
+                <section class="mt-6 max-w-xl mx-auto">
+                    <div class="flex flex-wrap items-center justify-center gap-3">
+                        @guest
+                            <button type="button" id="vitrina-auth-show-login" class="px-4 py-2 rounded-lg text-sm font-medium border transition" style="background-color: #ffffff; color: {{ $secondaryColor }}; border-color: {{ $secondaryColor }};">Login</button>
+                            <button type="button" id="vitrina-auth-show-register" class="px-4 py-2 rounded-lg text-sm font-medium shadow transition" style="background-color: {{ $primaryColor }}; color: #ffffff;">Registro</button>
+                        @else
+                            <span class="text-sm text-gray-600">{{ auth()->user()->name }}</span>
+                            <form method="POST" action="{{ route('vitrina.logout', $config->slug) }}" class="inline">
+                                @csrf
+                                <button type="submit" class="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">Cerrar sesión</button>
+                            </form>
+                        @endguest
+                    </div>
+                </section>
+
+                {{-- Contenedor formularios Login y Registro (solo invitados) --}}
+                @guest
+                <section id="vitrina-auth-container" class="mt-6 max-w-md mx-auto hidden">
+                    <div class="bg-white/90 backdrop-blur rounded-xl shadow-lg p-6">
+                        <div id="vitrina-auth-form-login" class="vitrina-auth-form hidden">
+                            <h2 class="text-lg font-semibold text-gray-900 mb-4">Iniciar sesión</h2>
+                            <form method="POST" action="{{ route('vitrina.login', $config->slug) }}">
+                                @csrf
+                                <div class="space-y-4">
+                                    <div>
+                                        <label for="vitrina-login-email" class="block text-sm font-medium text-gray-700">Correo</label>
+                                        <input type="email" name="email" id="vitrina-login-email" value="{{ old('email') }}" required autocomplete="email" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                        @error('email')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                                    </div>
+                                    <div>
+                                        <label for="vitrina-login-password" class="block text-sm font-medium text-gray-700">Contraseña</label>
+                                        <input type="password" name="password" id="vitrina-login-password" required autocomplete="current-password" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                        @error('password')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                                    </div>
+                                    <div>
+                                        <label class="inline-flex items-center">
+                                            <input type="checkbox" name="remember" value="1" class="rounded border-gray-300 text-gray-600 shadow-sm focus:ring-gray-500">
+                                            <span class="ml-2 text-sm text-gray-600">Recordarme</span>
+                                        </label>
+                                    </div>
+                                    <button type="submit" class="w-full inline-flex justify-center px-4 py-2.5 rounded-lg text-sm font-medium text-white shadow" style="background-color: {{ $primaryColor }};">Iniciar sesión</button>
+                                </div>
+                            </form>
+                        </div>
+                        <div id="vitrina-auth-form-register" class="vitrina-auth-form hidden">
+                            <h2 class="text-lg font-semibold text-gray-900 mb-4">Registrarse</h2>
+                            <form method="POST" action="{{ route('vitrina.register', $config->slug) }}">
+                                @csrf
+                                <div class="space-y-4">
+                                    <div>
+                                        <label for="vitrina-register-name" class="block text-sm font-medium text-gray-700">Nombre</label>
+                                        <input type="text" name="name" id="vitrina-register-name" value="{{ old('name') }}" required autocomplete="name" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                        @error('name')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                                    </div>
+                                    <div>
+                                        <label for="vitrina-register-email" class="block text-sm font-medium text-gray-700">Correo</label>
+                                        <input type="email" name="email" id="vitrina-register-email" value="{{ old('email') }}" required autocomplete="email" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                        @error('email')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                                    </div>
+                                    <div>
+                                        <label for="vitrina-register-password" class="block text-sm font-medium text-gray-700">Contraseña</label>
+                                        <input type="password" name="password" id="vitrina-register-password" required autocomplete="new-password" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                        @error('password')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                                    </div>
+                                    <div>
+                                        <label for="vitrina-register-password-confirm" class="block text-sm font-medium text-gray-700">Confirmar contraseña</label>
+                                        <input type="password" name="password_confirmation" id="vitrina-register-password-confirm" required autocomplete="new-password" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                    </div>
+                                    <div>
+                                        <label for="vitrina-register-phone" class="block text-sm font-medium text-gray-700">Teléfono</label>
+                                        <input type="text" name="phone" id="vitrina-register-phone" value="{{ old('phone') }}" autocomplete="tel" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                        @error('phone')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                                    </div>
+                                    <div>
+                                        <label for="vitrina-register-address" class="block text-sm font-medium text-gray-700">Dirección (opcional)</label>
+                                        <input type="text" name="address" id="vitrina-register-address" value="{{ old('address') }}" autocomplete="street-address" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                        @error('address')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                                    </div>
+                                    <button type="submit" class="w-full inline-flex justify-center px-4 py-2.5 rounded-lg text-sm font-medium text-white shadow" style="background-color: {{ $primaryColor }};">Registrarse</button>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="mt-3 text-center">
+                            <button type="button" id="vitrina-auth-close" class="text-sm text-gray-500 hover:text-gray-700">Cerrar</button>
+                        </div>
+                    </div>
+                </section>
+                @endguest
 
                 <section class="mt-8 max-w-3xl mx-auto">
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -251,7 +341,11 @@
                             <h3 class="text-lg font-medium text-gray-800 mb-3">Productos</h3>
                             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                 @foreach ($catalogPaginator as $item)
-                                    <div class="bg-white/90 rounded-xl shadow p-4 flex flex-col">
+                                    <div class="js-product-card bg-white/90 rounded-xl shadow p-4 flex flex-col"
+                                        data-product-id="{{ $item->product_id ?? 0 }}"
+                                        data-variant-id="{{ $item->variant_id ?? 0 }}"
+                                        data-product-item-id="{{ $item->product_item_id ?? 0 }}"
+                                        data-stock="{{ (int) ($item->stock ?? 0) }}">
                                     <div class="mb-3">
     {{-- CONTENEDOR EXTERNO: Cuadrado perfecto --}}
     <div style="position: relative; width: 100%; aspect-ratio: 1 / 1; background-color: #ffffff; border-radius: 0.5rem; border: 1px solid #f3f4f6; overflow: hidden;">
@@ -276,7 +370,7 @@
                                         <p class="font-medium text-gray-900">{{ $item->display_name }}</p>
                                         <p class="text-sm text-gray-600 mt-1">${{ number_format($item->price, 0) }}</p>
                                         @if (isset($item->stock))
-                                            <p class="text-xs mt-0.5 {{ ($item->stock ?? 0) > 0 ? 'text-gray-500' : 'text-red-600' }}">
+                                            <p class="js-stock-text text-xs mt-0.5 {{ ($item->stock ?? 0) > 0 ? 'text-gray-500' : 'text-red-600' }}">
                                                 {{ ($item->stock ?? 0) > 0 ? ($item->stock . ' disponible' . (($item->stock ?? 0) !== 1 ? 's' : '')) : 'No disponible' }}
                                             </p>
                                         @endif
@@ -476,7 +570,6 @@
                                                 <p class="text-lg sm:text-xl font-semibold text-gray-900">Total: ${{ number_format($cartTotal ?? 0, 0) }}</p>
                                             </div>
                                             <div class="flex flex-col-reverse sm:flex-row sm:flex-wrap gap-3 pt-2">
-                                                @guest
                                                 <div class="flex-1 min-w-0 sm:min-w-[140px]">
                                                     <button
                                                         type="button"
@@ -487,18 +580,6 @@
                                                         Solicitar Pedido
                                                     </button>
                                                 </div>
-                                                @else
-                                                <form method="POST" action="{{ route('vitrina.cart.checkout', $config->slug) }}" class="flex-1 min-w-0 sm:min-w-[140px]">
-                                                    @csrf
-                                                    <button
-                                                        type="submit"
-                                                        class="w-full inline-flex items-center justify-center px-4 py-2.5 rounded-lg text-sm font-medium shadow transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-offset-1"
-                                                        style="background-color: {{ $primaryColor }}; color: #ffffff;"
-                                                    >
-                                                        Solicitar Pedido
-                                                    </button>
-                                                </form>
-                                                @endguest
                                                 <form method="POST" action="{{ route('vitrina.cart.clear', $config->slug) }}" class="flex-1 min-w-0 sm:min-w-[140px]" onsubmit="return confirm('¿Vaciar todo el carrito?');">
                                                     @csrf
                                                     <button
@@ -531,8 +612,7 @@
         </div>
     </div>
 
-    {{-- Modal Solicitar Pedido (solo invitados): nota opcional y envío a checkout --}}
-    @guest
+    {{-- Modal Solicitar Pedido: nota opcional y envío a checkout (invitados y logueados) --}}
     <div id="vitrina-checkout-modal" class="hidden fixed inset-0 z-[150] overflow-y-auto" aria-modal="true" role="dialog" aria-labelledby="vitrina-checkout-modal-title">
         <div class="flex min-h-full items-center justify-center p-4">
             <div class="fixed inset-0 bg-black/50" id="vitrina-checkout-modal-backdrop" aria-hidden="true"></div>
@@ -555,7 +635,6 @@
             </div>
         </div>
     </div>
-    @endguest
 
     {{-- Botón flotante del carrito: hijo directo de body para position:fixed respecto al viewport.
          Se oculta cuando la vista actual es el carrito. --}}
@@ -649,6 +728,33 @@
             showCheckoutModal();
         }
 
+        var authContainer = document.getElementById('vitrina-auth-container');
+        var authFormLogin = document.getElementById('vitrina-auth-form-login');
+        var authFormRegister = document.getElementById('vitrina-auth-form-register');
+        var authShowLogin = document.getElementById('vitrina-auth-show-login');
+        var authShowRegister = document.getElementById('vitrina-auth-show-register');
+        var authClose = document.getElementById('vitrina-auth-close');
+        function showAuthForm(formId) {
+            if (!authContainer) return;
+            authContainer.classList.remove('hidden');
+            if (authFormLogin) authFormLogin.classList.toggle('hidden', formId !== 'login');
+            if (authFormRegister) authFormRegister.classList.toggle('hidden', formId !== 'register');
+        }
+        function hideAuthContainer() {
+            if (authContainer) authContainer.classList.add('hidden');
+        }
+        if (authShowLogin) authShowLogin.addEventListener('click', function() { showAuthForm('login'); });
+        if (authShowRegister) authShowRegister.addEventListener('click', function() { showAuthForm('register'); });
+        if (authClose) authClose.addEventListener('click', hideAuthContainer);
+        (function() {
+            var auth = document.body.getAttribute('data-auth-form');
+            if (auth) { showAuthForm(auth); return; }
+            var params = new URLSearchParams(window.location.search);
+            auth = params.get('auth');
+            if (auth === 'login' || auth === 'register') showAuthForm(auth);
+        })();
+
+        var primaryColor = '{{ $primaryColor ?? "#10b981" }}';
         document.querySelectorAll('.js-add-to-cart-form').forEach(function(form) {
             form.addEventListener('submit', function(e) {
                 e.preventDefault();
@@ -670,6 +776,43 @@
                     if (result.ok && result.data && result.data.success) {
                         showToast(result.data.message || 'Producto añadido al carrito.');
                         if (typeof result.data.cart_count !== 'undefined') updateCartCount(result.data.cart_count);
+                        var qtyInput = form.querySelector('input[name="quantity"]');
+                        var qty = qtyInput ? (parseInt(qtyInput.value, 10) || 1) : 1;
+                        var card = form.closest('.js-product-card');
+                        if (card) {
+                            var current = parseInt(card.getAttribute('data-stock'), 10) || 0;
+                            var newStock = Math.max(0, current - qty);
+                            card.setAttribute('data-stock', newStock);
+                            var stockText = card.querySelector('.js-stock-text');
+                            if (stockText) {
+                                stockText.textContent = newStock > 0 ? (newStock === 1 ? '1 disponible' : newStock + ' disponibles') : 'No disponible';
+                                stockText.classList.remove('text-gray-500', 'text-red-600');
+                                stockText.classList.add(newStock > 0 ? 'text-gray-500' : 'text-red-600');
+                            }
+                            if (qtyInput && qtyInput.type === 'number') {
+                                qtyInput.setAttribute('max', newStock);
+                                var val = parseInt(qtyInput.value, 10) || 1;
+                                if (val > newStock) qtyInput.value = newStock;
+                            }
+                            var btn = form.querySelector('button[type="submit"]');
+                            if (btn) {
+                                if (newStock === 0) {
+                                    btn.disabled = true;
+                                    btn.textContent = 'No disponible';
+                                    btn.classList.add('opacity-50', 'cursor-not-allowed');
+                                    btn.classList.remove('hover:brightness-110');
+                                    btn.style.backgroundColor = '#9ca3af';
+                                    btn.style.color = '#ffffff';
+                                } else {
+                                    btn.disabled = false;
+                                    btn.textContent = 'Añadir al carrito';
+                                    btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                                    btn.classList.add('hover:brightness-110');
+                                    btn.style.backgroundColor = primaryColor || '#10b981';
+                                    btn.style.color = '#ffffff';
+                                }
+                            }
+                        }
                     } else {
                         showToast((result.data && result.data.message) ? result.data.message : 'No se pudo añadir al carrito.');
                     }

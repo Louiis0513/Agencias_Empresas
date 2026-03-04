@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Category;
+use App\Models\Customer;
 use App\Models\ProductItem;
 use App\Models\ProductVariant;
 use App\Models\Store;
@@ -119,6 +120,8 @@ class VitrinaController extends Controller
                     }
 
                     $stockResult = $inventarioService->stockDisponible($store, $product->id);
+                    $inCart = $this->cartService->getQuantityInCart($store, $product->id, null, null);
+                    $stockVisible = max(0, (int) $stockResult['cantidad'] - $inCart);
                     $catalogItems->push((object) [
                         'display_name' => $displayName,
                         'price' => (float) ($product->price ?? 0),
@@ -128,7 +131,7 @@ class VitrinaController extends Controller
                         'product_id' => $product->id,
                         'variant_id' => null,
                         'product_item_id' => null,
-                        'stock' => (int) $stockResult['cantidad'],
+                        'stock' => $stockVisible,
                     ]);
                 }
 
@@ -141,6 +144,8 @@ class VitrinaController extends Controller
 
                         $displayName = $product->name . ' (' . $variant->display_name . ')';
                         $stockResult = $inventarioService->stockDisponible($store, $product->id, null, null, $variant->id);
+                        $inCart = $this->cartService->getQuantityInCart($store, $product->id, $variant->id, null);
+                        $stockVisible = max(0, (int) $stockResult['cantidad'] - $inCart);
 
                         $catalogItems->push((object) [
                             'display_name' => $displayName,
@@ -151,7 +156,7 @@ class VitrinaController extends Controller
                             'product_id' => $product->id,
                             'variant_id' => $variant->id,
                             'product_item_id' => null,
-                            'stock' => (int) $stockResult['cantidad'],
+                            'stock' => $stockVisible,
                         ]);
                     }
                 }
@@ -176,6 +181,9 @@ class VitrinaController extends Controller
                             $displayName .= ' (' . $featuresStr . ')';
                         }
 
+                        $inCart = $this->cartService->getQuantityInCart($store, $product->id, null, $item->id);
+                        $stockVisible = $item->status === ProductItem::STATUS_AVAILABLE ? (1 - min(1, $inCart)) : 0;
+
                         $catalogItems->push((object) [
                             'display_name' => $displayName,
                             'price' => (float) ($item->price ?? $product->price ?? 0),
@@ -185,7 +193,7 @@ class VitrinaController extends Controller
                             'product_id' => $product->id,
                             'variant_id' => null,
                             'product_item_id' => $item->id,
-                            'stock' => $item->status === ProductItem::STATUS_AVAILABLE ? 1 : 0,
+                            'stock' => $stockVisible,
                         ]);
                     }
                 }
@@ -351,12 +359,6 @@ class VitrinaController extends Controller
         $config = VitrinaConfig::where('slug', $slug)->with('store')->firstOrFail();
         $store = $config->store;
 
-        if (! auth()->guest()) {
-            $this->cartService->clearCart($store);
-            return redirect()->route('vitrina.show', ['slug' => $slug])
-                ->with('success', 'Solicitud de pedido enviada.');
-        }
-
         $cartItems = $this->cartService->getCartForStore($store);
         if (empty($cartItems)) {
             return redirect()->route('vitrina.show', ['slug' => $slug, 'view' => 'cart'])
@@ -368,14 +370,22 @@ class VitrinaController extends Controller
                 ->with('show_checkout_modal', true);
         }
 
+        $userId = null;
+        $customerId = null;
+        if (! auth()->guest()) {
+            $userId = auth()->id();
+            $customer = Customer::where('store_id', $store->id)->where('user_id', $userId)->first();
+            $customerId = $customer ? $customer->id : null;
+        }
+
         $nota = 'DESDE VITRINA ' . trim((string) $request->input('nota', ''));
         $carritoConvertido = $cotizacionService->carritoVitrinaToCarritoCotizacion($store, $cartItems);
 
         try {
             $cotizacionService->crearDesdeCarrito(
                 $store,
-                null,
-                null,
+                $userId,
+                $customerId,
                 $nota,
                 $carritoConvertido,
                 now()->addDay()

@@ -60,6 +60,21 @@ class VitrinaCartService
     }
 
     /**
+     * Devuelve la cantidad en carrito para una línea concreta (producto/variante/ítem).
+     * Usado para descontar del stock visible lo que ya está en el carrito.
+     */
+    public function getQuantityInCart(Store $store, int $productId, ?int $variantId, ?int $productItemId): int
+    {
+        $lineKey = $this->lineKey($productId, $variantId, $productItemId);
+        $key = $this->getSessionKey($store);
+        $cart = Session::get($key, []);
+        if (! is_array($cart) || ! isset($cart[$lineKey])) {
+            return 0;
+        }
+        return max(0, (int) ($cart[$lineKey]['quantity'] ?? 0));
+    }
+
+    /**
      * Resuelve nombre, precio e imagen para un producto/variante/ítem y lo añade al carrito.
      */
     public function addItem(Store $store, int $productId, ?int $variantId, ?int $productItemId, int $quantity = 1): void

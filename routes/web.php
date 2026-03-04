@@ -18,6 +18,7 @@ use App\Http\Controllers\StoreAccountReceivableController;
 use App\Http\Controllers\StoreSubscriptionController;
 use App\Http\Controllers\StoreAsistenciaController;
 use App\Http\Controllers\StoreVitrinaController;
+use App\Http\Controllers\VitrinaAuthController;
 use App\Http\Controllers\VitrinaController;
 
 Route::view('/', 'welcome');
@@ -37,6 +38,9 @@ Route::post('/vitrina/{slug}/cart/add', [VitrinaController::class, 'addToCart'])
 Route::post('/vitrina/{slug}/cart/update', [VitrinaController::class, 'updateCart'])->name('vitrina.cart.update');
 Route::post('/vitrina/{slug}/cart/clear', [VitrinaController::class, 'clearCart'])->name('vitrina.cart.clear');
 Route::post('/vitrina/{slug}/cart/checkout', [VitrinaController::class, 'checkoutCart'])->name('vitrina.cart.checkout');
+Route::post('/vitrina/{slug}/login', [VitrinaAuthController::class, 'login'])->name('vitrina.login');
+Route::post('/vitrina/{slug}/register', [VitrinaAuthController::class, 'register'])->name('vitrina.register');
+Route::post('/vitrina/{slug}/logout', [VitrinaAuthController::class, 'logout'])->name('vitrina.logout');
 
 
 Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:slug}')->name('stores.')->group(function () {
