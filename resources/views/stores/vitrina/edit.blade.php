@@ -176,26 +176,43 @@
                                 class="w-full h-10 rounded border border-white/10 bg-white/5"
                             >
                             <p class="mt-1 text-xs text-gray-500">
-                                Botones inversos o secundarios como “Ver ubicaciones” o “Llamar”.
+                                Botones inversos o secundarios como “Ver ubicación” o “Llamar”.
                             </p>
                         </div>
                     </div>
                 </div>
 
+                @php
+                    $countryCodesByLen = ['593', '598', '595', '591', '503', '502', '506', '507', '505', '504', '57', '52', '54', '51', '58', '34', '56', '1'];
+                    $wa = old('whatsapp_contacts', $vitrinaConfig->whatsapp_contacts ?? []);
+                    $ph = old('phone_contacts', $vitrinaConfig->phone_contacts ?? []);
+                    $locs = old('locations', $vitrinaConfig->locations ?? []);
+                    $loc0 = $locs[0] ?? [];
+                @endphp
+
                 {{-- WhatsApp (máx. 5) --}}
                 <div class="bg-dark-card border border-white/5 rounded-xl p-6">
                     <h3 class="font-medium text-white mb-4">WhatsApp (máx. 5)</h3>
-                    <p class="text-sm text-gray-400 mb-4">Número con código de país, ej: +573001234567. Opcionalmente vincula a una sede.</p>
-                    @php $wa = old('whatsapp_contacts', $vitrinaConfig->whatsapp_contacts ?? []); @endphp
+                    <p class="text-sm text-gray-400 mb-4">Escribe el indicativo del país (ej. 57 para Colombia) y el número. El + se añade automáticamente.</p>
                     @for ($i = 0; $i < 5; $i++)
+                        @php
+                            $v = preg_replace('/\D/', '', $wa[$i]['value'] ?? '');
+                            $prefillCode = '';
+                            $prefillNum = $v;
+                            if ($v !== '') {
+                                foreach ($countryCodesByLen as $code) {
+                                    if (str_starts_with($v, $code)) {
+                                        $prefillCode = $code;
+                                        $prefillNum = substr($v, strlen($code)) ?: '';
+                                        break;
+                                    }
+                                }
+                            }
+                        @endphp
                         <div class="flex flex-wrap gap-4 items-center mb-3">
-                            <input type="text" name="whatsapp_contacts[{{ $i }}][value]" value="{{ $wa[$i]['value'] ?? '' }}" placeholder="+57..." class="flex-1 min-w-[180px] rounded-lg border-white/10 bg-white/5 text-white px-4 py-2">
-                            <select name="whatsapp_contacts[{{ $i }}][location_name]" class="rounded-lg border-white/10 bg-white/5 text-white px-4 py-2">
-                                <option value="">Todas (general)</option>
-                                @foreach ($vitrinaConfig->locations ?? [] as $loc)
-                                    <option value="{{ $loc['name'] ?? '' }}" {{ (($wa[$i]['location_index'] ?? null) === $loop->index) ? 'selected' : '' }}>{{ $loc['name'] ?? 'Sede' }}</option>
-                                @endforeach
-                            </select>
+                            <span class="text-white text-lg font-medium">+</span>
+                            <input type="text" name="whatsapp_contacts[{{ $i }}][country_code]" value="{{ old('whatsapp_contacts.'.$i.'.country_code', $prefillCode) }}" placeholder="57" maxlength="4" inputmode="numeric" pattern="[0-9]*" class="rounded-lg border-white/10 bg-white/5 text-white px-4 py-2 w-20 text-center" title="Indicativo sin +">
+                            <input type="text" name="whatsapp_contacts[{{ $i }}][number]" value="{{ old('whatsapp_contacts.'.$i.'.number', $prefillNum) }}" placeholder="300 123 4567" class="flex-1 min-w-[180px] rounded-lg border-white/10 bg-white/5 text-white px-4 py-2">
                         </div>
                     @endfor
                 </div>
@@ -203,32 +220,39 @@
                 {{-- Teléfonos (máx. 5) --}}
                 <div class="bg-dark-card border border-white/5 rounded-xl p-6">
                     <h3 class="font-medium text-white mb-4">Teléfonos para llamar (máx. 5)</h3>
-                    @php $ph = old('phone_contacts', $vitrinaConfig->phone_contacts ?? []); @endphp
+                    <p class="text-sm text-gray-400 mb-4">Indicativo (ej. 57) y número. El + se añade al guardar.</p>
                     @for ($i = 0; $i < 5; $i++)
+                        @php
+                            $v = preg_replace('/\D/', '', $ph[$i]['value'] ?? '');
+                            $prefillCode = '';
+                            $prefillNum = $v;
+                            if ($v !== '') {
+                                foreach ($countryCodesByLen as $code) {
+                                    if (str_starts_with($v, $code)) {
+                                        $prefillCode = $code;
+                                        $prefillNum = substr($v, strlen($code)) ?: '';
+                                        break;
+                                    }
+                                }
+                            }
+                        @endphp
                         <div class="flex flex-wrap gap-4 items-center mb-3">
-                            <input type="text" name="phone_contacts[{{ $i }}][value]" value="{{ $ph[$i]['value'] ?? '' }}" placeholder="+57..." class="flex-1 min-w-[180px] rounded-lg border-white/10 bg-white/5 text-white px-4 py-2">
-                            <select name="phone_contacts[{{ $i }}][location_name]" class="rounded-lg border-white/10 bg-white/5 text-white px-4 py-2">
-                                <option value="">Todas (general)</option>
-                                @foreach ($vitrinaConfig->locations ?? [] as $loc)
-                                    <option value="{{ $loc['name'] ?? '' }}" {{ (($ph[$i]['location_index'] ?? null) === $loop->index) ? 'selected' : '' }}>{{ $loc['name'] ?? 'Sede' }}</option>
-                                @endforeach
-                            </select>
+                            <span class="text-white text-lg font-medium">+</span>
+                            <input type="text" name="phone_contacts[{{ $i }}][country_code]" value="{{ old('phone_contacts.'.$i.'.country_code', $prefillCode) }}" placeholder="57" maxlength="4" inputmode="numeric" pattern="[0-9]*" class="rounded-lg border-white/10 bg-white/5 text-white px-4 py-2 w-20 text-center" title="Indicativo sin +">
+                            <input type="text" name="phone_contacts[{{ $i }}][number]" value="{{ old('phone_contacts.'.$i.'.number', $prefillNum) }}" placeholder="300 123 4567" class="flex-1 min-w-[180px] rounded-lg border-white/10 bg-white/5 text-white px-4 py-2">
                         </div>
                     @endfor
                 </div>
 
-                {{-- Ubicaciones (máx. 5) --}}
+                {{-- Ubicación (una sola por tienda) --}}
                 <div class="bg-dark-card border border-white/5 rounded-xl p-6">
-                    <h3 class="font-medium text-white mb-4">Ubicaciones / sedes (máx. 5)</h3>
-                    <p class="text-sm text-gray-400 mb-4">Pega el código iframe de Google Maps (Compartir → Incorporar un mapa). Se guardará solo el enlace del mapa para mostrarlo y el botón "Cómo llegar".</p>
-                    @php $locs = old('locations', $vitrinaConfig->locations ?? []); @endphp
-                    @for ($i = 0; $i < 5; $i++)
-                        <div class="border border-white/10 rounded-lg p-4 mb-4">
-                            <input type="text" name="locations[{{ $i }}][name]" value="{{ $locs[$i]['name'] ?? '' }}" placeholder="Nombre de la sede" class="w-full rounded-lg border-white/10 bg-white/5 text-white px-4 py-2 mb-2">
-                            <input type="text" name="locations[{{ $i }}][address]" value="{{ $locs[$i]['address'] ?? '' }}" placeholder="Dirección" class="w-full rounded-lg border-white/10 bg-white/5 text-white px-4 py-2 mb-2">
-                            <textarea name="locations[{{ $i }}][map_iframe]" rows="3" placeholder="Pega aquí el iframe completo de Google Maps (Compartir → Incorporar un mapa)" class="w-full rounded-lg border-white/10 bg-white/5 text-white px-4 py-2 font-mono text-sm">{{ old('locations.'.$i.'.map_iframe', isset($locs[$i]['map_iframe_src']) && $locs[$i]['map_iframe_src'] ? '<iframe src="'.e($locs[$i]['map_iframe_src']).'" width="600" height="450" style="border:0;"></iframe>' : '') }}</textarea>
-                        </div>
-                    @endfor
+                    <h3 class="font-medium text-white mb-4">Ubicación</h3>
+                    <p class="text-sm text-gray-400 mb-4">Una tienda tiene una ubicación. Pega el código iframe de Google Maps (Compartir → Incorporar un mapa) para el mapa y el botón "Cómo llegar".</p>
+                    <div class="border border-white/10 rounded-lg p-4">
+                        <input type="text" name="locations[0][name]" value="{{ old('locations.0.name', $loc0['name'] ?? '') }}" placeholder="Nombre (ej: Tienda principal)" class="w-full rounded-lg border-white/10 bg-white/5 text-white px-4 py-2 mb-2">
+                        <input type="text" name="locations[0][address]" value="{{ old('locations.0.address', $loc0['address'] ?? '') }}" placeholder="Dirección" class="w-full rounded-lg border-white/10 bg-white/5 text-white px-4 py-2 mb-2">
+                        <textarea name="locations[0][map_iframe]" rows="3" placeholder="Pega aquí el iframe completo de Google Maps (Compartir → Incorporar un mapa)" class="w-full rounded-lg border-white/10 bg-white/5 text-white px-4 py-2 font-mono text-sm">{{ old('locations.0.map_iframe', isset($loc0['map_iframe_src']) && $loc0['map_iframe_src'] ? '<iframe src="'.e($loc0['map_iframe_src']).'" width="600" height="450" style="border:0;"></iframe>' : '') }}</textarea>
+                    </div>
                 </div>
 
                 {{-- Planes en vitrina --}}

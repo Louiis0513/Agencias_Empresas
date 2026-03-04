@@ -180,13 +180,13 @@ class StoreVitrinaController extends Controller
             $vitrinaConfig->background_image_path = $path;
         }
 
-        $whatsappContacts = $this->parseContacts($request->input('whatsapp_contacts', []), $request->input('locations', []));
-        $phoneContacts = $this->parseContacts($request->input('phone_contacts', []), $request->input('locations', []));
+        $whatsappContacts = $this->parseContacts($request->input('whatsapp_contacts', []));
+        $phoneContacts = $this->parseContacts($request->input('phone_contacts', []));
         $locations = $this->parseLocations($request->input('locations', []));
 
         $vitrinaConfig->whatsapp_contacts = array_slice($whatsappContacts, 0, 5);
         $vitrinaConfig->phone_contacts = array_slice($phoneContacts, 0, 5);
-        $vitrinaConfig->locations = array_slice($locations, 0, 5);
+        $vitrinaConfig->locations = array_slice($locations, 0, 1);
 
         $vitrinaConfig->save();
 
@@ -201,25 +201,24 @@ class StoreVitrinaController extends Controller
     }
 
     /**
-     * Parse contact rows from request (value + location_index from location name).
+     * Parse contact rows from request (value only; no location/sede association).
+     * For WhatsApp, value can be built from country_code + number if both present.
      */
-    private function parseContacts(array $rows, array $locations): array
+    private function parseContacts(array $rows): array
     {
-        $names = array_column($locations, 'name');
         $out = [];
         foreach ($rows as $row) {
-            if (empty($row['value'] ?? '')) {
+            $value = null;
+            $code = ltrim(preg_replace('/\D/', '', (string) ($row['country_code'] ?? '')), '0');
+            if (! empty($row['number']) && $code !== '') {
+                $value = '+' . $code . preg_replace('/\D/', '', (string) $row['number']);
+            } elseif (! empty($row['value'])) {
+                $value = trim($row['value']);
+            }
+            if ($value === '' || $value === null) {
                 continue;
             }
-            $value = trim($row['value']);
-            $locationIndex = null;
-            if (! empty($row['location_name'])) {
-                $idx = array_search($row['location_name'], $names, true);
-                if ($idx !== false) {
-                    $locationIndex = $idx;
-                }
-            }
-            $out[] = ['value' => $value, 'location_index' => $locationIndex];
+            $out[] = ['value' => $value, 'location_index' => null];
         }
         return $out;
     }

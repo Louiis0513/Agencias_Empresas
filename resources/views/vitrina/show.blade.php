@@ -5,6 +5,7 @@
     $whatsappContacts = $config->whatsapp_contacts ?? [];
     $phoneContacts = $config->phone_contacts ?? [];
     $locations = $config->locations ?? [];
+    $location = $locations[0] ?? null;
     $generalWhatsapp = array_filter($whatsappContacts, fn($c) => ($c['location_index'] ?? null) === null);
     $generalPhone = array_filter($phoneContacts, fn($c) => ($c['location_index'] ?? null) === null);
 
@@ -24,6 +25,19 @@
     }
     $primaryColor = $config->primary_color ?: '#10b981'; // emerald-500/600
     $secondaryColor = $config->secondary_color ?: '#047857'; // emerald-700 aproximado
+
+    $countryCodesLongestFirst = ['593', '598', '595', '591', '503', '502', '506', '507', '505', '504', '57', '52', '54', '51', '58', '34', '56', '1'];
+    $localNumber = function ($value) use ($countryCodesLongestFirst) {
+        $digits = preg_replace('/\D/', '', $value);
+        if ($digits === '') return '';
+        foreach ($countryCodesLongestFirst as $code) {
+            if (str_starts_with($digits, $code)) {
+                $local = substr($digits, strlen($code));
+                return $local !== '' ? $local : $digits;
+            }
+        }
+        return $digits;
+    };
 @endphp
 <!DOCTYPE html>
 <html lang="es">
@@ -85,16 +99,16 @@
                     @if ($config->description)
                         <p class="mt-2 text-sm text-gray-600">{{ $config->description }}</p>
                     @endif
-                    @if (count($locations) > 0)
+                    @if ($location && !empty($location['name']))
                         <p class="mt-3 text-sm text-gray-700">
                             <span class="font-medium">Ubicación:</span>
-                            {{ implode(' · ', array_filter(array_column($locations, 'name'))) }}
+                            {{ $location['name'] }}
                         </p>
                     @endif
                     @if ($config->schedule)
                         <p class="mt-2 text-sm text-gray-700 whitespace-pre-line"><span class="font-medium">Horario:</span><br>{{ $config->schedule }}</p>
                     @endif
-                    @if (!$config->description && count($locations) === 0 && !$config->schedule)
+                    @if (!$config->description && !$location && !$config->schedule)
                         <p class="mt-2 text-sm text-gray-600">Revisa nuestro catálogo y contáctanos por WhatsApp o llamada.</p>
                     @endif
                 </section>
@@ -102,28 +116,31 @@
                 <section class="mt-8 max-w-3xl mx-auto">
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         @foreach ($generalWhatsapp as $wa)
+                            @php $waDisplay = $localNumber($wa['value']); $waFull = '+' . preg_replace('/\D/', '', $wa['value']); @endphp
                             <a
                                 href="https://wa.me/{{ preg_replace('/[^0-9]/', '', $wa['value']) }}?text={{ urlencode('Hola, quiero hacer un pedido') }}"
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                class="inline-flex items-center justify-center px-4 py-2.5 rounded-lg text-sm font-medium shadow transition"
+                                title="WhatsApp {{ $waFull }}"
+                                class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium shadow transition"
                                 style="background-color: {{ $primaryColor }}; color: #ffffff;"
                             >
-                                WhatsApp {{ $wa['value'] }}
+                                <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 360 362" aria-hidden="true"><path fill="#25D366" fill-rule="evenodd" d="M307.546 52.566C273.709 18.684 228.706.017 180.756 0 81.951 0 1.538 80.404 1.504 179.235c-.017 31.594 8.242 62.432 23.928 89.609L0 361.736l95.024-24.925c26.179 14.285 55.659 21.805 85.655 21.814h.077c98.788 0 179.21-80.413 179.244-179.244.017-47.898-18.608-92.926-52.454-126.807v-.008Zm-126.79 275.788h-.06c-26.73-.008-52.952-7.194-75.831-20.765l-5.44-3.231-56.391 14.791 15.05-54.981-3.542-5.638c-14.912-23.721-22.793-51.139-22.776-79.286.035-82.14 66.867-148.973 149.051-148.973 39.793.017 77.198 15.53 105.328 43.695 28.131 28.157 43.61 65.596 43.593 105.398-.035 82.149-66.867 148.982-148.982 148.982v.008Zm81.719-111.577c-4.478-2.243-26.497-13.073-30.606-14.568-4.108-1.496-7.09-2.243-10.073 2.243-2.982 4.487-11.568 14.577-14.181 17.559-2.613 2.991-5.226 3.361-9.704 1.117-4.477-2.243-18.908-6.97-36.02-22.226-13.313-11.878-22.304-26.54-24.916-31.027-2.613-4.486-.275-6.91 1.959-9.136 2.011-2.011 4.478-5.234 6.721-7.847 2.244-2.613 2.983-4.486 4.478-7.469 1.496-2.991.748-5.603-.369-7.847-1.118-2.243-10.073-24.289-13.812-33.253-3.636-8.732-7.331-7.546-10.073-7.692-2.613-.13-5.595-.155-8.586-.155-2.991 0-7.839 1.118-11.947 5.604-4.108 4.486-15.677 15.324-15.677 37.361s16.047 43.344 18.29 46.335c2.243 2.991 31.585 48.225 76.51 67.632 10.684 4.615 19.029 7.374 25.535 9.437 10.727 3.412 20.49 2.931 28.208 1.779 8.604-1.289 26.498-10.838 30.228-21.298 3.73-10.46 3.73-19.433 2.613-21.298-1.117-1.865-4.108-2.991-8.586-5.234l.008-.017Z" clip-rule="evenodd"/></svg>
+                                <span>{{ $waDisplay }}</span>
                             </a>
                         @endforeach
                         @foreach ($generalPhone as $ph)
+                            @php $phDisplay = $localNumber($ph['value']); $phFull = '+' . preg_replace('/\D/', '', $ph['value']); @endphp
                             <a
                                 href="tel:{{ $ph['value'] }}"
-                                class="inline-flex items-center justify-center px-4 py-2.5 rounded-lg text-sm font-medium shadow border transition"
+                                title="Llamar {{ $phFull }}"
+                                class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium shadow border transition"
                                 style="background-color: #ffffff; color: {{ $secondaryColor }}; border-color: {{ $secondaryColor }};"
                             >
-                                Llamar {{ $ph['value'] }}
+                                <svg class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M14.3308 15.9402L15.6608 14.6101C15.8655 14.403 16.1092 14.2384 16.3778 14.1262C16.6465 14.014 16.9347 13.9563 17.2258 13.9563C17.517 13.9563 17.8052 14.014 18.0739 14.1262C18.3425 14.2384 18.5862 14.403 18.7908 14.6101L20.3508 16.1702C20.5579 16.3748 20.7224 16.6183 20.8346 16.887C20.9468 17.1556 21.0046 17.444 21.0046 17.7351C21.0046 18.0263 20.9468 18.3146 20.8346 18.5833C20.7224 18.8519 20.5579 19.0954 20.3508 19.3L19.6408 20.02C19.1516 20.514 18.5189 20.841 17.8329 20.9541C17.1469 21.0672 16.4427 20.9609 15.8208 20.6501C10.4691 17.8952 6.11008 13.5396 3.35083 8.19019C3.03976 7.56761 2.93414 6.86242 3.04914 6.17603C3.16414 5.48963 3.49384 4.85731 3.99085 4.37012L4.70081 3.65015C5.11674 3.23673 5.67937 3.00464 6.26581 3.00464C6.85225 3.00464 7.41488 3.23673 7.83081 3.65015L9.40082 5.22021C9.81424 5.63615 10.0463 6.19871 10.0463 6.78516C10.0463 7.3716 9.81424 7.93416 9.40082 8.3501L8.0708 9.68018C8.95021 10.8697 9.91617 11.9926 10.9608 13.04C11.9994 14.0804 13.116 15.04 14.3008 15.9102L14.3308 15.9402Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                <span>{{ $phDisplay }}</span>
                             </a>
                         @endforeach
-                        @if (count($generalWhatsapp) + count($generalPhone) === 0 && (count($whatsappContacts) + count($phoneContacts)) > 0)
-                            <p class="text-sm text-gray-500 col-span-2">Contactos por sede más abajo.</p>
-                        @endif
                         <a
                             href="#catalogo"
                             class="inline-flex items-center justify-center px-4 py-2.5 rounded-lg text-sm font-medium shadow transition"
@@ -131,13 +148,13 @@
                         >
                             Ver catálogo
                         </a>
-                        @if (count($locations) > 0)
+                        @if ($location)
                             <a
-                                href="#ubicaciones"
+                                href="#ubicacion"
                                 class="inline-flex items-center justify-center px-4 py-2.5 rounded-lg text-sm font-medium shadow border transition"
                                 style="background-color: #ffffff; color: {{ $secondaryColor }}; border-color: {{ $secondaryColor }};"
                             >
-                                Ver ubicaciones
+                                Ver ubicación
                             </a>
                         @endif
                     </div>
@@ -227,34 +244,37 @@
                                         <option value="price_desc" @selected($currentOrder === 'price_desc')>Mayor a menor</option>
                                     </select>
                                 </div>
-                                <div class="md:col-span-2 pt-3 border-t border-gray-100 md:border-0 md:pt-0">
-                                    <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1">Productos por página</label>
-                                    <select
-                                        name="page_size"
-                                        class="w-full rounded-lg border-gray-200 bg-white text-gray-900 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                                    >
-                                        @foreach ($pageSizeOptions as $size)
-                                            <option value="{{ $size }}" @selected((int) request('page_size', $pageSize) === $size)>{{ $size }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                                <div class="md:col-span-2 pt-3 border-t border-gray-100 md:border-0 md:pt-0 flex flex-col md:flex-row md:items-end md:justify-end gap-2 md:gap-3">
-                                    <a
-                                        href="{{ url()->current() }}#catalogo"
-                                        class="inline-flex items-center justify-center px-3 py-2 rounded-lg text-xs md:text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-50 border border-transparent transition"
-                                    >
-                                        Limpiar filtros
-                                    </a>
-                                    <button
-                                        type="submit"
-                                        class="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold shadow-md hover:shadow-lg transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1"
-                                        style="background-color: {{ $primaryColor }}; color: #ffffff;"
-                                    >
-                                        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                                            <path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                        </svg>
-                                        <span>Aplicar filtros</span>
-                                    </button>
+                                {{-- Fila: Productos por página → Limpiar filtros → Aplicar filtros (orden fijo) --}}
+                                <div class="md:col-span-12 pt-3 border-t border-gray-100 flex flex-col sm:flex-row sm:items-end sm:flex-wrap gap-3">
+                                    <div class="order-1 sm:w-auto min-w-[140px]">
+                                        <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1">Productos por página</label>
+                                        <select
+                                            name="page_size"
+                                            class="w-full rounded-lg border-gray-200 bg-white text-gray-900 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                        >
+                                            @foreach ($pageSizeOptions as $size)
+                                                <option value="{{ $size }}" @selected((int) request('page_size', $pageSize) === $size)>{{ $size }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="order-2 flex items-end gap-2 sm:gap-3">
+                                        <a
+                                            href="{{ url()->current() }}#catalogo"
+                                            class="inline-flex items-center justify-center px-3 py-2 rounded-lg text-xs md:text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-50 border border-gray-200 transition"
+                                        >
+                                            Limpiar filtros
+                                        </a>
+                                        <button
+                                            type="submit"
+                                            class="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold shadow-md hover:shadow-lg transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1"
+                                            style="background-color: {{ $primaryColor }}; color: #ffffff;"
+                                        >
+                                            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                                <path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            </svg>
+                                            <span>Aplicar filtros</span>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </form>
@@ -361,55 +381,40 @@
                     @endif
                 </section>
 
-                @if (count($locations) > 0)
-                    <section id="ubicaciones" class="mt-12 max-w-4xl mx-auto space-y-6">
-                        <h2 class="text-xl font-semibold text-gray-900">Ubicaciones</h2>
-                        @foreach ($locations as $loc)
-                            @if (!empty($loc['name']) || !empty($loc['address']) || !empty($loc['map_iframe_src']))
-                                <div class="bg-white/90 rounded-xl shadow-lg overflow-hidden">
-                                    @if (!empty($loc['map_iframe_src']))
-                                        <div class="aspect-video w-full">
-                                            <iframe src="{{ $loc['map_iframe_src'] }}" class="w-full h-full" style="border:0;" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="{{ $loc['name'] ?? 'Mapa' }}"></iframe>
-                                        </div>
-                                    @endif
-                                    <div class="p-4">
-                                        @if (!empty($loc['name']))
-                                            <h3 class="font-semibold text-gray-900">{{ $loc['name'] }}</h3>
-                                        @endif
-                                        @if (!empty($loc['address']))
-                                            <p class="text-sm text-gray-600 mt-1">{{ $loc['address'] }}</p>
-                                        @endif
-                                        @if (!empty($loc['map_iframe_src']))
-                                            <a
-                                                href="{{ $loc['map_iframe_src'] }}"
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                class="inline-flex items-center gap-2 mt-3 px-4 py-2 rounded-lg text-sm font-medium transition"
-                                                style="background-color: {{ $primaryColor }}; color: #ffffff;"
-                                            >
-                                                Cómo llegar
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                                            </a>
-                                        @endif
-                                        @php
-                                            $idx = $loop->index;
-                                            $waForLoc = array_filter($whatsappContacts, fn($c) => ($c['location_index'] ?? null) === $idx);
-                                            $phForLoc = array_filter($phoneContacts, fn($c) => ($c['location_index'] ?? null) === $idx);
-                                        @endphp
-                                        @if (count($waForLoc) + count($phForLoc) > 0)
-                                            <div class="mt-3 flex flex-wrap gap-2">
-                                                @foreach ($waForLoc as $wa)
-                                                    <a href="https://wa.me/{{ preg_replace('/[^0-9]/', '', $wa['value']) }}?text={{ urlencode('Hola, quiero hacer un pedido') }}" target="_blank" rel="noopener noreferrer" class="text-sm text-green-600 hover:underline">WhatsApp {{ $wa['value'] }}</a>
-                                                @endforeach
-                                                @foreach ($phForLoc as $ph)
-                                                    <a href="tel:{{ $ph['value'] }}" class="text-sm text-gray-700 hover:underline">Llamar {{ $ph['value'] }}</a>
-                                                @endforeach
-                                            </div>
-                                        @endif
-                                    </div>
+                @if ($location && (!empty($location['name']) || !empty($location['address']) || !empty($location['map_iframe_src'])))
+                    @php
+                        $mapEmbedSrc = $location['map_iframe_src'] ?? '';
+                        $mapViewUrl = $mapEmbedSrc ? str_replace('maps/embed', 'maps', $mapEmbedSrc) : '';
+                    @endphp
+                    <section id="ubicacion" class="mt-12 max-w-4xl mx-auto">
+                        <h2 class="text-xl font-semibold text-gray-900 mb-4">Ubicación</h2>
+                        <div class="bg-white/90 rounded-xl shadow-lg overflow-hidden">
+                            @if (!empty($mapEmbedSrc))
+                                <div class="aspect-video w-full">
+                                    <iframe src="{{ $mapEmbedSrc }}" class="w-full h-full" style="border:0;" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="{{ $location['name'] ?? 'Mapa' }}"></iframe>
                                 </div>
                             @endif
-                        @endforeach
+                            <div class="p-4">
+                                @if (!empty($location['name']))
+                                    <h3 class="font-semibold text-gray-900">{{ $location['name'] }}</h3>
+                                @endif
+                                @if (!empty($location['address']))
+                                    <p class="text-sm text-gray-600 mt-1">{{ $location['address'] }}</p>
+                                @endif
+                                @if ($mapViewUrl)
+                                    <a
+                                        href="{{ $mapViewUrl }}"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="inline-flex items-center gap-2 mt-3 px-4 py-2 rounded-lg text-sm font-medium transition"
+                                        style="background-color: {{ $primaryColor }}; color: #ffffff;"
+                                    >
+                                        Cómo llegar
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                    </a>
+                                @endif
+                            </div>
+                        </div>
                     </section>
                 @endif
 
