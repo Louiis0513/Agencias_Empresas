@@ -6,12 +6,19 @@ use App\Models\Category;
 use App\Models\ProductItem;
 use App\Models\ProductVariant;
 use App\Models\VitrinaConfig;
+use App\Services\VitrinaCartService;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 
 class VitrinaController extends Controller
 {
+    public function __construct(
+        private VitrinaCartService $cartService
+    ) {}
+
     /**
      * Vitrina pública por slug (sin autenticación).
      */
@@ -112,6 +119,9 @@ class VitrinaController extends Controller
                         'image_path' => $product->image_path,
 						'category_id' => $product->category_id,
 						'category_name' => $product->category ? $product->category->name : null,
+                        'product_id' => $product->id,
+                        'variant_id' => null,
+                        'product_item_id' => null,
                     ]);
                 }
 
@@ -130,6 +140,9 @@ class VitrinaController extends Controller
                             'image_path' => $variant->image_path ?: $product->image_path,
 							'category_id' => $product->category_id,
 							'category_name' => $product->category ? $product->category->name : null,
+                            'product_id' => $product->id,
+                            'variant_id' => $variant->id,
+                            'product_item_id' => null,
                         ]);
                     }
                 }
@@ -160,6 +173,9 @@ class VitrinaController extends Controller
                             'image_path' => $item->image_path ?: $product->image_path,
 							'category_id' => $product->category_id,
 							'category_name' => $product->category ? $product->category->name : null,
+                            'product_id' => $product->id,
+                            'variant_id' => null,
+                            'product_item_id' => $item->id,
                         ]);
                     }
                 }
@@ -192,6 +208,10 @@ class VitrinaController extends Controller
             ? $store->storePlans()->where('in_showcase', true)->orderBy('name')->get()
             : collect();
 
+        $cartItems = $this->cartService->getCartForStore($store);
+        $totals = $this->cartService->getTotals($store);
+        $currentView = $request->get('view', 'catalog') === 'cart' ? 'cart' : 'catalog';
+
         return view('vitrina.show', [
             'config' => $config,
             'store' => $store,
@@ -206,7 +226,75 @@ class VitrinaController extends Controller
 			'pageSize' => $pageSize,
 			'pageSizeOptions' => $allowedPageSizes,
             'plans' => $plans,
+            'cartItems' => $cartItems,
+            'cartSubtotal' => $totals['subtotal'],
+            'cartTotal' => $totals['total'],
+            'cartCount' => $totals['count'],
+            'currentView' => $currentView,
         ]);
+    }
+
+    public function addToCart(Request $request, string $slug): JsonResponse|RedirectResponse
+    {
+        $config = VitrinaConfig::where('slug', $slug)->with('store')->firstOrFail();
+        $store = $config->store;
+
+        $productId = (int) $request->input('product_id');
+        $variantId = $request->filled('variant_id') ? (int) $request->input('variant_id') : null;
+        $productItemId = $request->filled('product_item_id') ? (int) $request->input('product_item_id') : null;
+        $quantity = max(1, (int) $request->input('quantity', 1));
+
+        $this->cartService->addItem($store, $productId, $variantId, $productItemId, $quantity);
+        $totals = $this->cartService->getTotals($store);
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Producto añadido al carrito.',
+                'cart_count' => $totals['count'],
+            ]);
+        }
+
+        return redirect()->route('vitrina.show', ['slug' => $slug])
+            ->with('success', 'Producto añadido al carrito.');
+    }
+
+    public function updateCart(Request $request, string $slug): RedirectResponse
+    {
+        $config = VitrinaConfig::where('slug', $slug)->with('store')->firstOrFail();
+        $store = $config->store;
+
+        $lineKey = (string) $request->input('line_key');
+        $delta = (int) $request->input('delta', 0);
+
+        if ($lineKey !== '' && $delta !== 0) {
+            $this->cartService->updateItemQuantity($store, $lineKey, $delta);
+        }
+
+        return redirect()->route('vitrina.show', ['slug' => $slug, 'view' => 'cart'])
+            ->with('success', 'Carrito actualizado.');
+    }
+
+    public function clearCart(Request $request, string $slug): RedirectResponse
+    {
+        $config = VitrinaConfig::where('slug', $slug)->with('store')->firstOrFail();
+        $store = $config->store;
+
+        $this->cartService->clearCart($store);
+
+        return redirect()->route('vitrina.show', ['slug' => $slug, 'view' => 'cart'])
+            ->with('success', 'Carrito limpio.');
+    }
+
+    public function checkoutCart(Request $request, string $slug): RedirectResponse
+    {
+        $config = VitrinaConfig::where('slug', $slug)->with('store')->firstOrFail();
+        $store = $config->store;
+
+        $this->cartService->clearCart($store);
+
+        return redirect()->route('vitrina.show', ['slug' => $slug])
+            ->with('success', 'Solicitud de pedido enviada.');
     }
 
 	/**

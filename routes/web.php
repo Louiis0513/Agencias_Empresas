@@ -33,6 +33,10 @@ Route::view('profile', 'profile')
 // Vitrina virtual: demo estática y vitrina pública por slug
 Route::view('/vitrina/demo', 'vitrina.demo')->name('vitrina.demo');
 Route::get('/vitrina/{slug}', [VitrinaController::class, 'show'])->name('vitrina.show');
+Route::post('/vitrina/{slug}/cart/add', [VitrinaController::class, 'addToCart'])->name('vitrina.cart.add');
+Route::post('/vitrina/{slug}/cart/update', [VitrinaController::class, 'updateCart'])->name('vitrina.cart.update');
+Route::post('/vitrina/{slug}/cart/clear', [VitrinaController::class, 'clearCart'])->name('vitrina.cart.clear');
+Route::post('/vitrina/{slug}/cart/checkout', [VitrinaController::class, 'checkoutCart'])->name('vitrina.cart.checkout');
 
 
 Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:slug}')->name('stores.')->group(function () {

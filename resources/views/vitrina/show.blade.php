@@ -55,6 +55,13 @@
             </div>
 
             <main class="pt-24 pb-16 px-4">
+                @if (session('success'))
+                    <div class="max-w-3xl mx-auto mb-4 px-4 py-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm">
+                        {{ session('success') }}
+                    </div>
+                @endif
+
+                @if (($currentView ?? 'catalog') !== 'cart')
                 <section class="max-w-xl mx-auto bg-white/90 backdrop-blur rounded-xl shadow-lg p-6 text-center">
                     <h1 class="text-2xl font-semibold text-gray-900">{{ $store->name }}</h1>
                     @if ($config->description)
@@ -263,6 +270,26 @@
 </div>
                                         <p class="font-medium text-gray-900">{{ $item->display_name }}</p>
                                         <p class="text-sm text-gray-600 mt-1">${{ number_format($item->price, 0) }}</p>
+                                        @if (isset($item->product_id))
+                                            <form method="POST" action="{{ route('vitrina.cart.add', $config->slug) }}" class="mt-3 js-add-to-cart-form">
+                                                @csrf
+                                                <input type="hidden" name="product_id" value="{{ $item->product_id }}">
+                                                @if (!empty($item->variant_id))
+                                                    <input type="hidden" name="variant_id" value="{{ $item->variant_id }}">
+                                                @endif
+                                                @if (!empty($item->product_item_id))
+                                                    <input type="hidden" name="product_item_id" value="{{ $item->product_item_id }}">
+                                                @endif
+                                                <input type="hidden" name="quantity" value="1">
+                                                <button
+                                                    type="submit"
+                                                    class="w-full inline-flex items-center justify-center px-3 py-2 rounded-lg text-sm font-medium shadow transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-offset-1"
+                                                    style="background-color: {{ $primaryColor }}; color: #ffffff;"
+                                                >
+                                                    Añadir al carrito
+                                                </button>
+                                            </form>
+                                        @endif
                                     </div>
                                 @endforeach
                             </div>
@@ -346,8 +373,232 @@
                         @endforeach
                     </section>
                 @endif
+
+                @else
+                    {{-- Vista de carrito: oculta catálogo y ubicaciones --}}
+                    <section id="carrito" class="w-full max-w-6xl mx-auto px-2 sm:px-4">
+                        <div class="bg-white/90 backdrop-blur rounded-2xl shadow-lg overflow-hidden">
+                            {{-- Cabecera del carrito --}}
+                            <div class="p-4 sm:p-6 border-b border-gray-100">
+                                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                                    <div>
+                                        <h2 class="text-xl sm:text-2xl font-semibold text-gray-900">Mi Carrito</h2>
+                                        <p class="mt-1 text-sm text-gray-600">Revisa y gestiona tus productos seleccionados.</p>
+                                    </div>
+                                    <a
+                                        href="{{ route('vitrina.show', ['slug' => $config->slug]) }}#catalogo"
+                                        class="inline-flex items-center justify-center px-4 py-2.5 rounded-lg text-sm font-medium shadow border transition flex-shrink-0"
+                                        style="background-color: #ffffff; color: {{ $secondaryColor }}; border-color: {{ $secondaryColor }};"
+                                    >
+                                        Continuar comprando
+                                    </a>
+                                </div>
+                            </div>
+
+                            @if (!empty($cartItems) && count($cartItems) > 0)
+                                <div class="lg:flex lg:gap-8">
+                                    {{-- Listado de productos: ancho flexible en desktop --}}
+                                    <div class="flex-1 min-w-0 p-4 sm:p-6">
+                                        <div class="space-y-4 sm:space-y-0 divide-y divide-gray-100">
+                                            @foreach ($cartItems as $row)
+                                                <div class="py-4 sm:py-5 first:pt-0 sm:first:pt-0">
+                                                    <div class="flex gap-3 sm:gap-4">
+                                                        {{-- Imagen del producto (mismo estilo que vitrina: cuadrado, object-contain) --}}
+                                                        <div class="flex-shrink-0 w-20 h-20 sm:w-24 sm:h-24 rounded-lg overflow-hidden bg-white border border-gray-100 flex items-center justify-center">
+                                                            @if (!empty($row['image_path']))
+                                                                <img
+                                                                    src="{{ asset('storage/'.$row['image_path']) }}"
+                                                                    alt="{{ $row['name'] }}"
+                                                                    class="w-full h-full object-contain"
+                                                                >
+                                                            @else
+                                                                <span class="text-xs text-gray-400 text-center px-1">Sin foto</span>
+                                                            @endif
+                                                        </div>
+                                                        {{-- Nombre, precio unitario, cantidad y total por línea --}}
+                                                        <div class="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
+                                                            <div class="min-w-0">
+                                                                <p class="font-medium text-gray-900 text-sm sm:text-base line-clamp-3">{{ $row['name'] }}</p>
+                                                                <p class="text-sm text-gray-600 mt-0.5">${{ number_format($row['price'], 0) }} c/u</p>
+                                                            </div>
+                                                            <div class="flex items-center justify-between sm:justify-end gap-3 flex-wrap">
+                                                                <div class="flex items-center gap-1 sm:gap-2">
+                                                                    <form method="POST" action="{{ route('vitrina.cart.update', $config->slug) }}" class="inline">
+                                                                        @csrf
+                                                                        <input type="hidden" name="line_key" value="{{ $row['line_key'] }}">
+                                                                        <input type="hidden" name="delta" value="-1">
+                                                                        <button type="submit" class="w-9 h-9 rounded-lg border border-gray-300 bg-white text-gray-700 font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-500" aria-label="Disminuir cantidad">−</button>
+                                                                    </form>
+                                                                    <span class="w-8 text-center font-medium text-gray-900 text-sm sm:text-base">{{ $row['quantity'] }}</span>
+                                                                    <form method="POST" action="{{ route('vitrina.cart.update', $config->slug) }}" class="inline">
+                                                                        @csrf
+                                                                        <input type="hidden" name="line_key" value="{{ $row['line_key'] }}">
+                                                                        <input type="hidden" name="delta" value="1">
+                                                                        <button type="submit" class="w-9 h-9 rounded-lg border border-gray-300 bg-white text-gray-700 font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-500" aria-label="Aumentar cantidad">+</button>
+                                                                    </form>
+                                                                </div>
+                                                                <p class="font-semibold text-gray-900 text-sm sm:text-base whitespace-nowrap">${{ number_format($row['price'] * $row['quantity'], 0) }}</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    </div>
+
+                                    {{-- Resumen y acciones: sidebar en desktop, bloque abajo en móvil --}}
+                                    <div class="lg:w-80 flex-shrink-0 border-t lg:border-t-0 lg:border-l border-gray-100 p-4 sm:p-6 bg-gray-50/50">
+                                        <div class="space-y-4">
+                                            <div class="space-y-2 text-right sm:text-right">
+                                                <p class="text-gray-600 text-sm">Subtotal: <span class="font-semibold text-gray-900">${{ number_format($cartSubtotal ?? 0, 0) }}</span></p>
+                                                <p class="text-lg sm:text-xl font-semibold text-gray-900">Total: ${{ number_format($cartTotal ?? 0, 0) }}</p>
+                                            </div>
+                                            <div class="flex flex-col-reverse sm:flex-row sm:flex-wrap gap-3 pt-2">
+                                                <form method="POST" action="{{ route('vitrina.cart.checkout', $config->slug) }}" class="flex-1 min-w-0 sm:min-w-[140px]">
+                                                    @csrf
+                                                    <button
+                                                        type="submit"
+                                                        class="w-full inline-flex items-center justify-center px-4 py-2.5 rounded-lg text-sm font-medium shadow transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-offset-1"
+                                                        style="background-color: {{ $primaryColor }}; color: #ffffff;"
+                                                    >
+                                                        Solicitar Pedido
+                                                    </button>
+                                                </form>
+                                                <form method="POST" action="{{ route('vitrina.cart.clear', $config->slug) }}" class="flex-1 min-w-0 sm:min-w-[140px]" onsubmit="return confirm('¿Vaciar todo el carrito?');">
+                                                    @csrf
+                                                    <button
+                                                        type="submit"
+                                                        class="w-full inline-flex items-center justify-center px-4 py-2.5 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                                    >
+                                                        Limpiar carrito
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            @else
+                                <div class="p-6 sm:p-8 text-center">
+                                    <p class="text-gray-500">No hay productos en el carrito.</p>
+                                    <a
+                                        href="{{ route('vitrina.show', ['slug' => $config->slug]) }}#catalogo"
+                                        class="mt-4 inline-flex items-center justify-center px-4 py-2.5 rounded-lg text-sm font-medium shadow transition"
+                                        style="background-color: {{ $primaryColor }}; color: #ffffff;"
+                                    >
+                                        Ver catálogo
+                                    </a>
+                                </div>
+                            @endif
+                        </div>
+                    </section>
+                @endif
             </main>
         </div>
     </div>
+
+    {{-- Botón flotante del carrito: hijo directo de body para position:fixed respecto al viewport --}}
+    @php $cartCount = $cartCount ?? 0; @endphp
+    <a
+        href="{{ route('vitrina.show', ['slug' => $config->slug, 'view' => 'cart']) }}"
+        class="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-[100] flex items-center gap-2 px-4 py-3 sm:px-5 sm:py-3 rounded-full shadow-lg transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white"
+        style="background-color: {{ $primaryColor }}; color: #ffffff;"
+        aria-label="Ver carrito ({{ $cartCount }} productos)"
+    >
+        <span class="text-xl sm:text-2xl" aria-hidden="true">🛒</span>
+        <span class="font-medium text-sm sm:text-base whitespace-nowrap">Ver Carrito</span>
+        @if ($cartCount > 0)
+            <span id="vitrina-cart-count" class="flex h-6 min-w-[1.5rem] items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white">
+                {{ $cartCount > 99 ? '99+' : $cartCount }}
+            </span>
+        @else
+            <span id="vitrina-cart-count" class="hidden flex h-6 min-w-[1.5rem] items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white"></span>
+        @endif
+    </a>
+
+    {{-- Toast de éxito (notificación flotante) --}}
+    <div id="vitrina-toast" class="hidden fixed top-4 right-4 z-[200] max-w-sm" role="alert" aria-live="polite">
+        <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-4 flex items-start gap-3">
+            <div class="flex-shrink-0 w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center">
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>
+            </div>
+            <div class="flex-1 min-w-0 pt-0.5">
+                <p id="vitrina-toast-message" class="font-semibold text-gray-900 text-sm"></p>
+            </div>
+            <button type="button" id="vitrina-toast-close" class="flex-shrink-0 text-gray-400 hover:text-gray-600 p-1" aria-label="Cerrar">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+    </div>
+
+    <script>
+    (function() {
+        var toastEl = document.getElementById('vitrina-toast');
+        var toastMessage = document.getElementById('vitrina-toast-message');
+        var toastClose = document.getElementById('vitrina-toast-close');
+        var cartCountEl = document.getElementById('vitrina-cart-count');
+        var toastTimer = null;
+
+        function showToast(message) {
+            if (toastTimer) clearTimeout(toastTimer);
+            if (toastMessage) toastMessage.textContent = message || 'Producto añadido al carrito.';
+            if (toastEl) {
+                toastEl.classList.remove('hidden');
+                toastTimer = setTimeout(function() {
+                    toastEl.classList.add('hidden');
+                    toastTimer = null;
+                }, 3000);
+            }
+        }
+
+        function hideToast() {
+            if (toastTimer) clearTimeout(toastTimer);
+            toastTimer = null;
+            if (toastEl) toastEl.classList.add('hidden');
+        }
+
+        if (toastClose) toastClose.addEventListener('click', hideToast);
+
+        function updateCartCount(count) {
+            if (!cartCountEl) return;
+            count = parseInt(count, 10) || 0;
+            cartCountEl.textContent = count > 99 ? '99+' : count;
+            cartCountEl.classList.remove('hidden');
+            if (count === 0) cartCountEl.classList.add('hidden');
+        }
+
+        document.querySelectorAll('.js-add-to-cart-form').forEach(function(form) {
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                var action = form.getAttribute('action');
+                var formData = new FormData(form);
+                var token = form.querySelector('input[name="_token"]');
+                if (token) formData.append('_token', token.value);
+
+                fetch(action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    }
+                })
+                .then(function(res) { return res.json().then(function(data) { return { ok: res.ok, data: data }; }); })
+                .then(function(result) {
+                    if (result.ok && result.data && result.data.success) {
+                        showToast(result.data.message || 'Producto añadido al carrito.');
+                        if (typeof result.data.cart_count !== 'undefined') updateCartCount(result.data.cart_count);
+                    } else {
+                        showToast('No se pudo añadir al carrito.');
+                    }
+                })
+                .catch(function() {
+                    showToast('Error al añadir al carrito.');
+                });
+            });
+        });
+    })();
+    </script>
 </body>
 </html>
