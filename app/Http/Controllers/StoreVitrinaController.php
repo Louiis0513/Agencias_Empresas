@@ -62,7 +62,10 @@ class StoreVitrinaController extends Controller
             'schedule' => ['nullable', 'string', 'max:500'],
             'show_products' => ['boolean'],
             'show_plans' => ['boolean'],
-			'default_page_size' => ['nullable', 'integer', 'in:10,20,50'],
+            'default_page_size' => ['nullable', 'integer', 'in:10,20,50'],
+            'main_background_color' => ['nullable', 'string', 'max:50'],
+            'primary_color' => ['nullable', 'string', 'max:50'],
+            'secondary_color' => ['nullable', 'string', 'max:50'],
             'cover_image' => ['nullable', 'image', 'max:5120'],
             'logo_image' => ['nullable', 'image', 'max:5120'],
             'background_image' => ['nullable', 'image', 'max:5120'],
@@ -81,9 +84,12 @@ class StoreVitrinaController extends Controller
         $vitrinaConfig->slug = $slug;
         $vitrinaConfig->description = $request->filled('description') ? $request->input('description') : null;
         $vitrinaConfig->schedule = $request->filled('schedule') ? $request->input('schedule') : null;
-		$vitrinaConfig->show_products = $request->boolean('show_products');
-		$vitrinaConfig->show_plans = $request->boolean('show_plans');
-		$vitrinaConfig->default_page_size = $request->input('default_page_size') ?: null;
+        $vitrinaConfig->show_products = $request->boolean('show_products');
+        $vitrinaConfig->show_plans = $request->boolean('show_plans');
+        $vitrinaConfig->default_page_size = $request->input('default_page_size') ?: null;
+        $vitrinaConfig->main_background_color = $request->input('main_background_color') ?: null;
+        $vitrinaConfig->primary_color = $request->input('primary_color') ?: null;
+        $vitrinaConfig->secondary_color = $request->input('secondary_color') ?: null;
 
         $basePath = 'vitrina/' . $store->id;
 

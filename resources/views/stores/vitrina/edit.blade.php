@@ -136,6 +136,52 @@
                     </div>
                 </div>
 
+                {{-- Colores de la vitrina --}}
+                <div class="bg-dark-card border border-white/5 rounded-xl p-6">
+                    <h3 class="font-medium text-white mb-4">Colores de la vitrina</h3>
+                    <p class="text-sm text-gray-400 mb-4">
+                        Define el color del recuadro principal y dos colores de acento para los botones. Si los dejas vacíos se usarán los valores por defecto.
+                    </p>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div>
+                            <label class="block text-gray-400 mb-1">Fondo del contenido (main)</label>
+                            <input
+                                type="color"
+                                name="main_background_color"
+                                value="{{ old('main_background_color', $vitrinaConfig->main_background_color ?? '#ffffff') }}"
+                                class="w-full h-10 rounded border border-white/10 bg-white/5"
+                            >
+                            <p class="mt-1 text-xs text-gray-500">
+                                Es el recuadro claro donde aparece la información, filtros y productos.
+                            </p>
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 mb-1">Color 1 (botones principales)</label>
+                            <input
+                                type="color"
+                                name="primary_color"
+                                value="{{ old('primary_color', $vitrinaConfig->primary_color ?? '#10b981') }}"
+                                class="w-full h-10 rounded border border-white/10 bg-white/5"
+                            >
+                            <p class="mt-1 text-xs text-gray-500">
+                                WhatsApp, “Ver catálogo”, “Aplicar filtros”, “Cómo llegar”, etc.
+                            </p>
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 mb-1">Color 2 (botones secundarios)</label>
+                            <input
+                                type="color"
+                                name="secondary_color"
+                                value="{{ old('secondary_color', $vitrinaConfig->secondary_color ?? '#047857') }}"
+                                class="w-full h-10 rounded border border-white/10 bg-white/5"
+                            >
+                            <p class="mt-1 text-xs text-gray-500">
+                                Botones inversos o secundarios como “Ver ubicaciones” o “Llamar”.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
                 {{-- WhatsApp (máx. 5) --}}
                 <div class="bg-dark-card border border-white/5 rounded-xl p-6">
                     <h3 class="font-medium text-white mb-4">WhatsApp (máx. 5)</h3>

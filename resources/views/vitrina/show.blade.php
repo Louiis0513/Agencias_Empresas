@@ -7,6 +7,23 @@
     $locations = $config->locations ?? [];
     $generalWhatsapp = array_filter($whatsappContacts, fn($c) => ($c['location_index'] ?? null) === null);
     $generalPhone = array_filter($phoneContacts, fn($c) => ($c['location_index'] ?? null) === null);
+
+    // Colores personalizables con valores por defecto
+    // mainBg controla el fondo general del área de contenido (no las tarjetas internas)
+    $rawMainBg = $config->main_background_color ?: '#ffffff';
+
+    // Forzar siempre opacidad 0.8
+    if (preg_match('/^#([0-9a-fA-F]{6})$/', $rawMainBg, $m)) {
+        $r = hexdec(substr($m[1], 0, 2));
+        $g = hexdec(substr($m[1], 2, 2));
+        $b = hexdec(substr($m[1], 4, 2));
+        $mainBg = "rgba({$r}, {$g}, {$b}, 0.8)";
+    } else {
+        // fallback por si viene algo raro
+        $mainBg = 'rgba(255, 255, 255, 0.8)';
+    }
+    $primaryColor = $config->primary_color ?: '#10b981'; // emerald-500/600
+    $secondaryColor = $config->secondary_color ?: '#047857'; // emerald-700 aproximado
 @endphp
 <!DOCTYPE html>
 <html lang="es">
@@ -21,7 +38,10 @@
         class="min-h-screen flex flex-col"
         style="background-image: url('{{ $bgUrl }}'); background-size: cover; background-position: center;"
     >
-        <div class="flex-1 bg-white/80">
+        <div
+            class="flex-1"
+            style="background-color: {{ $mainBg }};"
+        >
             <div
                 class="relative h-64 w-full"
                 style="background-image: url('{{ $coverUrl }}'); background-size: cover; background-position: center;"
@@ -57,23 +77,41 @@
                 <section class="mt-8 max-w-3xl mx-auto">
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         @foreach ($generalWhatsapp as $wa)
-                            <a href="https://wa.me/{{ preg_replace('/[^0-9]/', '', $wa['value']) }}?text={{ urlencode('Hola, quiero hacer un pedido') }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center px-4 py-2.5 rounded-lg bg-green-500 text-white text-sm font-medium shadow hover:bg-green-600 transition">
+                            <a
+                                href="https://wa.me/{{ preg_replace('/[^0-9]/', '', $wa['value']) }}?text={{ urlencode('Hola, quiero hacer un pedido') }}"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="inline-flex items-center justify-center px-4 py-2.5 rounded-lg text-sm font-medium shadow transition"
+                                style="background-color: {{ $primaryColor }}; color: #ffffff;"
+                            >
                                 WhatsApp {{ $wa['value'] }}
                             </a>
                         @endforeach
                         @foreach ($generalPhone as $ph)
-                            <a href="tel:{{ $ph['value'] }}" class="inline-flex items-center justify-center px-4 py-2.5 rounded-lg bg-white/90 text-emerald-700 text-sm font-medium shadow border border-emerald-100 hover:bg-emerald-50 transition">
+                            <a
+                                href="tel:{{ $ph['value'] }}"
+                                class="inline-flex items-center justify-center px-4 py-2.5 rounded-lg text-sm font-medium shadow border transition"
+                                style="background-color: #ffffff; color: {{ $secondaryColor }}; border-color: {{ $secondaryColor }};"
+                            >
                                 Llamar {{ $ph['value'] }}
                             </a>
                         @endforeach
                         @if (count($generalWhatsapp) + count($generalPhone) === 0 && (count($whatsappContacts) + count($phoneContacts)) > 0)
                             <p class="text-sm text-gray-500 col-span-2">Contactos por sede más abajo.</p>
                         @endif
-                        <a href="#catalogo" class="inline-flex items-center justify-center px-4 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-medium shadow hover:bg-emerald-700 transition">
+                        <a
+                            href="#catalogo"
+                            class="inline-flex items-center justify-center px-4 py-2.5 rounded-lg text-sm font-medium shadow transition"
+                            style="background-color: {{ $primaryColor }}; color: #ffffff;"
+                        >
                             Ver catálogo
                         </a>
                         @if (count($locations) > 0)
-                            <a href="#ubicaciones" class="inline-flex items-center justify-center px-4 py-2.5 rounded-lg bg-white/90 text-emerald-700 text-sm font-medium shadow border border-emerald-100 hover:bg-emerald-50 transition">
+                            <a
+                                href="#ubicaciones"
+                                class="inline-flex items-center justify-center px-4 py-2.5 rounded-lg text-sm font-medium shadow border transition"
+                                style="background-color: #ffffff; color: {{ $secondaryColor }}; border-color: {{ $secondaryColor }};"
+                            >
                                 Ver ubicaciones
                             </a>
                         @endif
@@ -83,7 +121,11 @@
                 <section id="catalogo" class="mt-12 max-w-5xl mx-auto">
                     <h2 class="text-xl font-semibold text-gray-900 mb-4">Catálogo</h2>
                     @if ($config->show_products)
-                        <form method="GET" action="{{ url()->current() }}" class="mb-6 bg-white/90 rounded-xl shadow p-4 grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+                        <form
+                            method="GET"
+                            action="{{ url()->current() }}"
+                            class="mb-6 bg-white/90 rounded-xl shadow p-4 grid grid-cols-1 md:grid-cols-4 gap-4 text-sm"
+                        >
                             <div class="md:col-span-2">
                                 <label class="block text-xs font-medium text-gray-700 mb-1">Categoría principal</label>
                                 <select name="root_category_id" class="w-full rounded-lg border-gray-200 text-gray-900 px-3 py-2">
@@ -148,7 +190,11 @@
                                     <a href="{{ url()->current() }}" class="text-xs text-gray-500 hover:text-gray-700 underline">
                                         Limpiar filtros
                                     </a>
-                                    <button type="submit" class="inline-flex items-center px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs font-semibold shadow hover:bg-emerald-700 transition">
+                                    <button
+                                        type="submit"
+                                        class="inline-flex items-center px-4 py-2 rounded-lg text-xs font-semibold shadow transition"
+                                        style="background-color: {{ $primaryColor }}; color: #ffffff;"
+                                    >
                                         Aplicar filtros
                                     </button>
                                 </div>
@@ -221,7 +267,13 @@
                                             <p class="text-sm text-gray-600 mt-1">{{ $loc['address'] }}</p>
                                         @endif
                                         @if (!empty($loc['map_iframe_src']))
-                                            <a href="{{ $loc['map_iframe_src'] }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 mt-3 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition">
+                                            <a
+                                                href="{{ $loc['map_iframe_src'] }}"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                class="inline-flex items-center gap-2 mt-3 px-4 py-2 rounded-lg text-sm font-medium transition"
+                                                style="background-color: {{ $primaryColor }}; color: #ffffff;"
+                                            >
                                                 Cómo llegar
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                                             </a>
