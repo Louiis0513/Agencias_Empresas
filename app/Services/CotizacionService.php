@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Cotizacion;
 use App\Models\Invoice;
+use App\Models\ProductItem;
+use App\Models\ProductVariant;
 use App\Models\Store;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -28,7 +30,7 @@ class CotizacionService
      * @param  \Carbon\CarbonInterface|null  $venceAt  Fecha de vencimiento opcional
      * @throws \InvalidArgumentException Si el carrito está vacío
      */
-    public function crearDesdeCarrito(Store $store, int $userId, ?int $customerId, string $nota, array $carrito, ?\Carbon\CarbonInterface $venceAt = null): Cotizacion
+    public function crearDesdeCarrito(Store $store, ?int $userId, ?int $customerId, string $nota, array $carrito, ?\Carbon\CarbonInterface $venceAt = null): Cotizacion
     {
         if (empty($carrito)) {
             throw new \InvalidArgumentException('El carrito está vacío. Agrega productos antes de guardar la cotización.');
@@ -76,6 +78,75 @@ class CotizacionService
 
             return $cotizacion->load('items.product');
         });
+    }
+
+    /**
+     * Convierte líneas del carrito de vitrina al formato que espera crearDesdeCarrito.
+     *
+     * @param  array  $vitrinaLines  Líneas de VitrinaCartService::getCartForStore: product_id, variant_id?, product_item_id?, name, quantity
+     * @return array<int, array{product_id: int, type: string, quantity: int, name: string|null, product_variant_id: int|null, variant_features: array|null, serial_numbers: array|null, variant_display_name: string|null}>
+     */
+    public function carritoVitrinaToCarritoCotizacion(Store $store, array $vitrinaLines): array
+    {
+        $carrito = [];
+        foreach ($vitrinaLines as $row) {
+            $productId = (int) ($row['product_id'] ?? 0);
+            if ($productId < 1) {
+                continue;
+            }
+            $variantId = isset($row['variant_id']) ? (int) $row['variant_id'] : null;
+            $productItemId = isset($row['product_item_id']) ? (int) $row['product_item_id'] : null;
+            $name = (string) ($row['name'] ?? '');
+            $quantity = max(1, (int) ($row['quantity'] ?? 1));
+
+            if ($productItemId !== null && $productItemId > 0) {
+                $item = ProductItem::where('store_id', $store->id)
+                    ->where('product_id', $productId)
+                    ->where('id', $productItemId)
+                    ->first();
+                $serial = $item && $item->serial_number !== null && $item->serial_number !== ''
+                    ? $item->serial_number
+                    : null;
+                $carrito[] = [
+                    'product_id' => $productId,
+                    'type' => 'serialized',
+                    'quantity' => $quantity,
+                    'name' => $name,
+                    'product_variant_id' => null,
+                    'variant_features' => null,
+                    'serial_numbers' => $serial !== null ? [$serial] : null,
+                    'variant_display_name' => null,
+                ];
+                continue;
+            }
+
+            if ($variantId !== null && $variantId > 0) {
+                $variant = ProductVariant::where('product_id', $productId)->where('id', $variantId)->first();
+                $carrito[] = [
+                    'product_id' => $productId,
+                    'type' => 'batch',
+                    'quantity' => $quantity,
+                    'name' => $name,
+                    'product_variant_id' => $variantId,
+                    'variant_features' => $variant ? $variant->features : null,
+                    'serial_numbers' => null,
+                    'variant_display_name' => $variant ? $variant->display_name : null,
+                ];
+                continue;
+            }
+
+            $carrito[] = [
+                'product_id' => $productId,
+                'type' => 'simple',
+                'quantity' => $quantity,
+                'name' => $name,
+                'product_variant_id' => null,
+                'variant_features' => null,
+                'serial_numbers' => null,
+                'variant_display_name' => null,
+            ];
+        }
+        return $carrito;
     }
 
     /**

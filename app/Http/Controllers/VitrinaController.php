@@ -5,12 +5,17 @@ namespace App\Http\Controllers;
 use App\Models\Category;
 use App\Models\ProductItem;
 use App\Models\ProductVariant;
+use App\Models\Store;
 use App\Models\VitrinaConfig;
+use App\Services\CotizacionService;
+use App\Services\InventarioService;
 use App\Services\VitrinaCartService;
-use Illuminate\Pagination\LengthAwarePaginator;
+use App\Services\VentaService;
+use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 
 class VitrinaController extends Controller
@@ -22,7 +27,7 @@ class VitrinaController extends Controller
     /**
      * Vitrina pública por slug (sin autenticación).
      */
-	public function show(Request $request, string $slug)
+	public function show(Request $request, string $slug, InventarioService $inventarioService)
     {
         $config = VitrinaConfig::where('slug', $slug)->with('store')->firstOrFail();
         $store = $config->store;
@@ -113,6 +118,7 @@ class VitrinaController extends Controller
                         }
                     }
 
+                    $stockResult = $inventarioService->stockDisponible($store, $product->id);
                     $catalogItems->push((object) [
                         'display_name' => $displayName,
                         'price' => (float) ($product->price ?? 0),
@@ -122,6 +128,7 @@ class VitrinaController extends Controller
                         'product_id' => $product->id,
                         'variant_id' => null,
                         'product_item_id' => null,
+                        'stock' => (int) $stockResult['cantidad'],
                     ]);
                 }
 
@@ -133,6 +140,7 @@ class VitrinaController extends Controller
                         }
 
                         $displayName = $product->name . ' (' . $variant->display_name . ')';
+                        $stockResult = $inventarioService->stockDisponible($store, $product->id, null, null, $variant->id);
 
                         $catalogItems->push((object) [
                             'display_name' => $displayName,
@@ -143,6 +151,7 @@ class VitrinaController extends Controller
                             'product_id' => $product->id,
                             'variant_id' => $variant->id,
                             'product_item_id' => null,
+                            'stock' => (int) $stockResult['cantidad'],
                         ]);
                     }
                 }
@@ -176,6 +185,7 @@ class VitrinaController extends Controller
                             'product_id' => $product->id,
                             'variant_id' => null,
                             'product_item_id' => $item->id,
+                            'stock' => $item->status === ProductItem::STATUS_AVAILABLE ? 1 : 0,
                         ]);
                     }
                 }
@@ -234,7 +244,7 @@ class VitrinaController extends Controller
         ]);
     }
 
-    public function addToCart(Request $request, string $slug): JsonResponse|RedirectResponse
+    public function addToCart(Request $request, string $slug, VentaService $ventaService): JsonResponse|RedirectResponse
     {
         $config = VitrinaConfig::where('slug', $slug)->with('store')->firstOrFail();
         $store = $config->store;
@@ -243,6 +253,25 @@ class VitrinaController extends Controller
         $variantId = $request->filled('variant_id') ? (int) $request->input('variant_id') : null;
         $productItemId = $request->filled('product_item_id') ? (int) $request->input('product_item_id') : null;
         $quantity = max(1, (int) $request->input('quantity', 1));
+
+        $itemToValidate = $this->buildItemForStockValidation($store, $productId, $variantId, $productItemId, $quantity);
+        if ($itemToValidate === null) {
+            $message = 'Producto no encontrado o no disponible.';
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => false, 'message' => $message], 422);
+            }
+            return redirect()->route('vitrina.show', ['slug' => $slug])->with('error', $message);
+        }
+
+        try {
+            $ventaService->validarGuardadoItemCarrito($store, [$itemToValidate]);
+        } catch (Exception $e) {
+            $message = $e->getMessage();
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => false, 'message' => $message], 422);
+            }
+            return redirect()->route('vitrina.show', ['slug' => $slug])->with('error', $message);
+        }
 
         $this->cartService->addItem($store, $productId, $variantId, $productItemId, $quantity);
         $totals = $this->cartService->getTotals($store);
@@ -259,7 +288,7 @@ class VitrinaController extends Controller
             ->with('success', 'Producto añadido al carrito.');
     }
 
-    public function updateCart(Request $request, string $slug): RedirectResponse
+    public function updateCart(Request $request, string $slug, InventarioService $inventarioService): RedirectResponse
     {
         $config = VitrinaConfig::where('slug', $slug)->with('store')->firstOrFail();
         $store = $config->store;
@@ -268,6 +297,37 @@ class VitrinaController extends Controller
         $delta = (int) $request->input('delta', 0);
 
         if ($lineKey !== '' && $delta !== 0) {
+            $cart = $this->cartService->getCartForStore($store);
+            $line = null;
+            foreach ($cart as $row) {
+                if (($row['line_key'] ?? '') === $lineKey) {
+                    $line = $row;
+                    break;
+                }
+            }
+            if ($line !== null && $delta > 0) {
+                $currentQty = (int) ($line['quantity'] ?? 0);
+                $newQty = $currentQty + $delta;
+                $productId = (int) ($line['product_id'] ?? 0);
+                $variantId = isset($line['variant_id']) ? (int) $line['variant_id'] : null;
+                $productItemId = isset($line['product_item_id']) ? (int) $line['product_item_id'] : null;
+
+                if ($productItemId !== null && $productItemId > 0) {
+                    if ($newQty > 1) {
+                        return redirect()->route('vitrina.show', ['slug' => $slug, 'view' => 'cart'])
+                            ->with('error', 'Cada unidad serializada solo puede tener cantidad 1.');
+                    }
+                } else {
+                    $stockResult = $variantId !== null && $variantId > 0
+                        ? $inventarioService->stockDisponible($store, $productId, null, null, $variantId)
+                        : $inventarioService->stockDisponible($store, $productId);
+                    $maxStock = (int) $stockResult['cantidad'];
+                    if ($newQty > $maxStock) {
+                        return redirect()->route('vitrina.show', ['slug' => $slug, 'view' => 'cart'])
+                            ->with('error', "Stock insuficiente. Disponible: {$maxStock}, solicitado: {$newQty}.");
+                    }
+                }
+            }
             $this->cartService->updateItemQuantity($store, $lineKey, $delta);
         }
 
@@ -286,16 +346,73 @@ class VitrinaController extends Controller
             ->with('success', 'Carrito limpio.');
     }
 
-    public function checkoutCart(Request $request, string $slug): RedirectResponse
+    public function checkoutCart(Request $request, string $slug, CotizacionService $cotizacionService): RedirectResponse
     {
         $config = VitrinaConfig::where('slug', $slug)->with('store')->firstOrFail();
         $store = $config->store;
 
+        if (! auth()->guest()) {
+            $this->cartService->clearCart($store);
+            return redirect()->route('vitrina.show', ['slug' => $slug])
+                ->with('success', 'Solicitud de pedido enviada.');
+        }
+
+        $cartItems = $this->cartService->getCartForStore($store);
+        if (empty($cartItems)) {
+            return redirect()->route('vitrina.show', ['slug' => $slug, 'view' => 'cart'])
+                ->with('error', 'Agrega productos al carrito antes de solicitar.');
+        }
+
+        if (! $request->has('nota')) {
+            return redirect()->route('vitrina.show', ['slug' => $slug, 'view' => 'cart'])
+                ->with('show_checkout_modal', true);
+        }
+
+        $nota = 'DESDE VITRINA ' . trim((string) $request->input('nota', ''));
+        $carritoConvertido = $cotizacionService->carritoVitrinaToCarritoCotizacion($store, $cartItems);
+
+        try {
+            $cotizacionService->crearDesdeCarrito(
+                $store,
+                null,
+                null,
+                $nota,
+                $carritoConvertido,
+                now()->addDay()
+            );
+        } catch (\InvalidArgumentException $e) {
+            return redirect()->route('vitrina.show', ['slug' => $slug, 'view' => 'cart'])
+                ->with('error', $e->getMessage());
+        }
+
         $this->cartService->clearCart($store);
 
         return redirect()->route('vitrina.show', ['slug' => $slug])
-            ->with('success', 'Solicitud de pedido enviada.');
+            ->with('success', 'Solicitud enviada. Te contactaremos a la brevedad.');
     }
+
+	/**
+	 * Construye el ítem en formato esperado por VentaService::validarGuardadoItemCarrito.
+	 *
+	 * @return array{product_id: int, quantity?: int, product_variant_id?: int, serial_numbers?: array}|null
+	 */
+	private function buildItemForStockValidation(Store $store, int $productId, ?int $variantId, ?int $productItemId, int $quantity): ?array
+	{
+		if ($productItemId !== null && $productItemId > 0) {
+			$item = ProductItem::where('store_id', $store->id)
+				->where('product_id', $productId)
+				->where('id', $productItemId)
+				->first();
+			if (! $item || $item->serial_number === null || $item->serial_number === '') {
+				return null;
+			}
+			return ['product_id' => $productId, 'serial_numbers' => [$item->serial_number]];
+		}
+		if ($variantId !== null && $variantId > 0) {
+			return ['product_id' => $productId, 'product_variant_id' => $variantId, 'quantity' => $quantity];
+		}
+		return ['product_id' => $productId, 'quantity' => $quantity];
+	}
 
 	/**
 	 * Obtener el id de una categoría y todos sus descendientes (cualquier profundidad).

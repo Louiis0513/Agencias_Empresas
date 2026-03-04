@@ -33,7 +33,7 @@
     <title>{{ $store->name }} - Vitrina</title>
     @vite('resources/css/app.css')
 </head>
-<body class="min-h-screen bg-gray-100">
+<body class="min-h-screen bg-gray-100" @if(session('show_checkout_modal')) data-show-checkout-modal="1" @endif>
     <div
         class="min-h-screen flex flex-col"
         style="background-image: url('{{ $bgUrl }}'); background-size: cover; background-position: center;"
@@ -58,6 +58,11 @@
                 @if (session('success'))
                     <div class="max-w-3xl mx-auto mb-4 px-4 py-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm">
                         {{ session('success') }}
+                    </div>
+                @endif
+                @if (session('error'))
+                    <div class="max-w-3xl mx-auto mb-4 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm">
+                        {{ session('error') }}
                     </div>
                 @endif
 
@@ -270,7 +275,18 @@
 </div>
                                         <p class="font-medium text-gray-900">{{ $item->display_name }}</p>
                                         <p class="text-sm text-gray-600 mt-1">${{ number_format($item->price, 0) }}</p>
+                                        @if (isset($item->stock))
+                                            <p class="text-xs mt-0.5 {{ ($item->stock ?? 0) > 0 ? 'text-gray-500' : 'text-red-600' }}">
+                                                {{ ($item->stock ?? 0) > 0 ? ($item->stock . ' disponible' . (($item->stock ?? 0) !== 1 ? 's' : '')) : 'No disponible' }}
+                                            </p>
+                                        @endif
                                         @if (isset($item->product_id))
+                                            @php
+                                                $stock = (int) ($item->stock ?? 0);
+                                                $canAdd = $stock > 0;
+                                                $isSerialized = !empty($item->product_item_id);
+                                                $maxQty = $isSerialized ? 1 : max(1, $stock);
+                                            @endphp
                                             <form method="POST" action="{{ route('vitrina.cart.add', $config->slug) }}" class="mt-3 js-add-to-cart-form">
                                                 @csrf
                                                 <input type="hidden" name="product_id" value="{{ $item->product_id }}">
@@ -280,13 +296,19 @@
                                                 @if (!empty($item->product_item_id))
                                                     <input type="hidden" name="product_item_id" value="{{ $item->product_item_id }}">
                                                 @endif
-                                                <input type="hidden" name="quantity" value="1">
+                                                @if (!$isSerialized && $maxQty > 1)
+                                                    <label for="qty-{{ $item->product_id }}-{{ $item->variant_id ?? 0 }}-{{ $item->product_item_id ?? 0 }}" class="sr-only">Cantidad</label>
+                                                    <input type="number" name="quantity" id="qty-{{ $item->product_id }}-{{ $item->variant_id ?? 0 }}-{{ $item->product_item_id ?? 0 }}" value="1" min="1" max="{{ $maxQty }}" class="mb-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                                @else
+                                                    <input type="hidden" name="quantity" value="1">
+                                                @endif
                                                 <button
                                                     type="submit"
-                                                    class="w-full inline-flex items-center justify-center px-3 py-2 rounded-lg text-sm font-medium shadow transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-offset-1"
-                                                    style="background-color: {{ $primaryColor }}; color: #ffffff;"
+                                                    @if (!$canAdd) disabled @endif
+                                                    class="w-full inline-flex items-center justify-center px-3 py-2 rounded-lg text-sm font-medium shadow transition focus:outline-none focus:ring-2 focus:ring-offset-1 {{ $canAdd ? 'hover:brightness-110' : 'opacity-50 cursor-not-allowed' }}"
+                                                    style="{{ $canAdd ? 'background-color: ' . $primaryColor . '; color: #ffffff;' : 'background-color: #9ca3af; color: #ffffff;' }}"
                                                 >
-                                                    Añadir al carrito
+                                                    {{ $canAdd ? 'Añadir al carrito' : 'No disponible' }}
                                                 </button>
                                             </form>
                                         @endif
@@ -454,6 +476,18 @@
                                                 <p class="text-lg sm:text-xl font-semibold text-gray-900">Total: ${{ number_format($cartTotal ?? 0, 0) }}</p>
                                             </div>
                                             <div class="flex flex-col-reverse sm:flex-row sm:flex-wrap gap-3 pt-2">
+                                                @guest
+                                                <div class="flex-1 min-w-0 sm:min-w-[140px]">
+                                                    <button
+                                                        type="button"
+                                                        id="vitrina-checkout-open-modal"
+                                                        class="w-full inline-flex items-center justify-center px-4 py-2.5 rounded-lg text-sm font-medium shadow transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-offset-1"
+                                                        style="background-color: {{ $primaryColor }}; color: #ffffff;"
+                                                    >
+                                                        Solicitar Pedido
+                                                    </button>
+                                                </div>
+                                                @else
                                                 <form method="POST" action="{{ route('vitrina.cart.checkout', $config->slug) }}" class="flex-1 min-w-0 sm:min-w-[140px]">
                                                     @csrf
                                                     <button
@@ -464,6 +498,7 @@
                                                         Solicitar Pedido
                                                     </button>
                                                 </form>
+                                                @endguest
                                                 <form method="POST" action="{{ route('vitrina.cart.clear', $config->slug) }}" class="flex-1 min-w-0 sm:min-w-[140px]" onsubmit="return confirm('¿Vaciar todo el carrito?');">
                                                     @csrf
                                                     <button
@@ -495,6 +530,32 @@
             </main>
         </div>
     </div>
+
+    {{-- Modal Solicitar Pedido (solo invitados): nota opcional y envío a checkout --}}
+    @guest
+    <div id="vitrina-checkout-modal" class="hidden fixed inset-0 z-[150] overflow-y-auto" aria-modal="true" role="dialog" aria-labelledby="vitrina-checkout-modal-title">
+        <div class="flex min-h-full items-center justify-center p-4">
+            <div class="fixed inset-0 bg-black/50" id="vitrina-checkout-modal-backdrop" aria-hidden="true"></div>
+            <div class="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+                <h2 id="vitrina-checkout-modal-title" class="text-lg font-semibold text-gray-900 mb-4">Solicitar pedido</h2>
+                <form method="POST" action="{{ route('vitrina.cart.checkout', $config->slug) }}">
+                    @csrf
+                    <label for="vitrina-checkout-nota" class="block text-sm font-medium text-gray-700 mb-2">Nota (opcional)</label>
+                    <textarea name="nota" id="vitrina-checkout-nota" rows="3" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="Comentarios o instrucciones para tu pedido"></textarea>
+                    <p class="text-xs text-gray-500 mt-1">Tu solicitud se guardará como cotización y te contactaremos a la brevedad.</p>
+                    <div class="mt-4 flex gap-3 justify-end">
+                        <button type="button" id="vitrina-checkout-close-modal" class="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50">
+                            Cerrar
+                        </button>
+                        <button type="submit" class="px-4 py-2 rounded-lg text-sm font-medium text-white shadow" style="background-color: {{ $primaryColor }};">
+                            Enviar solicitud
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    @endguest
 
     {{-- Botón flotante del carrito: hijo directo de body para position:fixed respecto al viewport.
          Se oculta cuando la vista actual es el carrito. --}}
@@ -571,6 +632,23 @@
             if (count === 0) cartCountEl.classList.add('hidden');
         }
 
+        var checkoutModal = document.getElementById('vitrina-checkout-modal');
+        var checkoutOpenBtn = document.getElementById('vitrina-checkout-open-modal');
+        var checkoutCloseBtn = document.getElementById('vitrina-checkout-close-modal');
+        var checkoutBackdrop = document.getElementById('vitrina-checkout-modal-backdrop');
+        function showCheckoutModal() {
+            if (checkoutModal) checkoutModal.classList.remove('hidden');
+        }
+        function hideCheckoutModal() {
+            if (checkoutModal) checkoutModal.classList.add('hidden');
+        }
+        if (checkoutOpenBtn) checkoutOpenBtn.addEventListener('click', showCheckoutModal);
+        if (checkoutCloseBtn) checkoutCloseBtn.addEventListener('click', hideCheckoutModal);
+        if (checkoutBackdrop) checkoutBackdrop.addEventListener('click', hideCheckoutModal);
+        if (document.body.getAttribute('data-show-checkout-modal') === '1') {
+            showCheckoutModal();
+        }
+
         document.querySelectorAll('.js-add-to-cart-form').forEach(function(form) {
             form.addEventListener('submit', function(e) {
                 e.preventDefault();
@@ -593,7 +671,7 @@
                         showToast(result.data.message || 'Producto añadido al carrito.');
                         if (typeof result.data.cart_count !== 'undefined') updateCartCount(result.data.cart_count);
                     } else {
-                        showToast('No se pudo añadir al carrito.');
+                        showToast((result.data && result.data.message) ? result.data.message : 'No se pudo añadir al carrito.');
                     }
                 })
                 .catch(function() {
