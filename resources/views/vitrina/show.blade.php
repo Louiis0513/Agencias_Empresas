@@ -123,7 +123,7 @@
                     @if ($config->show_products)
                         <form
                             method="GET"
-                            action="{{ url()->current() }}"
+                            action="{{ url()->current() }}#catalogo"
                             class="mb-6 bg-white/90 rounded-xl shadow p-4 grid grid-cols-1 md:grid-cols-4 gap-4 text-sm"
                         >
                             <div class="md:col-span-2">
@@ -234,7 +234,7 @@
                                 @endforeach
                             </div>
                             <div class="mt-6">
-                                {{ $catalogPaginator->appends(request()->except('page'))->links() }}
+                                {{ $catalogPaginator->appends(request()->except('page'))->fragment('catalogo')->links() }}
                             </div>
                         </div>
                     @endif
