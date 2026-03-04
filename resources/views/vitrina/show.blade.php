@@ -99,12 +99,6 @@
                     @if ($config->description)
                         <p class="mt-2 text-sm text-gray-600">{{ $config->description }}</p>
                     @endif
-                    @if ($location && !empty($location['name']))
-                        <p class="mt-3 text-sm text-gray-700">
-                            <span class="font-medium">Ubicación:</span>
-                            {{ $location['name'] }}
-                        </p>
-                    @endif
                     @if ($config->schedule)
                         <p class="mt-2 text-sm text-gray-700 whitespace-pre-line"><span class="font-medium">Horario:</span><br>{{ $config->schedule }}</p>
                     @endif
@@ -169,22 +163,22 @@
                         <form
                             method="GET"
                             action="{{ url()->current() }}#catalogo"
-                            class="mb-6 bg-white/90 backdrop-blur-md rounded-2xl shadow-lg border border-gray-100 p-5 md:p-6 text-sm flex flex-col md:flex-row md:items-stretch md:gap-6"
+                            class="mb-6 bg-white/90 backdrop-blur-md rounded-2xl shadow-lg border border-gray-100 p-5 md:p-6 text-sm flex flex-col lg:flex-row lg:items-stretch lg:gap-6"
                         >
                             {{-- Columna lateral con título de filtros (se ve como "sidebar" en desktop) --}}
-                            <div class="mb-4 md:mb-0 md:w-56 md:pr-6 md:border-r md:border-gray-100 flex flex-row md:flex-col md:items-start md:justify-between gap-3">
+                            <div class="mb-4 lg:mb-0 lg:w-56 lg:pr-6 lg:border-r lg:border-gray-100 flex flex-row lg:flex-col lg:items-start lg:justify-between gap-3">
                                 <div>
                                     <p class="text-sm font-semibold text-gray-900">Filtros</p>
                                     <p class="text-xs text-gray-500">Ajusta el catálogo según tus preferencias.</p>
                                 </div>
-                                <svg class="hidden md:block w-5 h-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <svg class="hidden lg:block w-5 h-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                                     <path d="M4 5h16M6 12h12M10 19h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                                 </svg>
                             </div>
 
                             {{-- Contenido de campos de filtro --}}
-                            <div class="flex-1 grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-5">
-                                <div class="md:col-span-5">
+                            <div class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5 min-w-0">
+                                <div class="lg:col-span-5">
                                     <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1">Categoría principal</label>
                                     <select
                                         name="root_category_id"
@@ -199,7 +193,7 @@
                                     </select>
                                 </div>
                                 @if(isset($breadcrumb) && $breadcrumb->isNotEmpty())
-                                    <div class="md:col-span-7 flex items-center md:justify-end">
+                                    <div class="lg:col-span-7 flex items-center lg:justify-end">
                                         <p class="text-xs md:text-sm text-gray-600">
                                             Ruta:
                                             @foreach ($breadcrumb as $crumb)
@@ -212,7 +206,7 @@
                                     </div>
                                 @endif
                                 @if(isset($childCategories) && $childCategories->isNotEmpty())
-                                    <div class="md:col-span-5">
+                                    <div class="lg:col-span-5">
                                         <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1">
                                             Subcategorías de {{ optional($breadcrumb->last())->name ?? 'categoría seleccionada' }}
                                         </label>
@@ -231,21 +225,21 @@
                                         </select>
                                     </div>
                                 @endif
-                                <div class="md:col-span-3">
+                                <div class="lg:col-span-3 min-w-0">
                                     <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1">Ordenar por precio</label>
                                     @php
                                         $currentOrder = request('order', $order ?? 'price_asc');
                                     @endphp
                                     <select
                                         name="order"
-                                        class="w-full rounded-lg border-gray-200 bg-white text-gray-900 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                        class="w-full min-w-[10rem] rounded-lg border-gray-200 bg-white text-gray-900 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                     >
                                         <option value="price_asc" @selected($currentOrder === 'price_asc')>Menor a mayor</option>
                                         <option value="price_desc" @selected($currentOrder === 'price_desc')>Mayor a menor</option>
                                     </select>
                                 </div>
                                 {{-- Fila: Productos por página → Limpiar filtros → Aplicar filtros (orden fijo) --}}
-                                <div class="md:col-span-12 pt-3 border-t border-gray-100 flex flex-col sm:flex-row sm:items-end sm:flex-wrap gap-3">
+                                <div class="lg:col-span-12 pt-3 border-t border-gray-100 flex flex-col sm:flex-row sm:items-end sm:flex-wrap gap-3">
                                     <div class="order-1 sm:w-auto min-w-[140px]">
                                         <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1">Productos por página</label>
                                         <select
@@ -381,38 +375,12 @@
                     @endif
                 </section>
 
-                @if ($location && (!empty($location['name']) || !empty($location['address']) || !empty($location['map_iframe_src'])))
-                    @php
-                        $mapEmbedSrc = $location['map_iframe_src'] ?? '';
-                        $mapViewUrl = $mapEmbedSrc ? str_replace('maps/embed', 'maps', $mapEmbedSrc) : '';
-                    @endphp
+                @if ($location && !empty($location['map_iframe_src']))
                     <section id="ubicacion" class="mt-12 max-w-4xl mx-auto">
                         <h2 class="text-xl font-semibold text-gray-900 mb-4">Ubicación</h2>
                         <div class="bg-white/90 rounded-xl shadow-lg overflow-hidden">
-                            @if (!empty($mapEmbedSrc))
-                                <div class="aspect-video w-full">
-                                    <iframe src="{{ $mapEmbedSrc }}" class="w-full h-full" style="border:0;" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="{{ $location['name'] ?? 'Mapa' }}"></iframe>
-                                </div>
-                            @endif
-                            <div class="p-4">
-                                @if (!empty($location['name']))
-                                    <h3 class="font-semibold text-gray-900">{{ $location['name'] }}</h3>
-                                @endif
-                                @if (!empty($location['address']))
-                                    <p class="text-sm text-gray-600 mt-1">{{ $location['address'] }}</p>
-                                @endif
-                                @if ($mapViewUrl)
-                                    <a
-                                        href="{{ $mapViewUrl }}"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        class="inline-flex items-center gap-2 mt-3 px-4 py-2 rounded-lg text-sm font-medium transition"
-                                        style="background-color: {{ $primaryColor }}; color: #ffffff;"
-                                    >
-                                        Cómo llegar
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                                    </a>
-                                @endif
+                            <div class="aspect-video w-full">
+                                <iframe src="{{ $location['map_iframe_src'] }}" class="w-full h-full" style="border:0;" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="Mapa"></iframe>
                             </div>
                         </div>
                     </section>

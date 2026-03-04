@@ -23,7 +23,7 @@ return new class extends Migration
             $table->boolean('show_plans')->default(true);
             $table->json('whatsapp_contacts')->nullable()->comment('[{value, location_index}, ...] max 5');
             $table->json('phone_contacts')->nullable()->comment('[{value, location_index}, ...] max 5');
-            $table->json('locations')->nullable()->comment('[{name, address, map_iframe_src}, ...] max 5');
+            $table->json('locations')->nullable()->comment('[{map_iframe_src}, ...] max 5');
             $table->timestamps();
         });
     }

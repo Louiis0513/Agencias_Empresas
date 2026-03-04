@@ -224,22 +224,18 @@ class StoreVitrinaController extends Controller
     }
 
     /**
-     * Parse location rows: name, address, and extract map_iframe_src from iframe HTML.
+     * Parse location rows: extract map_iframe_src from iframe HTML. Solo se guarda el mapa.
      */
     private function parseLocations(array $rows): array
     {
         $out = [];
         foreach ($rows as $row) {
-            $name = trim($row['name'] ?? '');
-            $address = trim($row['address'] ?? '');
             $mapIframeSrc = $this->extractIframeSrc($row['map_iframe'] ?? '');
-            if ($name === '' && $address === '' && $mapIframeSrc === '') {
+            if ($mapIframeSrc === '') {
                 continue;
             }
             $out[] = [
-                'name' => $name,
-                'address' => $address,
-                'map_iframe_src' => $mapIframeSrc ?: null,
+                'map_iframe_src' => $mapIframeSrc,
             ];
         }
         return $out;

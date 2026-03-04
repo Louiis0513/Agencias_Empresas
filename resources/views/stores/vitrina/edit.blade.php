@@ -244,13 +244,11 @@
                     @endfor
                 </div>
 
-                {{-- Ubicación (una sola por tienda) --}}
+                {{-- Ubicación (una sola por tienda): solo mapa de Google --}}
                 <div class="bg-dark-card border border-white/5 rounded-xl p-6">
                     <h3 class="font-medium text-white mb-4">Ubicación</h3>
-                    <p class="text-sm text-gray-400 mb-4">Una tienda tiene una ubicación. Pega el código iframe de Google Maps (Compartir → Incorporar un mapa) para el mapa y el botón "Cómo llegar".</p>
+                    <p class="text-sm text-gray-400 mb-4">Pega el código iframe de Google Maps (Compartir → Incorporar un mapa) para mostrar el mapa en la vitrina.</p>
                     <div class="border border-white/10 rounded-lg p-4">
-                        <input type="text" name="locations[0][name]" value="{{ old('locations.0.name', $loc0['name'] ?? '') }}" placeholder="Nombre (ej: Tienda principal)" class="w-full rounded-lg border-white/10 bg-white/5 text-white px-4 py-2 mb-2">
-                        <input type="text" name="locations[0][address]" value="{{ old('locations.0.address', $loc0['address'] ?? '') }}" placeholder="Dirección" class="w-full rounded-lg border-white/10 bg-white/5 text-white px-4 py-2 mb-2">
                         <textarea name="locations[0][map_iframe]" rows="3" placeholder="Pega aquí el iframe completo de Google Maps (Compartir → Incorporar un mapa)" class="w-full rounded-lg border-white/10 bg-white/5 text-white px-4 py-2 font-mono text-sm">{{ old('locations.0.map_iframe', isset($loc0['map_iframe_src']) && $loc0['map_iframe_src'] ? '<iframe src="'.e($loc0['map_iframe_src']).'" width="600" height="450" style="border:0;"></iframe>' : '') }}</textarea>
                     </div>
                 </div>
