@@ -496,24 +496,27 @@
         </div>
     </div>
 
-    {{-- Botón flotante del carrito: hijo directo de body para position:fixed respecto al viewport --}}
+    {{-- Botón flotante del carrito: hijo directo de body para position:fixed respecto al viewport.
+         Se oculta cuando la vista actual es el carrito. --}}
     @php $cartCount = $cartCount ?? 0; @endphp
-    <a
-        href="{{ route('vitrina.show', ['slug' => $config->slug, 'view' => 'cart']) }}"
-        class="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-[100] flex items-center gap-2 px-4 py-3 sm:px-5 sm:py-3 rounded-full shadow-lg transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white"
-        style="background-color: {{ $primaryColor }}; color: #ffffff;"
-        aria-label="Ver carrito ({{ $cartCount }} productos)"
-    >
-        <span class="text-xl sm:text-2xl" aria-hidden="true">🛒</span>
-        <span class="font-medium text-sm sm:text-base whitespace-nowrap">Ver Carrito</span>
-        @if ($cartCount > 0)
-            <span id="vitrina-cart-count" class="flex h-6 min-w-[1.5rem] items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white">
-                {{ $cartCount > 99 ? '99+' : $cartCount }}
-            </span>
-        @else
-            <span id="vitrina-cart-count" class="hidden flex h-6 min-w-[1.5rem] items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white"></span>
-        @endif
-    </a>
+    @if (($currentView ?? 'catalog') !== 'cart')
+        <a
+            href="{{ route('vitrina.show', ['slug' => $config->slug, 'view' => 'cart']) }}"
+            class="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-[100] flex items-center gap-2 px-4 py-3 sm:px-5 sm:py-3 rounded-full shadow-lg transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white"
+            style="background-color: {{ $primaryColor }}; color: #ffffff;"
+            aria-label="Ver carrito ({{ $cartCount }} productos)"
+        >
+            <span class="text-xl sm:text-2xl" aria-hidden="true">🛒</span>
+            <span class="font-medium text-sm sm:text-base whitespace-nowrap">Ver Carrito</span>
+            @if ($cartCount > 0)
+                <span id="vitrina-cart-count" class="flex h-6 min-w-[1.5rem] items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white">
+                    {{ $cartCount > 99 ? '99+' : $cartCount }}
+                </span>
+            @else
+                <span id="vitrina-cart-count" class="hidden flex h-6 min-w-[1.5rem] items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white"></span>
+            @endif
+        </a>
+    @endif
 
     {{-- Toast de éxito (notificación flotante) --}}
     <div id="vitrina-toast" class="hidden fixed top-4 right-4 z-[200] max-w-sm" role="alert" aria-live="polite">
