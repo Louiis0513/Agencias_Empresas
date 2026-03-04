@@ -156,6 +156,7 @@
                             'sku' => $variant->sku,
                             'image_path' => $variant->image_path,
                             'is_active' => $variant->is_active,
+                            'in_showcase' => $variant->in_showcase,
                             'movimientos' => $movimientos,
                         ];
                     });
