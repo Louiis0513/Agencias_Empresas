@@ -207,13 +207,27 @@
                             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                 @foreach ($catalogPaginator as $item)
                                     <div class="bg-white/90 rounded-xl shadow p-4 flex flex-col">
-                                        @if (!empty($item->image_path))
-                                            <div class="mb-3">
-                                                <img src="{{ asset('storage/'.$item->image_path) }}"
-                                                     alt="{{ $item->display_name }}"
-                                                     class="w-full h-40 object-cover rounded-lg border border-gray-100">
-                                            </div>
-                                        @endif
+                                    <div class="mb-3">
+    {{-- CONTENEDOR EXTERNO: Cuadrado perfecto --}}
+    <div style="position: relative; width: 100%; aspect-ratio: 1 / 1; background-color: #ffffff; border-radius: 0.5rem; border: 1px solid #f3f4f6; overflow: hidden;">
+        
+        {{-- CONTENEDOR INTERNO: Centrado absoluto --}}
+        <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; padding: 10px;">
+            @if (!empty($item->image_path))
+                <img
+                    src="{{ asset('storage/'.$item->image_path) }}"
+                    alt="{{ $item->display_name }}"
+                    {{-- CSS EN LÍNEA: Forzamos a que NO se estire --}}
+                    style="max-width: 100%; max-height: 100%; width: auto !important; height: auto !important; object-fit: contain !important; display: block;"
+                >
+            @else
+                <span style="font-size: 0.75rem; color: #9ca3af; text-align: center; padding: 0.5rem;">
+                    Sin foto de referencia
+                </span>
+            @endif
+        </div>
+    </div>
+</div>
                                         <p class="font-medium text-gray-900">{{ $item->display_name }}</p>
                                         <p class="text-sm text-gray-600 mt-1">${{ number_format($item->price, 0) }}</p>
                                     </div>
