@@ -47,6 +47,18 @@
                 style="background-image: url('{{ $coverUrl }}'); background-size: cover; background-position: center;"
             >
                 <div class="absolute inset-0 bg-black/30"></div>
+                <div class="absolute top-4 right-4 z-10 flex items-center gap-3 text-white drop-shadow-md">
+                    @guest
+                        <button type="button" id="vitrina-auth-show-login" class="bg-transparent border-0 shadow-none cursor-pointer text-sm font-medium hover:underline focus:outline-none focus:ring-0">Login</button>
+                        <button type="button" id="vitrina-auth-show-register" class="bg-transparent border-0 shadow-none cursor-pointer text-sm font-medium hover:underline focus:outline-none focus:ring-0">Registro</button>
+                    @else
+                        <span class="text-sm">{{ auth()->user()->name }}</span>
+                        <form method="POST" action="{{ route('vitrina.logout', $config->slug) }}" class="inline">
+                            @csrf
+                            <button type="submit" class="bg-transparent border-0 shadow-none cursor-pointer text-sm font-medium hover:underline text-white focus:outline-none focus:ring-0">Cerrar sesión</button>
+                        </form>
+                    @endguest
+                </div>
                 <div class="absolute inset-x-0 -bottom-16 flex justify-center">
                     <div class="w-32 h-32 rounded-full border-4 border-white shadow-xl overflow-hidden bg-white">
                         <img src="{{ $logoUrl }}" alt="{{ $store->name }}" class="w-full h-full object-cover">
@@ -55,6 +67,7 @@
             </div>
 
             <main class="pt-24 pb-16 px-4">
+                <div id="vitrina-main-content">
                 @if (session('success'))
                     <div class="max-w-3xl mx-auto mb-4 px-4 py-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm">
                         {{ session('success') }}
@@ -85,96 +98,6 @@
                         <p class="mt-2 text-sm text-gray-600">Revisa nuestro catálogo y contáctanos por WhatsApp o llamada.</p>
                     @endif
                 </section>
-
-                {{-- Barra Login / Registro / Cerrar sesión (estilo vitrina) --}}
-                <section class="mt-6 max-w-xl mx-auto">
-                    <div class="flex flex-wrap items-center justify-center gap-3">
-                        @guest
-                            <button type="button" id="vitrina-auth-show-login" class="px-4 py-2 rounded-lg text-sm font-medium border transition" style="background-color: #ffffff; color: {{ $secondaryColor }}; border-color: {{ $secondaryColor }};">Login</button>
-                            <button type="button" id="vitrina-auth-show-register" class="px-4 py-2 rounded-lg text-sm font-medium shadow transition" style="background-color: {{ $primaryColor }}; color: #ffffff;">Registro</button>
-                        @else
-                            <span class="text-sm text-gray-600">{{ auth()->user()->name }}</span>
-                            <form method="POST" action="{{ route('vitrina.logout', $config->slug) }}" class="inline">
-                                @csrf
-                                <button type="submit" class="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">Cerrar sesión</button>
-                            </form>
-                        @endguest
-                    </div>
-                </section>
-
-                {{-- Contenedor formularios Login y Registro (solo invitados) --}}
-                @guest
-                <section id="vitrina-auth-container" class="mt-6 max-w-md mx-auto hidden">
-                    <div class="bg-white/90 backdrop-blur rounded-xl shadow-lg p-6">
-                        <div id="vitrina-auth-form-login" class="vitrina-auth-form hidden">
-                            <h2 class="text-lg font-semibold text-gray-900 mb-4">Iniciar sesión</h2>
-                            <form method="POST" action="{{ route('vitrina.login', $config->slug) }}">
-                                @csrf
-                                <div class="space-y-4">
-                                    <div>
-                                        <label for="vitrina-login-email" class="block text-sm font-medium text-gray-700">Correo</label>
-                                        <input type="email" name="email" id="vitrina-login-email" value="{{ old('email') }}" required autocomplete="email" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
-                                        @error('email')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
-                                    </div>
-                                    <div>
-                                        <label for="vitrina-login-password" class="block text-sm font-medium text-gray-700">Contraseña</label>
-                                        <input type="password" name="password" id="vitrina-login-password" required autocomplete="current-password" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
-                                        @error('password')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
-                                    </div>
-                                    <div>
-                                        <label class="inline-flex items-center">
-                                            <input type="checkbox" name="remember" value="1" class="rounded border-gray-300 text-gray-600 shadow-sm focus:ring-gray-500">
-                                            <span class="ml-2 text-sm text-gray-600">Recordarme</span>
-                                        </label>
-                                    </div>
-                                    <button type="submit" class="w-full inline-flex justify-center px-4 py-2.5 rounded-lg text-sm font-medium text-white shadow" style="background-color: {{ $primaryColor }};">Iniciar sesión</button>
-                                </div>
-                            </form>
-                        </div>
-                        <div id="vitrina-auth-form-register" class="vitrina-auth-form hidden">
-                            <h2 class="text-lg font-semibold text-gray-900 mb-4">Registrarse</h2>
-                            <form method="POST" action="{{ route('vitrina.register', $config->slug) }}">
-                                @csrf
-                                <div class="space-y-4">
-                                    <div>
-                                        <label for="vitrina-register-name" class="block text-sm font-medium text-gray-700">Nombre</label>
-                                        <input type="text" name="name" id="vitrina-register-name" value="{{ old('name') }}" required autocomplete="name" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
-                                        @error('name')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
-                                    </div>
-                                    <div>
-                                        <label for="vitrina-register-email" class="block text-sm font-medium text-gray-700">Correo</label>
-                                        <input type="email" name="email" id="vitrina-register-email" value="{{ old('email') }}" required autocomplete="email" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
-                                        @error('email')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
-                                    </div>
-                                    <div>
-                                        <label for="vitrina-register-password" class="block text-sm font-medium text-gray-700">Contraseña</label>
-                                        <input type="password" name="password" id="vitrina-register-password" required autocomplete="new-password" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
-                                        @error('password')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
-                                    </div>
-                                    <div>
-                                        <label for="vitrina-register-password-confirm" class="block text-sm font-medium text-gray-700">Confirmar contraseña</label>
-                                        <input type="password" name="password_confirmation" id="vitrina-register-password-confirm" required autocomplete="new-password" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
-                                    </div>
-                                    <div>
-                                        <label for="vitrina-register-phone" class="block text-sm font-medium text-gray-700">Teléfono</label>
-                                        <input type="text" name="phone" id="vitrina-register-phone" value="{{ old('phone') }}" autocomplete="tel" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
-                                        @error('phone')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
-                                    </div>
-                                    <div>
-                                        <label for="vitrina-register-address" class="block text-sm font-medium text-gray-700">Dirección (opcional)</label>
-                                        <input type="text" name="address" id="vitrina-register-address" value="{{ old('address') }}" autocomplete="street-address" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
-                                        @error('address')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
-                                    </div>
-                                    <button type="submit" class="w-full inline-flex justify-center px-4 py-2.5 rounded-lg text-sm font-medium text-white shadow" style="background-color: {{ $primaryColor }};">Registrarse</button>
-                                </div>
-                            </form>
-                        </div>
-                        <div class="mt-3 text-center">
-                            <button type="button" id="vitrina-auth-close" class="text-sm text-gray-500 hover:text-gray-700">Cerrar</button>
-                        </div>
-                    </div>
-                </section>
-                @endguest
 
                 <section class="mt-8 max-w-3xl mx-auto">
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -608,6 +531,81 @@
                         </div>
                     </section>
                 @endif
+                </div>{{-- /vitrina-main-content --}}
+                @if (($currentView ?? 'catalog') !== 'cart')
+                @guest
+                <section id="vitrina-auth-container" class="mt-6 max-w-md mx-auto hidden">
+                    <div class="bg-white/90 backdrop-blur rounded-xl shadow-lg p-6">
+                        <div id="vitrina-auth-form-login" class="vitrina-auth-form hidden">
+                            <h2 class="text-lg font-semibold text-gray-900 mb-4">Iniciar sesión</h2>
+                            <form method="POST" action="{{ route('vitrina.login', $config->slug) }}">
+                                @csrf
+                                <div class="space-y-4">
+                                    <div>
+                                        <label for="vitrina-login-email" class="block text-sm font-medium text-gray-700">Correo</label>
+                                        <input type="email" name="email" id="vitrina-login-email" value="{{ old('email') }}" required autocomplete="email" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                        @error('email')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                                    </div>
+                                    <div>
+                                        <label for="vitrina-login-password" class="block text-sm font-medium text-gray-700">Contraseña</label>
+                                        <input type="password" name="password" id="vitrina-login-password" required autocomplete="current-password" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                        @error('password')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                                    </div>
+                                    <div>
+                                        <label class="inline-flex items-center">
+                                            <input type="checkbox" name="remember" value="1" class="rounded border-gray-300 text-gray-600 shadow-sm focus:ring-gray-500">
+                                            <span class="ml-2 text-sm text-gray-600">Recordarme</span>
+                                        </label>
+                                    </div>
+                                    <button type="submit" class="w-full inline-flex justify-center px-4 py-2.5 rounded-lg text-sm font-medium text-white shadow" style="background-color: {{ $primaryColor }};">Iniciar sesión</button>
+                                </div>
+                            </form>
+                        </div>
+                        <div id="vitrina-auth-form-register" class="vitrina-auth-form hidden">
+                            <h2 class="text-lg font-semibold text-gray-900 mb-4">Registrarse</h2>
+                            <form method="POST" action="{{ route('vitrina.register', $config->slug) }}">
+                                @csrf
+                                <div class="space-y-4">
+                                    <div>
+                                        <label for="vitrina-register-name" class="block text-sm font-medium text-gray-700">Nombre</label>
+                                        <input type="text" name="name" id="vitrina-register-name" value="{{ old('name') }}" required autocomplete="name" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                        @error('name')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                                    </div>
+                                    <div>
+                                        <label for="vitrina-register-email" class="block text-sm font-medium text-gray-700">Correo</label>
+                                        <input type="email" name="email" id="vitrina-register-email" value="{{ old('email') }}" required autocomplete="email" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                        @error('email')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                                    </div>
+                                    <div>
+                                        <label for="vitrina-register-password" class="block text-sm font-medium text-gray-700">Contraseña</label>
+                                        <input type="password" name="password" id="vitrina-register-password" required autocomplete="new-password" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                        @error('password')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                                    </div>
+                                    <div>
+                                        <label for="vitrina-register-password-confirm" class="block text-sm font-medium text-gray-700">Confirmar contraseña</label>
+                                        <input type="password" name="password_confirmation" id="vitrina-register-password-confirm" required autocomplete="new-password" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                    </div>
+                                    <div>
+                                        <label for="vitrina-register-phone" class="block text-sm font-medium text-gray-700">Teléfono</label>
+                                        <input type="text" name="phone" id="vitrina-register-phone" value="{{ old('phone') }}" autocomplete="tel" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                        @error('phone')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                                    </div>
+                                    <div>
+                                        <label for="vitrina-register-address" class="block text-sm font-medium text-gray-700">Dirección (opcional)</label>
+                                        <input type="text" name="address" id="vitrina-register-address" value="{{ old('address') }}" autocomplete="street-address" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                        @error('address')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                                    </div>
+                                    <button type="submit" class="w-full inline-flex justify-center px-4 py-2.5 rounded-lg text-sm font-medium text-white shadow" style="background-color: {{ $primaryColor }};">Registrarse</button>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="mt-3 text-center">
+                            <button type="button" id="vitrina-auth-close" class="text-sm text-gray-500 hover:text-gray-700">Cerrar</button>
+                        </div>
+                    </div>
+                </section>
+                @endguest
+                @endif
             </main>
         </div>
     </div>
@@ -641,6 +639,7 @@
     @php $cartCount = $cartCount ?? 0; @endphp
     @if (($currentView ?? 'catalog') !== 'cart')
         <a
+            id="vitrina-cart-float-btn"
             href="{{ route('vitrina.show', ['slug' => $config->slug, 'view' => 'cart']) }}"
             class="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-[100] flex items-center gap-2 px-4 py-3 sm:px-5 sm:py-3 rounded-full shadow-lg transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white"
             style="background-color: {{ $primaryColor }}; color: #ffffff;"
@@ -734,14 +733,20 @@
         var authShowLogin = document.getElementById('vitrina-auth-show-login');
         var authShowRegister = document.getElementById('vitrina-auth-show-register');
         var authClose = document.getElementById('vitrina-auth-close');
+        var mainContent = document.getElementById('vitrina-main-content');
+        var cartFloatBtn = document.getElementById('vitrina-cart-float-btn');
         function showAuthForm(formId) {
             if (!authContainer) return;
             authContainer.classList.remove('hidden');
             if (authFormLogin) authFormLogin.classList.toggle('hidden', formId !== 'login');
             if (authFormRegister) authFormRegister.classList.toggle('hidden', formId !== 'register');
+            if (mainContent) mainContent.classList.add('hidden');
+            if (cartFloatBtn) cartFloatBtn.classList.add('hidden');
         }
         function hideAuthContainer() {
             if (authContainer) authContainer.classList.add('hidden');
+            if (mainContent) mainContent.classList.remove('hidden');
+            if (cartFloatBtn) cartFloatBtn.classList.remove('hidden');
         }
         if (authShowLogin) authShowLogin.addEventListener('click', function() { showAuthForm('login'); });
         if (authShowRegister) authShowRegister.addEventListener('click', function() { showAuthForm('register'); });
