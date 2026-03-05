@@ -56,11 +56,7 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 
 ## Project-specific notes
 
-- Este proyecto utiliza un servicio de conversión de imágenes a WebP (`ConvertidorImgService`) que depende de:
-  - **Python 3** instalado en el servidor.
-  - Librería **Pillow** instalada en el entorno de Python (`pip install pillow`).
-  - Script de conversión ubicado en `python/convert_to_webp.py`, que recibe `input_path` y `output_path` y genera un archivo `.webp`.
-- Asegúrate de que el comando `php artisan images:convert-to-webp` pueda invocar Python correctamente en el entorno de despliegue.
+- La conversión de imágenes a WebP se realiza con PHP mediante el servicio `ConvertidorImgService`, usando las extensiones **GD** o **Imagick** (suelen venir preinstaladas en hosting compartido). Se usa Imagick si está disponible y soporta WebP; si no, se intenta con GD. Si ninguna puede generar WebP, se guarda la imagen original (JPG/PNG) sin convertir.
 
 ## License
 

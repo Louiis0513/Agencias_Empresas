@@ -5,7 +5,6 @@ namespace App\Services;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
-use Symfony\Component\Process\Process;
 
 class ConvertidorImgService
 {
@@ -36,34 +35,81 @@ class ConvertidorImgService
 
         $quality = max(0, min(100, $quality));
 
-        $scriptPath = base_path('python/convert_to_webp.py');
+        if ($this->imagickSupportsWebp() && $this->convertWithImagick($inputPath, $outputPath, $quality) && file_exists($outputPath)) {
+            $disk->delete($relativePath);
 
-        $process = new Process([
-            'python',
-            $scriptPath,
-            $inputPath,
-            $outputPath,
-        ]);
-
-        $process->run();
-
-        if (! $process->isSuccessful() || ! file_exists($outputPath)) {
-            $errorOutput = trim($process->getErrorOutput() ?: $process->getOutput());
-            $errorMessage = $errorOutput !== ''
-                ? $errorOutput
-                : 'El script de conversión a WebP con Python no se pudo ejecutar correctamente.';
-
-            Log::warning('Conversión a WebP no disponible, se conserva la imagen original.', [
-                'relative_path' => $relativePath,
-                'detail' => $errorMessage,
-            ]);
-
-            return $relativePath;
+            return $outputRelativePath;
         }
 
-        $disk->delete($relativePath);
+        if ($this->gdSupportsWebp() && $this->convertWithGd($inputPath, $outputPath, $quality) && file_exists($outputPath)) {
+            $disk->delete($relativePath);
 
-        return $outputRelativePath;
+            return $outputRelativePath;
+        }
+
+        Log::warning('Conversión a WebP no disponible (Imagick/GD con soporte WebP), se conserva la imagen original.', [
+            'relative_path' => $relativePath,
+        ]);
+
+        return $relativePath;
+    }
+
+    private function imagickSupportsWebp(): bool
+    {
+        if (! extension_loaded('imagick') || ! class_exists(\Imagick::class)) {
+            return false;
+        }
+
+        $formats = \Imagick::queryFormats('WEBP');
+
+        return in_array('WEBP', $formats, true);
+    }
+
+    private function gdSupportsWebp(): bool
+    {
+        return extension_loaded('gd') && function_exists('imagewebp');
+    }
+
+    private function convertWithImagick(string $inputPath, string $outputPath, int $quality): bool
+    {
+        try {
+            $img = new \Imagick($inputPath);
+            $img->setImageFormat('webp');
+            $img->setImageCompressionQuality($quality);
+            $result = $img->writeImage($outputPath);
+            $img->destroy();
+
+            return $result;
+        } catch (\Throwable $e) {
+            Log::debug('Imagick WebP conversion failed', ['path' => $inputPath, 'error' => $e->getMessage()]);
+
+            return false;
+        }
+    }
+
+    private function convertWithGd(string $inputPath, string $outputPath, int $quality): bool
+    {
+        $extension = strtolower(pathinfo($inputPath, PATHINFO_EXTENSION));
+
+        $image = match ($extension) {
+            'jpg', 'jpeg' => @imagecreatefromjpeg($inputPath),
+            'png' => @imagecreatefrompng($inputPath),
+            'gif' => @imagecreatefromgif($inputPath),
+            default => null,
+        };
+
+        if ($image === false || $image === null) {
+            return false;
+        }
+
+        if ($extension === 'png') {
+            imagealphablending($image, true);
+            imagesavealpha($image, true);
+        }
+
+        $result = imagewebp($image, $outputPath, $quality);
+        imagedestroy($image);
+
+        return $result;
     }
 }
-
