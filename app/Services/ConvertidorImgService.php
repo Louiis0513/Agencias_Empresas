@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 use Symfony\Component\Process\Process;
@@ -52,7 +53,12 @@ class ConvertidorImgService
                 ? $errorOutput
                 : 'El script de conversión a WebP con Python no se pudo ejecutar correctamente.';
 
-            throw new RuntimeException("Error al convertir la imagen a WebP con Python: {$errorMessage}");
+            Log::warning('Conversión a WebP no disponible, se conserva la imagen original.', [
+                'relative_path' => $relativePath,
+                'detail' => $errorMessage,
+            ]);
+
+            return $relativePath;
         }
 
         $disk->delete($relativePath);

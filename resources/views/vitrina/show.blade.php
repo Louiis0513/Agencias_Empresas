@@ -18,7 +18,7 @@
         $r = hexdec(substr($m[1], 0, 2));
         $g = hexdec(substr($m[1], 2, 2));
         $b = hexdec(substr($m[1], 4, 2));
-        $mainBg = "rgba({$r}, {$g}, {$b}, 0.8)";
+        $mainBg = "rgba({$r}, {$g}, {$b}, 0.4)";
     } else {
         // fallback por si viene algo raro
         $mainBg = 'rgba(255, 255, 255, 0.8)';
