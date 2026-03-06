@@ -97,14 +97,15 @@ class StoreProductController extends Controller
         // Selector de vitrina para la variante
         $data['in_showcase'] = $request->boolean('in_showcase');
 
+        $currency = $store->currency ?? 'COP';
         $price = $request->input('price');
         if ($price !== null && $price !== '') {
-            $data['price'] = (float) $price;
+            $data['price'] = parse_money($price, $currency);
         }
 
         $costRef = $request->input('cost_reference');
         if ($costRef !== null && $costRef !== '') {
-            $data['cost_reference'] = (float) $costRef;
+            $data['cost_reference'] = parse_money($costRef, $currency);
         }
 
         if ($request->has('barcode')) {
@@ -189,14 +190,15 @@ class StoreProductController extends Controller
             $attributeValues[$attr->id] = $v;
         }
 
+        $currency = $store->currency ?? 'COP';
         $variant = [
             'attribute_values' => $attributeValues,
-            'price' => $request->input('price') !== '' && $request->input('price') !== null ? (float) $request->input('price') : null,
+            'price' => $request->input('price') !== '' && $request->input('price') !== null ? parse_money($request->input('price'), $currency) : null,
             'sku' => $request->input('sku'),
             'barcode' => $request->input('barcode'),
             'has_stock' => $request->boolean('has_stock'),
             'stock_initial' => $request->input('stock_initial'),
-            'cost' => $request->input('cost'),
+            'cost' => $request->input('cost') !== '' && $request->input('cost') !== null ? parse_money($request->input('cost'), $currency) : 0,
             'batch_number' => $request->input('batch_number'),
             'expiration_date' => $request->input('expiration_date') ?: null,
         ];

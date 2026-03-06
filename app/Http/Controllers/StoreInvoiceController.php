@@ -118,8 +118,20 @@ class StoreInvoiceController extends Controller
             'barcodeBase64' => $barcodeBase64,
         ]);
 
-        // Papel 58mm de ancho (rollo térmico común). Contenido limitado a 50mm en la vista.
-        $pdf->setPaper([0, 0, 164.4, 841.89], 'portrait');
+        // Altura dinámica: desde nombre tienda hasta *id* del barcode, sin sobrante de papel
+        // No usar size en @page para evitar conflicto con setPaper
+        $baseHeightMm = 69; // encabezado + datos + cabecera tabla + totales + pie + barcode
+        $itemsHeightMm = 0;
+        foreach ($invoice->details as $detail) {
+            $desc = $detail->receipt_description ?? $detail->product_name ?? '';
+            $charsPerLine = 18; // ~18 caracteres caben en 20mm
+            $lines = max(1, (int) ceil(mb_strlen($desc) / $charsPerLine));
+            $itemsHeightMm += max(3, $lines * 3); // ~3mm por fila, más si descripción larga
+        }
+        $totalHeightMm = $baseHeightMm + $itemsHeightMm;
+        $heightPt = round($totalHeightMm * 2.83465, 1); // mm a pt, redondeado para precisión
+
+        $pdf->setPaper([0, 0, 164.4, $heightPt], 'portrait');
 
         return $pdf->stream('factura-' . $invoice->id . '.pdf');
     }

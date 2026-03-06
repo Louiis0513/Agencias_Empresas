@@ -513,19 +513,22 @@ class StoreController extends Controller
         foreach ($details as $i => $d) {
             $d = is_array($d) ? $d : [];
             if (isset($d['unit_cost'])) {
-                $details[$i]['unit_cost'] = $service->parseFromFormatted((string) $d['unit_cost'], $currency);
+                $parsed = $service->parseFromFormatted((string) $d['unit_cost'], $currency);
+                $details[$i]['unit_cost'] = $service->roundForCurrency($parsed, $currency);
             }
             if (! empty($d['batch_items'])) {
                 foreach ($d['batch_items'] as $j => $bi) {
                     if (isset($bi['unit_cost'])) {
-                        $details[$i]['batch_items'][$j]['unit_cost'] = $service->parseFromFormatted((string) $bi['unit_cost'], $currency);
+                        $parsed = $service->parseFromFormatted((string) $bi['unit_cost'], $currency);
+                        $details[$i]['batch_items'][$j]['unit_cost'] = $service->roundForCurrency($parsed, $currency);
                     }
                 }
             }
             if (! empty($d['serial_items'])) {
                 foreach ($d['serial_items'] as $j => $si) {
                     if (isset($si['cost'])) {
-                        $details[$i]['serial_items'][$j]['cost'] = $service->parseFromFormatted((string) $si['cost'], $currency);
+                        $parsed = $service->parseFromFormatted((string) $si['cost'], $currency);
+                        $details[$i]['serial_items'][$j]['cost'] = $service->roundForCurrency($parsed, $currency);
                     }
                 }
             }

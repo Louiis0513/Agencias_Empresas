@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\ProductAttributeValue;
 use App\Models\ProductVariant;
 use App\Models\Store;
+use App\Services\CurrencyFormatService;
 use Illuminate\Support\Facades\DB;
 use Exception;
 
@@ -82,9 +83,19 @@ class ProductService
             
             // Para productos batch y serialized: siempre se crean con stock=0
             // El stock se actualiza cuando se crean los Batch/BatchItem o ProductItems a través de InventarioService
-            if (($data['type'] ?? null) === \App\Models\MovimientoInventario::PRODUCT_TYPE_BATCH || 
+            if (($data['type'] ?? null) === \App\Models\MovimientoInventario::PRODUCT_TYPE_BATCH ||
                 ($data['type'] ?? null) === \App\Models\MovimientoInventario::PRODUCT_TYPE_SERIALIZED) {
                 $data['stock'] = 0;
+            }
+
+            // Redondear precio y costo según moneda de la tienda
+            $currency = $store->currency ?? 'COP';
+            $currencyService = app(CurrencyFormatService::class);
+            if (isset($data['price'])) {
+                $data['price'] = $currencyService->roundForCurrency((float) $data['price'], $currency);
+            }
+            if (isset($data['cost'])) {
+                $data['cost'] = $currencyService->roundForCurrency((float) $data['cost'], $currency);
             }
 
             $product = Product::create($data);
@@ -216,6 +227,13 @@ class ProductService
             $attributeValues = $data['attribute_values'] ?? [];
             $proveedorIds = $data['proveedor_ids'] ?? null;
             unset($data['attribute_values'], $data['proveedor_ids']);
+
+            // Redondear precio según moneda de la tienda
+            $currency = $store->currency ?? 'COP';
+            $currencyService = app(CurrencyFormatService::class);
+            if (array_key_exists('price', $data)) {
+                $data['price'] = $currencyService->roundForCurrency((float) $data['price'], $currency);
+            }
 
             // Actualizar los campos del producto
             $product->update($data);
@@ -428,11 +446,13 @@ class ProductService
             }
         }
 
+        $currency = $store->currency ?? 'COP';
+        $currencyService = app(CurrencyFormatService::class);
         if (array_key_exists('price', $data)) {
-            $updateData['price'] = $data['price'];
+            $updateData['price'] = $currencyService->roundForCurrency((float) $data['price'], $currency);
         }
         if (array_key_exists('cost_reference', $data)) {
-            $updateData['cost_reference'] = $data['cost_reference'];
+            $updateData['cost_reference'] = $currencyService->roundForCurrency((float) $data['cost_reference'], $currency);
         }
         if (array_key_exists('barcode', $data)) {
             $updateData['barcode'] = $data['barcode'];
@@ -559,6 +579,9 @@ class ProductService
         $serialItems = [];
         $reference = 'INI-' . date('Y');
 
+        $currencyService = app(CurrencyFormatService::class);
+        $currency = $store->currency ?? 'COP';
+
         foreach ($serializedItems as $item) {
             $serial = trim($item['serial_number'] ?? '');
             if (empty($serial)) {
@@ -573,11 +596,11 @@ class ProductService
             }
 
             $price = isset($item['price']) && $item['price'] !== '' && $item['price'] !== null
-                ? (float) $item['price']
+                ? $currencyService->roundForCurrency((float) $item['price'], $currency)
                 : null;
             $serialItems[] = [
                 'serial_number' => $serial,
-                'cost' => (float) ($item['cost'] ?? 0),
+                'cost' => $currencyService->roundForCurrency((float) ($item['cost'] ?? 0), $currency),
                 'price' => $price,
                 'features' => ! empty($features) ? $features : null,
                 'expiration_date' => $item['expiration_date'] ?? null,
@@ -640,13 +663,15 @@ class ProductService
                 continue;
             }
 
-            // Actualizar precio, costo, sku y barcode
+            // Actualizar precio, costo, sku y barcode (redondear según moneda de la tienda)
+            $currencyService = app(CurrencyFormatService::class);
+            $currency = $store->currency ?? 'COP';
             $updateData = [];
             if (! empty($variant['price'])) {
-                $updateData['price'] = (float) $variant['price'];
+                $updateData['price'] = $currencyService->roundForCurrency((float) $variant['price'], $currency);
             }
             if (! empty($variant['cost'])) {
-                $updateData['cost_reference'] = (float) $variant['cost'];
+                $updateData['cost_reference'] = $currencyService->roundForCurrency((float) $variant['cost'], $currency);
             }
             if (isset($variant['sku'])) {
                 $skuValue = trim((string) $variant['sku']);
@@ -674,6 +699,7 @@ class ProductService
                     ? $variant['expiration_date']
                     : null;
 
+                $costForMovement = $currencyService->roundForCurrency((float) ($variant['cost'] ?? 0), $currency);
                 $inventarioService->registrarMovimiento($store, $userId, [
                     'product_id' => $product->id,
                     'type' => \App\Models\MovimientoInventario::TYPE_ENTRADA,
@@ -685,7 +711,7 @@ class ProductService
                         'items' => [
                             [
                                 'quantity' => $quantity,
-                                'cost' => (float) ($variant['cost'] ?? 0),
+                                'cost' => $costForMovement,
                                 'product_variant_id' => $productVariant->id,
                             ],
                         ],

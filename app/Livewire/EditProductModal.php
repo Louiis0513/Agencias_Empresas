@@ -162,7 +162,8 @@ class EditProductModal extends Component
         ];
 
         if ($isSimple) {
-            $data['price'] = (float) $this->price;
+            $currency = $store->currency ?? 'COP';
+            $data['price'] = parse_money($this->price, $currency);
             $data['is_active'] = $this->is_active;
             $data['in_showcase'] = $this->in_showcase;
             $data['category_id'] = $this->category_id;

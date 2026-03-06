@@ -79,10 +79,11 @@ class CreateMovimientoModal extends Component
         $bolsillo = Bolsillo::deTienda($store->id)->where('id', $this->bolsillo_id)->firstOrFail();
 
         try {
+            $currency = $store->currency ?? 'COP';
             $cajaService->registrarMovimiento($store, Auth::id(), [
                 'bolsillo_id' => $bolsillo->id,
                 'type' => $this->type,
-                'amount' => (float) $this->amount,
+                'amount' => parse_money($this->amount, $currency),
                 'description' => $this->description ?: null,
             ]);
 

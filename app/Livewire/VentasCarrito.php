@@ -617,7 +617,10 @@ class VentasCarrito extends Component
             $precioUnit = $isSerialized && ! empty($prices) ? (float) $prices[0] : (float) ($item['price'] ?? 0);
             $total += $precioUnit * max(1, $qty);
         }
-        return round($total, 2);
+        $store = $this->getStoreProperty();
+        $currency = $store?->currency ?? 'COP';
+
+        return app(\App\Services\CurrencyFormatService::class)->roundForCurrency($total, $currency);
     }
 
     /**

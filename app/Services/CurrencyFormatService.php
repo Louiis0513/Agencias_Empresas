@@ -42,6 +42,27 @@ class CurrencyFormatService
     }
 
     /**
+     * Devuelve el número de decimales según la moneda.
+     * COP/CLP/JPY: 0, resto: 2.
+     */
+    public function getDecimalsForCurrency(?string $currency = 'COP'): int
+    {
+        $currency = strtoupper($currency ?? 'COP');
+
+        return in_array($currency, self::NO_DECIMAL_CURRENCIES) ? 0 : 2;
+    }
+
+    /**
+     * Redondea un monto según la moneda de la tienda.
+     */
+    public function roundForCurrency(float $amount, ?string $currency = 'COP'): float
+    {
+        $decimals = $this->getDecimalsForCurrency($currency);
+
+        return round($amount, $decimals);
+    }
+
+    /**
      * Parsea un valor formateado (ej: "16.000" o "16,000.00") a float.
      */
     public function parseFromFormatted(string $value, ?string $currency = 'COP'): float

@@ -337,19 +337,15 @@ class CreateProductModal extends Component
             abort(403, 'No tienes permiso para crear productos en esta tienda.');
         }
 
-        $price = 0;
-        $cost = 0;
-        $stock = 0;
-        $attributeValues = [];
-
+        $currency = $store->currency ?? 'COP';
         $price = 0;
         $cost = 0;
         $stock = 0;
         $attributeValues = [];
 
         if ($this->type === 'simple') {
-            $price = (float) ($this->price !== '' ? $this->price : 0);
-            $cost = (float) ($this->cost !== '' ? $this->cost : 0);
+            $price = parse_money($this->price !== '' ? $this->price : 0, $currency);
+            $cost = parse_money($this->cost !== '' ? $this->cost : 0, $currency);
             $stock = (int) ($this->stock !== '' ? $this->stock : 0);
             $attributeValues = $this->attribute_values;
         }
@@ -374,14 +370,26 @@ class CreateProductModal extends Component
                 $productData['has_initial_stock'] = $this->has_initial_stock && $stock > 0;
             }
 
-            // Para productos tipo batch: añadir variantes y opciones permitidas
+            // Para productos tipo batch: añadir variantes (parsear y redondear precios/costos según moneda)
             if ($this->type === MovimientoInventario::PRODUCT_TYPE_BATCH) {
-                $productData['variants'] = $this->variants;
+                $productData['variants'] = array_map(function ($v) use ($currency) {
+                    $v['price'] = isset($v['price']) && $v['price'] !== '' ? parse_money($v['price'], $currency) : 0;
+                    $v['cost'] = isset($v['cost']) && $v['cost'] !== '' ? parse_money($v['cost'], $currency) : 0;
+
+                    return $v;
+                }, $this->variants);
             }
 
-            // Para productos tipo serialized: siempre enviar array de unidades (vacío si no hay stock inicial)
+            // Para productos tipo serialized: parsear y redondear precios/costos según moneda
             if ($this->type === MovimientoInventario::PRODUCT_TYPE_SERIALIZED) {
-                $productData['serializedItems'] = is_array($this->serializedItems) ? $this->serializedItems : [];
+                $productData['serializedItems'] = array_map(function ($item) use ($currency) {
+                    $item['price'] = isset($item['price']) && $item['price'] !== '' && $item['price'] !== null
+                        ? parse_money($item['price'], $currency)
+                        : null;
+                    $item['cost'] = isset($item['cost']) && $item['cost'] !== '' ? parse_money($item['cost'], $currency) : 0;
+
+                    return $item;
+                }, is_array($this->serializedItems) ? $this->serializedItems : []);
             }
 
             $userId = Auth::id();

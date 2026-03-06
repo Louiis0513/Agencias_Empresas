@@ -9,6 +9,7 @@ use App\Models\Customer;
 use App\Models\Cotizacion;
 use App\Services\CajaService;
 use App\Services\CotizacionService;
+use App\Services\CurrencyFormatService;
 use App\Services\InventarioService;
 use App\Services\SubscriptionService;
 use App\Services\VentaService;
@@ -97,7 +98,7 @@ class CreateInvoiceModal extends Component
             if ($i === $index) {
                 continue;
             }
-            $sumOtros += (float) ($p['amount'] ?? 0);
+            $sumOtros += $this->parseMonto($p['amount'] ?? 0);
         }
 
         $max = $total - $sumOtros;
@@ -105,19 +106,26 @@ class CreateInvoiceModal extends Component
             $max = 0;
         }
 
-        return round($max, 2);
+        $currencyService = app(CurrencyFormatService::class);
+        $currency = $this->getStoreProperty()?->currency ?? 'COP';
+
+        return $currencyService->roundForCurrency($max, $currency);
     }
 
-    protected function normalizarNumero($value): float
+    /**
+     * Parsea un monto que puede venir como número o string formateado (ej. "611.775" en COP).
+     */
+    protected function parseMonto($value): float
     {
-        // Acepta strings con coma o punto, y valores vacíos.
         if ($value === null || $value === '') {
             return 0.0;
         }
-        if (is_string($value)) {
-            $value = str_replace(',', '.', $value);
+        if (is_numeric($value)) {
+            return (float) $value;
         }
-        return (float) $value;
+        $currency = $this->getStoreProperty()?->currency ?? 'COP';
+
+        return app(CurrencyFormatService::class)->parseFromFormatted((string) $value, $currency);
     }
 
     protected function ajustarMontoPago(int $index): void
@@ -127,7 +135,7 @@ class CreateInvoiceModal extends Component
         }
 
         $raw = $this->paymentParts[$index]['amount'] ?? 0;
-        $amount = $this->normalizarNumero($raw);
+        $amount = $this->parseMonto($raw);
         if ($amount < 0) {
             $amount = 0.0;
         }
@@ -153,8 +161,8 @@ class CreateInvoiceModal extends Component
             return;
         }
 
-        $amount = $this->normalizarNumero($this->paymentParts[$index]['amount'] ?? 0);
-        $recibido = $this->normalizarNumero($this->paymentParts[$index]['recibido'] ?? 0);
+        $amount = $this->parseMonto($this->paymentParts[$index]['amount'] ?? 0);
+        $recibido = $this->parseMonto($this->paymentParts[$index]['recibido'] ?? 0);
 
         if ($recibido < 0) {
             $recibido = 0.0;
@@ -338,15 +346,19 @@ class CreateInvoiceModal extends Component
     {
         $sum = 0;
         foreach ($this->paymentParts as $p) {
-            $sum += (float) ($p['amount'] ?? 0);
+            $sum += $this->parseMonto($p['amount'] ?? 0);
         }
-        return round($sum, 2);
+        $currency = $this->getStoreProperty()?->currency ?? 'COP';
+
+        return app(CurrencyFormatService::class)->roundForCurrency($sum, $currency);
     }
 
     /** Diferencia total - total pagado (positivo = falta, negativo = sobra). */
     public function getDiferenciaPagoProperty(): float
     {
-        return round($this->total - $this->totalPagado, 2);
+        $currency = $this->getStoreProperty()?->currency ?? 'COP';
+
+        return app(CurrencyFormatService::class)->roundForCurrency($this->total - $this->totalPagado, $currency);
     }
 
     #[On('customer-selected')]
@@ -782,6 +794,9 @@ class CreateInvoiceModal extends Component
 
     public function calcularTotales()
     {
+        $currencyService = app(CurrencyFormatService::class);
+        $currency = $this->getStoreProperty()?->currency ?? 'COP';
+
         // Preparar detalles para el cálculo
         $details = array_map(function($item) {
             return [
@@ -798,14 +813,14 @@ class CreateInvoiceModal extends Component
 
         // Aplicar descuentos
         $discount = 0;
-        
+
         if ($this->discountType === 'percent') {
-            $discountPercent = (float)($this->discountValue ?: 0);
+            $discountPercent = (float) ($this->discountValue ?: 0);
             if ($discountPercent > 0) {
                 $discount = $subtotal * ($discountPercent / 100);
             }
         } else {
-            $discount = (float)($this->discountValue ?: 0);
+            $discount = $this->parseMonto($this->discountValue ?: 0);
         }
 
         // El total es subtotal menos descuentos
@@ -817,9 +832,9 @@ class CreateInvoiceModal extends Component
             $discount = $subtotal; // Ajustar el descuento para que no exceda el subtotal
         }
 
-        $this->subtotal = round($subtotal, 2);
-        $this->discount = round($discount, 2);
-        $this->total = round($total, 2);
+        $this->subtotal = $currencyService->roundForCurrency($subtotal, $currency);
+        $this->discount = $currencyService->roundForCurrency($discount, $currency);
+        $this->total = $currencyService->roundForCurrency($total, $currency);
 
         // Si el total cambió (productos/descuentos), asegurar que los montos de pago no se pasen.
         $this->ajustarMontosPagos();
@@ -936,7 +951,9 @@ class CreateInvoiceModal extends Component
 
         if ($this->status === 'PAID') {
             $diferencia = $this->diferenciaPago;
-            if (abs($diferencia) > 0.01) {
+            $currency = $store->currency ?? 'COP';
+            $tolerance = app(CurrencyFormatService::class)->getDecimalsForCurrency($currency) === 0 ? 0.5 : 0.01;
+            if (abs($diferencia) > $tolerance) {
                 $this->addError('paymentParts', $diferencia > 0
                     ? "La suma de pagos ({$this->totalPagado}) debe ser igual al total ({$this->total}). Falta: {$diferencia}."
                     : "La suma de pagos ({$this->totalPagado}) supera el total ({$this->total}). Sobra: " . abs($diferencia) . ".");
@@ -944,7 +961,7 @@ class CreateInvoiceModal extends Component
                 return;
             }
             foreach ($this->paymentParts as $i => $p) {
-                $amount = (float) ($p['amount'] ?? 0);
+                $amount = $this->parseMonto($p['amount'] ?? 0);
                 $bid = (int) ($p['bolsillo_id'] ?? 0);
                 $method = $p['method'] ?? 'CASH';
                 if ($amount <= 0) {
@@ -960,7 +977,7 @@ class CreateInvoiceModal extends Component
                     return;
                 }
                 if ($method === 'CASH') {
-                    $recibido = (float) ($p['recibido'] ?? 0);
+                    $recibido = $this->parseMonto($p['recibido'] ?? 0);
                     // Si el usuario usa el campo "recibido", debe ser >= monto.
                     // Permitimos 0/vacío (porque es ayuda visual), pero si escribió algo, debe cuadrar.
                     if ($recibido > 0 && $recibido + 0.00001 < $amount) {
@@ -1035,11 +1052,11 @@ class CreateInvoiceModal extends Component
                 $payload['payments'] = array_map(function ($p) {
                     return [
                         'payment_method' => $p['method'] ?? 'CASH',
-                        'amount' => (float) ($p['amount'] ?? 0),
+                        'amount' => $this->parseMonto($p['amount'] ?? 0),
                         'bolsillo_id' => (int) ($p['bolsillo_id'] ?? 0),
                         'reference' => $p['reference'] ?? null,
                     ];
-                }, array_filter($this->paymentParts, fn ($p) => ((float) ($p['amount'] ?? 0)) > 0));
+                }, array_filter($this->paymentParts, fn ($p) => $this->parseMonto($p['amount'] ?? 0) > 0));
             }
 
             if ($this->cotizacion_id) {

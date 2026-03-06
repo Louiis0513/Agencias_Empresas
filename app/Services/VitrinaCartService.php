@@ -147,9 +147,13 @@ class VitrinaCartService
             $count += $item['quantity'];
         }
 
+        $currency = $store->currency ?? 'COP';
+        $currencyService = app(\App\Services\CurrencyFormatService::class);
+        $rounded = $currencyService->roundForCurrency($subtotal, $currency);
+
         return [
-            'subtotal' => round($subtotal, 2),
-            'total' => round($subtotal, 2),
+            'subtotal' => $rounded,
+            'total' => $rounded,
             'count' => $count,
         ];
     }

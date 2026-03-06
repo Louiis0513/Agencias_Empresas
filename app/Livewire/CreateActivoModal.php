@@ -86,7 +86,8 @@ class CreateActivoModal extends Component
             abort(403, 'No tienes permiso para crear activos en esta tienda.');
         }
 
-        $unitCost = $this->fromPurchase ? 0 : (float) $this->unit_cost;
+        $currency = $store->currency ?? 'COP';
+        $unitCost = $this->fromPurchase ? 0 : parse_money($this->unit_cost, $currency);
 
         try {
             $activo = $service->crearActivo($store, [

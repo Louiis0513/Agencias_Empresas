@@ -23,6 +23,27 @@ if (! function_exists('money')) {
     }
 }
 
+if (! function_exists('parse_money')) {
+    /**
+     * Parsea un valor de input (número o string formateado) y lo redondea según la moneda.
+     * Para COP: "611.775" → 611775; para USD: "1,234.56" → 1234.56
+     */
+    function parse_money($value, ?string $currency = 'COP'): float
+    {
+        $service = app(\App\Services\CurrencyFormatService::class);
+        $currency = $currency ?? 'COP';
+
+        if ($value === null || $value === '') {
+            return 0.0;
+        }
+        if (is_numeric($value)) {
+            return $service->roundForCurrency((float) $value, $currency);
+        }
+
+        return $service->roundForCurrency($service->parseFromFormatted((string) $value, $currency), $currency);
+    }
+}
+
 if (! function_exists('format_product_name_for_receipt')) {
     /**
      * Convierte product_name (formato admin) a descripción para recibo.

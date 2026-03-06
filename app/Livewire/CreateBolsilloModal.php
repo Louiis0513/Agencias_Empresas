@@ -64,7 +64,8 @@ class CreateBolsilloModal extends Component
                 'is_active' => $this->is_active,
             ]);
 
-            $saldoInicial = (float) $this->saldo;
+            $currency = $store->currency ?? 'COP';
+            $saldoInicial = parse_money($this->saldo, $currency);
             if ($saldoInicial > 0) {
                 $comprobanteIngresoService->crearComprobante($store, (int) Auth::id(), [
                     'date' => now()->toDateString(),

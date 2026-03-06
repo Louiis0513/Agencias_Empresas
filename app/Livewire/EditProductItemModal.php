@@ -143,9 +143,10 @@ class EditProductItemModal extends Component
             }
         }
 
+        $currency = $store->currency ?? 'COP';
         $data = [
             'serial_number' => trim($this->serial_number),
-            'price' => $this->price !== '' ? (float) $this->price : null,
+            'price' => $this->price !== '' ? parse_money($this->price, $currency) : null,
             'status' => $this->status,
             'features' => ! empty($features) ? $features : null,
         ];

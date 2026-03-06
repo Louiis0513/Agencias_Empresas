@@ -63,11 +63,13 @@ class CotizacionService
                     $item['serial_numbers'] ?? null
                 );
 
+                $currency = $store->currency ?? 'COP';
+                $currencyService = app(\App\Services\CurrencyFormatService::class);
                 $cotizacion->items()->create([
                     'product_id' => $productId,
                     'type' => $type,
                     'quantity' => max(1, $quantity),
-                    'unit_price' => round($unitPrice, 2),
+                    'unit_price' => $currencyService->roundForCurrency($unitPrice, $currency),
                     'product_variant_id' => $item['product_variant_id'] ?? null,
                     'variant_features' => $item['variant_features'] ?? null,
                     'serial_numbers' => $item['serial_numbers'] ?? null,
@@ -193,7 +195,9 @@ class CotizacionService
                 $item->serial_numbers
             );
             $quantity = (int) $item->quantity;
-            $subtotal = round($unitPrice * $quantity, 2);
+            $currency = $store->currency ?? 'COP';
+            $currencyService = app(\App\Services\CurrencyFormatService::class);
+            $subtotal = $currencyService->roundForCurrency($unitPrice * $quantity, $currency);
             $precioCambio = abs($unitPrice - $unitPriceActual) > 0.005;
 
             $result[] = [
@@ -228,9 +232,12 @@ class CotizacionService
             $totalActual += ($preciosActuales[$i] ?? 0) * $qty;
         }
 
+        $currency = $store->currency ?? 'COP';
+        $currencyService = app(\App\Services\CurrencyFormatService::class);
+
         return [
-            'total_cotizado' => round($totalCotizado, 2),
-            'total_actual' => round($totalActual, 2),
+            'total_cotizado' => $currencyService->roundForCurrency($totalCotizado, $currency),
+            'total_actual' => $currencyService->roundForCurrency($totalActual, $currency),
         ];
     }
 

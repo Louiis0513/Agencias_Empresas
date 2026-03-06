@@ -90,10 +90,11 @@ class EditStorePlanModal extends Component
             return null;
         }
 
+        $currency = $store->currency ?? 'COP';
         $data = [
             'name' => $this->name,
             'description' => $this->description,
-            'price' => $this->price,
+            'price' => parse_money($this->price, $currency),
             'duration_days' => $this->duration_days,
             'daily_entries_limit' => $this->daily_entries_limit,
             'total_entries_limit' => $this->total_entries_limit,

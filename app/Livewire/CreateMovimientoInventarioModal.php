@@ -471,7 +471,8 @@ class CreateMovimientoInventarioModal extends Component
         ];
 
         if ($this->unit_cost !== null && $this->unit_cost !== '') {
-            $payload['unit_cost'] = (float) $this->unit_cost;
+            $currency = $this->getStoreProperty()?->currency ?? 'COP';
+            $payload['unit_cost'] = parse_money($this->unit_cost, $currency);
         }
 
         if ($product->isSerialized()) {
@@ -544,13 +545,14 @@ class CreateMovimientoInventarioModal extends Component
             $reference = 'INI-' . date('Y');
         }
 
+        $currency = $this->getStoreProperty()?->currency ?? 'COP';
         $items = [];
         foreach ($this->serial_items as $index => $row) {
             $serial = trim($row['serial_number'] ?? '');
             if ($serial === '') {
                 continue;
             }
-            $cost = (float) ($row['cost'] ?? 0);
+            $cost = parse_money($row['cost'] ?? 0, $currency);
             $features = [];
             foreach ($this->categoryAttributes as $attr) {
                 $attrId = (string) $attr['id'];
@@ -616,7 +618,8 @@ class CreateMovimientoInventarioModal extends Component
             ]);
         }
 
-        $unitCost = $this->unit_cost !== null && $this->unit_cost !== '' ? (float) $this->unit_cost : 0;
+        $currency = $this->getStoreProperty()?->currency ?? 'COP';
+        $unitCost = $this->unit_cost !== null && $this->unit_cost !== '' ? parse_money($this->unit_cost, $currency) : 0;
 
         return [
             'reference'       => $this->batch_reference,

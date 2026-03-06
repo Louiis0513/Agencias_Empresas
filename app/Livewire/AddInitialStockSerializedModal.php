@@ -119,11 +119,12 @@ class AddInitialStockSerializedModal extends Component
             }
 
             $serialNumbers[] = $serial;
-            $priceValue = ! empty($item['price']) ? (float) $item['price'] : null;
-            
+            $currency = $store->currency ?? 'COP';
+            $priceValue = ! empty($item['price']) ? parse_money($item['price'], $currency) : null;
+
             $validated[] = [
                 'serial_number' => $serial,
-                'cost' => (float) ($item['cost'] ?? 0),
+                'cost' => parse_money($item['cost'] ?? 0, $currency),
                 'price' => $priceValue,
                 'attribute_values' => $item['attribute_values'] ?? [],
             ];
@@ -174,7 +175,8 @@ class AddInitialStockSerializedModal extends Component
                     ->get();
                 $totalCost = $items->sum('cost');
                 $qty = $items->count();
-                $product->cost = $qty > 0 ? (float) round($totalCost / $qty, 2) : 0.0;
+                $currency = $store->currency ?? 'COP';
+                $product->cost = $qty > 0 ? parse_money($totalCost / $qty, $currency) : 0.0;
                 $product->save();
             });
 

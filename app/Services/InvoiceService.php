@@ -349,14 +349,18 @@ class InvoiceService
 
     /**
      * Calcula los totales de una factura basándose en los detalles.
-     * 
+     *
      * @param array $details Array de detalles con: quantity, unit_price, discount (opcional)
      * @param float $discountAmount Descuento total (monto fijo)
      * @param float $discountPercent Descuento total (porcentaje)
+     * @param string|null $currency Moneda para redondeo (COP usa 0 decimales)
      * @return array ['subtotal' => float, 'discount' => float, 'total' => float]
      */
-    public function calcularTotales(array $details, float $discountAmount = 0, float $discountPercent = 0): array
+    public function calcularTotales(array $details, float $discountAmount = 0, float $discountPercent = 0, ?string $currency = 'COP'): array
     {
+        $currencyService = app(\App\Services\CurrencyFormatService::class);
+        $currency = $currency ?? 'COP';
+
         // Calcular subtotal sumando todos los detalles
         $subtotal = 0;
         foreach ($details as $detail) {
@@ -370,12 +374,12 @@ class InvoiceService
 
         // Aplicar descuentos globales
         $discount = 0;
-        
+
         // Primero aplicar descuento por porcentaje
         if ($discountPercent > 0) {
             $discount = $subtotal * ($discountPercent / 100);
         }
-        
+
         // Luego aplicar descuento por monto fijo (se suma al descuento por porcentaje)
         $discount += $discountAmount;
 
@@ -389,9 +393,9 @@ class InvoiceService
         }
 
         return [
-            'subtotal' => round($subtotal, 2),
-            'discount' => round($discount, 2),
-            'total' => round($total, 2),
+            'subtotal' => $currencyService->roundForCurrency($subtotal, $currency),
+            'discount' => $currencyService->roundForCurrency($discount, $currency),
+            'total' => $currencyService->roundForCurrency($total, $currency),
         ];
     }
 
