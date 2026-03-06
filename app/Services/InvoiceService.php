@@ -477,6 +477,7 @@ class InvoiceService
         $qty = (int) ($item['quantity'] ?? 0);
 
         $productName = $producto->name;
+        $receiptDescription = $producto->name;
         $productVariantId = $item['product_variant_id'] ?? null;
         if ($productVariantId) {
             $variant = ProductVariant::with('product.category.attributes')
@@ -485,20 +486,27 @@ class InvoiceService
                 ->first();
             if ($variant) {
                 $productName .= ' (' . $variant->display_name . ')';
+                $values = array_values(array_filter($variant->features ?? [], fn ($v) => (string) $v !== ''));
+                if (! empty($values)) {
+                    $receiptDescription .= ' ' . implode(' ', $values);
+                }
             }
         }
         $serialNumbers = $item['serial_numbers'] ?? null;
         if (is_array($serialNumbers) && ! empty($serialNumbers)) {
             $productName .= ' - ' . $this->formatSerialDescriptions($producto, $store->id, $serialNumbers);
+            $receiptDescription .= ' ' . implode(' ', $serialNumbers);
         }
+        $receiptDescription = trim($receiptDescription);
 
         InvoiceDetail::create([
-            'invoice_id'   => $factura->id,
-            'product_id'   => $producto->id,
-            'product_name' => $productName,
-            'unit_price'   => $item['unit_price'],
-            'quantity'     => $qty,
-            'subtotal'     => $item['subtotal'],
+            'invoice_id'          => $factura->id,
+            'product_id'          => $producto->id,
+            'product_name'        => $productName,
+            'receipt_description' => $receiptDescription,
+            'unit_price'          => $item['unit_price'],
+            'quantity'            => $qty,
+            'subtotal'            => $item['subtotal'],
         ]);
     }
 
@@ -513,10 +521,13 @@ class InvoiceService
             ? \Carbon\Carbon::parse($item['subscription_starts_at'])->toDateString()
             : null;
 
+        $productName = $item['product_name'] ?? 'Suscripción';
+
         InvoiceDetail::create([
             'invoice_id'             => $factura->id,
             'product_id'             => null,
-            'product_name'           => $item['product_name'] ?? 'Suscripción',
+            'product_name'           => $productName,
+            'receipt_description'   => $productName,
             'unit_price'             => $item['unit_price'],
             'quantity'               => (int) ($item['quantity'] ?? 1),
             'subtotal'               => $item['subtotal'],

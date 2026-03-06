@@ -13,6 +13,7 @@ class InvoiceDetail extends Model
         'invoice_id',
         'product_id',
         'product_name', // Snapshot del nombre del producto (o "Suscripción: ...")
+        'receipt_description', // Descripción simplificada para recibo: "Producto Val1 Val2 SN"
         'unit_price',   // Snapshot del precio unitario
         'quantity',
         'subtotal',

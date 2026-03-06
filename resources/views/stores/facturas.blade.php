@@ -201,12 +201,15 @@
                                                         title="Próximamente">
                                                     Anular
                                                 </button>
-                                                <button type="button" 
-                                                        disabled
-                                                        class="text-gray-400 cursor-not-allowed" 
-                                                        title="Próximamente">
-                                                    Imprimir
-                                                </button>
+                                                @if($invoice->status === 'PAID')
+                                                    <a href="{{ route('stores.invoices.printReceipt', [$store, $invoice]) }}" 
+                                                       target="_blank"
+                                                       class="text-brand hover:text-white transition mr-3">
+                                                        Imprimir
+                                                    </a>
+                                                @else
+                                                    <span class="text-gray-500 mr-3" title="Solo facturas pagadas">Imprimir</span>
+                                                @endif
                                             </td>
                                         </tr>
                                     @endforeach

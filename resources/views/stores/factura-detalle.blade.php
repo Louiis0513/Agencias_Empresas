@@ -213,12 +213,13 @@
 
                     {{-- Botones de Acción --}}
                     <div class="mt-6 flex justify-end space-x-3 border-t border-gray-200 dark:border-gray-700 pt-4">
-                        <button type="button" 
-                                disabled
-                                class="px-4 py-2 bg-gray-300 dark:bg-gray-700 text-gray-400 rounded-md cursor-not-allowed" 
-                                title="Próximamente">
-                            Imprimir
-                        </button>
+                        @if($invoice->status === 'PAID')
+                            <a href="{{ route('stores.invoices.printReceipt', [$store, $invoice]) }}" 
+                               target="_blank"
+                               class="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-md transition">
+                                Imprimir
+                            </a>
+                        @endif
                         <a href="{{ route('stores.invoices', $store) }}" 
                            class="px-4 py-2 bg-brand text-white rounded-xl shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)]">
                             Volver a Facturas

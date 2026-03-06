@@ -9,8 +9,10 @@ use App\Services\CustomerService;
 use App\Services\InvoiceService;
 use App\Services\StorePermissionService;
 use App\Services\VentaService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Picqer\Barcode\BarcodeGeneratorPNG;
 
 class StoreInvoiceController extends Controller
 {
@@ -81,5 +83,44 @@ class StoreInvoiceController extends Controller
             return redirect()->route('stores.invoices', $store)
                 ->with('error', $e->getMessage());
         }
+    }
+
+    /**
+     * Imprime la factura en formato tira térmica (recibo de supermercado).
+     * Solo facturas PAID (venta directa pagada).
+     */
+    public function printReceipt(Store $store, Invoice $invoice, InvoiceService $invoiceService, StorePermissionService $permission)
+    {
+        $permission->authorize($store, 'invoices.view');
+
+        if ($invoice->store_id !== $store->id) {
+            abort(404);
+        }
+
+        if ($invoice->status !== 'PAID') {
+            abort(403, 'Solo se puede imprimir facturas pagadas.');
+        }
+
+        $invoice = $invoiceService->obtenerFactura($store, $invoice->id);
+
+        $barcodeBase64 = null;
+        try {
+            $generator = new BarcodeGeneratorPNG();
+            $barcodePng = $generator->getBarcode((string) $invoice->id, $generator::TYPE_CODE_128, 2, 40);
+            $barcodeBase64 = 'data:image/png;base64,' . base64_encode($barcodePng);
+        } catch (\Throwable $e) {
+            // Si falla el barcode, continuar sin él
+        }
+
+        $pdf = Pdf::loadView('invoices.receipt-tira', [
+            'invoice' => $invoice,
+            'store' => $store,
+            'barcodeBase64' => $barcodeBase64,
+        ]);
+
+        // Papel 58mm de ancho (rollo térmico común). Contenido limitado a 50mm en la vista.
+        $pdf->setPaper([0, 0, 164.4, 841.89], 'portrait');
+
+        return $pdf->stream('factura-' . $invoice->id . '.pdf');
     }
 }
