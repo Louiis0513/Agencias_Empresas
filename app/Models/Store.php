@@ -10,7 +10,12 @@ class Store extends Model
     use HasFactory;
 
     // Permitimos que se puedan llenar estos campos masivamente
-    protected $fillable = ['name', 'slug', 'user_id'];
+    protected $fillable = [
+        'name', 'slug', 'user_id',
+        'rut_nit', 'currency', 'timezone', 'date_format', 'time_format',
+        'country', 'department', 'city', 'address', 'phone', 'mobile',
+        'domain', 'regimen', 'logo_path',
+    ];
 
     // Relación: Una tienda tiene muchos usuarios (trabajadores)
     public function workers()

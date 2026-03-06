@@ -11,47 +11,61 @@ use Exception; // <--- Importante: Importar esto para poder lanzar errores
 class StoreService
 {
     /**
-     * Crea una nueva tienda y asigna al usuario como dueño, 
+     * Crea una nueva tienda y asigna al usuario como dueño,
      * verificando primero los límites de su plan.
+     *
+     * @param  array<string, mixed>  $data
      */
-    public function createStore(User $user, string $name): Store
+    public function createStore(User $user, array $data): Store
     {
         // ---------------------------------------------------------
         // 1. VALIDACIÓN DEL PLAN (Lógica de Negocio)
         // ---------------------------------------------------------
-        
-        // Obtenemos el plan del usuario
+
         $plan = $user->plan;
 
-        // Si por alguna razón el usuario no tiene plan, lo bloqueamos (o le damos límite 0)
-        if (!$plan) {
+        if (! $plan) {
             throw new Exception("No tienes un plan asignado. Por favor contacta a soporte.");
         }
 
-        // Obtenemos el límite permitido en la base de datos
         $limit = $plan->max_stores;
-
-        // Contamos cuántas tiendas tiene actualmente este usuario
         $currentStores = Store::where('user_id', $user->id)->count();
 
-        // Si ya tiene igual o más tiendas que el límite, lanzamos el error
         if ($currentStores >= $limit) {
             throw new Exception("Tu plan '{$plan->name}' solo permite crear {$limit} tiendas. ¡Actualiza tu plan para tener más!");
         }
 
         // ---------------------------------------------------------
-        // 2. EJECUCIÓN (Solo llegamos aquí si pasó la validación)
+        // 2. EJECUCIÓN
         // ---------------------------------------------------------
-        return DB::transaction(function () use ($user, $name) {
-            
-            // A. Crear la tienda
+        // Usar timezone de la tienda para que created_at sea en hora local
+        $timezone = $data['timezone'] ?? 'America/Bogota';
+        config(['app.timezone' => $timezone]);
+        date_default_timezone_set($timezone);
+
+        return DB::transaction(function () use ($user, $data) {
+            $name = $data['name'];
+
             $store = Store::create([
                 'name' => $name,
-                'slug' => Str::slug($name) . '-' . Str::random(4), // Slug único
+                'slug' => Str::slug($name).'-'.Str::random(4),
                 'user_id' => $user->id,
+                'rut_nit' => $data['rut_nit'] ?? null,
+                'currency' => $data['currency'] ?? 'COP',
+                'timezone' => $data['timezone'] ?? 'America/Bogota',
+                'date_format' => $data['date_format'] ?? 'd-m-Y',
+                'time_format' => $data['time_format'] ?? '24',
+                'country' => $data['country'] ?? null,
+                'department' => $data['department'] ?? null,
+                'city' => $data['city'] ?? null,
+                'address' => $data['address'] ?? null,
+                'phone' => $data['phone'] ?? null,
+                'mobile' => $data['mobile'] ?? null,
+                'domain' => $data['domain'] ?? null,
+                'regimen' => $data['regimen'] ?? null,
+                'logo_path' => $data['logo_path'] ?? null,
             ]);
 
-            // B. Asociar al usuario en la tabla pivote como dueño
             $user->stores()->attach($store->id, ['role_id' => null]);
 
             return $store;

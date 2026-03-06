@@ -14,6 +14,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rules;
 
 class VitrinaAuthController extends Controller
@@ -29,6 +30,8 @@ class VitrinaAuthController extends Controller
     {
         $config = VitrinaConfig::where('slug', $slug)->with('store')->firstOrFail();
         $store = $config->store;
+
+        $request->merge(['email' => Str::lower($request->input('email', ''))]);
 
         $validated = $request->validate([
             'email' => ['required', 'string', 'email'],
@@ -63,15 +66,19 @@ class VitrinaAuthController extends Controller
         $config = VitrinaConfig::where('slug', $slug)->with('store')->firstOrFail();
         $store = $config->store;
 
+        $request->merge(['email' => Str::lower($request->input('email', ''))]);
+
         $rules = [
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255'],
             'password' => ['required', 'string', 'confirmed', Rules\Password::defaults()],
-            'phone' => ['nullable', 'string', 'max:50'],
+            'phone' => ['nullable', 'string', 'regex:/^[0-9]+$/', 'max:20'],
             'address' => ['nullable', 'string', 'max:500'],
         ];
 
-        $validated = $request->validate($rules);
+        $validated = $request->validate($rules, [
+            'phone.regex' => 'El teléfono solo debe contener números.',
+        ]);
 
         $existingUser = User::where('email', $validated['email'])->first();
 

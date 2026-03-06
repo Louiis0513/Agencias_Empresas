@@ -18,7 +18,8 @@ class ComprobanteIngresoService
 {
     public function __construct(
         protected CajaService $cajaService,
-        protected InvoiceService $invoiceService
+        protected InvoiceService $invoiceService,
+        protected StoreTimezoneService $storeTimezoneService
     ) {}
 
     public function siguienteNumero(Store $store): string
@@ -75,7 +76,7 @@ class ComprobanteIngresoService
                 'store_id' => $store->id,
                 'number' => $this->siguienteNumero($store),
                 'total_amount' => $totalDestinos,
-                'date' => $data['date'] ?? now()->toDateString(),
+                'date' => $data['date'] ?? $this->storeTimezoneService->nowForStore($store)->toDateString(),
                 'notes' => $data['notes'] ?? null,
                 'type' => $type,
                 'customer_id' => $customerId,

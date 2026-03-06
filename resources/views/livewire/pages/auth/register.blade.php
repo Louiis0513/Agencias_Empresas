@@ -2,6 +2,7 @@
 
 use App\Models\User;
 use App\Models\Plan;
+use Illuminate\Support\Str;
 use App\Services\CustomerService;
 use App\Services\WorkerService;
 use Illuminate\Auth\Events\Registered;
@@ -23,6 +24,8 @@ new #[Layout('layouts.guest')] class extends Component
      */
     public function register(): void
     {
+        $this->email = Str::lower($this->email);
+
         $validated = $this->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
@@ -72,6 +75,7 @@ new #[Layout('layouts.guest')] class extends Component
         <!-- Password -->
         <div class="mt-4">
             <x-input-label for="password" :value="__('Password')" />
+            <p class="mt-1 text-xs text-gray-500">Debe contener al menos 8 caracteres, 1 mayúscula y 1 símbolo.</p>
 
             <x-text-input wire:model="password" id="password" class="block mt-1 w-full"
                             type="password"

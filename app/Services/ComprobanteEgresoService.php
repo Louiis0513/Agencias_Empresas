@@ -18,7 +18,8 @@ class ComprobanteEgresoService
 {
     public function __construct(
         protected CajaService $cajaService,
-        protected ComprobanteIngresoService $comprobanteIngresoService
+        protected ComprobanteIngresoService $comprobanteIngresoService,
+        protected StoreTimezoneService $storeTimezoneService
     ) {}
 
     /**
@@ -64,7 +65,7 @@ class ComprobanteEgresoService
                 'proveedor_id' => $proveedorId,
                 'number' => $this->siguienteNumero($store),
                 'total_amount' => $totalDestinos,
-                'payment_date' => $data['payment_date'] ?? now()->toDateString(),
+                'payment_date' => $data['payment_date'] ?? $this->storeTimezoneService->nowForStore($store)->toDateString(),
                 'notes' => $data['notes'] ?? null,
                 'type' => $type,
                 'beneficiary_name' => $beneficiaryName,
@@ -225,10 +226,12 @@ class ComprobanteEgresoService
                     'reference' => $o['reference'] ?? null,
                 ];
             }
+            $now = $this->storeTimezoneService->nowForStore($store);
+
             $this->comprobanteIngresoService->crearComprobante($store, $userId, [
                 'notes' => $concepto,
                 'destinos' => $destinos,
-                'date' => now()->toDateString(),
+                'date' => $now->toDateString(),
             ]);
 
             foreach ($comprobante->destinos as $destino) {
@@ -238,7 +241,7 @@ class ComprobanteEgresoService
             }
 
             $comprobante->update([
-                'reversed_at' => now(),
+                'reversed_at' => $now,
                 'reversal_user_id' => $userId,
             ]);
         });

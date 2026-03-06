@@ -14,7 +14,8 @@ class SesionCajaService
 {
     public function __construct(
         protected ComprobanteIngresoService $comprobanteIngresoService,
-        protected ComprobanteEgresoService $comprobanteEgresoService
+        protected ComprobanteEgresoService $comprobanteEgresoService,
+        protected StoreTimezoneService $storeTimezoneService
     ) {}
 
     public function obtenerSesionAbierta(Store $store): ?SesionCaja
@@ -65,11 +66,13 @@ class SesionCajaService
             throw new Exception('No hay bolsillos activos. Cree al menos un bolsillo antes de abrir la caja.');
         }
 
-        return DB::transaction(function () use ($store, $userId, $saldosFisicosPorBolsillo, $nota, $saldosEsperados, $bolsillos) {
+        $now = $this->storeTimezoneService->nowForStore($store);
+
+        return DB::transaction(function () use ($store, $userId, $saldosFisicosPorBolsillo, $nota, $saldosEsperados, $bolsillos, $now) {
             $sesion = SesionCaja::create([
                 'store_id' => $store->id,
                 'user_id' => $userId,
-                'opened_at' => now(),
+                'opened_at' => $now,
                 'nota_apertura' => $nota,
             ]);
 
@@ -90,13 +93,13 @@ class SesionCajaService
                 if ($diferencia > 0) {
                     $this->comprobanteIngresoService->crearComprobante($store, $userId, [
                         'notes' => 'Ajuste inicial por descuadre',
-                        'date' => now()->toDateString(),
+                        'date' => $now->toDateString(),
                         'destinos' => [['bolsillo_id' => $b->id, 'amount' => $diferencia, 'reference' => null]],
                     ]);
                 } else {
                     $this->comprobanteEgresoService->crearComprobante($store, $userId, [
                         'notes' => 'Ajuste inicial por descuadre',
-                        'payment_date' => now()->toDateString(),
+                        'payment_date' => $now->toDateString(),
                         'destinos' => [
                             ['concepto' => 'Ajuste inicial por descuadre', 'beneficiario' => '', 'amount' => abs($diferencia)],
                         ],
@@ -126,7 +129,9 @@ class SesionCajaService
             throw new Exception('No hay bolsillos activos.');
         }
 
-        return DB::transaction(function () use ($store, $userId, $saldosFisicosCierrePorBolsillo, $notaCierre, $sesion, $bolsillos) {
+        $now = $this->storeTimezoneService->nowForStore($store);
+
+        return DB::transaction(function () use ($store, $userId, $saldosFisicosCierrePorBolsillo, $notaCierre, $sesion, $bolsillos, $now) {
             $sesion->load('detalles');
 
             foreach ($bolsillos as $b) {
@@ -160,16 +165,17 @@ class SesionCajaService
                 }
                 $bolsilloId = $det->bolsillo_id;
                 $monto = abs($diferencia);
+
                 if ($diferencia > 0) {
                     $this->comprobanteIngresoService->crearComprobante($store, $userId, [
                         'notes' => 'Descuadre de cierre de caja' . ($notaCierre ? ': ' . $notaCierre : ''),
-                        'date' => now()->toDateString(),
+                        'date' => $now->toDateString(),
                         'destinos' => [['bolsillo_id' => $bolsilloId, 'amount' => $monto, 'reference' => null]],
                     ]);
                 } else {
                     $this->comprobanteEgresoService->crearComprobante($store, $userId, [
                         'notes' => 'Descuadre de cierre de caja' . ($notaCierre ? ': ' . $notaCierre : ''),
-                        'payment_date' => now()->toDateString(),
+                        'payment_date' => $now->toDateString(),
                         'destinos' => [
                             ['concepto' => 'Descuadre de cierre de caja', 'beneficiario' => '', 'amount' => $monto],
                         ],
@@ -179,7 +185,7 @@ class SesionCajaService
             }
 
             $sesion->update([
-                'closed_at' => now(),
+                'closed_at' => $now,
                 'closed_by_user_id' => $userId,
                 'nota_cierre' => $notaCierre,
             ]);

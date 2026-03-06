@@ -27,8 +27,15 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <x-input-label for="edit_phone" value="{{ __('Teléfono') }}" />
-                        <x-text-input wire:model="phone" id="edit_phone" class="block mt-1 w-full" type="text" placeholder="+1234567890" required />
+                        <p class="text-xs text-gray-400 mt-1">Indicativo (ej. 57) y número. Solo dígitos.</p>
+                        <div class="flex gap-2 mt-1">
+                            <span class="flex items-center text-white font-medium">+</span>
+                            <input type="text" wire:model="phone_country_code" placeholder="57" maxlength="4" inputmode="numeric" pattern="[0-9]*"
+                                   class="w-20 rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand text-center">
+                            <x-text-input wire:model="phone" id="edit_phone" class="flex-1" type="text" placeholder="3001234567" inputmode="numeric" required />
+                        </div>
                         <x-input-error :messages="$errors->get('phone')" class="mt-1" />
+                        <x-input-error :messages="$errors->get('phone_country_code')" class="mt-1" />
                     </div>
                     <div>
                         <x-input-label for="edit_document_number" value="{{ __('Número de Documento') }}" />

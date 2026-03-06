@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class StoreCustomerRequest extends FormRequest
@@ -13,6 +14,16 @@ class StoreCustomerRequest extends FormRequest
     public function authorize(): bool
     {
         return true;
+    }
+
+    /**
+     * Prepare the data for validation.
+     */
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('email')) {
+            $this->merge(['email' => Str::lower($this->email)]);
+        }
     }
 
     /**
@@ -28,6 +39,8 @@ class StoreCustomerRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'email' => [
                 'required',
+                'string',
+                'lowercase',
                 'email',
                 'max:255',
                 Rule::unique('customers', 'email')
@@ -35,7 +48,8 @@ class StoreCustomerRequest extends FormRequest
                     ->whereNotNull('email')
                     ->ignore($this->route('customer')),
             ],
-            'phone' => ['required', 'string', 'max:255'],
+            'phone_country_code' => ['nullable', 'string', 'regex:/^[0-9]{1,4}$/', 'max:4'],
+            'phone' => ['required', 'string', 'regex:/^[0-9]+$/', 'max:20'],
             'document_number' => [
                 'required',
                 'string',
@@ -63,9 +77,11 @@ class StoreCustomerRequest extends FormRequest
             'email.email' => 'Debe ser un correo electrónico válido.',
             'email.unique' => 'Ya existe un cliente con este correo electrónico en esta tienda.',
             'phone.required' => 'El teléfono del cliente es obligatorio.',
-            'phone.max' => 'El teléfono no puede exceder 255 caracteres.',
+            'phone.regex' => 'El teléfono solo debe contener números.',
+            'phone_country_code.regex' => 'El indicativo solo debe contener números.',
             'document_number.required' => 'El número de documento es obligatorio.',
             'document_number.unique' => 'Ya existe un cliente con este número de documento en esta tienda.',
         ];
     }
+
 }

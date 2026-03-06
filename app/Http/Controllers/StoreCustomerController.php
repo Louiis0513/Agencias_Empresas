@@ -28,8 +28,12 @@ class StoreCustomerController extends Controller
     {
         $permission->authorize($store, 'customers.create');
 
+        $data = $request->validated();
+        $data['phone'] = $this->buildFullPhone($data['phone_country_code'] ?? '', $data['phone'] ?? '');
+        unset($data['phone_country_code']);
+
         try {
-            $customerService->createCustomer($store, $request->validated());
+            $customerService->createCustomer($store, $data);
             return redirect()->route('stores.customers', $store)
                 ->with('success', 'Cliente creado correctamente.');
         } catch (\Exception $e) {
@@ -46,8 +50,12 @@ class StoreCustomerController extends Controller
             abort(404);
         }
 
+        $data = $request->validated();
+        $data['phone'] = $this->buildFullPhone($data['phone_country_code'] ?? '', $data['phone'] ?? '');
+        unset($data['phone_country_code']);
+
         try {
-            $customerService->updateCustomer($store, $customer->id, $request->validated());
+            $customerService->updateCustomer($store, $customer->id, $data);
             return redirect()->route('stores.customers', $store)
                 ->with('success', 'Cliente actualizado correctamente.');
         } catch (\Exception $e) {
@@ -72,5 +80,16 @@ class StoreCustomerController extends Controller
             return redirect()->route('stores.customers', $store)
                 ->with('error', $e->getMessage());
         }
+    }
+
+    private function buildFullPhone(string $code, string $number): ?string
+    {
+        $digits = preg_replace('/\D/', '', $number);
+        if ($digits === '') {
+            return null;
+        }
+        $code = preg_replace('/\D/', '', $code);
+
+        return $code !== '' ? '+'.$code.$digits : '+'.$digits;
     }
 }

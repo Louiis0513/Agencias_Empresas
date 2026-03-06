@@ -18,6 +18,7 @@ use App\Http\Controllers\StoreAccountReceivableController;
 use App\Http\Controllers\StoreSubscriptionController;
 use App\Http\Controllers\StoreAsistenciaController;
 use App\Http\Controllers\StoreVitrinaController;
+use App\Http\Controllers\StoreConfigController;
 use App\Http\Controllers\VitrinaAuthController;
 use App\Http\Controllers\VitrinaController;
 
@@ -50,6 +51,9 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
 
     Route::get('/vitrina', [StoreVitrinaController::class, 'edit'])->name('vitrina.edit');
     Route::put('/vitrina', [StoreVitrinaController::class, 'update'])->name('vitrina.update');
+
+    Route::get('/configuracion', [StoreConfigController::class, 'edit'])->name('configuracion');
+    Route::put('/configuracion', [StoreConfigController::class, 'update'])->name('configuracion.update');
 
     Route::get('/trabajadores', [StoreWorkerController::class, 'index'])->name('workers');
     Route::get('/trabajadores/crear', [StoreWorkerController::class, 'create'])->name('workers.create');

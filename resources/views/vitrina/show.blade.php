@@ -563,6 +563,7 @@
                                     </div>
                                     <div>
                                         <label for="vitrina-register-password" class="block text-sm font-medium text-gray-700">Contraseña</label>
+                                        <p class="text-xs text-gray-500 mt-1">Debe contener al menos 8 caracteres, 1 mayúscula y 1 símbolo.</p>
                                         <input type="password" name="password" id="vitrina-register-password" required autocomplete="new-password" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
                                         @error('password')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
                                     </div>

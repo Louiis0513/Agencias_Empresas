@@ -13,6 +13,10 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'store.access' => \App\Http\Middleware\CheckStoreAccess::class,
+            'store.timezone' => \App\Http\Middleware\SetStoreTimezone::class,
+        ]);
+        $middleware->web(append: [
+            \App\Http\Middleware\SetStoreTimezone::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
