@@ -18,7 +18,7 @@
                         <select wire:model="bolsillo_id" id="bolsillo_id" class="block mt-1 w-full rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand" required>
                             <option value="">Selecciona un bolsillo</option>
                             @foreach($this->bolsillosActivos as $b)
-                                <option value="{{ $b->id }}">{{ $b->name }} — Saldo: ${{ number_format($b->saldo, 2) }}</option>
+                                <option value="{{ $b->id }}">{{ $b->name }} — Saldo: {{ money($b->saldo, $this->store?->currency ?? 'COP') }}</option>
                             @endforeach
                         </select>
                         <x-input-error :messages="$errors->get('bolsillo_id')" class="mt-1" />
@@ -34,8 +34,8 @@
                 </div>
 
                 <div>
-                    <x-input-label for="amount" value="{{ __('Monto') }}" />
-                    <x-text-input wire:model="amount" id="amount" class="block mt-1 w-full" type="number" step="0.01" min="0.01" placeholder="0.00" required />
+                    <x-input-label for="amount" value="{{ __('Monto') }} ({{ currency_symbol($this->store?->currency ?? 'COP') }})" />
+                    <x-money-input wire:model="amount" :currency="$this->store?->currency ?? 'COP'" :value="$amount" id="amount" required />
                     <x-input-error :messages="$errors->get('amount')" class="mt-1" />
                 </div>
 

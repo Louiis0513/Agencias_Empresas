@@ -31,7 +31,7 @@
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ $b->name }}</label>
-                                <p class="text-xs text-gray-400">Saldo esperado: ${{ number_format($saldosEsperados[$b->id] ?? 0, 2) }}</p>
+                                <p class="text-xs text-gray-400">Saldo esperado: {{ money($saldosEsperados[$b->id] ?? 0, $store->currency ?? 'COP') }}</p>
                             </div>
                             <div class="md:col-span-2">
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Saldo físico contado</label>

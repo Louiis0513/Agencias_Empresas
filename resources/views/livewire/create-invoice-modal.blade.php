@@ -69,7 +69,7 @@
                                     <select wire:model="planSuscripcionId" class="block mt-1 w-full rounded-md border-slate-600 bg-slate-800 text-white text-sm focus:ring-indigo-500 focus:border-indigo-500">
                                         <option value="">Seleccione un plan</option>
                                         @foreach($this->plans as $plan)
-                                            <option value="{{ $plan->id }}">{{ $plan->name }} — ${{ number_format($plan->price, 2) }} ({{ $plan->duration_days }} días)</option>
+                                            <option value="{{ $plan->id }}">{{ $plan->name }} — {{ money($plan->price, $store?->currency ?? 'COP') }} ({{ $plan->duration_days }} días)</option>
                                         @endforeach
                                     </select>
                                     <x-input-error :messages="$errors->get('planSuscripcionId')" class="mt-1" />
@@ -117,7 +117,7 @@
                                     Cancelar
                                 </button>
                             </div>
-                            <p class="mt-1 text-xs text-slate-500">Precio unit.: ${{ number_format($pendienteSimple['price'] ?? 0, 2) }}</p>
+                            <p class="mt-1 text-xs text-slate-500">Precio unit.: {{ money($pendienteSimple['price'] ?? 0, $store?->currency ?? 'COP') }}</p>
                         </div>
                     @endif
 
@@ -145,7 +145,7 @@
                                     Cancelar
                                 </button>
                             </div>
-                            <p class="mt-1 text-xs text-slate-500">Precio unit.: ${{ number_format($pendienteBatch['price'] ?? 0, 2) }}</p>
+                            <p class="mt-1 text-xs text-slate-500">Precio unit.: {{ money($pendienteBatch['price'] ?? 0, $store?->currency ?? 'COP') }}</p>
                         </div>
                     @endif
 
@@ -176,11 +176,11 @@
                                             <td class="px-4 py-4 text-sm text-slate-300">
                                                 @if($producto['precio_bloqueado'] ?? false)
                                                     <span class="inline-flex items-center gap-1" title="Precio fijado por cotización (no editable)">
-                                                        ${{ number_format($producto['price'], 2) }}
+                                                        {{ money($producto['price'], $store?->currency ?? 'COP') }}
                                                         <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
                                                     </span>
                                                 @else
-                                                    ${{ number_format($producto['price'], 2) }}
+                                                    {{ money($producto['price'], $store?->currency ?? 'COP') }}
                                                 @endif
                                             </td>
                                             <td class="px-4 py-4">
@@ -193,7 +193,7 @@
                                                         class="w-16 rounded bg-slate-800 border-slate-600 text-white focus:ring-indigo-500 focus:border-indigo-500 text-sm">
                                                 @endif
                                             </td>
-                                            <td class="px-4 py-4 text-sm font-bold text-white">${{ number_format($producto['subtotal'], 2) }}</td>
+                                            <td class="px-4 py-4 text-sm font-bold text-white">{{ money($producto['subtotal'], $store?->currency ?? 'COP') }}</td>
                                             <td class="px-4 py-4 text-center">
                                                 <button type="button" wire:click="eliminarProducto({{ $index }})" class="text-red-400 hover:text-red-300 p-1">
                                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
@@ -218,13 +218,17 @@
                         <div class="col-span-1">
                             <x-input-label value="Tipo Descuento" class="text-slate-400 text-xs uppercase" />
                             <select wire:model.live="discountType" class="block mt-1 w-full rounded-md border-slate-600 bg-slate-800 text-white text-sm">
-                                <option value="amount">Monto ($)</option>
+                                <option value="amount">Monto ({{ currency_symbol($store?->currency ?? 'COP') }})</option>
                                 <option value="percent">Porcentaje (%)</option>
                             </select>
                         </div>
                         <div class="col-span-1">
                             <x-input-label value="Valor" class="text-slate-400 text-xs uppercase" />
-                            <x-text-input wire:model.live="discountValue" type="number" step="0.01" class="block mt-1 w-full border-slate-600 bg-slate-800 text-white text-sm" />
+                            @if($discountType === 'amount')
+                                <x-money-input wire:model="discountValue" :currency="$store?->currency ?? 'COP'" :value="$discountValue" class="block mt-1 w-full border-slate-600 bg-slate-800 text-white text-sm" />
+                            @else
+                                <x-text-input wire:model.live="discountValue" type="number" step="0.01" min="0" max="100" class="block mt-1 w-full border-slate-600 bg-slate-800 text-white text-sm" placeholder="0" />
+                            @endif
                         </div>
                     </div>
 
@@ -232,17 +236,17 @@
                         <div class="space-y-2">
                             <div class="flex justify-between text-slate-400 uppercase text-xs font-bold tracking-wider">
                                 <span>Subtotal</span>
-                                <span>${{ number_format($subtotal, 2) }}</span>
+                                <span>{{ money($subtotal, $store?->currency ?? 'COP') }}</span>
                             </div>
                             @if($discount > 0)
                                 <div class="flex justify-between text-red-400 font-medium">
                                     <span>Descuento</span>
-                                    <span>-${{ number_format($discount, 2) }}</span>
+                                    <span>-{{ money($discount, $store?->currency ?? 'COP') }}</span>
                                 </div>
                             @endif
                             <div class="flex justify-between border-t border-indigo-500/50 pt-3 mt-3">
                                 <span class="text-xl font-bold text-white">TOTAL</span>
-                                <span class="text-2xl font-black text-indigo-400">${{ number_format($total, 2) }}</span>
+                                <span class="text-2xl font-black text-indigo-400">{{ money($total, $store?->currency ?? 'COP') }}</span>
                             </div>
                         </div>
                         <x-input-error :messages="$errors->get('total')" class="mt-2 text-red-400" />
@@ -315,11 +319,10 @@
                                             <div class="md:col-span-4">
                                                 <label class="text-[10px] uppercase font-black text-slate-500">Dinero Recibido</label>
                                                 <div class="relative">
-                                                    <input type="number" wire:model.live="paymentParts.{{ $index }}.recibido" step="0.01" min="0" placeholder="0.00"
-                                                           class="w-full mt-1 rounded bg-slate-800 border-slate-600 text-white text-sm font-bold">
+                                                    <x-money-input wire:model="paymentParts.{{ $index }}.recibido" :currency="$store?->currency ?? 'COP'" :value="$part['recibido'] ?? ''" class="w-full mt-1 rounded bg-slate-800 border-slate-600 text-white text-sm font-bold" />
                                                     @if($vuelto !== null)
                                                         <div class="absolute right-0 -bottom-5 text-xs font-bold text-emerald-400">
-                                                            Cambio: ${{ number_format($vuelto, 2) }}
+                                                            Cambio: {{ money($vuelto, $store?->currency ?? 'COP') }}
                                                         </div>
                                                     @endif
                                                 </div>
@@ -328,9 +331,8 @@
 
                                         {{-- 3. MONTO A COBRAR --}}
                                         <div class="md:col-span-3">
-                                            <label class="text-[10px] uppercase font-black text-slate-500">Monto</label>
-                                            <input type="number" wire:model.blur="paymentParts.{{ $index }}.amount" step="0.01" min="0" placeholder="0.00"
-                                                   class="w-full mt-1 rounded bg-slate-800 border-slate-600 text-white text-sm font-bold text-right">
+                                            <label class="text-[10px] uppercase font-black text-slate-500">Monto ({{ currency_symbol($store?->currency ?? 'COP') }})</label>
+                                            <x-money-input wire:model="paymentParts.{{ $index }}.amount" :currency="$store?->currency ?? 'COP'" :value="$part['amount'] ?? ''" class="w-full mt-1 rounded bg-slate-800 border-slate-600 text-white text-sm font-bold text-right" />
                                             <x-input-error :messages="$errors->get('paymentParts.' . $index . '.amount')" class="mt-0.5 text-red-400 text-xs" />
                                         </div>
 
@@ -353,7 +355,7 @@
                                     <div class="flex flex-wrap items-center gap-4 sm:gap-8 min-w-0">
                                         <div class="text-center min-w-0">
                                             <p class="text-[10px] text-slate-500 uppercase font-black">Total Pagado</p>
-                                            <p class="text-lg font-bold text-white">${{ number_format($this->totalPagado, 2) }}</p>
+                                            <p class="text-lg font-bold text-white">{{ money($this->totalPagado, $store?->currency ?? 'COP') }}</p>
                                         </div>
                                         <div class="text-center border-l border-slate-700 pl-4 sm:pl-8 min-w-0 flex-1 sm:flex-initial">
                                             <p class="text-[10px] text-slate-500 uppercase font-black">Pendiente</p>
@@ -364,7 +366,7 @@
                                                 </p>
                                             @else
                                                 <p class="text-lg font-bold text-amber-500 animate-pulse">
-                                                    {{ $this->diferenciaPago > 0 ? 'Falta' : 'Sobra' }} ${{ number_format(abs($this->diferenciaPago), 2) }}
+                                                    {{ $this->diferenciaPago > 0 ? 'Falta' : 'Sobra' }} {{ money(abs($this->diferenciaPago), $store?->currency ?? 'COP') }}
                                                 </p>
                                             @endif
                                         </div>

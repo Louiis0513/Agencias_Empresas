@@ -82,24 +82,12 @@
                                 {{-- Costo y Precio --}}
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>
-                                        <x-input-label for="cost-{{ $index }}" value="{{ __('Costo') }}" />
-                                        <x-text-input wire:model="serializedItems.{{ $index }}.cost" 
-                                                      id="cost-{{ $index }}" 
-                                                      class="block mt-1 w-full" 
-                                                      type="number" 
-                                                      step="0.01" 
-                                                      min="0" 
-                                                      placeholder="0.00" />
+                                        <x-input-label for="cost-{{ $index }}" value="{{ __('Costo') }} ({{ currency_symbol($this->store?->currency ?? 'COP') }})" />
+                                        <x-money-input wire:model="serializedItems.{{ $index }}.cost" :currency="$this->store?->currency ?? 'COP'" :value="$item['cost'] ?? ''" :id="'cost-' . $index" />
                                     </div>
                                     <div>
-                                        <x-input-label for="price-{{ $index }}" value="{{ __('Precio') }}" />
-                                        <x-text-input wire:model="serializedItems.{{ $index }}.price" 
-                                                      id="price-{{ $index }}" 
-                                                      class="block mt-1 w-full" 
-                                                      type="number" 
-                                                      step="0.01" 
-                                                      min="0" 
-                                                      placeholder="0.00" />
+                                        <x-input-label for="price-{{ $index }}" value="{{ __('Precio') }} ({{ currency_symbol($this->store?->currency ?? 'COP') }})" />
+                                        <x-money-input wire:model="serializedItems.{{ $index }}.price" :currency="$this->store?->currency ?? 'COP'" :value="$item['price'] ?? ''" :id="'price-' . $index" />
                                     </div>
                                 </div>
                             </div>

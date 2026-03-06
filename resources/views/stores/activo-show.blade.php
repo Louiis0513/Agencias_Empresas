@@ -54,7 +54,7 @@
                                 @else bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200
                                 @endif
                             ">{{ \App\Models\Activo::estadosDisponibles()[$activo->status] ?? $activo->status }}</span></dd></div>
-                            <div><dt class="text-gray-400 inline">Valor:</dt> <dd class="inline text-gray-100">{{ number_format($activo->unit_cost, 2) }}</dd></div>
+                            <div><dt class="text-gray-400 inline">Valor:</dt> <dd class="inline text-gray-100">{{ money($activo->unit_cost, $store->currency ?? 'COP', false) }}</dd></div>
                             <div><dt class="text-gray-400 inline">Fecha compra:</dt> <dd class="inline text-gray-100">{{ $activo->purchase_date?->format('d/m/Y') ?? '-' }}</dd></div>
                             <div><dt class="text-gray-400 inline">Garantía hasta:</dt> <dd class="inline text-gray-100">{{ $activo->warranty_expiry?->format('d/m/Y') ?? '-' }}</dd></div>
                             @if($activo->description)

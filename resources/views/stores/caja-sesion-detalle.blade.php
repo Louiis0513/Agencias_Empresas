@@ -61,10 +61,10 @@
                             @foreach($sesionCaja->detalles as $d)
                                 <tr>
                                     <td class="px-4 py-3 text-sm font-medium text-gray-100">{{ $d->bolsillo->name ?? '—' }}</td>
-                                    <td class="px-4 py-3 text-sm text-right text-gray-600 dark:text-gray-400">${{ number_format($d->saldo_esperado_apertura, 2) }}</td>
-                                    <td class="px-4 py-3 text-sm text-right text-gray-600 dark:text-gray-400">${{ number_format($d->saldo_fisico_apertura, 2) }}</td>
-                                    <td class="px-4 py-3 text-sm text-right text-gray-600 dark:text-gray-400">{{ $d->saldo_esperado_cierre !== null ? '$'.number_format($d->saldo_esperado_cierre, 2) : '—' }}</td>
-                                    <td class="px-4 py-3 text-sm text-right text-gray-600 dark:text-gray-400">{{ $d->saldo_fisico_cierre !== null ? '$'.number_format($d->saldo_fisico_cierre, 2) : '—' }}</td>
+                                    <td class="px-4 py-3 text-sm text-right text-gray-600 dark:text-gray-400">{{ money($d->saldo_esperado_apertura, $store->currency ?? 'COP') }}</td>
+                                    <td class="px-4 py-3 text-sm text-right text-gray-600 dark:text-gray-400">{{ money($d->saldo_fisico_apertura, $store->currency ?? 'COP') }}</td>
+                                    <td class="px-4 py-3 text-sm text-right text-gray-600 dark:text-gray-400">{{ $d->saldo_esperado_cierre !== null ? money($d->saldo_esperado_cierre, $store->currency ?? 'COP') : '—' }}</td>
+                                    <td class="px-4 py-3 text-sm text-right text-gray-600 dark:text-gray-400">{{ $d->saldo_fisico_cierre !== null ? money($d->saldo_fisico_cierre, $store->currency ?? 'COP') : '—' }}</td>
                                 </tr>
                             @endforeach
                         </tbody>

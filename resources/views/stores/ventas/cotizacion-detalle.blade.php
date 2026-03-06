@@ -69,7 +69,9 @@
 
     {{-- Componente en window de forma síncrona para que cualquier evaluador (Livewire/Alpine) lo encuentre; Alpine.data se registra en alpine:init --}}
     <script>
-        window.cotizacionFacturar = function(rows, customerId, cotizacionId) {
+        window.cotizacionFacturar = function(rows, customerId, cotizacionId, currency) {
+            var noDecimals = ['COP', 'CLP'].indexOf((currency || 'COP').toUpperCase()) >= 0;
+            var fracOpts = noDecimals ? { minimumFractionDigits: 0, maximumFractionDigits: 0 } : { minimumFractionDigits: 2, maximumFractionDigits: 2 };
             return {
                 rows: rows,
                 customerId: customerId,
@@ -94,7 +96,7 @@
                     return this.rows.reduce(function(sum, row, i) { return sum + this.getSubtotal(row, i); }.bind(this), 0);
                 },
                 formatNum: function(n) {
-                    return typeof n === 'number' ? n.toLocaleString('es', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : n;
+                    return typeof n === 'number' ? n.toLocaleString('es-CO', fracOpts) : n;
                 },
                 facturar: function() {
                     var items = this.rows.map(function(row, i) {
@@ -164,7 +166,7 @@
                     {{-- Ítems de la cotización con precios y selectores por ítem --}}
                     <div class="border-t border-gray-200 dark:border-gray-700 pt-4"
                          wire:ignore
-                         x-data="cotizacionFacturar({{ \Illuminate\Support\Js::from($itemsParaFacturarData) }}, {{ $cotizacion->customer_id ?? 'null' }}, {{ $cotizacion->id }})">
+                         x-data="cotizacionFacturar({{ \Illuminate\Support\Js::from($itemsParaFacturarData) }}, {{ $cotizacion->customer_id ?? 'null' }}, {{ $cotizacion->id }}, {{ \Illuminate\Support\Js::from($store->currency ?? 'COP') }})">
                         <h3 class="text-sm font-medium text-gray-100 mb-3">Productos</h3>
                         <div class="border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden">
                             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-600">
@@ -183,9 +185,9 @@
                                         <tr>
                                             <td class="px-4 py-2 text-sm text-gray-100">{{ $rd['name'] }}</td>
                                             <td class="px-4 py-2 text-sm text-gray-100 text-right">{{ $rd['quantity'] }}</td>
-                                            <td class="px-4 py-2 text-sm text-gray-100 text-right">{{ number_format($rd['unit_price'], 2) }}</td>
-                                            <td class="px-4 py-2 text-sm text-gray-100 text-right">{{ number_format($rd['unit_price_actual'], 2) }}</td>
-                                            <td class="px-4 py-2 text-sm font-medium text-gray-100 text-right" x-text="formatNum(getSubtotal(rows[{{ $index }}], {{ $index }}))">{{ number_format($rd['unit_price'] * $rd['quantity'], 2) }}</td>
+                                            <td class="px-4 py-2 text-sm text-gray-100 text-right">{{ money($rd['unit_price'], $store->currency ?? 'COP', false) }}</td>
+                                            <td class="px-4 py-2 text-sm text-gray-100 text-right">{{ money($rd['unit_price_actual'], $store->currency ?? 'COP', false) }}</td>
+                                            <td class="px-4 py-2 text-sm font-medium text-gray-100 text-right" x-text="formatNum(getSubtotal(rows[{{ $index }}], {{ $index }}))">{{ money($rd['unit_price'] * $rd['quantity'], $store->currency ?? 'COP', false) }}</td>
                                             <td class="px-4 py-2 text-sm">
                                                 @if($rd['precio_cambio'])
                                                     <div class="flex flex-wrap gap-2">
@@ -213,7 +215,7 @@
                             <div class="mt-4 flex flex-wrap items-center justify-end gap-4">
                                 <div class="rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 px-6 py-4 min-w-[200px]">
                                     <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Total</p>
-                                    <p class="text-xl font-bold text-gray-900 dark:text-white mt-1" x-text="formatNum(totalSum)">{{ number_format($totalInicial, 2) }}</p>
+                                    <p class="text-xl font-bold text-gray-900 dark:text-white mt-1" x-text="formatNum(totalSum)">{{ money($totalInicial, $store->currency ?? 'COP', false) }}</p>
                                 </div>
                                 <button type="button"
                                     x-on:click="facturar()"
@@ -226,7 +228,7 @@
                             <div class="mt-4 flex justify-end">
                                 <div class="rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 px-6 py-4 min-w-[200px]">
                                     <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Total</p>
-                                    <p class="text-xl font-bold text-gray-900 dark:text-white mt-1" x-text="formatNum(totalSum)">{{ number_format($totalInicial, 2) }}</p>
+                                    <p class="text-xl font-bold text-gray-900 dark:text-white mt-1" x-text="formatNum(totalSum)">{{ money($totalInicial, $store->currency ?? 'COP', false) }}</p>
                                 </div>
                             </div>
                             @endif

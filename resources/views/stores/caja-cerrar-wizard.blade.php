@@ -22,7 +22,7 @@
                 <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Registre retiros del dueño o traslados entre bolsillos antes del conteo. Saldo esperado actual por bolsillo:</p>
                 <ul class="list-disc list-inside mb-4 space-y-1 text-sm text-gray-700 dark:text-gray-300">
                     @foreach($bolsillos as $b)
-                        <li><strong>{{ $b->name }}</strong>: ${{ number_format($b->saldo, 2) }}</li>
+                        <li><strong>{{ $b->name }}</strong>: {{ money($b->saldo, $store->currency ?? 'COP') }}</li>
                     @endforeach
                 </ul>
                 <div class="flex flex-wrap gap-2 mb-4">
@@ -45,7 +45,7 @@
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ $b->name }}</label>
-                                    <p class="text-xs text-gray-400">Saldo esperado: ${{ number_format($b->saldo, 2) }}</p>
+                                    <p class="text-xs text-gray-400">Saldo esperado: {{ money($b->saldo, $store->currency ?? 'COP') }}</p>
                                 </div>
                                 <div class="md:col-span-2">
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">¿Cuánto hay en {{ $b->name }}?</label>

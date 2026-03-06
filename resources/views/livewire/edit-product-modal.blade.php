@@ -61,8 +61,8 @@
                     </p>
                 </div>
                 <div>
-                    <x-input-label for="edit_price" value="{{ __('Precio (€)') }}" />
-                    <x-text-input wire:model="price" id="edit_price" class="block mt-1 w-full" type="number" step="0.01" min="0" placeholder="0.00" />
+                    <x-input-label for="edit_price" value="{{ __('Precio') }} ({{ currency_symbol($this->store?->currency ?? 'COP') }})" />
+                    <x-money-input wire:model="price" :currency="$this->store?->currency ?? 'COP'" :value="$price" id="edit_price" />
                     <x-input-error :messages="$errors->get('price')" class="mt-1" />
                 </div>
                 @endif

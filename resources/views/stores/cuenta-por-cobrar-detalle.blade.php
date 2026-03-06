@@ -36,11 +36,11 @@
                         </div>
                         <div>
                             <p class="text-sm text-gray-400">Total a cobrar</p>
-                            <p class="text-lg font-semibold text-gray-100">{{ number_format($accountReceivable->total_amount, 2) }}</p>
+                            <p class="text-lg font-semibold text-gray-100">{{ money($accountReceivable->total_amount, $store->currency ?? 'COP') }}</p>
                         </div>
                         <div>
                             <p class="text-sm text-gray-400">Saldo pendiente</p>
-                            <p class="text-lg font-bold text-amber-600 dark:text-amber-400">{{ number_format($accountReceivable->balance, 2) }}</p>
+                            <p class="text-lg font-bold text-amber-600 dark:text-amber-400">{{ money($accountReceivable->balance, $store->currency ?? 'COP') }}</p>
                         </div>
                         <div>
                             <p class="text-sm text-gray-400">Vencimiento</p>
@@ -76,8 +76,8 @@
                                     @foreach($accountReceivable->cuotas as $c)
                                         <tr>
                                             <td class="px-3 py-2 text-gray-100">{{ $c->sequence }}</td>
-                                            <td class="px-3 py-2 text-gray-100">{{ number_format($c->amount, 2) }}</td>
-                                            <td class="px-3 py-2 text-gray-100">{{ number_format($c->amount_paid, 2) }}</td>
+                                            <td class="px-3 py-2 text-gray-100">{{ money($c->amount, $store->currency ?? 'COP', false) }}</td>
+                                            <td class="px-3 py-2 text-gray-100">{{ money($c->amount_paid, $store->currency ?? 'COP', false) }}</td>
                                             <td class="px-3 py-2 text-gray-100">{{ $c->due_date->format('d/m/Y') }}</td>
                                         </tr>
                                     @endforeach
@@ -124,7 +124,7 @@
                                     </div>
                                     <button type="button" id="add-cobro-part" class="text-sm text-indigo-600 hover:text-indigo-800">+ Agregar otro bolsillo</button>
                                 </div>
-                                <p class="text-xs text-gray-400 mb-4">Monto máximo a cobrar: {{ number_format($accountReceivable->balance, 2) }}</p>
+                                <p class="text-xs text-gray-400 mb-4">Monto máximo a cobrar: {{ money($accountReceivable->balance, $store->currency ?? 'COP', false) }}</p>
                                 <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">Registrar Cobro</button>
                             </form>
                         </div>
@@ -150,10 +150,10 @@
                                                 <a href="{{ route('stores.comprobantes-ingreso.show', [$store, $ci]) }}" class="text-indigo-600 hover:text-indigo-800">{{ $ci->number }}</a>
                                             </td>
                                             <td class="px-3 py-2 text-sm text-gray-100">{{ $ci->date->format('d/m/Y') }}</td>
-                                            <td class="px-3 py-2 text-sm font-medium text-gray-100">{{ number_format($ap->amount, 2) }}</td>
+                                            <td class="px-3 py-2 text-sm font-medium text-gray-100">{{ money($ap->amount, $store->currency ?? 'COP') }}</td>
                                             <td class="px-3 py-2 text-sm text-gray-100">
                                                 @foreach($ci->destinos ?? [] as $d)
-                                                    {{ $d->bolsillo->name ?? '-' }}: {{ number_format($d->amount, 2) }}@if($d->reference ?? null) <span class="text-gray-500">({{ $d->reference }})</span> @endif<br>
+                                                    {{ $d->bolsillo->name ?? '-' }}: {{ money($d->amount, $store->currency ?? 'COP', false) }}@if($d->reference ?? null) <span class="text-gray-500">({{ $d->reference }})</span> @endif<br>
                                                 @endforeach
                                             </td>
                                         </tr>

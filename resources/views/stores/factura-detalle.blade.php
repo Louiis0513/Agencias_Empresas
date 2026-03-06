@@ -134,9 +134,9 @@
                                     @foreach($invoice->details as $detail)
                                         <tr>
                                             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-100">{{ $detail->product_name }}</td>
-                                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-100">${{ number_format($detail->unit_price, 2) }}</td>
+                                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-100">{{ money($detail->unit_price, $store->currency ?? 'COP') }}</td>
                                             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-100">{{ $detail->quantity }}</td>
-                                            <td class="px-4 py-4 whitespace-nowrap text-sm font-semibold text-gray-100">${{ number_format($detail->subtotal, 2) }}</td>
+                                            <td class="px-4 py-4 whitespace-nowrap text-sm font-semibold text-gray-100">{{ money($detail->subtotal, $store->currency ?? 'COP') }}</td>
                                         </tr>
                                     @endforeach
                                 </tbody>
@@ -150,23 +150,23 @@
                             <div class="w-64 space-y-2">
                                 <div class="flex justify-between">
                                     <span class="text-gray-600 dark:text-gray-400">Subtotal:</span>
-                                    <span class="font-semibold text-gray-100">${{ number_format($invoice->subtotal, 2) }}</span>
+                                    <span class="font-semibold text-gray-100">{{ money($invoice->subtotal, $store->currency ?? 'COP') }}</span>
                                 </div>
                                 @if($invoice->tax > 0)
                                     <div class="flex justify-between">
                                         <span class="text-gray-600 dark:text-gray-400">Impuesto:</span>
-                                        <span class="font-semibold text-gray-100">${{ number_format($invoice->tax, 2) }}</span>
+                                        <span class="font-semibold text-gray-100">{{ money($invoice->tax, $store->currency ?? 'COP') }}</span>
                                     </div>
                                 @endif
                                 @if($invoice->discount > 0)
                                     <div class="flex justify-between">
                                         <span class="text-gray-600 dark:text-gray-400">Descuento:</span>
-                                        <span class="font-semibold text-red-600 dark:text-red-400">-${{ number_format($invoice->discount, 2) }}</span>
+                                        <span class="font-semibold text-red-600 dark:text-red-400">-{{ money($invoice->discount, $store->currency ?? 'COP') }}</span>
                                     </div>
                                 @endif
                                 <div class="flex justify-between border-t border-gray-200 dark:border-gray-700 pt-2">
                                     <span class="text-lg font-bold text-gray-100">Total:</span>
-                                    <span class="text-lg font-bold text-gray-100">${{ number_format($invoice->total, 2) }}</span>
+                                    <span class="text-lg font-bold text-gray-100">{{ money($invoice->total, $store->currency ?? 'COP') }}</span>
                                 </div>
                             </div>
                         </div>
@@ -201,7 +201,7 @@
                                         <li>
                                             <a href="{{ route('stores.comprobantes-ingreso.show', [$store, $ci]) }}"
                                                class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300">
-                                                {{ $ci->number }} — {{ $ci->date->format('d/m/Y') }} — ${{ number_format($ci->total_amount, 2) }}
+                                                {{ $ci->number }} — {{ $ci->date->format('d/m/Y') }} — {{ money($ci->total_amount, $store->currency ?? 'COP') }}
                                             </a>
                                         </li>
                                     @endforeach

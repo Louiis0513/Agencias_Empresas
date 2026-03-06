@@ -87,14 +87,14 @@
                                         <td class="px-3 py-2 text-sm text-gray-100">{{ $d->description }}</td>
                                         <td class="px-3 py-2 text-sm text-gray-100">{{ $d->item_type == 'INVENTARIO' ? 'Inventario' : 'Activo Fijo' }}</td>
                                         <td class="px-3 py-2 text-sm text-gray-100">{{ $d->quantity }}</td>
-                                        <td class="px-3 py-2 text-sm text-gray-100">{{ number_format($d->unit_cost, 2) }}</td>
-                                        <td class="px-3 py-2 text-sm font-medium text-gray-100">{{ number_format($d->subtotal, 2) }}</td>
+                                        <td class="px-3 py-2 text-sm text-gray-100">{{ money($d->unit_cost, $store->currency ?? 'COP', false) }}</td>
+                                        <td class="px-3 py-2 text-sm font-medium text-gray-100">{{ money($d->subtotal, $store->currency ?? 'COP', false) }}</td>
                                     </tr>
                                 @endforeach
                             </tbody>
                         </table>
                         <div class="mt-2 text-right">
-                            <p class="text-lg font-bold text-gray-100">Total: {{ number_format($purchase->total, 2) }}</p>
+                            <p class="text-lg font-bold text-gray-100">Total: {{ money($purchase->total, $store->currency ?? 'COP') }}</p>
                         </div>
                     </div>
 
@@ -171,13 +171,13 @@
                                             </div>
                                         </div>
                                         <div class="mb-4">
-                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">De qué bolsillo(s) se paga (Total: {{ number_format($purchase->total, 2) }})</label>
+                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">De qué bolsillo(s) se paga (Total: {{ money($purchase->total, $store->currency ?? 'COP', false) }})</label>
                                             <div id="payment-parts">
                                                 <div class="flex gap-2 mb-2">
                                                     <select name="parts[0][bolsillo_id]" class="flex-1 rounded-md border-white/10 bg-white/5 text-gray-100" required>
                                                         <option value="">Seleccionar bolsillo</option>
                                                         @foreach($bolsillos as $b)
-                                                            <option value="{{ $b->id }}">{{ $b->name }} ({{ number_format($b->saldo, 2) }})</option>
+                                                            <option value="{{ $b->id }}">{{ $b->name }} ({{ money($b->saldo, $store->currency ?? 'COP', false) }})</option>
                                                         @endforeach
                                                     </select>
                                                     <input type="number" name="parts[0][amount]" step="0.01" min="0.01" placeholder="Monto" value="{{ $purchase->total }}" class="w-32 rounded-md border-white/10 bg-white/5 text-gray-100" required>
@@ -201,7 +201,7 @@
                                 <p class="text-sm text-gray-400 mb-2">Cuenta por pagar: Pagada</p>
                                 <a href="{{ route('stores.accounts-payables.show', [$store, $purchase->accountPayable]) }}" class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400">Ver historial de pagos en Cuentas por Pagar →</a>
                             @else
-                                <p class="text-sm text-gray-400 mb-2">Cuenta por pagar: Saldo pendiente {{ number_format($purchase->accountPayable->balance, 2) }}</p>
+                                <p class="text-sm text-gray-400 mb-2">Cuenta por pagar: Saldo pendiente {{ money($purchase->accountPayable->balance, $store->currency ?? 'COP', false) }}</p>
                                 <a href="{{ route('stores.accounts-payables.show', [$store, $purchase->accountPayable]) }}" class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400">Ir a Cuentas por Pagar →</a>
                             @endif
                         </div>

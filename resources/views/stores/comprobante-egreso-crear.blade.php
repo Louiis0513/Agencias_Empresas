@@ -105,7 +105,7 @@
                                     <select name="origenes[{{ $i }}][bolsillo_id]" class="flex-1 rounded-md border-white/10 bg-white/5 text-gray-100" required>
                                         <option value="">Seleccionar bolsillo</option>
                                         @foreach($bolsillos as $b)
-                                            <option value="{{ $b->id }}" {{ (string)($o['bolsillo_id'] ?? '') === (string)$b->id ? 'selected' : '' }}>{{ $b->name }} ({{ number_format($b->saldo, 2) }})</option>
+                                            <option value="{{ $b->id }}" {{ (string)($o['bolsillo_id'] ?? '') === (string)$b->id ? 'selected' : '' }}>{{ $b->name }} ({{ money($b->saldo, $store->currency ?? 'COP', false) }})</option>
                                         @endforeach
                                     </select>
                                     <input type="text" name="origenes[{{ $i }}][reference]" value="{{ $o['reference'] ?? '' }}" class="w-36 rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" placeholder="Ref. (caja menor, transferencia...)" maxlength="100">
@@ -135,6 +135,8 @@
     <script>
         function comprobanteEgresoFlow() {
             const bolsillos = @json($bolsillos->map(fn($b) => ['id' => $b->id, 'name' => $b->name, 'saldo' => $b->saldo]));
+            const currency = @json($store->currency ?? 'COP');
+            const fmtSaldo = (n) => ['COP','CLP'].includes(currency) ? Math.round(parseFloat(n)).toLocaleString('es-CO') : parseFloat(n).toFixed(2);
 
             return {
                 itemsLibres: @json($itemsLibresInit),
@@ -159,7 +161,9 @@
                 },
 
                 formatNumber(n) {
-                    return parseFloat(n || 0).toLocaleString('es-CO', { minimumFractionDigits: 2 });
+                    const currency = @json($store->currency ?? 'COP');
+                    const opts = ['COP', 'CLP'].includes(currency) ? { minimumFractionDigits: 0, maximumFractionDigits: 0 } : { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+                    return parseFloat(n || 0).toLocaleString('es-CO', opts);
                 },
 
                 bindOrigenes() {
@@ -173,7 +177,7 @@
                         row.innerHTML = `
                             <select name="origenes[${origenIndex}][bolsillo_id]" class="flex-1 rounded-md border-white/10 bg-white/5 text-gray-100" required>
                                 <option value="">Seleccionar bolsillo</option>
-                                ${bolsillos.map(b => `<option value="${b.id}">${b.name} (${parseFloat(b.saldo).toFixed(2)})</option>`).join('')}
+                                ${bolsillos.map(b => `<option value="${b.id}">${b.name} (${fmtSaldo(b.saldo)})</option>`).join('')}
                             </select>
                             <input type="text" name="origenes[${origenIndex}][reference]" class="w-36 rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" placeholder="Ref. (caja menor, transferencia...)" maxlength="100">
                             <input type="number" name="origenes[${origenIndex}][amount]" step="0.01" min="0.01" class="w-28 rounded-md border-white/10 bg-white/5 text-gray-100" required placeholder="Monto">

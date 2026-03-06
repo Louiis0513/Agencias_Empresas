@@ -154,7 +154,7 @@
                                                 {{ $m->type === 'ENTRADA' ? '+' : '-' }}{{ $m->quantity }}
                                             </td>
                                             <td class="px-4 py-3 text-sm text-gray-400">
-                                                {{ $m->unit_cost !== null ? number_format($m->unit_cost, 2) : '—' }}
+                                                {{ $m->unit_cost !== null ? money($m->unit_cost, $store->currency ?? 'COP', false) : '—' }}
                                             </td>
                                             <td class="px-4 py-3 text-sm text-gray-400">{{ $m->description ?? '—' }}</td>
                                             <td class="px-4 py-3 text-sm text-gray-400">{{ $m->user->name ?? '—' }}</td>

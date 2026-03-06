@@ -38,7 +38,7 @@
                     </div>
                     <div>
                         <p class="text-sm text-gray-400">Monto total</p>
-                        <p class="text-lg font-bold text-gray-100">{{ number_format($comprobanteIngreso->total_amount, 2) }}</p>
+                        <p class="text-lg font-bold text-gray-100">{{ money($comprobanteIngreso->total_amount, $store->currency ?? 'COP') }}</p>
                     </div>
                     @if($comprobanteIngreso->customer)
                         <div class="md:col-span-2">
@@ -67,7 +67,7 @@
                             @foreach($comprobanteIngreso->destinos as $d)
                                 <tr>
                                     <td class="px-3 py-2 text-gray-100">{{ $d->bolsillo->name ?? '-' }}</td>
-                                    <td class="px-3 py-2 text-right text-gray-100">{{ number_format($d->amount, 2) }}</td>
+                                    <td class="px-3 py-2 text-right text-gray-100">{{ money($d->amount, $store->currency ?? 'COP') }}</td>
                                 </tr>
                             @endforeach
                         </tbody>
@@ -90,7 +90,7 @@
                                         <td class="px-3 py-2 text-gray-100">
                                             <a href="{{ route('stores.accounts-receivables.show', [$store, $ap->accountReceivable]) }}" class="text-indigo-600 hover:text-indigo-800">Factura #{{ $ap->accountReceivable->invoice->id }}</a>
                                         </td>
-                                        <td class="px-3 py-2 text-right text-gray-100">{{ number_format($ap->amount, 2) }}</td>
+                                        <td class="px-3 py-2 text-right text-gray-100">{{ money($ap->amount, $store->currency ?? 'COP') }}</td>
                                     </tr>
                                 @endforeach
                             </tbody>

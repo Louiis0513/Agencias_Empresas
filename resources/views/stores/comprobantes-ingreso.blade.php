@@ -55,7 +55,7 @@
                                                     <span class="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">Ingreso manual</span>
                                                 @endif
                                             </td>
-                                            <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-100">{{ number_format($ci->total_amount, 2) }}</td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-100">{{ money($ci->total_amount, $store->currency ?? 'COP') }}</td>
                                             <td class="px-4 py-3 text-sm text-gray-100">
                                                 @if($ci->customer)
                                                     {{ $ci->customer->name }}

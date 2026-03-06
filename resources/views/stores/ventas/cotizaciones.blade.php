@@ -91,13 +91,13 @@
                                                 $diff = $totales['total_actual'] - $totales['total_cotizado'];
                                                 $hayCambio = abs($diff) > 0.005;
                                             @endphp
-                                            <td class="px-4 py-3 text-sm text-gray-100 text-right font-medium">{{ number_format($totales['total_cotizado'], 2) }}</td>
-                                            <td class="px-4 py-3 text-sm text-gray-100 text-right font-medium">{{ number_format($totales['total_actual'], 2) }}</td>
+                                            <td class="px-4 py-3 text-sm text-gray-100 text-right font-medium">{{ money($totales['total_cotizado'], $store->currency ?? 'COP', false) }}</td>
+                                            <td class="px-4 py-3 text-sm text-gray-100 text-right font-medium">{{ money($totales['total_actual'], $store->currency ?? 'COP', false) }}</td>
                                             <td class="px-4 py-3 text-center">
                                                 @if($hayCambio)
                                                     <span class="text-xs font-medium {{ $diff > 0 ? 'text-amber-800 dark:text-amber-200' : 'text-emerald-800 dark:text-emerald-200' }}"
                                                         title="{{ $diff > 0 ? 'El valor actual es mayor que el cotizado' : 'El valor actual es menor que el cotizado' }}">
-                                                        {{ $diff > 0 ? '+' : '' }}{{ number_format($diff, 2) }} {{ $diff > 0 ? '(aumentó)' : '(disminuyó)' }}
+                                                        {{ $diff > 0 ? '+' : '' }}{{ money($diff, $store->currency ?? 'COP', false) }} {{ $diff > 0 ? '(aumentó)' : '(disminuyó)' }}
                                                     </span>
                                                 @else
                                                     <span class="text-gray-400 dark:text-gray-500 text-xs">—</span>

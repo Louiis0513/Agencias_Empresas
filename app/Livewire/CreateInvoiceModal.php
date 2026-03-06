@@ -1182,6 +1182,8 @@ class CreateInvoiceModal extends Component
 
     public function render()
     {
-        return view('livewire.create-invoice-modal');
+        $store = Store::find($this->storeId);
+
+        return view('livewire.create-invoice-modal', ['store' => $store]);
     }
 }

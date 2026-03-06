@@ -51,7 +51,7 @@
             {{-- Total caja (suma de todos los bolsillos) --}}
             <div class="mb-6 p-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-700 rounded-lg">
                 <p class="text-sm text-indigo-700 dark:text-indigo-300">Total caja (suma de bolsillos)</p>
-                <p class="text-2xl font-bold text-indigo-900 dark:text-indigo-100">${{ number_format($totalCaja, 2) }}</p>
+                <p class="text-2xl font-bold text-indigo-900 dark:text-indigo-100">{{ money($totalCaja, $store->currency ?? 'COP') }}</p>
                 <p class="text-xs text-indigo-600 dark:text-indigo-400 mt-1">Sin bolsillos, la caja está vacía.</p>
             </div>
 
@@ -93,7 +93,7 @@
                                                 </a>
                                             </td>
                                             <td class="px-4 py-3 text-sm text-gray-400 max-w-xs truncate" title="{{ $b->detalles }}">{{ $b->detalles ?? '—' }}</td>
-                                            <td class="px-4 py-3 text-sm font-semibold text-gray-100">${{ number_format($b->saldo, 2) }}</td>
+                                            <td class="px-4 py-3 text-sm font-semibold text-gray-100">{{ money($b->saldo, $store->currency ?? 'COP') }}</td>
                                             <td class="px-4 py-3 text-sm text-gray-400">{{ $b->is_bank_account ? 'Cuenta bancaria' : 'Efectivo' }}</td>
                                             <td class="px-4 py-3">
                                                 <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ $b->is_active ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300' }}">

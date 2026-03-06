@@ -82,8 +82,8 @@
                                                     <x-text-input wire:model="serial_items.{{ $index }}.serial_number" class="block mt-1 w-full" type="text" placeholder="Ej: IMEI-123456789" />
                                                 </div>
                                                 <div>
-                                                    <x-input-label value="Costo de esta unidad (€)" />
-                                                    <x-text-input wire:model="serial_items.{{ $index }}.cost" class="block mt-1 w-full" type="number" step="0.01" min="0" placeholder="0.00" />
+                                                    <x-input-label value="Costo de esta unidad ({{ currency_symbol($this->store?->currency ?? 'COP') }})" />
+                                                    <x-money-input wire:model="serial_items.{{ $index }}.cost" :currency="$this->store?->currency ?? 'COP'" :value="$item['cost'] ?? ''" />
                                                 </div>
                                             </div>
                                             @if(!empty($categoryAttributes))
@@ -153,8 +153,8 @@
                                         <x-input-error :messages="$errors->get('quantity')" class="mt-1" />
                                     </div>
                                     <div>
-                                        <x-input-label for="unit_cost" value="Costo unitario" />
-                                        <x-text-input wire:model="unit_cost" id="unit_cost" class="block mt-1 w-full" type="number" min="0" step="0.01" placeholder="0.00" />
+                                        <x-input-label for="unit_cost" value="Costo unitario ({{ currency_symbol($this->store?->currency ?? 'COP') }})" />
+                                        <x-money-input wire:model="unit_cost" :currency="$this->store?->currency ?? 'COP'" :value="$unit_cost" id="unit_cost" />
                                         <x-input-error :messages="$errors->get('unit_cost')" class="mt-1" />
                                     </div>
                                 </div>

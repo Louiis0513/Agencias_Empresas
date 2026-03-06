@@ -27,7 +27,7 @@
                 <div class="flex flex-wrap justify-between items-center gap-4">
                     <div>
                         <p class="text-sm text-indigo-700 dark:text-indigo-300">Saldo actual</p>
-                        <p class="text-2xl font-bold text-indigo-900 dark:text-indigo-100">${{ number_format($bolsillo->saldo, 2) }}</p>
+                        <p class="text-2xl font-bold text-indigo-900 dark:text-indigo-100">{{ money($bolsillo->saldo, $store->currency ?? 'COP') }}</p>
                         @if($bolsillo->detalles)
                             <p class="text-xs text-indigo-600 dark:text-indigo-400 mt-1">{{ $bolsillo->detalles }}</p>
                         @endif
@@ -94,7 +94,7 @@
                                                 </span>
                                             </td>
                                             <td class="px-4 py-3 text-sm font-semibold {{ $m->type === 'INCOME' ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300' }}">
-                                                {{ $m->type === 'INCOME' ? '+' : '-' }}${{ number_format($m->amount, 2) }}
+                                                {{ $m->type === 'INCOME' ? '+' : '-' }}{{ money($m->amount, $store->currency ?? 'COP') }}
                                             </td>
                                             <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
                                                 @if($m->comprobanteIngreso)

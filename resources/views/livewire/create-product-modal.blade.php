@@ -106,8 +106,8 @@
                     </div>
 
                     <div>
-                        <x-input-label for="price" value="{{ __('Precio') }}" />
-                        <x-text-input wire:model="price" id="price" class="block mt-1 w-full" type="number" step="0.01" min="0" placeholder="0.00" />
+                        <x-input-label for="price" value="{{ __('Precio') }} ({{ currency_symbol($this->store?->currency ?? 'COP') }})" />
+                        <x-money-input wire:model="price" :currency="$this->store?->currency ?? 'COP'" :value="$price" id="price" />
                         <x-input-error :messages="$errors->get('price')" class="mt-1" />
                     </div>
 
@@ -125,8 +125,8 @@
                          x-transition:leave-end="opacity-0"
                          class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <x-input-label for="cost" value="{{ __('Costo') }}" />
-                            <x-text-input wire:model="cost" id="cost" class="block mt-1 w-full" type="number" step="0.01" min="0" placeholder="0.00" />
+                            <x-input-label for="cost" value="{{ __('Costo') }} ({{ currency_symbol($this->store?->currency ?? 'COP') }})" />
+                            <x-money-input wire:model="cost" :currency="$this->store?->currency ?? 'COP'" :value="$cost" id="cost" />
                             <x-input-error :messages="$errors->get('cost')" class="mt-1" />
                         </div>
                         <div>
@@ -241,8 +241,8 @@
 
                                             {{-- Precio (siempre visible) --}}
                                             <div class="mb-4">
-                                                <x-input-label for="variant-{{ $index }}-price" value="{{ __('Precio') }}" />
-                                                <x-text-input wire:model="variants.{{ $index }}.price" id="variant-{{ $index }}-price" class="block mt-1 w-full" type="number" step="0.01" min="0" placeholder="0.00" />
+                                                <x-input-label for="variant-{{ $index }}-price" value="{{ __('Precio') }} ({{ currency_symbol($this->store?->currency ?? 'COP') }})" />
+                                                <x-money-input wire:model="variants.{{ $index }}.price" :currency="$this->store?->currency ?? 'COP'" :value="$variant['price'] ?? ''" :id="'variant-' . $index . '-price'" />
                                             </div>
 
                                             {{-- Checkbox para stock inicial --}}
@@ -265,8 +265,8 @@
                                                  x-transition:leave-end="opacity-0"
                                                  class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                                                 <div>
-                                                    <x-input-label for="variant-{{ $index }}-cost" value="{{ __('Costo') }}" />
-                                                    <x-text-input wire:model="variants.{{ $index }}.cost" id="variant-{{ $index }}-cost" class="block mt-1 w-full" type="number" step="0.01" min="0" placeholder="0.00" />
+                                                    <x-input-label for="variant-{{ $index }}-cost" value="{{ __('Costo') }} ({{ currency_symbol($this->store?->currency ?? 'COP') }})" />
+                                                    <x-money-input wire:model="variants.{{ $index }}.cost" :currency="$this->store?->currency ?? 'COP'" :value="$variant['cost'] ?? ''" :id="'variant-' . $index . '-cost'" />
                                                 </div>
                                                 <div>
                                                     <x-input-label for="variant-{{ $index }}-stock" value="{{ __('Stock inicial') }}" />
@@ -422,12 +422,12 @@
                                             {{-- Costo y Precio --}}
                                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                                 <div>
-                                                    <x-input-label for="cost-serial-{{ $index }}" value="{{ __('Costo') }}" />
-                                                    <x-text-input wire:model="serializedItems.{{ $index }}.cost" id="cost-serial-{{ $index }}" class="block mt-1 w-full" type="number" step="0.01" min="0" placeholder="0.00" />
+                                                    <x-input-label for="cost-serial-{{ $index }}" value="{{ __('Costo') }} ({{ currency_symbol($this->store?->currency ?? 'COP') }})" />
+                                                    <x-money-input wire:model="serializedItems.{{ $index }}.cost" :currency="$this->store?->currency ?? 'COP'" :value="$item['cost'] ?? ''" :id="'cost-serial-' . $index" />
                                                 </div>
                                                 <div>
-                                                    <x-input-label for="price-serial-{{ $index }}" value="{{ __('Precio') }}" />
-                                                    <x-text-input wire:model="serializedItems.{{ $index }}.price" id="price-serial-{{ $index }}" class="block mt-1 w-full" type="number" step="0.01" min="0" placeholder="0.00" />
+                                                    <x-input-label for="price-serial-{{ $index }}" value="{{ __('Precio') }} ({{ currency_symbol($this->store?->currency ?? 'COP') }})" />
+                                                    <x-money-input wire:model="serializedItems.{{ $index }}.price" :currency="$this->store?->currency ?? 'COP'" :value="$item['price'] ?? ''" :id="'price-serial-' . $index" />
                                                 </div>
                                             </div>
                                         </div>

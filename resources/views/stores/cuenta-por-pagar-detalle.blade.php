@@ -36,11 +36,11 @@
                         </div>
                         <div>
                             <p class="text-sm text-gray-400">Deuda Original</p>
-                            <p class="text-lg font-semibold text-gray-100">{{ number_format($accountPayable->total_amount, 2) }}</p>
+                            <p class="text-lg font-semibold text-gray-100">{{ money($accountPayable->total_amount, $store->currency ?? 'COP') }}</p>
                         </div>
                         <div>
                             <p class="text-sm text-gray-400">Saldo Pendiente</p>
-                            <p class="text-lg font-bold text-amber-600 dark:text-amber-400">{{ number_format($accountPayable->balance, 2) }}</p>
+                            <p class="text-lg font-bold text-amber-600 dark:text-amber-400">{{ money($accountPayable->balance, $store->currency ?? 'COP') }}</p>
                         </div>
                         <div>
                             <p class="text-sm text-gray-400">Vencimiento</p>
@@ -84,7 +84,7 @@
                                                 <select name="parts[0][bolsillo_id]" class="w-full rounded-md border-white/10 bg-white/5 text-gray-100" required>
                                                     <option value="">Seleccionar bolsillo</option>
                                                     @foreach($bolsillos as $b)
-                                                        <option value="{{ $b->id }}">{{ $b->name }} ({{ number_format($b->saldo, 2) }})</option>
+                                                        <option value="{{ $b->id }}">{{ $b->name }} ({{ money($b->saldo, $store->currency ?? 'COP', false) }})</option>
                                                     @endforeach
                                                 </select>
                                             </div>
@@ -94,7 +94,7 @@
                                     </div>
                                     <button type="button" id="add-part" class="text-sm text-indigo-600 hover:text-indigo-800">+ Agregar otro bolsillo</button>
                                 </div>
-                                <p class="text-xs text-gray-400 mb-4">Monto máximo: {{ number_format($accountPayable->balance, 2) }}</p>
+                                <p class="text-xs text-gray-400 mb-4">Monto máximo: {{ money($accountPayable->balance, $store->currency ?? 'COP', false) }}</p>
                                 <button type="submit" class="px-4 py-2 bg-brand text-white rounded-xl shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)]">Registrar Pago</button>
                             </form>
                         </div>
@@ -129,10 +129,10 @@
                                                 @endif
                                             </td>
                                             <td class="px-3 py-2 text-sm text-gray-100">{{ $comprobante->payment_date->format('d/m/Y') }}</td>
-                                            <td class="px-3 py-2 text-sm font-medium text-gray-100">{{ number_format($monto, 2) }}</td>
+                                            <td class="px-3 py-2 text-sm font-medium text-gray-100">{{ money($monto, $store->currency ?? 'COP') }}</td>
                                             <td class="px-3 py-2 text-sm text-gray-100">
                                                 @foreach($comprobante->origenes as $origen)
-                                                    {{ $origen->bolsillo->name }}: {{ number_format($origen->amount, 2) }}
+                                                    {{ $origen->bolsillo->name }}: {{ money($origen->amount, $store->currency ?? 'COP', false) }}
                                                     @if($origen->reference) <span class="text-gray-500">({{ $origen->reference }})</span> @endif<br>
                                                 @endforeach
                                             </td>

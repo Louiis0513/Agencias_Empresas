@@ -169,7 +169,7 @@
                                                 @endif
                                             </td>
                                             <td class="px-4 py-4 whitespace-nowrap text-sm font-semibold text-gray-100">
-                                                ${{ number_format($invoice->total, 2) }}
+                                                {{ money($invoice->total, $store->currency ?? 'COP') }}
                                             </td>
                                             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-100">
                                                 @if($invoice->payment_method === null)

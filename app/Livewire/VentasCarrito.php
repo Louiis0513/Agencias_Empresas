@@ -726,6 +726,8 @@ class VentasCarrito extends Component
 
     public function render()
     {
-        return view('livewire.ventas-carrito');
+        $store = Store::find($this->storeId);
+
+        return view('livewire.ventas-carrito', ['store' => $store]);
     }
 }

@@ -317,7 +317,7 @@
     </div>
 </div>
                                         <p class="font-medium text-gray-900">{{ $item->display_name }}</p>
-                                        <p class="text-sm text-gray-600 mt-1">${{ number_format($item->price, 0) }}</p>
+                                        <p class="text-sm text-gray-600 mt-1">{{ money($item->price, $store->currency ?? 'COP') }}</p>
                                         @if (isset($item->stock))
                                             <p class="js-stock-text text-xs mt-0.5 {{ ($item->stock ?? 0) > 0 ? 'text-gray-500' : 'text-red-600' }}">
                                                 {{ ($item->stock ?? 0) > 0 ? ($item->stock . ' disponible' . (($item->stock ?? 0) !== 1 ? 's' : '')) : 'No disponible' }}
@@ -370,7 +370,7 @@
                                 @foreach ($plans as $plan)
                                     <div class="bg-white/90 rounded-xl shadow p-4">
                                         <p class="font-medium text-gray-900">{{ $plan->name }}</p>
-                                        <p class="text-sm text-gray-600 mt-1">${{ number_format($plan->price, 0) }}</p>
+                                        <p class="text-sm text-gray-600 mt-1">{{ money($plan->price, $store->currency ?? 'COP') }}</p>
                                         @if (!empty($plan->description))
                                             <p class="text-xs text-gray-500 mt-2">{{ Str::limit($plan->description, 80) }}</p>
                                         @endif
@@ -443,7 +443,7 @@
                                                         <div class="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
                                                             <div class="min-w-0">
                                                                 <p class="font-medium text-gray-900 text-sm sm:text-base line-clamp-3">{{ $row['name'] }}</p>
-                                                                <p class="text-sm text-gray-600 mt-0.5">${{ number_format($row['price'], 0) }} c/u</p>
+                                                                <p class="text-sm text-gray-600 mt-0.5">{{ money($row['price'], $store->currency ?? 'COP', false) }} c/u</p>
                                                             </div>
                                                             <div class="flex items-center justify-between sm:justify-end gap-3 flex-wrap">
                                                                 <div class="flex items-center gap-1 sm:gap-2">
@@ -461,7 +461,7 @@
                                                                         <button type="submit" class="w-9 h-9 rounded-lg border border-gray-300 bg-white text-gray-700 font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-500" aria-label="Aumentar cantidad">+</button>
                                                                     </form>
                                                                 </div>
-                                                                <p class="font-semibold text-gray-900 text-sm sm:text-base whitespace-nowrap">${{ number_format($row['price'] * $row['quantity'], 0) }}</p>
+                                                                <p class="font-semibold text-gray-900 text-sm sm:text-base whitespace-nowrap">{{ money($row['price'] * $row['quantity'], $store->currency ?? 'COP', false) }}</p>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -474,8 +474,8 @@
                                     <div class="lg:w-80 flex-shrink-0 border-t lg:border-t-0 lg:border-l border-gray-100 p-4 sm:p-6 bg-gray-50/50">
                                         <div class="space-y-4">
                                             <div class="space-y-2 text-right sm:text-right">
-                                                <p class="text-gray-600 text-sm">Subtotal: <span class="font-semibold text-gray-900">${{ number_format($cartSubtotal ?? 0, 0) }}</span></p>
-                                                <p class="text-lg sm:text-xl font-semibold text-gray-900">Total: ${{ number_format($cartTotal ?? 0, 0) }}</p>
+                                                <p class="text-gray-600 text-sm">Subtotal: <span class="font-semibold text-gray-900">{{ money($cartSubtotal ?? 0, $store->currency ?? 'COP', false) }}</span></p>
+                                                <p class="text-lg sm:text-xl font-semibold text-gray-900">Total: {{ money($cartTotal ?? 0, $store->currency ?? 'COP') }}</p>
                                             </div>
                                             <div class="flex flex-col-reverse sm:flex-row sm:flex-wrap gap-3 pt-2">
                                                 <div class="flex-1 min-w-0 sm:min-w-[140px]">

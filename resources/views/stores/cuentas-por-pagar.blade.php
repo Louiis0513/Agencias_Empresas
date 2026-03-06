@@ -24,7 +24,7 @@
             @endif
 
             <div class="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-                <p class="text-lg font-bold text-amber-800 dark:text-amber-200">Deuda total pendiente: {{ number_format($deudaTotal, 2) }}</p>
+                <p class="text-lg font-bold text-amber-800 dark:text-amber-200">Deuda total pendiente: {{ money($deudaTotal, $store->currency ?? 'COP', false) }}</p>
             </div>
 
             <div class="bg-dark-card border border-white/5 overflow-hidden sm:rounded-xl">
@@ -57,8 +57,8 @@
                                         <tr>
                                             <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-100">#{{ $ap->purchase->id }}</td>
                                             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-100">{{ $ap->purchase->proveedor?->nombre ?? '-' }}</td>
-                                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-100">{{ number_format($ap->total_amount, 2) }}</td>
-                                            <td class="px-4 py-4 whitespace-nowrap text-sm font-bold text-gray-100">{{ number_format($ap->balance, 2) }}</td>
+                                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-100">{{ money($ap->total_amount, $store->currency ?? 'COP', false) }}</td>
+                                            <td class="px-4 py-4 whitespace-nowrap text-sm font-bold text-gray-100">{{ money($ap->balance, $store->currency ?? 'COP', false) }}</td>
                                             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-100">{{ $ap->due_date?->format('d/m/Y') ?? '-' }}</td>
                                             <td class="px-4 py-4 whitespace-nowrap text-sm">
                                                 @if($ap->status == 'PENDIENTE')

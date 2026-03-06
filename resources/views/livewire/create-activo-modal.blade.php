@@ -57,8 +57,8 @@
 
                 @if(!$fromPurchase)
                 <div>
-                    <x-input-label for="activo_unit_cost" value="Costo unitario *" />
-                    <x-text-input wire:model="unit_cost" id="activo_unit_cost" class="block mt-1 w-full" type="number" min="0" step="0.01" placeholder="0.00" />
+                    <x-input-label for="activo_unit_cost" value="Costo unitario * ({{ currency_symbol($this->store?->currency ?? 'COP') }})" />
+                    <x-money-input wire:model="unit_cost" :currency="$this->store?->currency ?? 'COP'" :value="$unit_cost" id="activo_unit_cost" />
                     <x-input-error :messages="$errors->get('unit_cost')" class="mt-1" />
                 </div>
                 @endif

@@ -23,6 +23,11 @@ class AddInitialStockSerializedModal extends Component
         $this->productId = $productId;
     }
 
+    public function getStoreProperty(): ?Store
+    {
+        return Store::find($this->storeId);
+    }
+
     public function getProductProperty(): ?Product
     {
         return Product::where('id', $this->productId)

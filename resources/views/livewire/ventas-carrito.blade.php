@@ -36,7 +36,7 @@
                     Cancelar
                 </button>
             </div>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Precio unit.: {{ number_format($pendienteSimple['price'] ?? 0, 2) }}</p>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Precio unit.: {{ money($pendienteSimple['price'] ?? 0, $store?->currency ?? 'COP', false) }}</p>
         </div>
     @endif
 
@@ -64,7 +64,7 @@
                     Cancelar
                 </button>
             </div>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Precio unit.: {{ number_format($pendienteBatch['price'] ?? 0, 2) }}</p>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Precio unit.: {{ money($pendienteBatch['price'] ?? 0, $store?->currency ?? 'COP', false) }}</p>
         </div>
     @endif
 
@@ -228,8 +228,8 @@
                                         <span class="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">Para cambiar: quitar y agregar de nuevo</span>
                                     @endif
                                 </td>
-                                <td class="px-4 py-2 text-right text-sm text-gray-900 dark:text-gray-100">{{ number_format($precioUnit, 2) }}</td>
-                                <td class="px-4 py-2 text-right text-sm font-medium text-gray-900 dark:text-gray-100">{{ number_format($subtotal, 2) }}</td>
+                                <td class="px-4 py-2 text-right text-sm text-gray-900 dark:text-gray-100">{{ money($precioUnit, $store?->currency ?? 'COP', false) }}</td>
+                                <td class="px-4 py-2 text-right text-sm font-medium text-gray-900 dark:text-gray-100">{{ money($subtotal, $store?->currency ?? 'COP', false) }}</td>
                                 <td class="px-4 py-2 text-right">
                                     <button type="button"
                                             wire:click="quitarLineaCarrito({{ $index }})"
@@ -263,7 +263,7 @@
                 </div>
                 <div class="rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 px-6 py-4 min-w-[160px] order-1 sm:order-2">
                     <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Total</p>
-                    <p class="text-xl font-bold text-gray-900 dark:text-white mt-1">{{ number_format($this->carritoTotal, 2) }}</p>
+                    <p class="text-xl font-bold text-gray-900 dark:text-white mt-1">{{ money($this->carritoTotal, $store?->currency ?? 'COP', false) }}</p>
                 </div>
             </div>
         @else

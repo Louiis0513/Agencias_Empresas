@@ -64,7 +64,7 @@
                                                 <a href="{{ route('stores.comprobantes-egreso.show', [$store, $c]) }}" class="text-indigo-600 hover:text-indigo-800">{{ $c->number }}</a>
                                             </td>
                                             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-100">{{ $c->payment_date->format('d/m/Y') }}</td>
-                                            <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-100">{{ number_format($c->total_amount, 2) }}</td>
+                                            <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-100">{{ money($c->total_amount, $store->currency ?? 'COP') }}</td>
                                             <td class="px-4 py-4 text-sm text-gray-100">{{ $c->beneficiary_name ?? '—' }}</td>
                                             <td class="px-4 py-4 whitespace-nowrap text-sm">
                                                 @if($c->type == 'PAGO_CUENTA')

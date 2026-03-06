@@ -79,8 +79,8 @@
                             <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
                                 <td class="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-100">#{{ $ap->purchase->id }}</td>
                                 <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{{ $ap->purchase->proveedor?->nombre ?? '—' }}</td>
-                                <td class="px-4 py-2 text-sm text-right text-gray-900 dark:text-gray-100">{{ number_format($ap->total_amount, 2) }}</td>
-                                <td class="px-4 py-2 text-sm text-right font-medium text-gray-900 dark:text-gray-100">{{ number_format($ap->balance, 2) }}</td>
+                                <td class="px-4 py-2 text-sm text-right text-gray-900 dark:text-gray-100">{{ money($ap->total_amount, $store?->currency ?? 'COP', false) }}</td>
+                                <td class="px-4 py-2 text-sm text-right font-medium text-gray-900 dark:text-gray-100">{{ money($ap->balance, $store?->currency ?? 'COP', false) }}</td>
                                 <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{{ $ap->due_date?->format('d/m/Y') ?? '—' }}</td>
                                 <td class="px-4 py-2 text-sm">
                                     @if($ap->status == 'PENDIENTE')

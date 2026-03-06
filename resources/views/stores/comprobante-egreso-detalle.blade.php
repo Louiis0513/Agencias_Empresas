@@ -27,7 +27,7 @@
                 <div class="bg-white dark:bg-gray-800 p-6">
                     <h3 class="text-lg font-semibold text-gray-100 mb-2">Anular comprobante {{ $comprobante->number }}</h3>
                     <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                        Indica a qué bolsillos se devolverá el dinero del reverso. La suma debe coincidir con el total: <strong>{{ number_format($comprobante->total_amount, 2) }}</strong>
+                        Indica a qué bolsillos se devolverá el dinero del reverso. La suma debe coincidir con el total: <strong>{{ money($comprobante->total_amount, $store->currency ?? 'COP', false) }}</strong>
                     </p>
                     <form method="POST" action="{{ route('stores.comprobantes-egreso.anular', [$store, $comprobante]) }}" id="form-anular">
                         @csrf
@@ -37,7 +37,7 @@
                                 <select name="origenes[{{ $i }}][bolsillo_id]" class="flex-1 rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" required>
                                     <option value="">Seleccionar bolsillo</option>
                                     @foreach($bolsillos as $b)
-                                        <option value="{{ $b->id }}" {{ $o->bolsillo_id == $b->id ? 'selected' : '' }}>{{ $b->name }} ({{ number_format($b->saldo, 2) }})</option>
+                                        <option value="{{ $b->id }}" {{ $o->bolsillo_id == $b->id ? 'selected' : '' }}>{{ $b->name }} ({{ money($b->saldo, $store->currency ?? 'COP', false) }})</option>
                                     @endforeach
                                 </select>
                                 <input type="text" name="origenes[{{ $i }}][reference]" value="{{ $o->reference }}" class="w-28 rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" placeholder="Ref.">
@@ -48,7 +48,7 @@
                         </div>
                         <button type="button" id="add-origen-reverso" class="mb-4 text-sm text-indigo-600 hover:text-indigo-800 dark:text-indigo-400">+ Agregar bolsillo</button>
                         <p class="text-xs text-amber-600 dark:text-amber-400 mb-4" x-show="!sumaCoincide" x-transition>
-                            La suma de los montos (<span x-text="sumaOrigenes.toFixed(2)"></span>) debe coincidir con el total ({{ number_format($comprobante->total_amount, 2) }}).
+                            La suma de los montos (<span x-text="sumaOrigenes.toFixed(2)"></span>) debe coincidir con el total ({{ money($comprobante->total_amount, $store->currency ?? 'COP', false) }}).
                         </p>
                         <div class="flex justify-end gap-2">
                             <button type="button" @click="$refs.modalAnular.close()" class="px-3 py-1.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
@@ -92,7 +92,7 @@
                         </div>
                         <div>
                             <p class="text-sm text-gray-400">Monto total</p>
-                            <p class="text-lg font-bold text-gray-100">{{ number_format($comprobante->total_amount, 2) }}</p>
+                            <p class="text-lg font-bold text-gray-100">{{ money($comprobante->total_amount, $store->currency ?? 'COP') }}</p>
                         </div>
                         <div>
                             <p class="text-sm text-gray-400">A quién</p>
@@ -159,7 +159,7 @@
                                                 {{ $d->concepto ?? 'Gasto' }} @if($d->beneficiario)({{ $d->beneficiario }})@endif
                                             @endif
                                         </td>
-                                        <td class="px-3 py-2 text-sm font-medium text-right text-gray-100">{{ number_format($d->amount, 2) }}</td>
+                                        <td class="px-3 py-2 text-sm font-medium text-right text-gray-100">{{ money($d->amount, $store->currency ?? 'COP') }}</td>
                                     </tr>
                                 @endforeach
                             </tbody>
@@ -181,7 +181,7 @@
                                     <tr>
                                         <td class="px-3 py-2 text-sm text-gray-100">{{ $o->bolsillo->name ?? '—' }}</td>
                                         <td class="px-3 py-2 text-sm text-gray-400">{{ $o->reference ?? '—' }}</td>
-                                        <td class="px-3 py-2 text-sm font-medium text-right text-gray-100">{{ number_format($o->amount, 2) }}</td>
+                                        <td class="px-3 py-2 text-sm font-medium text-right text-gray-100">{{ money($o->amount, $store->currency ?? 'COP') }}</td>
                                     </tr>
                                 @endforeach
                             </tbody>

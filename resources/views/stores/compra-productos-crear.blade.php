@@ -39,6 +39,8 @@
 
             <form method="POST" action="{{ $formAction }}" class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg p-6" id="form-compra-productos"
                   data-atributos-url="{{ route('stores.productos.atributos-categoria', [$store, 0]) }}"
+                  data-currency="{{ $store->currency ?? 'COP' }}"
+                  data-currency-symbol="{{ currency_symbol($store->currency ?? 'COP') }}"
                   x-on:item-selected.window="onItemSelected($event.detail)"
                   x-on:batch-variant-selected.window="onBatchVariantSelected($event.detail)">
                 @csrf
@@ -93,7 +95,7 @@
                                 <tr>
                                     <th class="px-3 py-2 text-left text-xs font-medium text-gray-400">Producto</th>
                                     <th class="px-3 py-2 text-left text-xs font-medium text-gray-400">Cantidad</th>
-                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-400">Costo Unit.</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-400">Costo Unit. ({{ currency_symbol($store->currency ?? 'COP') }})</th>
                                     <th class="px-3 py-2 text-left text-xs font-medium text-gray-400">Caducidad</th>
                                     <th class="px-3 py-2 text-left text-xs font-medium text-gray-400">Subtotal</th>
                                     <th class="px-3 py-2 text-left text-xs font-medium text-gray-400"></th>
@@ -165,9 +167,9 @@
                                         <td class="px-3 py-2 detail-cost-cell">
                                             @if($isBatchRow)
                                                 <input type="hidden" name="details[{{ $i }}][unit_cost]" value="{{ $cost }}" class="detail-cost-hidden">
-                                                <input type="number" name="details[{{ $i }}][batch_items][0][unit_cost]" value="{{ $cost }}" min="0" step="0.01" class="detail-cost w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm">
+                                                <x-money-input name="details[{{ $i }}][batch_items][0][unit_cost]" :currency="$store->currency ?? 'COP'" :value="$cost" class="detail-cost w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" />
                                             @else
-                                                <input type="number" name="details[{{ $i }}][unit_cost]" value="{{ $cost }}" min="0" step="0.01" class="detail-cost w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm">
+                                                <x-money-input name="details[{{ $i }}][unit_cost]" :currency="$store->currency ?? 'COP'" :value="$cost" class="detail-cost w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" />
                                             @endif
                                             <span class="detail-serial-dash hidden">—</span>
                                             <span class="detail-batch-cost text-sm text-gray-700 dark:text-gray-300 hidden"></span>
@@ -180,7 +182,7 @@
                                             @endif
                                         </td>
                                         <td class="px-3 py-2">
-                                            <span class="detail-subtotal text-sm font-medium">{{ number_format($subtotal, 2) }}</span>
+                                            <span class="detail-subtotal text-sm font-medium">{{ money($subtotal, $store->currency ?? 'COP', false) }}</span>
                                         </td>
                                         <td class="px-3 py-2">
                                             <button type="button" class="remove-row text-red-600 hover:text-red-800 text-sm">Quitar</button>
@@ -218,8 +220,8 @@
                                                                         <input type="text" class="serial-number w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" placeholder="Ej: IMEI-123456789" name="details[{{ $i }}][serial_items][{{ $j }}][serial_number]" value="{{ old('details.'.$i.'.serial_items.'.$j.'.serial_number', $sn) }}">
                                                                     </div>
                                                                     <div>
-                                                                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Costo de esta unidad (€)</label>
-                                                                        <input type="number" step="0.01" min="0" class="serial-cost w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" placeholder="0.00" name="details[{{ $i }}][serial_items][{{ $j }}][cost]" value="{{ old('details.'.$i.'.serial_items.'.$j.'.cost', $uc) }}">
+                                                                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Costo de esta unidad ({{ currency_symbol($store->currency ?? 'COP') }})</label>
+                                                                        <x-money-input name="details[{{ $i }}][serial_items][{{ $j }}][cost]" :currency="$store->currency ?? 'COP'" :value="$uc" class="serial-cost w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" />
                                                                     </div>
                                                                 </div>
                                                                 @if(!empty($feats))
@@ -266,11 +268,21 @@
     </div>
 
     <script>
+        function compraProductosParseMoney(val, currency) {
+            if (val === '' || val == null) return 0;
+            var s = String(val).trim();
+            var c = (currency || 'COP').toUpperCase();
+            var noDecimals = ['COP','CLP','JPY'].includes(c);
+            if (noDecimals) return parseFloat(s.replace(/\./g,'').replace(/,/g,'')) || 0;
+            return parseFloat(s.replace(/,/g,'')) || 0;
+        }
         function compraProductosUpdateSubtotal(row) {
+            var form = document.getElementById('form-compra-productos');
+            var currency = form && form.dataset.currency ? form.dataset.currency : 'COP';
             var qtyEl = row.querySelector('.detail-qty');
-            var costEl = row.querySelector('.detail-cost');
+            var costEl = row.querySelector('.detail-cost') || row.querySelector('input.detail-cost');
             var qty = parseFloat(qtyEl && qtyEl.value ? qtyEl.value : 0) || 0;
-            var cost = parseFloat(costEl && costEl.value ? costEl.value : 0) || 0;
+            var cost = costEl ? compraProductosParseMoney(costEl.value, currency) : 0;
             row.querySelector('.detail-subtotal').textContent = (qty * cost).toFixed(2);
             // Para filas tipo lote: mantener sincronizados los hidden quantity/unit_cost que exige el backend
             if (row.getAttribute('data-is-batch') === '1') {
@@ -282,6 +294,8 @@
         }
 
         function compraProductosUpdateSerialQtyAndSubtotal(detailRow) {
+            var form = document.getElementById('form-compra-productos');
+            var currency = form && form.dataset.currency ? form.dataset.currency : 'COP';
             var serialRow = detailRow.nextElementSibling;
             if (!serialRow || !serialRow.classList.contains('serial-details-row')) return;
             var container = serialRow.querySelector('.serial-items-container');
@@ -289,7 +303,8 @@
             var items = container.querySelectorAll('.serial-item');
             var total = 0;
             items.forEach(function(item) {
-                var cost = parseFloat(item.querySelector('.serial-cost').value) || 0;
+                var costEl = item.querySelector('.serial-cost') || item.querySelector('input[data-money-input]');
+                var cost = costEl ? compraProductosParseMoney(costEl.value, currency) : 0;
                 total += cost;
             });
             var qtySpan = detailRow.querySelector('.detail-serial-qty');
@@ -300,6 +315,8 @@
         }
 
         function compraProductosUpdateBatchTotals(detailRow) {
+            var form = document.getElementById('form-compra-productos');
+            var currency = form && form.dataset.currency ? form.dataset.currency : 'COP';
             var batchRow = detailRow.nextElementSibling;
             if (!batchRow || !batchRow.classList.contains('batch-details-row')) return;
             var totalQty = 0;
@@ -309,7 +326,8 @@
                 var items = container.querySelectorAll('.batch-item');
                 items.forEach(function(item) {
                     var qty = parseInt(item.querySelector('.batch-item-qty').value, 10) || 0;
-                    var cost = parseFloat(item.querySelector('.batch-item-cost').value) || 0;
+                    var costEl = item.querySelector('.batch-item-cost') || item.querySelector('input[type="text"]');
+                    var cost = costEl ? compraProductosParseMoney(costEl.value, currency) : 0;
                     totalQty += qty;
                     totalCost += qty * cost;
                 });
@@ -318,7 +336,7 @@
                 var costInp = batchRow.querySelector('.batch-item-cost');
                 if (qtyInp && costInp) {
                     totalQty = parseInt(qtyInp.value, 10) || 0;
-                    var unitCost = parseFloat(costInp.value) || 0;
+                    var unitCost = compraProductosParseMoney(costInp.value, currency);
                     totalCost = totalQty * unitCost;
                 }
             }
@@ -335,6 +353,8 @@
         }
 
         function compraProductosSelection() {
+            var formEl = document.getElementById('form-compra-productos');
+            var currencySymbol = (formEl && formEl.dataset.currencySymbol) || '$';
             // Función auxiliar para escapar HTML
             function escapeHtml(text) {
                 const div = document.createElement('div');
@@ -583,7 +603,7 @@
                                         <input type="text" class="serial-number w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" placeholder="Ej: IMEI-123456789" name="details[${rowId}][serial_items][${index}][serial_number]">
                                     </div>
                                     <div>
-                                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Costo de esta unidad (€)</label>
+                                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Costo de esta unidad (` + currencySymbol + `)</label>
                                         <input type="number" step="0.01" min="0" class="serial-cost w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" placeholder="0.00" name="details[${rowId}][serial_items][${index}][cost]">
                                     </div>
                                 </div>
@@ -625,7 +645,7 @@
                                     <input type="text" class="serial-number w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" name="details[${rowId}][serial_items][0][serial_number]">
                                 </div>
                                 <div>
-                                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Costo de esta unidad (€)</label>
+                                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Costo de esta unidad (` + currencySymbol + `)</label>
                                     <input type="number" step="0.01" min="0" class="serial-cost w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" name="details[${rowId}][serial_items][0][cost]">
                                 </div>
                             </div>
@@ -640,7 +660,7 @@
                                 <div class="flex justify-between"><span class="text-sm font-semibold">Unidad #${n + 1}</span><button type="button" class="btn-remove-serial text-red-600 hover:underline text-sm">Eliminar</button></div>
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Número de serie</label><input type="text" class="serial-number w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" name="details[${rowId}][serial_items][${n}][serial_number]"></div>
-                                    <div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Costo (€)</label><input type="number" step="0.01" min="0" class="serial-cost w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" name="details[${rowId}][serial_items][${n}][cost]"></div>
+                                    <div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Costo (` + currencySymbol + `)</label><input type="number" step="0.01" min="0" class="serial-cost w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" name="details[${rowId}][serial_items][${n}][cost]"></div>
                                 </div>
                             `;
                             container.appendChild(u);
@@ -711,11 +731,11 @@
                                         <input type="number" min="1" class="batch-item-qty w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" value="1" name="details[${rowId}][batch_items][${index}][quantity]">
                                     </div>
                                     <div>
-                                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Costo unit. (€)</label>
+                                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Costo unit. (` + currencySymbol + `)</label>
                                         <input type="number" step="0.01" min="0" class="batch-item-cost w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" value="0" name="details[${rowId}][batch_items][${index}][unit_cost]">
                                     </div>
                                     <div>
-                                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Precio venta (€, opcional)</label>
+                                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Precio venta (` + currencySymbol + `, opcional)</label>
                                         <input type="number" step="0.01" min="0" class="batch-item-price w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" placeholder="—" name="details[${rowId}][batch_items][${index}][price]">
                                     </div>
                                 </div>
@@ -754,8 +774,8 @@
                                 <div class="flex justify-between"><span class="text-sm font-semibold">Variante #${n + 1}</span><button type="button" class="btn-remove-batch-variant text-red-600 hover:underline text-sm">Eliminar</button></div>
                                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                     <div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Cantidad</label><input type="number" min="1" class="batch-item-qty w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" value="1" name="details[${rowId}][batch_items][${n}][quantity]"></div>
-                                    <div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Costo unit. (€)</label><input type="number" step="0.01" min="0" class="batch-item-cost w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" value="0" name="details[${rowId}][batch_items][${n}][unit_cost]"></div>
-                                    <div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Precio venta (€)</label><input type="number" step="0.01" min="0" class="batch-item-price w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" name="details[${rowId}][batch_items][${n}][price]"></div>
+                                    <div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Costo unit. (` + currencySymbol + `)</label><input type="number" step="0.01" min="0" class="batch-item-cost w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" value="0" name="details[${rowId}][batch_items][${n}][unit_cost]"></div>
+                                    <div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Precio venta (` + currencySymbol + `)</label><input type="number" step="0.01" min="0" class="batch-item-price w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" name="details[${rowId}][batch_items][${n}][price]"></div>
                                 </div>
                             `;
                             container.appendChild(div);
@@ -1028,7 +1048,7 @@
                         const div = document.createElement('div');
                         div.className = 'serial-item border rounded-lg p-4 space-y-3 border-b border-white/5/30 border-gray-200 dark:border-gray-700';
                         div.setAttribute('data-serial-index', j);
-                        div.innerHTML = '<div class="flex justify-between items-center serial-item-header"><span class="text-sm font-semibold text-gray-600 dark:text-gray-300">Unidad #' + (j + 1) + '</span><button type="button" class="btn-remove-serial text-red-600 hover:underline text-sm">Eliminar</button></div><div class="grid grid-cols-1 sm:grid-cols-2 gap-3"><div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Número de serie</label><input type="text" class="serial-number w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" name="details[' + rowId + '][serial_items][' + j + '][serial_number]"></div><div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Costo (€)</label><input type="number" step="0.01" min="0" class="serial-cost w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" name="details[' + rowId + '][serial_items][' + j + '][cost]" value="0"></div></div>';
+                        div.innerHTML = '<div class="flex justify-between items-center serial-item-header"><span class="text-sm font-semibold text-gray-600 dark:text-gray-300">Unidad #' + (j + 1) + '</span><button type="button" class="btn-remove-serial text-red-600 hover:underline text-sm">Eliminar</button></div><div class="grid grid-cols-1 sm:grid-cols-2 gap-3"><div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Número de serie</label><input type="text" class="serial-number w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" name="details[' + rowId + '][serial_items][' + j + '][serial_number]"></div><div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Costo (' + ((document.getElementById('form-compra-productos') && document.getElementById('form-compra-productos').dataset.currencySymbol) || '$') + ')</label><input type="number" step="0.01" min="0" class="serial-cost w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" name="details[' + rowId + '][serial_items][' + j + '][cost]" value="0"></div></div>';
                         container.appendChild(div);
                         div.querySelector('.serial-cost').addEventListener('input', function() { updateSerialQtyAndSubtotal(parentRow); });
                         div.querySelector('.btn-remove-serial').addEventListener('click', function() {

@@ -24,7 +24,7 @@
             @endif
 
             <div class="mb-6 p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg">
-                <p class="text-lg font-bold text-emerald-800 dark:text-emerald-200">Saldo pendiente de cobro: {{ number_format($saldoPendiente, 2) }}</p>
+                <p class="text-lg font-bold text-emerald-800 dark:text-emerald-200">Saldo pendiente de cobro: {{ money($saldoPendiente, $store->currency ?? 'COP', false) }}</p>
             </div>
 
             <div class="bg-dark-card border border-white/5 overflow-hidden sm:rounded-xl">
@@ -64,8 +64,8 @@
                                         <tr>
                                             <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-100">#{{ $ar->invoice->id }}</td>
                                             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-100">{{ $ar->customer?->name ?? '-' }}</td>
-                                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-100">{{ number_format($ar->total_amount, 2) }}</td>
-                                            <td class="px-4 py-4 whitespace-nowrap text-sm font-bold text-gray-100">{{ number_format($ar->balance, 2) }}</td>
+                                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-100">{{ money($ar->total_amount, $store->currency ?? 'COP', false) }}</td>
+                                            <td class="px-4 py-4 whitespace-nowrap text-sm font-bold text-gray-100">{{ money($ar->balance, $store->currency ?? 'COP', false) }}</td>
                                             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-100">{{ $ar->due_date?->format('d/m/Y') ?? '-' }}</td>
                                             <td class="px-4 py-4 whitespace-nowrap text-sm">
                                                 @if($ar->status == 'PENDIENTE')

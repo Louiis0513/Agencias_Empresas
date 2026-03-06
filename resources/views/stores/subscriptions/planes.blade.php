@@ -53,7 +53,7 @@
                                         <tr class="hover:bg-white/5 transition">
                                             <td class="px-4 py-4 text-sm font-medium text-gray-100">{{ $plan->name }}</td>
                                             <td class="px-4 py-4 text-sm text-gray-600 dark:text-gray-400 max-w-xs truncate" title="{{ $plan->description }}">{{ $plan->description ? \Illuminate\Support\Str::limit($plan->description, 50) : '—' }}</td>
-                                            <td class="px-4 py-4 text-sm text-gray-100">{{ number_format($plan->price, 2) }}</td>
+                                            <td class="px-4 py-4 text-sm text-gray-100">{{ money($plan->price, $store->currency ?? 'COP', false) }}</td>
                                             <td class="px-4 py-4 text-sm text-gray-100">{{ $plan->duration_days }}</td>
                                             <td class="px-4 py-4 text-sm text-gray-100">{{ $plan->daily_entries_limit !== null ? $plan->daily_entries_limit : 'Ilimitado' }}</td>
                                             <td class="px-4 py-4 text-sm text-gray-100">{{ $plan->total_entries_limit !== null ? $plan->total_entries_limit : 'Ilimitado' }}</td>

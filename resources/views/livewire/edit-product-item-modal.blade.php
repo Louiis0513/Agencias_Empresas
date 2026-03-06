@@ -16,8 +16,8 @@
                 </div>
 
                 <div>
-                    <x-input-label for="item_price" value="{{ __('Precio de venta') }}" />
-                    <x-text-input wire:model="price" id="item_price" class="block mt-1 w-full" type="number" step="0.01" min="0" placeholder="0.00 (vacío = sin asignar)" />
+                    <x-input-label for="item_price" value="{{ __('Precio de venta') }} ({{ currency_symbol($this->store?->currency ?? 'COP') }})" />
+                    <x-money-input wire:model="price" :currency="$this->store?->currency ?? 'COP'" :value="$price" id="item_price" />
                     <p class="mt-0.5 text-xs text-gray-400">Dejar vacío si aún no tiene precio de venta asignado.</p>
                     <x-input-error :messages="$errors->get('price')" class="mt-1" />
                 </div>

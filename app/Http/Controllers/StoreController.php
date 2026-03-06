@@ -307,6 +307,8 @@ class StoreController extends Controller
         }
         $permission->authorize($store, 'product-purchases.create');
 
+        $this->parseMoneyInputsInProductPurchaseDetails($request, $store->currency ?? 'COP');
+
         $data = $request->validate([
             'proveedor_id' => ['required', 'exists:proveedores,id'],
             'payment_status' => ['required', 'in:PAGADO,PENDIENTE'],
@@ -441,6 +443,8 @@ class StoreController extends Controller
             abort(404);
         }
 
+        $this->parseMoneyInputsInProductPurchaseDetails($request, $store->currency ?? 'COP');
+
         $data = $request->validate([
             'proveedor_id' => ['required', 'exists:proveedores,id'],
             'payment_status' => ['required', 'in:PAGADO,PENDIENTE'],
@@ -499,4 +503,33 @@ class StoreController extends Controller
 
     // ==================== COMPROBANTES DE EGRESO ====================
 
+    /**
+     * Parsea valores de dinero formateados en details de compra de productos.
+     */
+    protected function parseMoneyInputsInProductPurchaseDetails(Request $request, string $currency): void
+    {
+        $service = app(\App\Services\CurrencyFormatService::class);
+        $details = $request->input('details', []);
+        foreach ($details as $i => $d) {
+            $d = is_array($d) ? $d : [];
+            if (isset($d['unit_cost'])) {
+                $details[$i]['unit_cost'] = $service->parseFromFormatted((string) $d['unit_cost'], $currency);
+            }
+            if (! empty($d['batch_items'])) {
+                foreach ($d['batch_items'] as $j => $bi) {
+                    if (isset($bi['unit_cost'])) {
+                        $details[$i]['batch_items'][$j]['unit_cost'] = $service->parseFromFormatted((string) $bi['unit_cost'], $currency);
+                    }
+                }
+            }
+            if (! empty($d['serial_items'])) {
+                foreach ($d['serial_items'] as $j => $si) {
+                    if (isset($si['cost'])) {
+                        $details[$i]['serial_items'][$j]['cost'] = $service->parseFromFormatted((string) $si['cost'], $currency);
+                    }
+                }
+            }
+        }
+        $request->merge(['details' => $details]);
+    }
 }

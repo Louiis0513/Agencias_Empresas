@@ -59,7 +59,7 @@
                             @error('description')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
                         </div>
                         <div class="p-3 border-b border-white/5/50 rounded-lg text-sm text-gray-600 dark:text-gray-400">
-                            Valor (costo unitario): {{ number_format($activo->unit_cost, 2) }} — <a href="{{ route('stores.activos.movimientos', $store) }}?activo_id={{ $activo->id }}" class="text-indigo-600 dark:text-indigo-400 hover:underline">Ver historial</a>
+                            Valor (costo unitario): {{ money($activo->unit_cost, $store->currency ?? 'COP', false) }} — <a href="{{ route('stores.activos.movimientos', $store) }}?activo_id={{ $activo->id }}" class="text-indigo-600 dark:text-indigo-400 hover:underline">Ver historial</a>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ubicación (texto)</label>

@@ -134,6 +134,8 @@ class SelectAccountPayableModal extends Component
 
     public function render()
     {
-        return view('livewire.select-account-payable-modal');
+        $store = Store::find($this->storeId);
+
+        return view('livewire.select-account-payable-modal', ['store' => $store]);
     }
 }

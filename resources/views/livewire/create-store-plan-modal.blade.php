@@ -23,8 +23,8 @@
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                        <x-input-label for="plan_price" value="Precio *" />
-                        <x-text-input wire:model="price" id="plan_price" class="block mt-1 w-full" type="number" min="0" step="0.01" placeholder="0.00" />
+                        <x-input-label for="plan_price" value="Precio * ({{ currency_symbol($this->store?->currency ?? 'COP') }})" />
+                        <x-money-input wire:model="price" :currency="$this->store?->currency ?? 'COP'" :value="$price" id="plan_price" />
                         <x-input-error :messages="$errors->get('price')" class="mt-1" />
                     </div>
                     <div>

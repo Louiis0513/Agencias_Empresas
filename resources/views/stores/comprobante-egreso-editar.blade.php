@@ -53,7 +53,7 @@
                         <div class="mb-6 p-4 border-b border-white/5 rounded-lg">
                             <p class="text-sm text-gray-400 mb-2">Información no editable:</p>
                             <p class="text-sm text-gray-700 dark:text-gray-300">
-                                Monto total: <strong>{{ number_format($comprobante->total_amount, 2) }}</strong> —
+                                Monto total: <strong>{{ money($comprobante->total_amount, $store->currency ?? 'COP', false) }}</strong> —
                                 A quién: <strong>{{ $comprobante->beneficiary_name ?? '—' }}</strong>
                             </p>
                         </div>

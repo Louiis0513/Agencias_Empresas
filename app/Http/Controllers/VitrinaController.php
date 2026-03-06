@@ -424,6 +424,7 @@ class VitrinaController extends Controller
     private function buildWhatsAppQuoteMessage(Cotizacion $cotizacion): string
     {
         $sep = ' - - - - - - - - - - ';
+        $currency = $cotizacion->store->currency ?? 'COP';
         $lines = [
             'Hola ! quiero realizar la siguiente compra cotizada #' . $cotizacion->id,
             $sep,
@@ -440,13 +441,13 @@ class VitrinaController extends Controller
             if ($variantDisplay !== null && $variantDisplay !== '') {
                 $line .= ' (' . $variantDisplay . ')';
             }
-            $line .= '   x ' . $quantity . ' x ' . number_format($unitPrice, 2, '.', '');
+            $line .= '   x ' . $quantity . ' x ' . money($unitPrice, $currency, false);
             $lines[] = $line;
             $lines[] = $sep;
             $subtotal += $unitPrice * $quantity;
         }
-        $lines[] = 'subtotal: ' . number_format($subtotal, 2, '.', '');
-        $lines[] = 'Total: ' . number_format($subtotal, 2, '.', '');
+        $lines[] = 'subtotal: ' . money($subtotal, $currency, false);
+        $lines[] = 'Total: ' . money($subtotal, $currency, false);
 
         return implode("\n", $lines);
     }

@@ -21,7 +21,7 @@
                             class="block mt-1 w-full rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand">
                         <option value="">Seleccione un plan</option>
                         @foreach($plans as $plan)
-                            <option value="{{ $plan->id }}">{{ $plan->name }} ({{ number_format($plan->price, 2) }} — {{ $plan->duration_days }} días)</option>
+                            <option value="{{ $plan->id }}">{{ $plan->name }} ({{ money($plan->price, $store->currency ?? 'COP', false) }} — {{ $plan->duration_days }} días)</option>
                         @endforeach
                     </select>
                     <x-input-error :messages="$errors->get('plan_id')" class="mt-1" />

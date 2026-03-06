@@ -89,11 +89,11 @@
                     </div>
                     <div>
                         <dt class="text-xs font-medium text-gray-400">Precio</dt>
-                        <dd class="mt-0.5 text-sm text-gray-100">{{ number_format($product->price, 2) }} €</dd>
+                        <dd class="mt-0.5 text-sm text-gray-100">{{ money($product->price, $store->currency ?? 'COP') }}</dd>
                     </div>
                     <div>
                         <dt class="text-xs font-medium text-gray-400">Costo (ref.)</dt>
-                        <dd class="mt-0.5 text-sm text-gray-100">{{ number_format($product->cost, 2) }} €</dd>
+                        <dd class="mt-0.5 text-sm text-gray-100">{{ money($product->cost, $store->currency ?? 'COP') }}</dd>
                     </div>
                     @endif
                     @if(!$product->isBatch() && !$product->isSerialized() && $product->attributeValues->isNotEmpty())
@@ -199,10 +199,10 @@
                                         <tr class="hover:bg-white/5 transition">
                                             <td class="px-4 py-3 text-sm font-medium text-gray-100">{{ $vp->label }}</td>
                                             <td class="px-4 py-3 text-right text-sm text-gray-100">{{ $vp->total_quantity }}</td>
-                                            <td class="px-4 py-3 text-right text-sm text-gray-400">{{ number_format($vp->cost_reference, 2) }} €</td>
+                                            <td class="px-4 py-3 text-right text-sm text-gray-400">{{ money($vp->cost_reference, $store->currency ?? 'COP', false) }}</td>
                                             <td class="px-4 py-3 text-right text-sm text-gray-100">
                                                 @if($vp->price !== null && (float)$vp->price > 0)
-                                                    {{ number_format((float) $vp->price, 2) }} €
+                                                    {{ money((float) $vp->price, $store->currency ?? 'COP') }}
                                                 @else
                                                     <span class="text-gray-400 dark:text-gray-500">—</span>
                                                 @endif
@@ -246,13 +246,13 @@
                                 </div>
                                 <div>
                                     <dt class="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Costo Ref.</dt>
-                                    <dd class="mt-1 text-base font-medium text-gray-100">{{ number_format($vp->cost_reference, 2) }} €</dd>
+                                    <dd class="mt-1 text-base font-medium text-gray-100">{{ money($vp->cost_reference, $store->currency ?? 'COP', false) }}</dd>
                                 </div>
                                 <div>
                                     <dt class="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Precio</dt>
                                     <dd class="mt-1 text-base font-medium text-gray-100">
                                         @if($vp->price !== null && (float)$vp->price > 0)
-                                            {{ number_format((float) $vp->price, 2) }} €
+                                            {{ money((float) $vp->price, $store->currency ?? 'COP') }}
                                         @else
                                             <span class="text-gray-600 dark:text-gray-400">—</span>
                                         @endif
@@ -307,7 +307,7 @@
                                                     <td class="px-4 py-3 whitespace-nowrap text-gray-100 font-medium">{{ $mov->created_at->format('d/m/Y H:i') }}</td>
                                                     <td class="px-4 py-3 whitespace-nowrap text-gray-100 font-medium">{{ $mov->reference }}</td>
                                                     <td class="px-4 py-3 text-right text-gray-100 font-medium">{{ $mov->quantity }}</td>
-                                                    <td class="px-4 py-3 text-right text-gray-100 font-medium">{{ number_format($mov->unit_cost, 2) }} €</td>
+                                                    <td class="px-4 py-3 text-right text-gray-100 font-medium">{{ money($mov->unit_cost, $store->currency ?? 'COP', false) }}</td>
                                                     <td class="px-4 py-3 whitespace-nowrap text-gray-100 font-medium">
                                                         @if($mov->expiration_date)
                                                             {{ $mov->expiration_date->format('d/m/Y') }}
@@ -368,10 +368,10 @@
                                     @foreach($product->productItems as $item)
                                         <tr class="hover:bg-white/5 transition">
                                             <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-100">{{ $item->serial_number }}</td>
-                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-400">{{ number_format($item->cost, 2) }} €</td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-400">{{ money($item->cost, $store->currency ?? 'COP', false) }}</td>
                                             <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-100">
                                                 @if($item->price !== null && (float)$item->price > 0)
-                                                    {{ number_format($item->price, 2) }} €
+                                                    {{ money($item->price, $store->currency ?? 'COP') }}
                                                 @else
                                                     <span class="text-gray-400 dark:text-gray-500">—</span>
                                                 @endif
@@ -419,13 +419,13 @@
                                         </div>
                                         <div class="py-2 border-b border-gray-100 dark:border-gray-700">
                                             <dt class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">Costo</dt>
-                                            <dd class="mt-1 text-base font-medium text-gray-100">{{ number_format($item->cost, 2) }} €</dd>
+                                            <dd class="mt-1 text-base font-medium text-gray-100">{{ money($item->cost, $store->currency ?? 'COP', false) }}</dd>
                                         </div>
                                         <div class="py-2 border-b border-gray-100 dark:border-gray-700">
                                             <dt class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">Precio venta</dt>
                                             <dd class="mt-1 text-base font-medium text-gray-100">
                                                 @if($item->price !== null && (float)$item->price > 0)
-                                                    {{ number_format($item->price, 2) }} €
+                                                    {{ money($item->price, $store->currency ?? 'COP') }}
                                                 @else
                                                     <span class="text-gray-600 dark:text-gray-400">—</span>
                                                 @endif
@@ -711,7 +711,7 @@
                                             @foreach($batch->batchItems as $bi)
                                                 <tr class="hover:bg-white/5 transition">
                                                     <td class="px-3 py-2 text-right text-gray-100">{{ $bi->quantity }}</td>
-                                                    <td class="px-3 py-2 text-right text-gray-400">{{ number_format($bi->unit_cost, 2) }} €</td>
+                                                    <td class="px-3 py-2 text-right text-gray-400">{{ money($bi->unit_cost, $store->currency ?? 'COP', false) }}</td>
                                                 </tr>
                                             @endforeach
                                         </tbody>

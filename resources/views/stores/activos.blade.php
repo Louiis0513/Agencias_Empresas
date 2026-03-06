@@ -73,7 +73,7 @@
                                         <tr class="hover:bg-white/5 transition">
                                             <td class="px-4 py-4 text-sm font-medium text-gray-100">{{ $activo->name }}</td>
                                             <td class="px-4 py-4 text-sm text-gray-100">{{ $activo->serial_number }}</td>
-                                            <td class="px-4 py-4 text-sm text-gray-100">{{ number_format($activo->unit_cost, 2) }}</td>
+                                            <td class="px-4 py-4 text-sm text-gray-100">{{ money($activo->unit_cost, $store->currency ?? 'COP', false) }}</td>
                                             <td class="px-4 py-4 text-sm text-gray-100">{{ $activo->locationRelation?->name ?? $activo->location ?? '-' }}</td>
                                             <td class="px-4 py-4">
                                                 <span class="px-2 py-1 text-xs font-medium rounded-full

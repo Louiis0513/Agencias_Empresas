@@ -85,6 +85,8 @@ class CreateSubscriptionModal extends Component
 
     public function render()
     {
-        return view('livewire.create-subscription-modal');
+        $store = Store::findOrFail($this->storeId);
+
+        return view('livewire.create-subscription-modal', ['store' => $store]);
     }
 }

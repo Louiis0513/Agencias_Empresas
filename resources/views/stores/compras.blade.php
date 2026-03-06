@@ -75,7 +75,7 @@
                                             <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-100">{{ $purchase->id }}</td>
                                             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-100">{{ $purchase->created_at->format('d/m/Y') }}</td>
                                             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-100">{{ $purchase->proveedor?->nombre ?? '-' }}</td>
-                                            <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-100">{{ number_format($purchase->total, 2) }}</td>
+                                            <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-100">{{ money($purchase->total, $store->currency ?? 'COP') }}</td>
                                             <td class="px-4 py-4 whitespace-nowrap text-sm">
                                                 @if($purchase->status == 'BORRADOR')
                                                     <span class="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">Borrador</span>

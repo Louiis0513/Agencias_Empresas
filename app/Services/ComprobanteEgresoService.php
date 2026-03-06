@@ -131,7 +131,7 @@ class ComprobanteEgresoService
                     'reference' => $o['reference'] ?? null,
                 ]);
 
-                $descripcion = $this->descripcionMovimiento($comprobante, $destinos);
+                $descripcion = $this->descripcionMovimiento($store, $comprobante, $destinos);
                 $this->cajaService->registrarMovimiento($store, $userId, [
                     'bolsillo_id' => $bolsilloId,
                     'type' => MovimientoBolsillo::TYPE_EXPENSE,
@@ -325,18 +325,19 @@ class ComprobanteEgresoService
         }
     }
 
-    private function descripcionMovimiento(ComprobanteEgreso $comprobante, array $destinos): string
+    private function descripcionMovimiento(Store $store, ComprobanteEgreso $comprobante, array $destinos): string
     {
         $partes = [];
+        $currency = $store->currency ?? 'COP';
         foreach ($destinos as $d) {
             $amount = (float) ($d['amount'] ?? 0);
             if ($d['account_payable_id'] ?? null) {
                 $apId = (int) $d['account_payable_id'];
                 $ap = AccountPayable::with('purchase')->find($apId);
                 $compraId = $ap?->purchase?->id ?? $apId;
-                $partes[] = "Compra #{$compraId}: " . number_format($amount, 2);
+                $partes[] = "Compra #{$compraId}: " . money($amount, $currency, false);
             } else {
-                $partes[] = ($d['concepto'] ?? 'Gasto') . ': ' . number_format($amount, 2);
+                $partes[] = ($d['concepto'] ?? 'Gasto') . ': ' . money($amount, $currency, false);
             }
         }
 

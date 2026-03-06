@@ -159,7 +159,7 @@
                                             <input type="number" name="details[{{ $i }}][unit_cost]" value="{{ $cost }}" min="0" step="0.01" class="detail-cost w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" required>
                                         </td>
                                         <td class="px-3 py-2">
-                                            <span class="detail-subtotal text-sm font-medium">{{ number_format($subtotal, 2) }}</span>
+                                            <span class="detail-subtotal text-sm font-medium">{{ money($subtotal, $store->currency ?? 'COP', false) }}</span>
                                         </td>
                                         <td class="px-3 py-2">
                                             <button type="button" class="remove-row text-red-600 hover:text-red-800 text-sm">Quitar</button>

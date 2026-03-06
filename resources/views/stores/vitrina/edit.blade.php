@@ -260,7 +260,7 @@
                         <label class="flex items-center gap-2 py-2 text-gray-300">
                             <input type="checkbox" name="store_plan_ids[]" value="{{ $plan->id }}" {{ (is_array(old('store_plan_ids')) && in_array($plan->id, old('store_plan_ids'))) || (!request()->old() && $plan->in_showcase) ? 'checked' : '' }}>
                             <span>{{ $plan->name }}</span>
-                            <span class="text-gray-500 text-sm">${{ number_format($plan->price, 0) }}</span>
+                            <span class="text-gray-500 text-sm">{{ money($plan->price, $store->currency ?? 'COP', false) }}</span>
                         </label>
                     @empty
                         <p class="text-gray-500 text-sm">No hay planes. Crea planes en Suscripciones → Planes.</p>
