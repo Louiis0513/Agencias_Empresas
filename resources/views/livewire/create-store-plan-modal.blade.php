@@ -47,6 +47,16 @@
                     <p class="mt-1 text-xs text-gray-400">Ej: 12 = tiquetera de 12 clases. Vacío = ilimitado.</p>
                     <x-input-error :messages="$errors->get('total_entries_limit')" class="mt-1" />
                 </div>
+
+                <div>
+                    <x-input-label for="plan_image" value="Imagen del plan" />
+                    <input type="file" wire:model="image" id="plan_image" accept="image/*" class="block mt-1 w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-white/10 file:text-white hover:file:bg-white/20">
+                    <p class="mt-1 text-xs text-gray-400">Opcional. Se mostrará en la vitrina y en el Panel de suscripciones. Máx. 5 MB.</p>
+                    <x-input-error :messages="$errors->get('image')" class="mt-1" />
+                    @if ($image)
+                        <p class="mt-2 text-xs text-emerald-400">Imagen seleccionada.</p>
+                    @endif
+                </div>
             </div>
 
             <div class="mt-6 flex justify-end gap-3">

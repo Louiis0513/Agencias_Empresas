@@ -3,13 +3,18 @@
 namespace App\Livewire;
 
 use App\Models\Store;
+use App\Services\ConvertidorImgService;
 use App\Services\StorePermissionService;
 use App\Services\SubscriptionService;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 class CreateStorePlanModal extends Component
 {
+    use WithFileUploads;
+
     public int $storeId;
 
     public string $name = '';
@@ -18,6 +23,8 @@ class CreateStorePlanModal extends Component
     public string $duration_days = '';
     public ?string $daily_entries_limit = null;
     public ?string $total_entries_limit = null;
+
+    public $image = null;
 
     public function mount(int $storeId): void
     {
@@ -33,10 +40,11 @@ class CreateStorePlanModal extends Component
             'duration_days' => ['required', 'integer', 'min:1'],
             'daily_entries_limit' => ['nullable', 'integer', 'min:1'],
             'total_entries_limit' => ['nullable', 'integer', 'min:1'],
+            'image' => ['nullable', 'image', 'max:5120'],
         ];
     }
 
-    public function save(StorePermissionService $permission, SubscriptionService $subscriptionService)
+    public function save(StorePermissionService $permission, SubscriptionService $subscriptionService, ConvertidorImgService $convertidorImgService)
     {
         $this->validate();
 
@@ -57,7 +65,21 @@ class CreateStorePlanModal extends Component
             'total_entries_limit' => $this->total_entries_limit,
         ];
 
-        $subscriptionService->createPlan($store, $data);
+        $plan = $subscriptionService->createPlan($store, $data);
+
+        if ($this->image) {
+            try {
+                $path = $this->image->store('plans/'.$store->id, 'public');
+                $path = $convertidorImgService->convertPublicImageToWebp($path);
+                $plan->update(['image_path' => $path]);
+            } catch (\Throwable $e) {
+                Log::error('Error al subir imagen del plan', [
+                    'store_id' => $store->id,
+                    'plan_id' => $plan->id,
+                    'exception' => $e->getMessage(),
+                ]);
+            }
+        }
 
         session()->flash('success', 'Plan creado correctamente.');
 

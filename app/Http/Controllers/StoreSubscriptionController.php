@@ -41,4 +41,26 @@ class StoreSubscriptionController extends Controller
         return redirect()->route('stores.subscriptions.plans', $store)
             ->with('success', 'Plan eliminado correctamente.');
     }
+
+    /**
+     * Actualiza qué planes se muestran en el Panel de suscripciones (in_showcase).
+     */
+    public function updateVisibility(Request $request, Store $store, StorePermissionService $permission)
+    {
+        $permission->authorize($store, 'subscriptions.edit');
+
+        $request->validate([
+            'store_plan_ids' => ['nullable', 'array'],
+            'store_plan_ids.*' => ['integer', 'exists:store_plans,id'],
+        ]);
+
+        $store->storePlans()->update(['in_showcase' => false]);
+        $planIds = $request->input('store_plan_ids', []);
+        if (! empty($planIds)) {
+            $store->storePlans()->whereIn('id', $planIds)->update(['in_showcase' => true]);
+        }
+
+        return redirect()->route('stores.subscriptions.plans', $store)
+            ->with('success', 'Visibilidad en Panel de suscripciones actualizada.');
+    }
 }

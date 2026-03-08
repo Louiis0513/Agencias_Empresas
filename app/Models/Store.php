@@ -112,4 +112,9 @@ class Store extends Model
     {
         return $this->hasOne(VitrinaConfig::class);
     }
+
+    public function panelSuscripcionesConfig()
+    {
+        return $this->hasOne(PanelSuscripcionesConfig::class);
+    }
 }

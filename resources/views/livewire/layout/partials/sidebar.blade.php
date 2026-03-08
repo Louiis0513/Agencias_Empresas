@@ -51,6 +51,13 @@
                         <span class="whitespace-nowrap">Vitrina virtual</span>
                     </a>
                 </li>
+                {{-- Panel Suscripciones --}}
+                <li>
+                    <a href="{{ route('stores.panel-suscripciones.edit', $store) }}" wire:navigate class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-gray-300 transition {{ request()->routeIs('stores.panel-suscripciones.*') ? 'bg-brand/20 text-brand' : 'hover:bg-white/5 hover:text-white' }}">
+                        <svg class="h-5 w-5 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.856-.117-1.653-.124-2.653-.04-1.326.087-2.653.124-3.918.124-1.265 0-2.592-.037-3.918-.124-1-.084-1.797-.023-2.653.04a6 6 0 01-7.03-5.92 3 3 0 013-3m14.25 0a3 3 0 013 3m-3 0v1.875c0-1.036-.84-1.875-1.875-1.875H3.375C2.34 7.5 1.5 8.34 1.5 9.375V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0020.25 18V9.375c0-1.036-.84-1.875-1.875-1.875H18.75a3 3 0 01-3-3V5.25z" /></svg>
+                        <span class="whitespace-nowrap">Panel Suscripciones</span>
+                    </a>
+                </li>
                 {{-- Personas (dropdown) --}}
                 @if($canPersonas)
                 <li x-data="{ open: {{ $inPersonas ? 'true' : 'false' }} }">

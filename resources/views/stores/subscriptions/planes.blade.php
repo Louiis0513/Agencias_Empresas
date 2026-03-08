@@ -35,7 +35,9 @@
                     </div>
 
                     @if($plans->count() > 0)
-                        <div class="overflow-x-auto">
+                        <form method="POST" action="{{ route('stores.subscriptions.plans.visibility', $store) }}" class="overflow-x-auto">
+                            @csrf
+                            @method('PUT')
                             <table class="min-w-full divide-y divide-white/5">
                                 <thead class="border-b border-white/5">
                                     <tr>
@@ -45,6 +47,7 @@
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Duración (días)</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Límite diario</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Límite total</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Mostrar en panel</th>
                                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Acciones</th>
                                     </tr>
                                 </thead>
@@ -57,23 +60,40 @@
                                             <td class="px-4 py-4 text-sm text-gray-100">{{ $plan->duration_days }}</td>
                                             <td class="px-4 py-4 text-sm text-gray-100">{{ $plan->daily_entries_limit !== null ? $plan->daily_entries_limit : 'Ilimitado' }}</td>
                                             <td class="px-4 py-4 text-sm text-gray-100">{{ $plan->total_entries_limit !== null ? $plan->total_entries_limit : 'Ilimitado' }}</td>
+                                            <td class="px-4 py-4">
+                                                <label class="flex items-center gap-2 text-sm text-gray-300">
+                                                    <input type="checkbox" name="store_plan_ids[]" value="{{ $plan->id }}" {{ $plan->in_showcase ? 'checked' : '' }} class="rounded border-white/10 bg-white/5 text-brand focus:ring-brand">
+                                                    <span>Panel Suscripciones</span>
+                                                </label>
+                                            </td>
                                             <td class="px-4 py-4 text-right text-sm font-medium whitespace-nowrap">
                                                 <button type="button"
                                                         x-on:click="$dispatch('open-edit-store-plan-modal', { id: {{ $plan->id }} })"
                                                         class="text-brand hover:text-white transition mr-3 font-medium">
                                                     Editar
                                                 </button>
-                                                <form method="POST" action="{{ route('stores.subscriptions.plans.destroy', [$store, $plan]) }}" class="inline" onsubmit="return confirm('¿Estás seguro de eliminar este plan?');">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit" class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 font-medium">Eliminar</button>
-                                                </form>
+                                                <button type="button"
+                                                        onclick="if(confirm('¿Estás seguro de eliminar este plan?')) document.getElementById('delete-plan-{{ $plan->id }}').submit();"
+                                                        class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 font-medium">
+                                                    Eliminar
+                                                </button>
                                             </td>
                                         </tr>
                                     @endforeach
                                 </tbody>
                             </table>
-                        </div>
+                            <div class="mt-4 flex justify-end">
+                                <button type="submit" class="inline-flex items-center px-4 py-2 bg-brand text-white font-semibold text-xs rounded-xl uppercase tracking-wider">
+                                    Guardar visibilidad en panel
+                                </button>
+                            </div>
+                        </form>
+                        @foreach($plans as $plan)
+                            <form id="delete-plan-{{ $plan->id }}" method="POST" action="{{ route('stores.subscriptions.plans.destroy', [$store, $plan]) }}" class="hidden">
+                                @csrf
+                                @method('DELETE')
+                            </form>
+                        @endforeach
                     @else
                         <p class="text-center text-gray-400 py-8">
                             No hay planes creados.

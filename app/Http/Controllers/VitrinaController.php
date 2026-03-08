@@ -8,6 +8,7 @@ use App\Models\Customer;
 use App\Models\ProductItem;
 use App\Models\ProductVariant;
 use App\Models\Store;
+use App\Models\PanelSuscripcionesConfig;
 use App\Models\VitrinaConfig;
 use App\Services\CotizacionService;
 use App\Services\InventarioService;
@@ -250,6 +251,25 @@ class VitrinaController extends Controller
             'cartTotal' => $totals['total'],
             'cartCount' => $totals['count'],
             'currentView' => $currentView,
+        ]);
+    }
+
+    /**
+     * Panel de suscripciones público: configuración e imágenes propias (panel_suscripciones_configs).
+     * URL: /{slug}/PanelSuscripciones
+     */
+    public function panelSuscripciones(string $slug)
+    {
+        $config = PanelSuscripcionesConfig::where('slug', $slug)->with('store')->firstOrFail();
+        $store = $config->store;
+        $plans = $store->storePlans()->where('in_showcase', true)->orderBy('name')->get();
+        $vitrinaSlug = $store->vitrinaConfig?->slug;
+
+        return view('panel_suscripciones.show', [
+            'config' => $config,
+            'store' => $store,
+            'plans' => $plans,
+            'vitrinaSlug' => $vitrinaSlug,
         ]);
     }
 

@@ -18,6 +18,7 @@ class StorePlan extends Model
         'daily_entries_limit',
         'total_entries_limit',
         'in_showcase',
+        'image_path',
     ];
 
     protected $casts = [

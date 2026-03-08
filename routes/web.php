@@ -18,6 +18,7 @@ use App\Http\Controllers\StoreAccountReceivableController;
 use App\Http\Controllers\StoreSubscriptionController;
 use App\Http\Controllers\StoreAsistenciaController;
 use App\Http\Controllers\StoreVitrinaController;
+use App\Http\Controllers\StorePanelSuscripcionesController;
 use App\Http\Controllers\StoreConfigController;
 use App\Http\Controllers\VitrinaAuthController;
 use App\Http\Controllers\VitrinaController;
@@ -43,6 +44,7 @@ Route::post('/vitrina/{slug}/login', [VitrinaAuthController::class, 'login'])->n
 Route::post('/vitrina/{slug}/register', [VitrinaAuthController::class, 'register'])->name('vitrina.register');
 Route::post('/vitrina/{slug}/logout', [VitrinaAuthController::class, 'logout'])->name('vitrina.logout');
 
+Route::get('/{slug}/PanelSuscripciones', [VitrinaController::class, 'panelSuscripciones'])->name('panel_suscripciones.show');
 
 Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:slug}')->name('stores.')->group(function () {
     
@@ -51,6 +53,9 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
 
     Route::get('/vitrina', [StoreVitrinaController::class, 'edit'])->name('vitrina.edit');
     Route::put('/vitrina', [StoreVitrinaController::class, 'update'])->name('vitrina.update');
+
+    Route::get('/panel-suscripciones', [StorePanelSuscripcionesController::class, 'edit'])->name('panel-suscripciones.edit');
+    Route::put('/panel-suscripciones', [StorePanelSuscripcionesController::class, 'update'])->name('panel-suscripciones.update');
 
     Route::get('/configuracion', [StoreConfigController::class, 'edit'])->name('configuracion');
     Route::put('/configuracion', [StoreConfigController::class, 'update'])->name('configuracion.update');
@@ -116,6 +121,7 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     // Suscripciones (planes, membresías)
     Route::get('/suscripciones/membresias', [StoreSubscriptionController::class, 'memberships'])->name('subscriptions.memberships');
     Route::get('/suscripciones/planes', [StoreSubscriptionController::class, 'plans'])->name('subscriptions.plans');
+    Route::put('/suscripciones/planes/visibility', [StoreSubscriptionController::class, 'updateVisibility'])->name('subscriptions.plans.visibility');
     Route::delete('/suscripciones/planes/{plan}', [StoreSubscriptionController::class, 'destroy'])->name('subscriptions.plans.destroy');
 
     // Asistencias

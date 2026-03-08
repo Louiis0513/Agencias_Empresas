@@ -57,6 +57,11 @@ class SubscriptionService
             $total = null;
         }
 
+        $imagePath = isset($data['image_path']) ? (is_string($data['image_path']) ? trim($data['image_path']) : null) : null;
+        if ($imagePath === '') {
+            $imagePath = null;
+        }
+
         return [
             'name' => $name,
             'description' => $description,
@@ -64,6 +69,7 @@ class SubscriptionService
             'duration_days' => (int) ($data['duration_days'] ?? 0),
             'daily_entries_limit' => $daily,
             'total_entries_limit' => $total,
+            'image_path' => $imagePath,
         ];
     }
 
@@ -82,6 +88,7 @@ class SubscriptionService
             'duration_days' => $normalized['duration_days'],
             'daily_entries_limit' => $normalized['daily_entries_limit'],
             'total_entries_limit' => $normalized['total_entries_limit'],
+            'image_path' => $normalized['image_path'],
         ]);
     }
 

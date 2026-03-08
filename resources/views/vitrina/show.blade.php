@@ -369,6 +369,17 @@
                             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                 @foreach ($plans as $plan)
                                     <div class="bg-white/90 rounded-xl shadow p-4">
+                                        @if (!empty($plan->image_path))
+                                            <div class="mb-3" style="position: relative; width: 100%; aspect-ratio: 1 / 1; background-color: #ffffff; border-radius: 0.5rem; border: 1px solid #f3f4f6; overflow: hidden;">
+                                                <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; padding: 10px;">
+                                                    <img
+                                                        src="{{ asset('storage/'.$plan->image_path) }}"
+                                                        alt="{{ $plan->name }}"
+                                                        style="max-width: 100%; max-height: 100%; width: auto !important; height: auto !important; object-fit: contain !important; display: block;"
+                                                    >
+                                                </div>
+                                            </div>
+                                        @endif
                                         <p class="font-medium text-gray-900">{{ $plan->name }}</p>
                                         <p class="text-sm text-gray-600 mt-1">{{ money($plan->price, $store->currency ?? 'COP') }}</p>
                                         @if (!empty($plan->description))

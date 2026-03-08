@@ -47,6 +47,25 @@
                     <p class="mt-1 text-xs text-gray-400">Ej: 12 = tiquetera de 12 clases. Vacío = ilimitado.</p>
                     <x-input-error :messages="$errors->get('total_entries_limit')" class="mt-1" />
                 </div>
+
+                <div>
+                    <x-input-label for="edit_plan_image" value="Imagen del plan" />
+                    @if ($currentImagePath)
+                        <div class="mt-2 flex items-center gap-4">
+                            <img src="{{ asset('storage/'.$currentImagePath) }}" alt="Imagen actual" class="h-20 w-20 rounded-lg object-cover border border-white/10">
+                            <label class="flex items-center gap-2 text-sm text-gray-400">
+                                <input type="checkbox" wire:model="deleteImage" class="rounded border-white/10">
+                                Eliminar imagen
+                            </label>
+                        </div>
+                    @endif
+                    <input type="file" wire:model="image" id="edit_plan_image" accept="image/*" class="block mt-2 w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-white/10 file:text-white hover:file:bg-white/20">
+                    <p class="mt-1 text-xs text-gray-400">Opcional. {{ $currentImagePath ? 'Sube otra para reemplazar.' : 'Se mostrará en la vitrina y en el Panel de suscripciones.' }} Máx. 5 MB.</p>
+                    <x-input-error :messages="$errors->get('image')" class="mt-1" />
+                    @if ($image)
+                        <p class="mt-2 text-xs text-emerald-400">Nueva imagen seleccionada.</p>
+                    @endif
+                </div>
             </div>
 
             <div class="mt-6 flex justify-end gap-3">
