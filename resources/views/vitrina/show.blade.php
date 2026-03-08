@@ -528,7 +528,6 @@
                     </section>
                 @endif
                 </div>{{-- /vitrina-main-content --}}
-                @if (($currentView ?? 'catalog') !== 'cart')
                 @guest
                 <section id="vitrina-auth-container" class="mt-6 max-w-md mx-auto hidden">
                     <div class="bg-white/90 backdrop-blur rounded-xl shadow-lg p-6">
@@ -536,6 +535,7 @@
                             <h2 class="text-lg font-semibold text-gray-900 mb-4">Iniciar sesión</h2>
                             <form method="POST" action="{{ route('vitrina.login', $config->slug) }}">
                                 @csrf
+                                <input type="hidden" name="view" value="{{ request('view', 'catalog') }}">
                                 <div class="space-y-4">
                                     <div>
                                         <label for="vitrina-login-email" class="block text-sm font-medium text-gray-700">Correo</label>
@@ -561,6 +561,7 @@
                             <h2 class="text-lg font-semibold text-gray-900 mb-4">Registrarse</h2>
                             <form method="POST" action="{{ route('vitrina.register', $config->slug) }}">
                                 @csrf
+                                <input type="hidden" name="view" value="{{ request('view', 'catalog') }}">
                                 <div class="space-y-4">
                                     <div>
                                         <label for="vitrina-register-name" class="block text-sm font-medium text-gray-700">Nombre</label>
@@ -602,7 +603,6 @@
                     </div>
                 </section>
                 @endguest
-                @endif
             </main>
         </div>
     </div>

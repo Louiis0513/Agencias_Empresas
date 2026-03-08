@@ -34,6 +34,12 @@ class CustomerService
                 'phone'          => $data['phone'] ?? null,
                 'document_number' => $data['document_number'] ?? null,
                 'address'        => $data['address'] ?? null,
+                'gender'         => $data['gender'] ?? null,
+                'blood_type'     => $data['blood_type'] ?? null,
+                'eps'            => $data['eps'] ?? null,
+                'birth_date'     => $data['birth_date'] ?? null,
+                'emergency_contact_name'  => $data['emergency_contact_name'] ?? null,
+                'emergency_contact_phone' => $data['emergency_contact_phone'] ?? null,
             ]);
         });
     }

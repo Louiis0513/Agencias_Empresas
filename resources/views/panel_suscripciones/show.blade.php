@@ -23,7 +23,7 @@
     <title>{{ $store->name }} - Panel de suscripciones</title>
     @vite('resources/css/app.css')
 </head>
-<body class="min-h-screen bg-gray-100">
+<body class="min-h-screen bg-gray-100" @if(session('show_checkout_modal')) data-show-checkout-modal="1" @endif @if(session('auth_form')) data-auth-form="{{ session('auth_form') }}" @endif>
     <div
         class="min-h-screen flex flex-col"
         style="background-image: url('{{ $bgUrl }}'); background-size: cover; background-position: center;"
@@ -37,6 +37,18 @@
                 style="background-image: url('{{ $coverUrl }}'); background-size: cover; background-position: center;"
             >
                 <div class="absolute inset-0 bg-black/30"></div>
+                <div class="absolute top-4 right-4 z-10 flex items-center gap-3 text-white drop-shadow-md">
+                    @guest
+                        <button type="button" id="panel-auth-show-login" class="bg-transparent border-0 shadow-none cursor-pointer text-sm font-medium hover:underline focus:outline-none focus:ring-0">Login</button>
+                        <button type="button" id="panel-auth-show-register" class="bg-transparent border-0 shadow-none cursor-pointer text-sm font-medium hover:underline focus:outline-none focus:ring-0">Registro</button>
+                    @else
+                        <span class="text-sm">{{ auth()->user()->name }}</span>
+                        <form method="POST" action="{{ route('panel_suscripciones.logout', $config->slug) }}" class="inline">
+                            @csrf
+                            <button type="submit" class="bg-transparent border-0 shadow-none cursor-pointer text-sm font-medium hover:underline text-white focus:outline-none focus:ring-0">Cerrar sesión</button>
+                        </form>
+                    @endguest
+                </div>
                 <div class="absolute inset-x-0 -bottom-16 flex justify-center">
                     <div class="w-32 h-32 rounded-full border-4 border-white shadow-xl overflow-hidden bg-white">
                         <img src="{{ $logoUrl }}" alt="{{ $store->name }}" class="w-full h-full object-cover">
@@ -45,6 +57,19 @@
             </div>
 
             <main class="pt-24 pb-16 px-4">
+                @if (session('success'))
+                    <div class="max-w-3xl mx-auto mb-4 px-4 py-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm">
+                        {{ session('success') }}
+                    </div>
+                @endif
+                @if (session('error'))
+                    <div class="max-w-3xl mx-auto mb-4 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm">
+                        {{ session('error') }}
+                    </div>
+                @endif
+
+                <div id="panel-main-content">
+                @if (($currentView ?? 'plans') !== 'cart')
                 <section class="max-w-xl mx-auto bg-white/90 backdrop-blur rounded-xl shadow-lg p-6 text-center">
                     <h1 class="text-2xl font-semibold text-gray-900">{{ $store->name }}</h1>
                     @if ($config->description)
@@ -87,6 +112,12 @@
                                     @if (!empty($plan->description))
                                         <p class="text-xs text-gray-500 mt-2 flex-1">{{ Str::limit($plan->description, 80) }}</p>
                                     @endif
+                                    <form method="POST" action="{{ route('panel_suscripciones.cart.add', $config->slug) }}" class="mt-3">
+                                        @csrf
+                                        <input type="hidden" name="plan_id" value="{{ $plan->id }}">
+                                        <input type="hidden" name="quantity" value="1">
+                                        <button type="submit" class="w-full inline-flex justify-center px-4 py-2 rounded-lg text-sm font-medium text-white shadow" style="background-color: {{ $primaryColor }};">Añadir al carrito</button>
+                                    </form>
                                 </div>
                             @endforeach
                         </div>
@@ -94,8 +125,271 @@
                         <p class="text-center text-gray-500 py-8">No hay planes disponibles en este momento.</p>
                     @endif
                 </section>
+                @else
+                <section class="mt-8 max-w-4xl mx-auto">
+                    <h2 class="text-xl font-semibold text-gray-900 mb-4">Carrito de planes</h2>
+                    @if (!empty($cartPlans) && count($cartPlans) > 0)
+                        <div class="bg-white/90 rounded-xl shadow overflow-hidden">
+                            <ul class="divide-y divide-gray-200">
+                                @foreach ($cartPlans as $item)
+                                    <li class="p-4 flex flex-wrap items-center gap-4">
+                                        @if (!empty($item['image_path']))
+                                            <div class="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                                                <img src="{{ asset('storage/'.$item['image_path']) }}" alt="" class="w-full h-full object-cover">
+                                            </div>
+                                        @endif
+                                        <div class="flex-1 min-w-0">
+                                            <p class="font-medium text-gray-900">{{ $item['name'] }}</p>
+                                            <p class="text-sm text-gray-600">{{ money($item['price'], $store->currency ?? 'COP') }} × {{ $item['quantity'] }}</p>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <form method="POST" action="{{ route('panel_suscripciones.cart.update', $config->slug) }}" class="inline">
+                                                @csrf
+                                                <input type="hidden" name="line_key" value="{{ $item['line_key'] }}">
+                                                <input type="hidden" name="delta" value="-1">
+                                                <button type="submit" class="px-2 py-1 rounded border border-gray-300 text-sm">−</button>
+                                            </form>
+                                            <span class="text-sm font-medium w-8 text-center">{{ $item['quantity'] }}</span>
+                                            <form method="POST" action="{{ route('panel_suscripciones.cart.update', $config->slug) }}" class="inline">
+                                                @csrf
+                                                <input type="hidden" name="line_key" value="{{ $item['line_key'] }}">
+                                                <input type="hidden" name="delta" value="1">
+                                                <button type="submit" class="px-2 py-1 rounded border border-gray-300 text-sm">+</button>
+                                            </form>
+                                        </div>
+                                    </li>
+                                @endforeach
+                            </ul>
+                            <div class="p-4 border-t border-gray-200 flex flex-wrap items-center justify-between gap-4">
+                                <p class="text-lg font-semibold text-gray-900">Total: {{ money($cartTotal ?? 0, $store->currency ?? 'COP') }}</p>
+                                <div class="flex gap-3">
+                                    <button type="button" id="panel-checkout-open-modal" class="inline-flex justify-center px-4 py-2.5 rounded-lg text-sm font-medium text-white shadow" style="background-color: {{ $primaryColor }};">Solicitar pedido</button>
+                                    <form method="POST" action="{{ route('panel_suscripciones.cart.clear', $config->slug) }}" onsubmit="return confirm('¿Vaciar el carrito?');">
+                                        @csrf
+                                        <button type="submit" class="inline-flex justify-center px-4 py-2.5 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">Limpiar carrito</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        <a href="{{ route('panel_suscripciones.show', ['slug' => $config->slug]) }}" class="inline-block mt-4 text-sm text-gray-600 hover:text-gray-900">← Volver a planes</a>
+                    @else
+                        <p class="text-gray-500 py-8">No hay planes en el carrito.</p>
+                        <a href="{{ route('panel_suscripciones.show', ['slug' => $config->slug]) }}" class="inline-flex justify-center px-4 py-2.5 rounded-lg text-sm font-medium text-white shadow" style="background-color: {{ $primaryColor }};">Ver planes</a>
+                    @endif
+                </section>
+                @endif
+                </div>
+
+                @guest
+                <section id="panel-auth-container" class="mt-6 max-w-md mx-auto hidden">
+                    <div class="bg-white/90 backdrop-blur rounded-xl shadow-lg p-6">
+                        <div id="panel-auth-form-login" class="panel-auth-form hidden">
+                            <h2 class="text-lg font-semibold text-gray-900 mb-4">Iniciar sesión</h2>
+                            <form method="POST" action="{{ route('panel_suscripciones.login', $config->slug) }}">
+                                @csrf
+                                <input type="hidden" name="view" value="{{ request('view', 'plans') }}">
+                                <div class="space-y-4">
+                                    <div>
+                                        <label for="panel-login-email" class="block text-sm font-medium text-gray-700">Correo</label>
+                                        <input type="email" name="email" id="panel-login-email" value="{{ old('email') }}" required autocomplete="email" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                        @error('email')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                                    </div>
+                                    <div>
+                                        <label for="panel-login-password" class="block text-sm font-medium text-gray-700">Contraseña</label>
+                                        <input type="password" name="password" id="panel-login-password" required autocomplete="current-password" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                        @error('password')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                                    </div>
+                                    <div>
+                                        <label class="inline-flex items-center">
+                                            <input type="checkbox" name="remember" value="1" class="rounded border-gray-300 text-gray-600 shadow-sm focus:ring-gray-500">
+                                            <span class="ml-2 text-sm text-gray-600">Recordarme</span>
+                                        </label>
+                                    </div>
+                                    <button type="submit" class="w-full inline-flex justify-center px-4 py-2.5 rounded-lg text-sm font-medium text-white shadow" style="background-color: {{ $primaryColor }};">Iniciar sesión</button>
+                                </div>
+                            </form>
+                        </div>
+                        <div id="panel-auth-form-register" class="panel-auth-form hidden">
+                            <h2 class="text-lg font-semibold text-gray-900 mb-4">Registrarse</h2>
+                            <form method="POST" action="{{ route('panel_suscripciones.register', $config->slug) }}">
+                                @csrf
+                                <input type="hidden" name="view" value="{{ request('view', 'plans') }}">
+                                <div class="space-y-4">
+                                    <div>
+                                        <label for="panel-register-name" class="block text-sm font-medium text-gray-700">Nombre</label>
+                                        <input type="text" name="name" id="panel-register-name" value="{{ old('name') }}" required autocomplete="name" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                        @error('name')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                                    </div>
+                                    <div>
+                                        <label for="panel-register-email" class="block text-sm font-medium text-gray-700">Correo</label>
+                                        <input type="email" name="email" id="panel-register-email" value="{{ old('email') }}" required autocomplete="email" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                        @error('email')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                                    </div>
+                                    <div>
+                                        <label for="panel-register-password" class="block text-sm font-medium text-gray-700">Contraseña</label>
+                                        <p class="text-xs text-gray-500 mt-1">Debe contener al menos 8 caracteres, 1 mayúscula y 1 símbolo.</p>
+                                        <input type="password" name="password" id="panel-register-password" required autocomplete="new-password" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                        @error('password')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                                    </div>
+                                    <div>
+                                        <label for="panel-register-password-confirm" class="block text-sm font-medium text-gray-700">Confirmar contraseña</label>
+                                        <input type="password" name="password_confirmation" id="panel-register-password-confirm" required autocomplete="new-password" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                    </div>
+                                    <div>
+                                        <label for="panel-register-phone" class="block text-sm font-medium text-gray-700">Teléfono</label>
+                                        <input type="text" name="phone" id="panel-register-phone" value="{{ old('phone') }}" autocomplete="tel" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="Solo números">
+                                        @error('phone')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                                    </div>
+                                    <div>
+                                        <label for="panel-register-address" class="block text-sm font-medium text-gray-700">Dirección (opcional)</label>
+                                        <input type="text" name="address" id="panel-register-address" value="{{ old('address') }}" autocomplete="street-address" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                        @error('address')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                                    </div>
+                                    <hr class="border-gray-200">
+                                    <p class="text-sm font-medium text-gray-700">Datos para el gimnasio</p>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div>
+                                            <label for="panel-register-gender" class="block text-sm font-medium text-gray-700">Género</label>
+                                            <select name="gender" id="panel-register-gender" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                                <option value="">—</option>
+                                                <option value="M" {{ old('gender') === 'M' ? 'selected' : '' }}>M</option>
+                                                <option value="F" {{ old('gender') === 'F' ? 'selected' : '' }}>F</option>
+                                                <option value="NN" {{ old('gender') === 'NN' ? 'selected' : '' }}>NN</option>
+                                            </select>
+                                            @error('gender')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                                        </div>
+                                        <div>
+                                            <label for="panel-register-blood_type" class="block text-sm font-medium text-gray-700">Tipo de sangre</label>
+                                            <input type="text" name="blood_type" id="panel-register-blood_type" value="{{ old('blood_type') }}" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="Ej. O+">
+                                            @error('blood_type')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div>
+                                            <label for="panel-register-eps" class="block text-sm font-medium text-gray-700">EPS</label>
+                                            <input type="text" name="eps" id="panel-register-eps" value="{{ old('eps') }}" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                            @error('eps')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                                        </div>
+                                        <div>
+                                            <label for="panel-register-birth_date" class="block text-sm font-medium text-gray-700">Fecha de nacimiento</label>
+                                            <input type="date" name="birth_date" id="panel-register-birth_date" value="{{ old('birth_date') }}" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                            @error('birth_date')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div>
+                                            <label for="panel-register-emergency_contact_name" class="block text-sm font-medium text-gray-700">Nombre contacto emergencia</label>
+                                            <input type="text" name="emergency_contact_name" id="panel-register-emergency_contact_name" value="{{ old('emergency_contact_name') }}" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                            @error('emergency_contact_name')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                                        </div>
+                                        <div>
+                                            <label for="panel-register-emergency_contact_phone" class="block text-sm font-medium text-gray-700">Número contacto emergencia</label>
+                                            <p class="text-xs text-gray-500 mt-1">Solo números.</p>
+                                            <input type="text" name="emergency_contact_phone" id="panel-register-emergency_contact_phone" value="{{ old('emergency_contact_phone') }}" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" inputmode="numeric" placeholder="3001234567">
+                                            @error('emergency_contact_phone')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                                        </div>
+                                    </div>
+                                    <button type="submit" class="w-full inline-flex justify-center px-4 py-2.5 rounded-lg text-sm font-medium text-white shadow" style="background-color: {{ $primaryColor }};">Registrarse</button>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="mt-3 text-center">
+                            <button type="button" id="panel-auth-close" class="text-sm text-gray-500 hover:text-gray-700">Cerrar</button>
+                        </div>
+                    </div>
+                </section>
+                @endguest
             </main>
         </div>
     </div>
+
+    @if (($currentView ?? 'plans') !== 'cart')
+    @php $cartCount = $cartCount ?? 0; @endphp
+    @if ($cartCount > 0)
+    <a
+        id="panel-cart-float-btn"
+        href="{{ route('panel_suscripciones.show', ['slug' => $config->slug, 'view' => 'cart']) }}"
+        class="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-[100] flex items-center gap-2 px-4 py-3 sm:px-5 sm:py-3 rounded-full shadow-lg transition hover:brightness-110 text-white"
+        style="background-color: {{ $primaryColor }};"
+        aria-label="Ver carrito ({{ $cartCount }} planes)"
+    >
+        <span class="text-xl sm:text-2xl" aria-hidden="true">🛒</span>
+        <span class="font-medium text-sm sm:text-base whitespace-nowrap">Ver Carrito</span>
+        <span class="flex h-6 min-w-[1.5rem] items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white">{{ $cartCount > 99 ? '99+' : $cartCount }}</span>
+    </a>
+    @endif
+    @endif
+
+    <div id="panel-checkout-modal" class="hidden fixed inset-0 z-[150] overflow-y-auto" aria-modal="true" role="dialog">
+        <div class="flex min-h-full items-center justify-center p-4">
+            <div class="fixed inset-0 bg-black/50" id="panel-checkout-modal-backdrop" aria-hidden="true"></div>
+            <div class="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+                <h2 class="text-lg font-semibold text-gray-900 mb-4">Solicitar planes</h2>
+                <form method="POST" action="{{ route('panel_suscripciones.cart.checkout', $config->slug) }}">
+                    @csrf
+                    <label for="panel-checkout-nota" class="block text-sm font-medium text-gray-700 mb-2">Nota (opcional)</label>
+                    <textarea name="nota" id="panel-checkout-nota" rows="3" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="Comentarios"></textarea>
+                    <div class="mt-4 flex gap-3 justify-end">
+                        <button type="button" id="panel-checkout-close-modal" class="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50">Cerrar</button>
+                        <button type="submit" class="px-4 py-2 rounded-lg text-sm font-medium text-white shadow" style="background-color: {{ $primaryColor }};">Enviar solicitud</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (function() {
+        var authContainer = document.getElementById('panel-auth-container');
+        var authFormLogin = document.getElementById('panel-auth-form-login');
+        var authFormRegister = document.getElementById('panel-auth-form-register');
+        var authShowLogin = document.getElementById('panel-auth-show-login');
+        var authShowRegister = document.getElementById('panel-auth-show-register');
+        var authClose = document.getElementById('panel-auth-close');
+        var mainContent = document.getElementById('panel-main-content');
+        var cartFloatBtn = document.getElementById('panel-cart-float-btn');
+        function showAuthForm(formId) {
+            if (!authContainer) return;
+            authContainer.classList.remove('hidden');
+            if (authFormLogin) authFormLogin.classList.toggle('hidden', formId !== 'login');
+            if (authFormRegister) authFormRegister.classList.toggle('hidden', formId !== 'register');
+            if (mainContent) mainContent.classList.add('hidden');
+            if (cartFloatBtn) cartFloatBtn.classList.add('hidden');
+        }
+        function hideAuthContainer() {
+            if (authContainer) authContainer.classList.add('hidden');
+            if (mainContent) mainContent.classList.remove('hidden');
+            if (cartFloatBtn) cartFloatBtn.classList.remove('hidden');
+        }
+        if (authShowLogin) authShowLogin.addEventListener('click', function() { showAuthForm('login'); });
+        if (authShowRegister) authShowRegister.addEventListener('click', function() { showAuthForm('register'); });
+        if (authClose) authClose.addEventListener('click', hideAuthContainer);
+
+        var checkoutModal = document.getElementById('panel-checkout-modal');
+        var checkoutOpenBtn = document.getElementById('panel-checkout-open-modal');
+        var checkoutCloseBtn = document.getElementById('panel-checkout-close-modal');
+        var checkoutBackdrop = document.getElementById('panel-checkout-modal-backdrop');
+        function showCheckoutModal() {
+            if (checkoutModal) checkoutModal.classList.remove('hidden');
+        }
+        function hideCheckoutModal() {
+            if (checkoutModal) checkoutModal.classList.add('hidden');
+        }
+        if (checkoutOpenBtn) checkoutOpenBtn.addEventListener('click', showCheckoutModal);
+        if (checkoutCloseBtn) checkoutCloseBtn.addEventListener('click', hideCheckoutModal);
+        if (checkoutBackdrop) checkoutBackdrop.addEventListener('click', hideCheckoutModal);
+        if (document.body.getAttribute('data-show-checkout-modal') === '1') {
+            showCheckoutModal();
+        }
+
+        (function() {
+            var auth = document.body.getAttribute('data-auth-form');
+            if (auth === 'login' || auth === 'register') { showAuthForm(auth); return; }
+            var params = new URLSearchParams(window.location.search);
+            auth = params.get('auth');
+            if (auth === 'login' || auth === 'register') showAuthForm(auth);
+        })();
+    })();
+    </script>
 </body>
 </html>

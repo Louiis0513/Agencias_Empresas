@@ -19,6 +19,12 @@ class CreateCustomerModal extends Component
     public ?string $phone = null;
     public ?string $document_number = null;
     public ?string $address = null;
+    public ?string $gender = null;
+    public ?string $blood_type = null;
+    public ?string $eps = null;
+    public ?string $birth_date = null;
+    public ?string $emergency_contact_name = null;
+    public ?string $emergency_contact_phone = null;
 
     protected function rules(): array
     {
@@ -40,6 +46,12 @@ class CreateCustomerModal extends Component
             'phone' => ['required', 'string', 'regex:/^[0-9]+$/', 'max:20'],
             'document_number' => ['required', 'string', 'max:255'],
             'address' => ['nullable', 'string'],
+            'gender' => ['nullable', 'string', 'in:M,F,NN', 'max:5'],
+            'blood_type' => ['nullable', 'string', 'max:20'],
+            'eps' => ['nullable', 'string', 'max:255'],
+            'birth_date' => ['nullable', 'date'],
+            'emergency_contact_name' => ['nullable', 'string', 'max:255'],
+            'emergency_contact_phone' => ['nullable', 'string', 'regex:/^[0-9]+$/', 'max:30'],
         ];
     }
 
@@ -54,6 +66,7 @@ class CreateCustomerModal extends Component
             'phone.regex' => 'El teléfono solo debe contener números.',
             'phone_country_code.regex' => 'El indicativo solo debe contener números.',
             'document_number.required' => 'El número de documento es obligatorio.',
+            'emergency_contact_phone.regex' => 'El número de contacto de emergencia solo debe contener números.',
         ];
     }
 
@@ -81,9 +94,15 @@ class CreateCustomerModal extends Component
                 'phone' => $fullPhone,
                 'document_number' => $this->document_number ?: null,
                 'address' => $this->address ?: null,
+                'gender' => $this->gender ?: null,
+                'blood_type' => $this->blood_type ?: null,
+                'eps' => $this->eps ?: null,
+                'birth_date' => $this->birth_date ?: null,
+                'emergency_contact_name' => $this->emergency_contact_name ?: null,
+                'emergency_contact_phone' => $this->emergency_contact_phone ?: null,
             ]);
 
-            $this->reset(['name', 'email', 'phone_country_code', 'phone', 'document_number', 'address']);
+            $this->reset(['name', 'email', 'phone_country_code', 'phone', 'document_number', 'address', 'gender', 'blood_type', 'eps', 'birth_date', 'emergency_contact_name', 'emergency_contact_phone']);
             $this->resetValidation();
 
             return redirect()->route('stores.customers', $store)

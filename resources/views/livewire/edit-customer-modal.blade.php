@@ -49,6 +49,51 @@
                     <textarea wire:model="address" id="edit_address" class="block mt-1 w-full rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand" rows="3" placeholder="Dirección completa"></textarea>
                     <x-input-error :messages="$errors->get('address')" class="mt-1" />
                 </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <x-input-label for="edit_gender" value="{{ __('Género') }}" />
+                        <select wire:model="gender" id="edit_gender" class="block mt-1 w-full rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand">
+                            <option value="">— Seleccionar —</option>
+                            <option value="M">M</option>
+                            <option value="F">F</option>
+                            <option value="NN">NN</option>
+                        </select>
+                        <x-input-error :messages="$errors->get('gender')" class="mt-1" />
+                    </div>
+                    <div>
+                        <x-input-label for="edit_blood_type" value="{{ __('Tipo de sangre') }}" />
+                        <x-text-input wire:model="blood_type" id="edit_blood_type" class="block mt-1 w-full" type="text" placeholder="Ej. O+, A-" />
+                        <x-input-error :messages="$errors->get('blood_type')" class="mt-1" />
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <x-input-label for="edit_eps" value="{{ __('EPS') }}" />
+                        <x-text-input wire:model="eps" id="edit_eps" class="block mt-1 w-full" type="text" placeholder="Entidad promotora de salud" />
+                        <x-input-error :messages="$errors->get('eps')" class="mt-1" />
+                    </div>
+                    <div>
+                        <x-input-label for="edit_birth_date" value="{{ __('Fecha de nacimiento') }}" />
+                        <x-text-input wire:model="birth_date" id="edit_birth_date" class="block mt-1 w-full" type="date" />
+                        <x-input-error :messages="$errors->get('birth_date')" class="mt-1" />
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <x-input-label for="edit_emergency_contact_name" value="{{ __('Nombre contacto emergencia') }}" />
+                        <x-text-input wire:model="emergency_contact_name" id="edit_emergency_contact_name" class="block mt-1 w-full" type="text" placeholder="Nombre completo" />
+                        <x-input-error :messages="$errors->get('emergency_contact_name')" class="mt-1" />
+                    </div>
+                    <div>
+                        <x-input-label for="edit_emergency_contact_phone" value="{{ __('Número contacto emergencia') }}" />
+                        <p class="text-xs text-gray-400 mt-1">Solo números.</p>
+                        <x-text-input wire:model="emergency_contact_phone" id="edit_emergency_contact_phone" class="block mt-1 w-full" type="text" placeholder="3001234567" inputmode="numeric" />
+                        <x-input-error :messages="$errors->get('emergency_contact_phone')" class="mt-1" />
+                    </div>
+                </div>
             </div>
 
             <div class="mt-6 flex justify-end space-x-3">

@@ -17,7 +17,17 @@ class Customer extends Model
         'email',
         'phone',
         'document_number',
-        'address'
+        'address',
+        'gender',
+        'blood_type',
+        'eps',
+        'birth_date',
+        'emergency_contact_name',
+        'emergency_contact_phone',
+    ];
+
+    protected $casts = [
+        'birth_date' => 'date',
     ];
 
     // --- RELACIONES ---

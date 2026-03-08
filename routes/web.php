@@ -22,6 +22,8 @@ use App\Http\Controllers\StorePanelSuscripcionesController;
 use App\Http\Controllers\StoreConfigController;
 use App\Http\Controllers\VitrinaAuthController;
 use App\Http\Controllers\VitrinaController;
+use App\Http\Controllers\PanelSuscripcionesAuthController;
+use App\Http\Controllers\PanelSuscripcionesController;
 
 Route::view('/', 'welcome');
 
@@ -44,7 +46,14 @@ Route::post('/vitrina/{slug}/login', [VitrinaAuthController::class, 'login'])->n
 Route::post('/vitrina/{slug}/register', [VitrinaAuthController::class, 'register'])->name('vitrina.register');
 Route::post('/vitrina/{slug}/logout', [VitrinaAuthController::class, 'logout'])->name('vitrina.logout');
 
-Route::get('/{slug}/PanelSuscripciones', [VitrinaController::class, 'panelSuscripciones'])->name('panel_suscripciones.show');
+Route::post('{slug}/PanelSuscripciones/login', [PanelSuscripcionesAuthController::class, 'login'])->name('panel_suscripciones.login');
+Route::post('{slug}/PanelSuscripciones/register', [PanelSuscripcionesAuthController::class, 'register'])->name('panel_suscripciones.register');
+Route::post('{slug}/PanelSuscripciones/logout', [PanelSuscripcionesAuthController::class, 'logout'])->name('panel_suscripciones.logout');
+Route::post('{slug}/PanelSuscripciones/cart/add', [PanelSuscripcionesController::class, 'addToCart'])->name('panel_suscripciones.cart.add');
+Route::post('{slug}/PanelSuscripciones/cart/update', [PanelSuscripcionesController::class, 'updateCart'])->name('panel_suscripciones.cart.update');
+Route::post('{slug}/PanelSuscripciones/cart/clear', [PanelSuscripcionesController::class, 'clearCart'])->name('panel_suscripciones.cart.clear');
+Route::post('{slug}/PanelSuscripciones/cart/checkout', [PanelSuscripcionesController::class, 'checkoutCart'])->name('panel_suscripciones.cart.checkout');
+Route::get('{slug}/PanelSuscripciones', [PanelSuscripcionesController::class, 'show'])->name('panel_suscripciones.show');
 
 Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:slug}')->name('stores.')->group(function () {
     
