@@ -9,6 +9,7 @@ use App\Models\StorePlan;
 use App\Models\SubscriptionEntry;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -129,6 +130,179 @@ class SubscriptionService
             ->with(['customer', 'storePlan'])
             ->orderBy('starts_at', 'desc')
             ->get();
+    }
+
+    /**
+     * Datos agregados para el dashboard de membresías de la tienda.
+     *
+     * - Contadores por cliente (última suscripción).
+     * - Tabla paginada según filtros y modo de vista.
+     *
+     * @param  array{
+     *     status?: string,
+     *     per_page?: int,
+     *     name?: string|null,
+     *     document?: string|null,
+     *     phone?: string|null,
+     * }  $filters
+     *
+     * @return array{
+     *     subscriptions: LengthAwarePaginator,
+     *     counters: array<string,int>,
+     *     filters: array<string,mixed>,
+     * }
+     */
+    public function getMembershipDashboardData(Store $store, array $filters): array
+    {
+        $now = Carbon::now();
+
+        // Normalizar filtros
+        $allowedStatus = ['all', 'active', 'expiring', 'expired'];
+        $status = $filters['status'] ?? 'all';
+        if (! in_array($status, $allowedStatus, true)) {
+            $status = 'all';
+        }
+
+        $allowedPerPage = [10, 25, 50, 100];
+        $perPage = (int) ($filters['per_page'] ?? 25);
+        if (! in_array($perPage, $allowedPerPage, true)) {
+            $perPage = 25;
+        }
+
+        $name = isset($filters['name']) ? trim((string) $filters['name']) : '';
+        $document = isset($filters['document']) ? trim((string) $filters['document']) : '';
+        $phone = isset($filters['phone']) ? trim((string) $filters['phone']) : '';
+
+        // Subconsulta: última suscripción por cliente (por tienda)
+        $latestPerCustomerSub = CustomerSubscription::select(
+            'customer_id',
+            DB::raw('MAX(expires_at) as max_expires_at')
+        )
+            ->where('store_id', $store->id)
+            ->groupBy('customer_id');
+
+        /** @var Builder $latestBase */
+        $latestBase = CustomerSubscription::query()
+            ->where('customer_subscriptions.store_id', $store->id)
+            ->joinSub(
+                $latestPerCustomerSub,
+                'latest_customer_subscriptions',
+                function ($join) {
+                    $join->on('customer_subscriptions.customer_id', '=', 'latest_customer_subscriptions.customer_id')
+                        ->on('customer_subscriptions.expires_at', '=', 'latest_customer_subscriptions.max_expires_at');
+                }
+            )
+            ->select('customer_subscriptions.*');
+
+        // --- Contadores por cliente (siempre respecto a la última suscripción) ---
+        $countersBase = clone $latestBase;
+
+        $totalClients = (clone $countersBase)
+            ->distinct('customer_subscriptions.customer_id')
+            ->count('customer_subscriptions.customer_id');
+
+        $activeClients = (clone $countersBase)
+            ->where('customer_subscriptions.starts_at', '<=', $now)
+            ->where('customer_subscriptions.expires_at', '>=', $now)
+            ->distinct('customer_subscriptions.customer_id')
+            ->count('customer_subscriptions.customer_id');
+
+        $expiringClients = (clone $countersBase)
+            ->where('customer_subscriptions.starts_at', '<=', $now)
+            ->where('customer_subscriptions.expires_at', '>=', $now)
+            ->whereRaw('DATEDIFF(customer_subscriptions.expires_at, ?) BETWEEN 0 AND 6', [$now])
+            ->distinct('customer_subscriptions.customer_id')
+            ->count('customer_subscriptions.customer_id');
+
+        $expiredClients = (clone $countersBase)
+            ->where('customer_subscriptions.expires_at', '<', $now)
+            ->distinct('customer_subscriptions.customer_id')
+            ->count('customer_subscriptions.customer_id');
+
+        $counters = [
+            'total_clients' => $totalClients,
+            'active_clients' => $activeClients,
+            'expiring_clients' => $expiringClients,
+            'expired_clients' => $expiredClients,
+        ];
+
+        // --- Consulta principal para la tabla ---
+        if ($status === 'all') {
+            // Todas las suscripciones históricas (puede haber varias por cliente)
+            $query = CustomerSubscription::where('store_id', $store->id)
+                ->with(['customer', 'storePlan'])
+                ->orderBy('starts_at', 'desc');
+
+            if ($name !== '') {
+                $query->whereHas('customer', function (Builder $q) use ($name) {
+                    $q->where('name', 'like', '%' . $name . '%');
+                });
+            }
+            if ($document !== '') {
+                $query->whereHas('customer', function (Builder $q) use ($document) {
+                    $q->where('document_number', 'like', '%' . $document . '%');
+                });
+            }
+            if ($phone !== '') {
+                $query->whereHas('customer', function (Builder $q) use ($phone) {
+                    $q->where('phone', 'like', '%' . $phone . '%');
+                });
+            }
+        } else {
+            // Vista por cliente: solo la última suscripción de cada cliente
+            $query = clone $latestBase;
+
+            // Filtros por estado de la última suscripción
+            if ($status === 'active') {
+                $query->where('customer_subscriptions.starts_at', '<=', $now)
+                    ->where('customer_subscriptions.expires_at', '>=', $now);
+            } elseif ($status === 'expiring') {
+                $query->where('customer_subscriptions.starts_at', '<=', $now)
+                    ->where('customer_subscriptions.expires_at', '>=', $now)
+                    ->whereRaw('DATEDIFF(customer_subscriptions.expires_at, ?) BETWEEN 0 AND 6', [$now]);
+            } elseif ($status === 'expired') {
+                $query->where('customer_subscriptions.expires_at', '<', $now);
+            }
+
+            // Filtros por datos del cliente (solo si el registro existe)
+            if ($name !== '' || $document !== '' || $phone !== '') {
+                $query->whereHas('customer', function (Builder $q) use ($name, $document, $phone) {
+                    if ($name !== '') {
+                        $q->where('name', 'like', '%' . $name . '%');
+                    }
+                    if ($document !== '') {
+                        $q->where('document_number', 'like', '%' . $document . '%');
+                    }
+                    if ($phone !== '') {
+                        $q->where('phone', 'like', '%' . $phone . '%');
+                    }
+                });
+            }
+
+            $query->with(['customer', 'storePlan'])
+                ->orderBy('customer_subscriptions.expires_at', 'asc');
+        }
+
+        /** @var LengthAwarePaginator $subscriptions */
+        $subscriptions = $query->paginate($perPage)->appends([
+            'status' => $status,
+            'per_page' => $perPage,
+            'name' => $name,
+            'document' => $document,
+            'phone' => $phone,
+        ]);
+
+        return [
+            'subscriptions' => $subscriptions,
+            'counters' => $counters,
+            'filters' => [
+                'status' => $status,
+                'per_page' => $perPage,
+                'name' => $name,
+                'document' => $document,
+                'phone' => $phone,
+            ],
+        ];
     }
 
     /**

@@ -7,16 +7,38 @@ use App\Models\StorePlan;
 use App\Services\StorePermissionService;
 use App\Services\SubscriptionService;
 use Illuminate\Http\Request;
+use Illuminate\View\View;
 
 class StoreSubscriptionController extends Controller
 {
-    public function memberships(Store $store, StorePermissionService $permission, SubscriptionService $subscriptionService)
+    public function memberships(Request $request, Store $store, StorePermissionService $permission, SubscriptionService $subscriptionService): View
     {
         $permission->authorize($store, 'subscriptions.view');
 
-        $subscriptions = $subscriptionService->getSubscriptionHistoryForStore($store);
+        $filters = [
+            'status' => $request->get('status', 'all'),
+            'per_page' => (int) $request->get('per_page', 25),
+            'name' => $request->get('name', ''),
+            'document' => $request->get('document', ''),
+            'phone' => $request->get('phone', ''),
+        ];
 
-        return view('stores.subscriptions.membresias', compact('store', 'subscriptions'));
+        $data = $subscriptionService->getMembershipDashboardData($store, $filters);
+
+        $subscriptions = $data['subscriptions'];
+        $counters = $data['counters'];
+        $normalizedFilters = $data['filters'];
+
+        return view('stores.subscriptions.membresias', [
+            'store' => $store,
+            'subscriptions' => $subscriptions,
+            'counters' => $counters,
+            'statusFilter' => $normalizedFilters['status'],
+            'perPage' => $normalizedFilters['per_page'],
+            'nameFilter' => $normalizedFilters['name'],
+            'documentFilter' => $normalizedFilters['document'],
+            'phoneFilter' => $normalizedFilters['phone'],
+        ]);
     }
 
     public function plans(Store $store, StorePermissionService $permission, SubscriptionService $subscriptionService)
