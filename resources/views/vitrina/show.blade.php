@@ -105,6 +105,43 @@
                     </div>
                 @endif
 
+                @auth
+                @if (session('show_complete_customer_form') && session('complete_customer_slug') === $config->slug)
+                <section class="mt-8 max-w-2xl mx-auto mb-8">
+                    <div class="bg-white/90 backdrop-blur rounded-xl shadow-lg p-6">
+                        <h2 class="text-lg font-semibold text-gray-900 mb-2">Aún no estás registrado como cliente en este negocio</h2>
+                        <p class="text-sm text-gray-600 mb-4">Completa los datos para continuar.</p>
+                        <form method="POST" action="{{ route('vitrina.complete_customer_profile', $config->slug) }}">
+                            @csrf
+                            <input type="hidden" name="view" value="{{ request('view', 'catalog') }}">
+                            <div class="space-y-4">
+                                <div>
+                                    <label for="vitrina-complete-name" class="block text-sm font-medium text-gray-700">Nombre</label>
+                                    <input type="text" name="name" id="vitrina-complete-name" value="{{ old('name', auth()->user()->name) }}" required class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                    @error('name')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Correo</label>
+                                    <p class="mt-1 text-sm text-gray-600">{{ auth()->user()->email }}</p>
+                                </div>
+                                <div>
+                                    <label for="vitrina-complete-phone" class="block text-sm font-medium text-gray-700">Teléfono</label>
+                                    <input type="text" name="phone" id="vitrina-complete-phone" value="{{ old('phone') }}" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                    @error('phone')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                                </div>
+                                <div>
+                                    <label for="vitrina-complete-address" class="block text-sm font-medium text-gray-700">Dirección (opcional)</label>
+                                    <input type="text" name="address" id="vitrina-complete-address" value="{{ old('address') }}" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                    @error('address')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                                </div>
+                                <button type="submit" class="w-full inline-flex justify-center px-4 py-2.5 rounded-lg text-sm font-medium text-white shadow" style="background-color: {{ $primaryColor }};">Guardar y continuar</button>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+                @endif
+                @endauth
+
                 @if (($currentView ?? 'catalog') !== 'cart')
                 <section class="max-w-xl mx-auto bg-white/90 backdrop-blur rounded-xl shadow-lg p-6 text-center">
                     <h1 class="text-2xl font-semibold text-gray-900">{{ $store->name }}</h1>
@@ -554,6 +591,11 @@
                                         </label>
                                     </div>
                                     <button type="submit" class="w-full inline-flex justify-center px-4 py-2.5 rounded-lg text-sm font-medium text-white shadow" style="background-color: {{ $primaryColor }};">Iniciar sesión</button>
+                                    @if (Route::has('password.request'))
+                                        <p class="text-center mt-2">
+                                            <a href="{{ route('password.request') }}" class="text-sm hover:underline" style="color: {{ $primaryColor }};">¿Olvidaste tu contraseña?</a>
+                                        </p>
+                                    @endif
                                 </div>
                             </form>
                         </div>

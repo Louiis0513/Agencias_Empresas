@@ -18,29 +18,103 @@ class PanelSuscripcionesController extends Controller
     ) {}
 
     /**
-     * Vista pública del Panel de Suscripciones. Acepta view=cart para mostrar carrito de planes.
+     * Vista pública del Panel de Suscripciones.
+     * view=plans (default) | view=cart | view=panel (solo autenticados).
+     * Filtros en planes: name, limit_type, duration.
      */
-    public function show(Request $request, string $slug): View
+    public function show(Request $request, string $slug, SubscriptionService $subscriptionService): View|RedirectResponse
     {
         $config = PanelSuscripcionesConfig::where('slug', $slug)->with('store')->firstOrFail();
         $store = $config->store;
-        $plans = $store->storePlans()->where('in_showcase', true)->orderBy('name')->get();
+
+        $requestedView = $request->get('view', 'plans');
+        if ($requestedView === 'panel') {
+            if (auth()->guest()) {
+                return redirect()->route('panel_suscripciones.show', ['slug' => $slug])
+                    ->with('error', 'Inicia sesión para ver tu panel.');
+            }
+        }
+
+        $currentView = in_array($requestedView, ['plans', 'cart', 'panel'], true) ? $requestedView : 'plans';
+
+        $baseQuery = $store->storePlans()->where('in_showcase', true);
+
+        if ($request->filled('name')) {
+            $baseQuery->where('name', 'like', '%' . $request->input('name') . '%');
+        }
+        $limitType = $request->get('limit_type');
+        if ($limitType === 'unlimited') {
+            $baseQuery->whereNull('total_entries_limit');
+        } elseif ($limitType === 'limited') {
+            $baseQuery->whereNotNull('total_entries_limit');
+        }
+        if ($request->filled('duration') && is_numeric($request->input('duration'))) {
+            $baseQuery->where('duration_days', (int) $request->input('duration'));
+        }
+
+        $plans = $baseQuery->orderBy('name')->get();
+
+        $durations = $store->storePlans()
+            ->where('in_showcase', true)
+            ->distinct()
+            ->orderBy('duration_days')
+            ->pluck('duration_days');
+
         $vitrinaSlug = $store->vitrinaConfig?->slug;
 
         $cartPlans = $this->plansCartService->getCartForStore($store);
         $totals = $this->plansCartService->getTotals($store);
-        $currentView = $request->get('view', 'plans') === 'cart' ? 'cart' : 'plans';
+
+        $customer = null;
+        $activeSubscription = null;
+        $panelStatusLabel = null;
+        $panelSubscriptionEndDate = null;
+        $panelAttendancesCount = null;
+        $panelDaysLeft = null;
+        $panelPlanName = null;
+        $panelTotalEntriesLimit = null;
+
+        if ($currentView === 'panel' && auth()->check()) {
+            $customer = Customer::where('store_id', $store->id)->where('user_id', auth()->id())->first();
+            $activeSubscription = $customer
+                ? $subscriptionService->getActiveSubscriptionForCustomer($store, $customer->id)
+                : null;
+            if ($activeSubscription) {
+                $activeSubscription->load('storePlan');
+                $panelStatusLabel = ($activeSubscription->isActive() && $activeSubscription->hasEntriesRemaining())
+                    ? 'Activo'
+                    : 'Inactivo';
+                $panelSubscriptionEndDate = $activeSubscription->expires_at;
+                $panelAttendancesCount = $activeSubscription->entries_used;
+                $now = Carbon::now();
+                $panelDaysLeft = max(0, (int) $now->diffInDays($activeSubscription->expires_at, false));
+                $panelPlanName = $activeSubscription->storePlan->name ?? null;
+                $panelTotalEntriesLimit = $activeSubscription->storePlan->total_entries_limit;
+            }
+        }
 
         return view('panel_suscripciones.show', [
             'config' => $config,
             'store' => $store,
             'plans' => $plans,
+            'durations' => $durations,
+            'filterName' => $request->get('name', ''),
+            'filterLimitType' => $request->get('limit_type', ''),
+            'filterDuration' => $request->get('duration', ''),
             'vitrinaSlug' => $vitrinaSlug,
             'cartPlans' => $cartPlans,
             'cartSubtotal' => $totals['subtotal'],
             'cartTotal' => $totals['total'],
             'cartCount' => $totals['count'],
             'currentView' => $currentView,
+            'customer' => $customer,
+            'activeSubscription' => $activeSubscription,
+            'panelStatusLabel' => $panelStatusLabel,
+            'panelSubscriptionEndDate' => $panelSubscriptionEndDate,
+            'panelAttendancesCount' => $panelAttendancesCount,
+            'panelDaysLeft' => $panelDaysLeft,
+            'panelPlanName' => $panelPlanName,
+            'panelTotalEntriesLimit' => $panelTotalEntriesLimit,
         ]);
     }
 

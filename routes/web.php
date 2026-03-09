@@ -45,10 +45,12 @@ Route::post('/vitrina/{slug}/cart/checkout', [VitrinaController::class, 'checkou
 Route::post('/vitrina/{slug}/login', [VitrinaAuthController::class, 'login'])->name('vitrina.login');
 Route::post('/vitrina/{slug}/register', [VitrinaAuthController::class, 'register'])->name('vitrina.register');
 Route::post('/vitrina/{slug}/logout', [VitrinaAuthController::class, 'logout'])->name('vitrina.logout');
+Route::post('/vitrina/{slug}/complete-customer-profile', [VitrinaAuthController::class, 'completeCustomerProfile'])->middleware('auth')->name('vitrina.complete_customer_profile');
 
 Route::post('{slug}/PanelSuscripciones/login', [PanelSuscripcionesAuthController::class, 'login'])->name('panel_suscripciones.login');
 Route::post('{slug}/PanelSuscripciones/register', [PanelSuscripcionesAuthController::class, 'register'])->name('panel_suscripciones.register');
 Route::post('{slug}/PanelSuscripciones/logout', [PanelSuscripcionesAuthController::class, 'logout'])->name('panel_suscripciones.logout');
+Route::post('{slug}/PanelSuscripciones/complete-customer-profile', [PanelSuscripcionesAuthController::class, 'completeCustomerProfile'])->middleware('auth')->name('panel_suscripciones.complete_customer_profile');
 Route::post('{slug}/PanelSuscripciones/cart/add', [PanelSuscripcionesController::class, 'addToCart'])->name('panel_suscripciones.cart.add');
 Route::post('{slug}/PanelSuscripciones/cart/update', [PanelSuscripcionesController::class, 'updateCart'])->name('panel_suscripciones.cart.update');
 Route::post('{slug}/PanelSuscripciones/cart/clear', [PanelSuscripcionesController::class, 'clearCart'])->name('panel_suscripciones.cart.clear');

@@ -55,9 +55,24 @@ class VitrinaAuthController extends Controller
         }
 
         $user = Auth::user();
-        $this->ensureCustomerForStore($store, $user);
-
         $request->session()->regenerate();
+
+        // Guardar el slug de la tienda en sesión para el flujo de completar Customer
+        $request->session()->put('complete_customer_slug', $slug);
+
+        $hasCustomer = Customer::where('store_id', $store->id)
+            ->where(function ($q) use ($user) {
+                $q->where('user_id', $user->id)->orWhere('email', $user->email);
+            })
+            ->exists();
+
+        if (! $hasCustomer) {
+            return redirect()->route('vitrina.show', ['slug' => $slug])
+                ->with('show_complete_customer_form', true)
+                ->with('complete_customer_slug', $slug);
+        }
+
+        $this->ensureCustomerForStore($store, $user);
 
         return redirect()->route('vitrina.show', ['slug' => $slug])
             ->with('success', 'Sesión iniciada correctamente.');
@@ -77,12 +92,12 @@ class VitrinaAuthController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255'],
             'password' => ['required', 'string', 'confirmed', Rules\Password::defaults()],
-            'phone' => ['nullable', 'string', 'regex:/^[0-9]+$/', 'max:20'],
+            'phone' => ['nullable', 'digits_between:7,12'],
             'address' => ['nullable', 'string', 'max:500'],
         ];
 
         $validated = $request->validate($rules, [
-            'phone.regex' => 'El teléfono solo debe contener números.',
+            'phone.digits_between' => 'El teléfono debe tener entre 7 y 12 dígitos.',
         ]);
 
         $existingUser = User::where('email', $validated['email'])->first();
@@ -130,13 +145,95 @@ class VitrinaAuthController extends Controller
                     ->with('error', $e->getMessage())
                     ->withInput($request->only('name', 'email', 'phone', 'address'));
             }
-            Auth::login($existingUser);
+            return redirect()->route('vitrina.show', ['slug' => $slug])
+                ->with('auth_form', 'login')
+                ->with('success', 'Tu ficha de cliente se ha creado. Inicia sesión con tu contraseña habitual.')
+                ->withInput($request->only('email'));
         }
 
         $request->session()->regenerate();
 
         return redirect()->route('vitrina.show', ['slug' => $slug])
             ->with('success', 'Cuenta creada correctamente.');
+    }
+
+    /**
+     * Completar ficha de Customer tras login (pantalla de humo). Requiere auth.
+     */
+    public function completeCustomerProfile(Request $request, string $slug): RedirectResponse
+    {
+        $config = VitrinaConfig::where('slug', $slug)->with('store')->firstOrFail();
+        $store = $config->store;
+
+        if (auth()->guest()) {
+            return redirect()->route('vitrina.show', ['slug' => $slug])
+                ->with('error', 'Sesión inválida. Intenta iniciar sesión de nuevo.');
+        }
+
+        $user = Auth::user();
+        $hasCustomer = Customer::where('store_id', $store->id)
+            ->where(function ($q) use ($user) {
+                $q->where('user_id', $user->id)->orWhere('email', $user->email);
+            })
+            ->exists();
+
+        if ($hasCustomer) {
+            $request->session()->forget(['show_complete_customer_form', 'complete_customer_slug']);
+            return redirect()->route('vitrina.show', ['slug' => $slug])
+                ->with('success', 'Ya eres cliente de este negocio.');
+        }
+
+        $validator = \Validator::make($request->all(), [
+            'name' => ['required', 'string', 'max:255'],
+            'phone' => ['nullable', 'digits_between:7,12'],
+            'address' => ['nullable', 'string', 'max:500'],
+        ], [
+            'phone.digits_between' => 'El teléfono debe tener entre 7 y 12 dígitos.',
+        ]);
+
+        if ($validator->fails()) {
+            $view = $request->input('view', 'catalog');
+            $params = ['slug' => $slug];
+            if ($view === 'cart') {
+                $params['view'] = 'cart';
+            }
+
+            return redirect()->route('vitrina.show', $params)
+                ->with('show_complete_customer_form', true)
+                ->with('complete_customer_slug', $slug)
+                ->withErrors($validator)
+                ->withInput();
+        }
+
+        $validated = $validator->validated();
+
+        $customerData = [
+            'name' => $validated['name'],
+            'email' => $user->email,
+            'phone' => $validated['phone'] ?? null,
+            'address' => $validated['address'] ?? null,
+        ];
+
+        try {
+            $this->customerService->createCustomer($store, $customerData);
+        } catch (\Exception $e) {
+            $view = $request->input('view', 'catalog');
+            $params = ['slug' => $slug];
+            if ($view === 'cart') {
+                $params['view'] = 'cart';
+            }
+
+            return redirect()->route('vitrina.show', $params)
+                ->with('show_complete_customer_form', true)
+                ->with('complete_customer_slug', $slug)
+                ->with('error', $e->getMessage())
+                ->withInput($validated);
+        }
+
+        $request->session()->forget(['show_complete_customer_form', 'complete_customer_slug']);
+
+        return redirect()->route('vitrina.show', ['slug' => $slug])
+            ->with('success', 'Datos guardados. Ya eres cliente de este negocio.');
     }
 
     /**

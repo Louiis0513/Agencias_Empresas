@@ -37,12 +37,17 @@
                 style="background-image: url('{{ $coverUrl }}'); background-size: cover; background-position: center;"
             >
                 <div class="absolute inset-0 bg-black/30"></div>
-                <div class="absolute top-4 right-4 z-10 flex items-center gap-3 text-white drop-shadow-md">
+                <div class="absolute top-4 right-4 z-10 flex flex-wrap items-center gap-2 sm:gap-3 text-white drop-shadow-md">
                     @guest
                         <button type="button" id="panel-auth-show-login" class="bg-transparent border-0 shadow-none cursor-pointer text-sm font-medium hover:underline focus:outline-none focus:ring-0">Login</button>
                         <button type="button" id="panel-auth-show-register" class="bg-transparent border-0 shadow-none cursor-pointer text-sm font-medium hover:underline focus:outline-none focus:ring-0">Registro</button>
                     @else
-                        <span class="text-sm">{{ auth()->user()->name }}</span>
+                        <a href="{{ route('panel_suscripciones.show', ['slug' => $config->slug]) }}" class="text-sm font-medium hover:underline {{ ($currentView ?? '') === 'plans' ? 'underline' : '' }}">Planes</a>
+                        <a href="{{ route('panel_suscripciones.show', ['slug' => $config->slug, 'view' => 'panel']) }}" class="text-sm font-medium hover:underline {{ ($currentView ?? '') === 'panel' ? 'underline' : '' }}">Panel</a>
+                        @if (($cartCount ?? 0) > 0)
+                            <a href="{{ route('panel_suscripciones.show', ['slug' => $config->slug, 'view' => 'cart']) }}" class="text-sm font-medium hover:underline {{ ($currentView ?? '') === 'cart' ? 'underline' : '' }}">Carrito ({{ $cartCount > 99 ? '99+' : $cartCount }})</a>
+                        @endif
+                        <span class="text-sm opacity-90">{{ auth()->user()->name }}</span>
                         <form method="POST" action="{{ route('panel_suscripciones.logout', $config->slug) }}" class="inline">
                             @csrf
                             <button type="submit" class="bg-transparent border-0 shadow-none cursor-pointer text-sm font-medium hover:underline text-white focus:outline-none focus:ring-0">Cerrar sesión</button>
@@ -68,64 +73,152 @@
                     </div>
                 @endif
 
-                <div id="panel-main-content">
-                @if (($currentView ?? 'plans') !== 'cart')
-                <section class="max-w-xl mx-auto bg-white/90 backdrop-blur rounded-xl shadow-lg p-6 text-center">
-                    <h1 class="text-2xl font-semibold text-gray-900">{{ $store->name }}</h1>
-                    @if ($config->description)
-                        <p class="mt-2 text-sm text-gray-600">{{ $config->description }}</p>
-                    @endif
-                    @if ($config->schedule)
-                        <p class="mt-2 text-sm text-gray-700 whitespace-pre-line"><span class="font-medium">Horario:</span><br>{{ $config->schedule }}</p>
-                    @endif
-                    <p class="mt-3 text-sm font-medium text-gray-700">Planes y suscripciones</p>
-                </section>
-
-                <section class="mt-8 max-w-4xl mx-auto">
-                    @if (!empty($vitrinaSlug))
-                        <a
-                            href="{{ route('vitrina.show', $vitrinaSlug) }}"
-                            class="inline-flex items-center justify-center px-4 py-2.5 rounded-lg text-sm font-medium shadow border transition mb-6"
-                            style="background-color: #ffffff; color: {{ $secondaryColor }}; border-color: {{ $secondaryColor }};"
-                        >
-                            Ver catálogo de productos
-                        </a>
-                    @endif
-
-                    @if ($plans->isNotEmpty())
-                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                            @foreach ($plans as $plan)
-                                <div class="bg-white/90 rounded-xl shadow p-4 flex flex-col">
-                                    @if (!empty($plan->image_path))
-                                        <div class="mb-3" style="position: relative; width: 100%; aspect-ratio: 1 / 1; background-color: #ffffff; border-radius: 0.5rem; border: 1px solid #f3f4f6; overflow: hidden;">
-                                            <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; padding: 10px;">
-                                                <img
-                                                    src="{{ asset('storage/'.$plan->image_path) }}"
-                                                    alt="{{ $plan->name }}"
-                                                    style="max-width: 100%; max-height: 100%; width: auto !important; height: auto !important; object-fit: contain !important; display: block;"
-                                                >
-                                            </div>
-                                        </div>
-                                    @endif
-                                    <p class="font-medium text-gray-900">{{ $plan->name }}</p>
-                                    <p class="text-sm text-gray-600 mt-1">{{ money($plan->price, $store->currency ?? 'COP') }}</p>
-                                    @if (!empty($plan->description))
-                                        <p class="text-xs text-gray-500 mt-2 flex-1">{{ Str::limit($plan->description, 80) }}</p>
-                                    @endif
-                                    <form method="POST" action="{{ route('panel_suscripciones.cart.add', $config->slug) }}" class="mt-3">
-                                        @csrf
-                                        <input type="hidden" name="plan_id" value="{{ $plan->id }}">
-                                        <input type="hidden" name="quantity" value="1">
-                                        <button type="submit" class="w-full inline-flex justify-center px-4 py-2 rounded-lg text-sm font-medium text-white shadow" style="background-color: {{ $primaryColor }};">Añadir al carrito</button>
-                                    </form>
+                @auth
+                @if (session('show_complete_customer_form') && session('complete_customer_slug') === $config->slug)
+                <section class="mt-8 max-w-2xl mx-auto mb-8">
+                    <div class="bg-white/90 backdrop-blur rounded-xl shadow-lg p-6">
+                        <h2 class="text-lg font-semibold text-gray-900 mb-2">Aún no estás registrado como cliente en este negocio</h2>
+                        <p class="text-sm text-gray-600 mb-4">Completa los datos para continuar.</p>
+                        <form method="POST" action="{{ route('panel_suscripciones.complete_customer_profile', $config->slug) }}">
+                            @csrf
+                            <input type="hidden" name="view" value="{{ request('view', 'plans') }}">
+                            <div class="space-y-4">
+                                <div>
+                                    <label for="panel-complete-name" class="block text-sm font-medium text-gray-700">Nombre</label>
+                                    <input type="text" name="name" id="panel-complete-name" value="{{ old('name', auth()->user()->name) }}" required class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                    @error('name')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
                                 </div>
-                            @endforeach
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Correo</label>
+                                    <p class="mt-1 text-sm text-gray-600">{{ auth()->user()->email }}</p>
+                                </div>
+                                <div>
+                                    <label for="panel-complete-phone" class="block text-sm font-medium text-gray-700">Teléfono</label>
+                                    <input type="text" name="phone" id="panel-complete-phone" value="{{ old('phone') }}" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="Solo números">
+                                    @error('phone')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                                </div>
+                                <div>
+                                    <label for="panel-complete-address" class="block text-sm font-medium text-gray-700">Dirección (opcional)</label>
+                                    <input type="text" name="address" id="panel-complete-address" value="{{ old('address') }}" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                    @error('address')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                                </div>
+                                <hr class="border-gray-200">
+                                <p class="text-sm font-medium text-gray-700">Datos para el gimnasio</p>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label for="panel-complete-gender" class="block text-sm font-medium text-gray-700">Género</label>
+                                        <select name="gender" id="panel-complete-gender" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                            <option value="">—</option>
+                                            <option value="M" {{ old('gender') === 'M' ? 'selected' : '' }}>M</option>
+                                            <option value="F" {{ old('gender') === 'F' ? 'selected' : '' }}>F</option>
+                                            <option value="NN" {{ old('gender') === 'NN' ? 'selected' : '' }}>NN</option>
+                                        </select>
+                                        @error('gender')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                                    </div>
+                                    <div>
+                                        <label for="panel-complete-blood_type" class="block text-sm font-medium text-gray-700">Tipo de sangre</label>
+                                        <input type="text" name="blood_type" id="panel-complete-blood_type" value="{{ old('blood_type') }}" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="Ej. O+">
+                                        @error('blood_type')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label for="panel-complete-eps" class="block text-sm font-medium text-gray-700">EPS</label>
+                                        <input type="text" name="eps" id="panel-complete-eps" value="{{ old('eps') }}" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                        @error('eps')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                                    </div>
+                                    <div>
+                                        <label for="panel-complete-birth_date" class="block text-sm font-medium text-gray-700">Fecha de nacimiento</label>
+                                        <input type="date" name="birth_date" id="panel-complete-birth_date" value="{{ old('birth_date') }}" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                        @error('birth_date')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label for="panel-complete-emergency_contact_name" class="block text-sm font-medium text-gray-700">Nombre contacto emergencia</label>
+                                        <input type="text" name="emergency_contact_name" id="panel-complete-emergency_contact_name" value="{{ old('emergency_contact_name') }}" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                        @error('emergency_contact_name')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                                    </div>
+                                    <div>
+                                        <label for="panel-complete-emergency_contact_phone" class="block text-sm font-medium text-gray-700">Número contacto emergencia</label>
+                                        <input type="text" name="emergency_contact_phone" id="panel-complete-emergency_contact_phone" value="{{ old('emergency_contact_phone') }}" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" inputmode="numeric" placeholder="3001234567">
+                                        @error('emergency_contact_phone')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                                    </div>
+                                </div>
+                                <button type="submit" class="w-full inline-flex justify-center px-4 py-2.5 rounded-lg text-sm font-medium text-white shadow" style="background-color: {{ $primaryColor }};">Guardar y continuar</button>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+                @endif
+                @endauth
+
+                <div id="panel-main-content">
+                @if (($currentView ?? 'plans') === 'panel')
+                <section class="mt-8 max-w-2xl mx-auto">
+                    <h2 class="text-xl font-semibold text-gray-900 mb-4">Mi panel</h2>
+                    @if (!isset($customer) || !$customer)
+                        <div class="bg-white/90 backdrop-blur rounded-xl shadow-lg p-8 text-center">
+                            <p class="text-gray-600 font-medium">No se encontró tu perfil de cliente.</p>
+                            <p class="text-gray-500 text-sm mt-2">Contacta al negocio para completar tu registro.</p>
+                        </div>
+                    @elseif (!isset($activeSubscription) || !$activeSubscription)
+                        <div class="bg-white/90 backdrop-blur rounded-xl shadow-lg p-8 text-center">
+                            <p class="text-gray-600 text-lg font-medium">No tienes suscripción activa</p>
+                            <p class="text-gray-500 text-sm mt-2">Contrata un plan para acceder al gimnasio.</p>
+                            <a href="{{ route('panel_suscripciones.show', ['slug' => $config->slug]) }}" class="inline-flex justify-center px-4 py-2.5 rounded-lg text-sm font-medium text-white shadow mt-6" style="background-color: {{ $primaryColor }};">Ver planes</a>
                         </div>
                     @else
-                        <p class="text-center text-gray-500 py-8">No hay planes disponibles en este momento.</p>
+                        <div class="bg-white/90 backdrop-blur rounded-xl shadow-lg p-6">
+                            @if (!empty($panelPlanName))
+                                <p class="text-sm font-medium text-gray-600 mb-4">{{ $panelPlanName }}</p>
+                            @endif
+                            <div class="flex flex-wrap items-center gap-2 mb-4">
+                                <span class="text-sm font-medium text-gray-700">Estado actual:</span>
+                                @if (($panelStatusLabel ?? '') === 'Activo')
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">Activo</span>
+                                @else
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-800">Inactivo</span>
+                                @endif
+                            </div>
+                            <dl class="space-y-3 text-sm">
+                                @if (isset($panelSubscriptionEndDate))
+                                    <div>
+                                        <dt class="text-gray-500">Fecha de fin de suscripción</dt>
+                                        <dd class="font-medium text-gray-900 mt-0.5">
+                                            @if ($panelSubscriptionEndDate->isPast())
+                                                Venció el {{ $panelSubscriptionEndDate->format('d/m/Y') }}
+                                            @else
+                                                Vence el {{ $panelSubscriptionEndDate->format('d/m/Y') }}
+                                            @endif
+                                        </dd>
+                                    </div>
+                                @endif
+                                <div>
+                                    <dt class="text-gray-500">Asistencias</dt>
+                                    <dd class="font-medium text-gray-900 mt-0.5">
+                                        Has ingresado {{ $panelAttendancesCount ?? 0 }} {{ ($panelAttendancesCount ?? 0) === 1 ? 'vez' : 'veces' }}
+                                        @if (isset($panelTotalEntriesLimit) && $panelTotalEntriesLimit !== null)
+                                            ({{ $panelAttendancesCount ?? 0 }} de {{ $panelTotalEntriesLimit }} entradas)
+                                        @endif
+                                    </dd>
+                                </div>
+                                <div>
+                                    <dt class="text-gray-500">Días restantes</dt>
+                                    <dd class="font-medium text-gray-900 mt-0.5">
+                                        @if (isset($panelDaysLeft) && $panelDaysLeft > 0)
+                                            Quedan {{ $panelDaysLeft }} {{ $panelDaysLeft === 1 ? 'día' : 'días' }}
+                                        @else
+                                            Suscripción vencida
+                                        @endif
+                                    </dd>
+                                </div>
+                            </dl>
+                            <a href="{{ route('panel_suscripciones.show', ['slug' => $config->slug]) }}" class="inline-block mt-4 text-sm font-medium hover:underline" style="color: {{ $primaryColor }};">Ver planes</a>
+                        </div>
                     @endif
                 </section>
-                @else
+                @elseif (($currentView ?? 'plans') === 'cart')
                 <section class="mt-8 max-w-4xl mx-auto">
                     <h2 class="text-xl font-semibold text-gray-900 mb-4">Carrito de planes</h2>
                     @if (!empty($cartPlans) && count($cartPlans) > 0)
@@ -173,8 +266,97 @@
                         </div>
                         <a href="{{ route('panel_suscripciones.show', ['slug' => $config->slug]) }}" class="inline-block mt-4 text-sm text-gray-600 hover:text-gray-900">← Volver a planes</a>
                     @else
-                        <p class="text-gray-500 py-8">No hay planes en el carrito.</p>
-                        <a href="{{ route('panel_suscripciones.show', ['slug' => $config->slug]) }}" class="inline-flex justify-center px-4 py-2.5 rounded-lg text-sm font-medium text-white shadow" style="background-color: {{ $primaryColor }};">Ver planes</a>
+                        <div class="bg-white/90 backdrop-blur rounded-xl shadow-lg p-8 text-center">
+                            <p class="text-gray-600 text-lg font-medium">Sin planes seleccionados en el carrito</p>
+                            <p class="text-gray-500 text-sm mt-2">Añade planes desde la lista para continuar.</p>
+                            <a href="{{ route('panel_suscripciones.show', ['slug' => $config->slug]) }}" class="inline-flex justify-center px-4 py-2.5 rounded-lg text-sm font-medium text-white shadow mt-6" style="background-color: {{ $primaryColor }};">Ver planes</a>
+                        </div>
+                    @endif
+                </section>
+                @else
+                <section class="max-w-xl mx-auto bg-white/90 backdrop-blur rounded-xl shadow-lg p-6 text-center">
+                    <h1 class="text-2xl font-semibold text-gray-900">{{ $store->name }}</h1>
+                    @if ($config->description)
+                        <p class="mt-2 text-sm text-gray-600">{{ $config->description }}</p>
+                    @endif
+                    @if ($config->schedule)
+                        <p class="mt-2 text-sm text-gray-700 whitespace-pre-line"><span class="font-medium">Horario:</span><br>{{ $config->schedule }}</p>
+                    @endif
+                    <p class="mt-3 text-sm font-medium text-gray-700">Planes y suscripciones</p>
+                </section>
+
+                <section class="mt-8 max-w-4xl mx-auto">
+                    <form method="GET" action="{{ route('panel_suscripciones.show', $config->slug) }}" class="bg-white/90 backdrop-blur rounded-xl shadow p-4 mb-6">
+                        <input type="hidden" name="view" value="plans">
+                        <div class="flex flex-wrap items-end gap-3">
+                            <div class="flex-1 min-w-[140px]">
+                                <label for="filter-name" class="block text-xs font-medium text-gray-600 mb-1">Nombre</label>
+                                <input type="text" name="name" id="filter-name" value="{{ $filterName ?? '' }}" placeholder="Buscar por nombre" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                            </div>
+                            <div class="w-full sm:w-auto min-w-[140px]">
+                                <label for="filter-limit" class="block text-xs font-medium text-gray-600 mb-1">Límite total</label>
+                                <select name="limit_type" id="filter-limit" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                    <option value="">Todos</option>
+                                    <option value="unlimited" {{ ($filterLimitType ?? '') === 'unlimited' ? 'selected' : '' }}>Ilimitado</option>
+                                    <option value="limited" {{ ($filterLimitType ?? '') === 'limited' ? 'selected' : '' }}>Con límite</option>
+                                </select>
+                            </div>
+                            <div class="w-full sm:w-auto min-w-[140px]">
+                                <label for="filter-duration" class="block text-xs font-medium text-gray-600 mb-1">Duración</label>
+                                <select name="duration" id="filter-duration" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                    <option value="">Todas</option>
+                                    @foreach ($durations ?? [] as $days)
+                                        <option value="{{ $days }}" {{ (string)($filterDuration ?? '') === (string)$days ? 'selected' : '' }}>{{ $days }} {{ $days === 1 ? 'día' : 'días' }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="flex gap-2">
+                                <button type="submit" class="inline-flex justify-center px-4 py-2 rounded-lg text-sm font-medium text-white shadow" style="background-color: {{ $primaryColor }};">Filtrar</button>
+                                @if (($filterName ?? '') !== '' || ($filterLimitType ?? '') !== '' || ($filterDuration ?? '') !== '')
+                                    <a href="{{ route('panel_suscripciones.show', $config->slug) }}" class="inline-flex justify-center px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">Limpiar</a>
+                                @endif
+                            </div>
+                        </div>
+                    </form>
+
+                    @if ($plans->isNotEmpty())
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            @foreach ($plans as $plan)
+                                <div class="bg-white/90 rounded-xl shadow p-4 flex flex-col">
+                                    @if (!empty($plan->image_path))
+                                        <div class="mb-3" style="position: relative; width: 100%; aspect-ratio: 1 / 1; background-color: #ffffff; border-radius: 0.5rem; border: 1px solid #f3f4f6; overflow: hidden;">
+                                            <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; padding: 10px;">
+                                                <img
+                                                    src="{{ asset('storage/'.$plan->image_path) }}"
+                                                    alt="{{ $plan->name }}"
+                                                    style="max-width: 100%; max-height: 100%; width: auto !important; height: auto !important; object-fit: contain !important; display: block;"
+                                                >
+                                            </div>
+                                        </div>
+                                    @endif
+                                    <p class="font-medium text-gray-900">{{ $plan->name }}</p>
+                                    <p class="text-sm text-gray-600 mt-1">{{ money($plan->price, $store->currency ?? 'COP') }}</p>
+                                    @if (!empty($plan->description))
+                                        <p class="text-xs text-gray-500 mt-2 flex-1">{{ Str::limit($plan->description, 80) }}</p>
+                                    @endif
+                                    <form method="POST" action="{{ route('panel_suscripciones.cart.add', $config->slug) }}" class="mt-3">
+                                        @csrf
+                                        <input type="hidden" name="plan_id" value="{{ $plan->id }}">
+                                        <input type="hidden" name="quantity" value="1">
+                                        <button type="submit" class="w-full inline-flex justify-center px-4 py-2 rounded-lg text-sm font-medium text-white shadow" style="background-color: {{ $primaryColor }};">Añadir al carrito</button>
+                                    </form>
+                                </div>
+                            @endforeach
+                        </div>
+                    @else
+                        <div class="bg-white/90 backdrop-blur rounded-xl shadow-lg p-8 text-center">
+                            @if (($filterName ?? '') !== '' || ($filterLimitType ?? '') !== '' || ($filterDuration ?? '') !== '')
+                                <p class="text-gray-600 font-medium">Ningún plan coincide con los filtros.</p>
+                                <a href="{{ route('panel_suscripciones.show', $config->slug) }}" class="inline-flex justify-center px-4 py-2.5 rounded-lg text-sm font-medium text-white shadow mt-4" style="background-color: {{ $primaryColor }};">Quitar filtros</a>
+                            @else
+                                <p class="text-gray-500">No hay planes disponibles en este momento.</p>
+                            @endif
+                        </div>
                     @endif
                 </section>
                 @endif
@@ -206,6 +388,11 @@
                                         </label>
                                     </div>
                                     <button type="submit" class="w-full inline-flex justify-center px-4 py-2.5 rounded-lg text-sm font-medium text-white shadow" style="background-color: {{ $primaryColor }};">Iniciar sesión</button>
+                                    @if (Route::has('password.request'))
+                                        <p class="text-center mt-2">
+                                            <a href="{{ route('password.request') }}" class="text-sm hover:underline" style="color: {{ $primaryColor }};">¿Olvidaste tu contraseña?</a>
+                                        </p>
+                                    @endif
                                 </div>
                             </form>
                         </div>
@@ -303,9 +490,8 @@
         </div>
     </div>
 
-    @if (($currentView ?? 'plans') !== 'cart')
     @php $cartCount = $cartCount ?? 0; @endphp
-    @if ($cartCount > 0)
+    @if (($currentView ?? 'plans') === 'plans' && $cartCount > 0)
     <a
         id="panel-cart-float-btn"
         href="{{ route('panel_suscripciones.show', ['slug' => $config->slug, 'view' => 'cart']) }}"
@@ -317,7 +503,6 @@
         <span class="font-medium text-sm sm:text-base whitespace-nowrap">Ver Carrito</span>
         <span class="flex h-6 min-w-[1.5rem] items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white">{{ $cartCount > 99 ? '99+' : $cartCount }}</span>
     </a>
-    @endif
     @endif
 
     <div id="panel-checkout-modal" class="hidden fixed inset-0 z-[150] overflow-y-auto" aria-modal="true" role="dialog">

@@ -55,9 +55,29 @@ class PanelSuscripcionesAuthController extends Controller
         }
 
         $user = Auth::user();
-        $this->ensureCustomerForStore($store, $user);
-
         $request->session()->regenerate();
+
+        // Guardar el slug de la tienda en sesión para el flujo de completar Customer
+        $request->session()->put('complete_customer_slug', $slug);
+
+        $hasCustomer = Customer::where('store_id', $store->id)
+            ->where(function ($q) use ($user) {
+                $q->where('user_id', $user->id)->orWhere('email', $user->email);
+            })
+            ->exists();
+
+        if (! $hasCustomer) {
+            $view = $request->input('view', 'plans');
+            $params = ['slug' => $slug];
+            if ($view === 'cart') {
+                $params['view'] = 'cart';
+            }
+            return redirect()->route('panel_suscripciones.show', $params)
+                ->with('show_complete_customer_form', true)
+                ->with('complete_customer_slug', $slug);
+        }
+
+        $this->ensureCustomerForStore($store, $user);
 
         $view = $request->input('view', 'plans');
         $params = ['slug' => $slug];
@@ -82,19 +102,19 @@ class PanelSuscripcionesAuthController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255'],
             'password' => ['required', 'string', 'confirmed', Rules\Password::defaults()],
-            'phone' => ['nullable', 'string', 'regex:/^[0-9]+$/', 'max:20'],
+            'phone' => ['nullable', 'digits_between:7,12'],
             'address' => ['nullable', 'string', 'max:500'],
             'gender' => ['nullable', 'string', 'in:M,F,NN', 'max:5'],
             'blood_type' => ['nullable', 'string', 'max:20'],
             'eps' => ['nullable', 'string', 'max:255'],
             'birth_date' => ['nullable', 'date'],
             'emergency_contact_name' => ['nullable', 'string', 'max:255'],
-            'emergency_contact_phone' => ['nullable', 'string', 'regex:/^[0-9]+$/', 'max:30'],
+            'emergency_contact_phone' => ['nullable', 'digits_between:7,12'],
         ];
 
         $validated = $request->validate($rules, [
-            'phone.regex' => 'El teléfono solo debe contener números.',
-            'emergency_contact_phone.regex' => 'El número de contacto de emergencia solo debe contener números.',
+            'phone.digits_between' => 'El teléfono debe tener entre 7 y 12 dígitos.',
+            'emergency_contact_phone.digits_between' => 'El número de contacto de emergencia debe tener entre 7 y 12 dígitos.',
         ]);
 
         $existingUser = User::where('email', $validated['email'])->first();
@@ -129,7 +149,15 @@ class PanelSuscripcionesAuthController extends Controller
             } catch (\Exception $e) {
                 return $this->redirectPanelRegisterError($slug, $request, $e->getMessage());
             }
-            Auth::login($existingUser);
+            $view = $request->input('view', 'plans');
+            $params = ['slug' => $slug];
+            if ($view === 'cart') {
+                $params['view'] = 'cart';
+            }
+            return redirect()->route('panel_suscripciones.show', $params)
+                ->with('auth_form', 'login')
+                ->with('success', 'Tu ficha de cliente se ha creado. Inicia sesión con tu contraseña habitual.')
+                ->withInput($request->only('email'));
         }
 
         $request->session()->regenerate();
@@ -141,6 +169,103 @@ class PanelSuscripcionesAuthController extends Controller
         }
         return redirect()->route('panel_suscripciones.show', $params)
             ->with('success', 'Cuenta creada correctamente.');
+    }
+
+    /**
+     * Completar ficha de Customer tras login (pantalla de humo). Requiere auth.
+     */
+    public function completeCustomerProfile(Request $request, string $slug): RedirectResponse
+    {
+        $config = PanelSuscripcionesConfig::where('slug', $slug)->with('store')->firstOrFail();
+        $store = $config->store;
+
+        if (auth()->guest()) {
+            return redirect()->route('panel_suscripciones.show', ['slug' => $slug])
+                ->with('error', 'Sesión inválida. Intenta iniciar sesión de nuevo.');
+        }
+
+        $user = Auth::user();
+        $hasCustomer = Customer::where('store_id', $store->id)
+            ->where(function ($q) use ($user) {
+                $q->where('user_id', $user->id)->orWhere('email', $user->email);
+            })
+            ->exists();
+
+        if ($hasCustomer) {
+            $request->session()->forget(['show_complete_customer_form', 'complete_customer_slug']);
+            return redirect()->route('panel_suscripciones.show', ['slug' => $slug])
+                ->with('success', 'Ya eres cliente de este negocio.');
+        }
+
+        $validator = \Validator::make($request->all(), [
+            'name' => ['required', 'string', 'max:255'],
+            'phone' => ['nullable', 'digits_between:7,12'],
+            'address' => ['nullable', 'string', 'max:500'],
+            'gender' => ['nullable', 'string', 'in:M,F,NN', 'max:5'],
+            'blood_type' => ['nullable', 'string', 'max:20'],
+            'eps' => ['nullable', 'string', 'max:255'],
+            'birth_date' => ['nullable', 'date'],
+            'emergency_contact_name' => ['nullable', 'string', 'max:255'],
+            'emergency_contact_phone' => ['nullable', 'digits_between:7,12'],
+        ], [
+            'phone.digits_between' => 'El teléfono debe tener entre 7 y 12 dígitos.',
+            'emergency_contact_phone.digits_between' => 'El número de contacto de emergencia debe tener entre 7 y 12 dígitos.',
+        ]);
+
+        if ($validator->fails()) {
+            $view = $request->input('view', 'plans');
+            $params = ['slug' => $slug];
+            if ($view === 'cart') {
+                $params['view'] = 'cart';
+            }
+
+            return redirect()->route('panel_suscripciones.show', $params)
+                ->with('show_complete_customer_form', true)
+                ->with('complete_customer_slug', $slug)
+                ->withErrors($validator)
+                ->withInput();
+        }
+
+        $validated = $validator->validated();
+
+        $customerData = [
+            'name' => $validated['name'],
+            'email' => $user->email,
+            'phone' => $validated['phone'] ?? null,
+            'address' => $validated['address'] ?? null,
+            'gender' => $validated['gender'] ?? null,
+            'blood_type' => $validated['blood_type'] ?? null,
+            'eps' => $validated['eps'] ?? null,
+            'birth_date' => $validated['birth_date'] ?? null,
+            'emergency_contact_name' => $validated['emergency_contact_name'] ?? null,
+            'emergency_contact_phone' => $validated['emergency_contact_phone'] ?? null,
+        ];
+
+        try {
+            $this->customerService->createCustomer($store, $customerData);
+        } catch (\Exception $e) {
+            $view = $request->input('view', 'plans');
+            $params = ['slug' => $slug];
+            if ($view === 'cart') {
+                $params['view'] = 'cart';
+            }
+
+            return redirect()->route('panel_suscripciones.show', $params)
+                ->with('show_complete_customer_form', true)
+                ->with('complete_customer_slug', $slug)
+                ->with('error', $e->getMessage())
+                ->withInput($validated);
+        }
+
+        $request->session()->forget(['show_complete_customer_form', 'complete_customer_slug']);
+
+        $view = $request->input('view', 'plans');
+        $params = ['slug' => $slug];
+        if ($view === 'cart') {
+            $params['view'] = 'cart';
+        }
+        return redirect()->route('panel_suscripciones.show', $params)
+            ->with('success', 'Datos guardados. Ya eres cliente de este negocio.');
     }
 
     public function logout(Request $request, string $slug, Logout $logout): RedirectResponse
