@@ -20,7 +20,8 @@ class StoreAsistenciaController extends Controller
         $customerId = $request->filled('customer_id') ? (int) $request->input('customer_id') : null;
 
         $entries = $subscriptionService->getAttendanceHistoryForStore($store, $from, $to, $customerId, 25);
+        $counters = $subscriptionService->getAttendanceCounters($store);
 
-        return view('stores.asistencias.index', compact('store', 'entries', 'from', 'to', 'customerId'));
+        return view('stores.asistencias.index', compact('store', 'entries', 'from', 'to', 'customerId', 'counters'));
     }
 }

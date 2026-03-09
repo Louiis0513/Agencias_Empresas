@@ -13,6 +13,8 @@ class CustomerSearchSelect extends Component
 
     public string $emitEventName = 'customer-selected';
 
+    public string $emitClearEventName = 'customer-cleared';
+
     public bool $mostrarModal = false;
 
     public string $filtroClienteNombre = '';
@@ -25,11 +27,12 @@ class CustomerSearchSelect extends Component
 
     public ?array $clienteSeleccionado = null;
 
-    public function mount(int $storeId, ?int $selectedCustomerId = null, string $emitEventName = 'customer-selected'): void
+    public function mount(int $storeId, ?int $selectedCustomerId = null, string $emitEventName = 'customer-selected', string $emitClearEventName = 'customer-cleared'): void
     {
         $this->storeId = $storeId;
         $this->selectedCustomerId = $selectedCustomerId;
         $this->emitEventName = $emitEventName;
+        $this->emitClearEventName = $emitClearEventName;
 
         if ($selectedCustomerId) {
             $this->loadSelectedCustomer($selectedCustomerId);
@@ -144,7 +147,7 @@ class CustomerSearchSelect extends Component
         $this->clienteSeleccionado = null;
         $this->selectedCustomerId = null;
         $this->cerrarModal();
-        $this->dispatch('customer-cleared');
+        $this->dispatch($this->emitClearEventName);
     }
 
     public function render()

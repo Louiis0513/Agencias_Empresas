@@ -443,4 +443,38 @@ class SubscriptionService
 
         return $query->paginate($perPage);
     }
+
+    /**
+     * Contadores para la vista de asistencias.
+     *
+     * @return array{asistencias_hoy: int, asistencias_semana: int, active_clients: int, promedio_diario: int}
+     */
+    public function getAttendanceCounters(Store $store): array
+    {
+        $now = Carbon::now();
+        $todayStart = $now->copy()->startOfDay();
+        $todayEnd = $now->copy()->endOfDay();
+        $weekStart = $now->copy()->startOfWeek();
+        $weekEnd = $now->copy()->endOfWeek();
+
+        $asistenciasHoy = SubscriptionEntry::where('store_id', $store->id)
+            ->whereBetween('recorded_at', [$todayStart, $todayEnd])
+            ->count();
+
+        $asistenciasSemana = SubscriptionEntry::where('store_id', $store->id)
+            ->whereBetween('recorded_at', [$weekStart, $weekEnd])
+            ->count();
+
+        $membershipData = $this->getMembershipDashboardData($store, ['status' => 'all']);
+        $activeClients = $membershipData['counters']['active_clients'] ?? 0;
+
+        $promedioDiario = $asistenciasSemana > 0 ? (int) round($asistenciasSemana / 7) : 0;
+
+        return [
+            'asistencias_hoy' => $asistenciasHoy,
+            'asistencias_semana' => $asistenciasSemana,
+            'active_clients' => $activeClients,
+            'promedio_diario' => $promedioDiario,
+        ];
+    }
 }
