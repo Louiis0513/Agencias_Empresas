@@ -42,7 +42,7 @@ class StoreProductController extends Controller
         $products = $query->orderBy('name')->paginate(10)->withQueryString();
         $categories = Category::where('store_id', $store->id)->orderBy('name')->get();
 
-        return view('stores.productos', compact('store', 'products', 'categories'));
+        return view('stores.productos.productos', compact('store', 'products', 'categories'));
     }
 
     public function show(Store $store, Product $product, StorePermissionService $permission)
@@ -55,7 +55,7 @@ class StoreProductController extends Controller
 
         $product->load(['category.attributes', 'productItems', 'batches.batchItems', 'variants.batchItems.batch', 'attributeValues.attribute']);
 
-        return view('stores.producto-detalle', compact('store', 'product'));
+        return view('stores.productos.producto-detalle', compact('store', 'product'));
     }
 
     public function updateVariant(Store $store, Product $product, StoreProductRequest $request, ProductService $productService, StorePermissionService $permission, ConvertidorImgService $convertidorImg)

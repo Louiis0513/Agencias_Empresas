@@ -59,7 +59,7 @@ class StoreCajaController extends Controller
         $totalCaja = $this->cajaService->totalCaja($store);
         $sesionAbierta = $this->sesionCajaService->obtenerSesionAbierta($store);
 
-        return view('stores.caja', compact('store', 'bolsillos', 'totalCaja', 'sesionAbierta'));
+        return view('stores.caja.caja', compact('store', 'bolsillos', 'totalCaja', 'sesionAbierta'));
     }
 
     public function aperturaCaja(Store $store)
@@ -73,7 +73,7 @@ class StoreCajaController extends Controller
         $bolsillos = Bolsillo::deTienda($store->id)->activos()->orderBy('name')->get();
         $saldosEsperados = $this->sesionCajaService->obtenerSaldosEsperadosParaApertura($store);
 
-        return view('stores.caja-apertura', compact('store', 'bolsillos', 'saldosEsperados'));
+        return view('stores.caja.caja-apertura', compact('store', 'bolsillos', 'saldosEsperados'));
     }
 
     public function storeAperturaCaja(Store $store, Request $request)
@@ -106,7 +106,7 @@ class StoreCajaController extends Controller
 
         $bolsillos = Bolsillo::deTienda($store->id)->activos()->orderBy('name')->get();
 
-        return view('stores.caja-cerrar-wizard', compact('store', 'sesionAbierta', 'bolsillos'));
+        return view('stores.caja.caja-cerrar-wizard', compact('store', 'sesionAbierta', 'bolsillos'));
     }
 
     public function storeCierreCaja(Store $store, Request $request)
@@ -144,7 +144,7 @@ class StoreCajaController extends Controller
         ];
         $sesiones = $this->sesionCajaService->listarSesiones($store, $filtros);
 
-        return view('stores.caja-sesiones', compact('store', 'sesiones'));
+        return view('stores.caja.caja-sesiones', compact('store', 'sesiones'));
     }
 
     public function showSesion(Store $store, SesionCaja $sesionCaja)
@@ -156,7 +156,7 @@ class StoreCajaController extends Controller
 
         $sesionCaja = $this->sesionCajaService->obtenerSesion($store, $sesionCaja->id);
 
-        return view('stores.caja-sesion-detalle', compact('store', 'sesionCaja'));
+        return view('stores.caja.caja-sesion-detalle', compact('store', 'sesionCaja'));
     }
 
     public function showBolsillo(Store $store, Bolsillo $bolsillo, Request $request)
@@ -175,7 +175,7 @@ class StoreCajaController extends Controller
         ];
         $movimientos = $this->cajaService->listarMovimientos($store, $filtros);
         $bolsillosActivos = Bolsillo::deTienda($store->id)->activos()->orderBy('name')->get();
-        return view('stores.bolsillo-detalle', compact('store', 'bolsillo', 'movimientos', 'bolsillosActivos'));
+        return view('stores.caja.bolsillo-detalle', compact('store', 'bolsillo', 'movimientos', 'bolsillosActivos'));
     }
 
     public function storeBolsillo(Store $store, StoreBolsilloRequest $request)
@@ -252,7 +252,7 @@ class StoreCajaController extends Controller
         ];
         $comprobantes = $this->comprobanteIngresoService->listar($store, $filtros);
 
-        return view('stores.comprobantes-ingreso', compact('store', 'comprobantes'));
+        return view('stores.comprobantes.comprobantes-ingreso', compact('store', 'comprobantes'));
     }
 
     public function createComprobanteIngreso(Store $store)
@@ -265,7 +265,7 @@ class StoreCajaController extends Controller
 
         $bolsillos = Bolsillo::deTienda($store->id)->activos()->orderBy('name')->get();
 
-        return view('stores.comprobante-ingreso-crear', compact('store', 'bolsillos'));
+        return view('stores.comprobantes.comprobante-ingreso-crear', compact('store', 'bolsillos'));
     }
 
     public function storeComprobanteIngreso(Store $store, StoreComprobanteIngresoRequest $request)
@@ -295,7 +295,7 @@ class StoreCajaController extends Controller
 
         $comprobanteIngreso = $this->comprobanteIngresoService->obtener($store, $comprobanteIngreso->id);
 
-        return view('stores.comprobante-ingreso-detalle', compact('store', 'comprobanteIngreso'));
+        return view('stores.comprobantes.comprobante-ingreso-detalle', compact('store', 'comprobanteIngreso'));
     }
 
     public function comprobantesEgreso(Store $store, Request $request)
@@ -309,7 +309,7 @@ class StoreCajaController extends Controller
         ];
         $comprobantes = $this->comprobanteEgresoService->listar($store, $filtros);
 
-        return view('stores.comprobantes-egreso', compact('store', 'comprobantes'));
+        return view('stores.comprobantes.comprobantes-egreso', compact('store', 'comprobantes'));
     }
 
     public function createComprobanteEgreso(Store $store)
@@ -322,7 +322,7 @@ class StoreCajaController extends Controller
 
         $bolsillos = Bolsillo::deTienda($store->id)->activos()->orderBy('name')->get();
 
-        return view('stores.comprobante-egreso-crear', compact('store', 'bolsillos'));
+        return view('stores.comprobantes.comprobante-egreso-crear', compact('store', 'bolsillos'));
     }
 
     public function cuentasPorPagarProveedor(Request $request, Store $store)
@@ -381,7 +381,7 @@ class StoreCajaController extends Controller
         $comprobante = $this->comprobanteEgresoService->obtener($store, $comprobanteEgreso->id);
         $bolsillos = Bolsillo::deTienda($store->id)->activos()->orderBy('name')->get();
 
-        return view('stores.comprobante-egreso-detalle', compact('store', 'comprobante', 'bolsillos'));
+        return view('stores.comprobantes.comprobante-egreso-detalle', compact('store', 'comprobante', 'bolsillos'));
     }
 
     public function editComprobanteEgreso(Store $store, ComprobanteEgreso $comprobanteEgreso)
@@ -397,7 +397,7 @@ class StoreCajaController extends Controller
 
         $comprobante = $this->comprobanteEgresoService->obtener($store, $comprobanteEgreso->id);
 
-        return view('stores.comprobante-egreso-editar', compact('store', 'comprobante'));
+        return view('stores.comprobantes.comprobante-egreso-editar', compact('store', 'comprobante'));
     }
 
     public function updateComprobanteEgreso(Store $store, ComprobanteEgreso $comprobanteEgreso, Request $request)

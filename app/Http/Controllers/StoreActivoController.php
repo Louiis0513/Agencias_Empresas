@@ -29,7 +29,7 @@ class StoreActivoController extends Controller
 
         $activos = $activoService->listarActivos($store, $filtros);
 
-        return view('stores.activos', compact('store', 'activos'));
+        return view('stores.activos.activos', compact('store', 'activos'));
     }
 
     public function show(Store $store, Activo $activo, ActivoService $activoService, StorePermissionService $permission)
@@ -45,7 +45,7 @@ class StoreActivoController extends Controller
 
         $activo->load(['locationRelation', 'assignedTo', 'movimientos.user']);
 
-        return view('stores.activo-show', compact('store', 'activo'));
+        return view('stores.activos.activo-show', compact('store', 'activo'));
     }
 
     public function edit(Store $store, Activo $activo, StorePermissionService $permission)
@@ -62,7 +62,7 @@ class StoreActivoController extends Controller
         $workers = $store->workers()->select('users.id', 'users.name')->orderBy('users.name')->get();
         $locations = \App\Models\ActivoLocation::deTienda($store->id)->activos()->orderBy('name')->get();
 
-        return view('stores.activo-editar', compact('store', 'activo', 'workers', 'locations'));
+        return view('stores.activos.activo-editar', compact('store', 'activo', 'workers', 'locations'));
     }
 
     public function update(Store $store, Activo $activo, Request $request, ActivoService $activoService, StorePermissionService $permission)
@@ -154,6 +154,6 @@ class StoreActivoController extends Controller
         $activosParaMovimientos = $activoService->activosParaMovimientos($store);
         $movimientos = $activoService->listarMovimientos($store, $filtros);
 
-        return view('stores.activo-movimientos', compact('store', 'movimientos', 'activosParaMovimientos'));
+        return view('stores.activos.activo-movimientos', compact('store', 'movimientos', 'activosParaMovimientos'));
     }
 }

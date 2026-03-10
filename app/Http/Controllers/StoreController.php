@@ -47,7 +47,7 @@ class StoreController extends Controller
         // También obtenemos lista plana para dropdowns
         $categoriesFlat = $categoryService->getFlatList($store);
 
-        return view('stores.categorias', compact('store', 'categoryTree', 'categoriesFlat'));
+        return view('stores.productos.categorias', compact('store', 'categoryTree', 'categoriesFlat'));
     }
 
     public function destroyCategory(Store $store, \App\Models\Category $category, CategoryService $categoryService, StorePermissionService $permission)
@@ -83,7 +83,7 @@ class StoreController extends Controller
         $category->load(['attributes']);
         $products = $category->products()->orderBy('name')->get();
 
-        return view('stores.category-show', compact('store', 'category', 'products'));
+        return view('stores.productos.category-show', compact('store', 'category', 'products'));
     }
 
     public function attributeGroups(Request $request, Store $store, AttributeService $attributeService, StorePermissionService $permission)
@@ -97,7 +97,7 @@ class StoreController extends Controller
 
         $groups = $attributeService->getStoreAttributeGroupsPaginated($store, $request->input('search'), 10);
 
-        return view('stores.attribute-groups', compact('store', 'groups'));
+        return view('stores.productos.attribute-groups', compact('store', 'groups'));
     }
 
     public function categoryAttributes(Store $store, Category $category, AttributeService $attributeService, StorePermissionService $permission)
@@ -116,7 +116,7 @@ class StoreController extends Controller
         $storeAttributeGroups = $attributeService->getStoreAttributeGroups($store);
         $categoryAttributes = $category->attributes()->with(['groups'])->get();
 
-        return view('stores.category-attributes', compact('store', 'category', 'storeAttributeGroups', 'categoryAttributes'));
+        return view('stores.productos.category-attributes', compact('store', 'category', 'storeAttributeGroups', 'categoryAttributes'));
     }
 
     public function assignAttributes(Store $store, Category $category, Request $request, AttributeService $attributeService, StorePermissionService $permission)
@@ -283,7 +283,7 @@ class StoreController extends Controller
 
         $purchases = $purchaseService->listarCompras($store, $filtros);
 
-        return view('stores.compras-productos', compact('store', 'purchases'));
+        return view('stores.compras.compras-productos', compact('store', 'purchases'));
     }
 
     public function createProductPurchase(Store $store, StorePermissionService $permission)
@@ -297,7 +297,7 @@ class StoreController extends Controller
 
         $proveedores = $store->proveedores()->orderBy('nombre')->get();
 
-        return view('stores.compra-productos-crear', compact('store', 'proveedores'));
+        return view('stores.compras.compra-productos-crear', compact('store', 'proveedores'));
     }
 
     public function storeProductPurchase(Store $store, Request $request, PurchaseService $purchaseService, StorePermissionService $permission)
@@ -429,7 +429,7 @@ class StoreController extends Controller
         session(['current_store_id' => $store->id]);
         $proveedores = $store->proveedores()->orderBy('nombre')->get();
 
-        return view('stores.compra-productos-crear', compact('store', 'purchase', 'proveedores', 'detailsForEdit'));
+        return view('stores.compras.compra-productos-crear', compact('store', 'purchase', 'proveedores', 'detailsForEdit'));
     }
 
     public function updateProductPurchase(Store $store, Purchase $purchase, Request $request, PurchaseService $purchaseService, StorePermissionService $permission)

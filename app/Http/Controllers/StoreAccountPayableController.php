@@ -29,7 +29,7 @@ class StoreAccountPayableController extends Controller
         $accountsPayables = $this->accountPayableService->listarCuentasPorPagar($store, $filtros);
         $deudaTotal = $this->accountPayableService->deudaTotal($store);
 
-        return view('stores.cuentas-por-pagar', compact('store', 'accountsPayables', 'deudaTotal'));
+        return view('stores.cuentasporcobrarypagar.cuentas-por-pagar', compact('store', 'accountsPayables', 'deudaTotal'));
     }
 
     public function show(Store $store, AccountPayable $accountPayable)
@@ -43,7 +43,7 @@ class StoreAccountPayableController extends Controller
         $accountPayable = $this->accountPayableService->obtenerCuentaPorPagar($store, $accountPayable->id);
         $bolsillos = Bolsillo::deTienda($store->id)->activos()->orderBy('name')->get();
 
-        return view('stores.cuenta-por-pagar-detalle', compact('store', 'accountPayable', 'bolsillos'));
+        return view('stores.cuentasporcobrarypagar.cuenta-por-pagar-detalle', compact('store', 'accountPayable', 'bolsillos'));
     }
 
     public function pay(Store $store, AccountPayable $accountPayable, Request $request)

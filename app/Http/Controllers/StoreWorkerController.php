@@ -47,7 +47,7 @@ class StoreWorkerController extends Controller
 
         $rolesList = Role::where('store_id', $store->id)->orderBy('name')->get();
 
-        return view('stores.workers', compact('store', 'workersList', 'rolesList'));
+        return view('stores.trabajadoryrol.workers', compact('store', 'workersList', 'rolesList'));
     }
 
     public function create(Store $store, StorePermissionService $permission)
@@ -56,7 +56,7 @@ class StoreWorkerController extends Controller
 
         $rolesList = Role::where('store_id', $store->id)->orderBy('name')->get();
 
-        return view('stores.worker-create', compact('store', 'rolesList'));
+        return view('stores.trabajadoryrol.worker-create', compact('store', 'rolesList'));
     }
 
     public function store(Store $store, StoreWorkerRequest $request, StorePermissionService $permission, WorkerService $workerService)
@@ -87,7 +87,7 @@ class StoreWorkerController extends Controller
 
         $rolesList = Role::where('store_id', $store->id)->orderBy('name')->get();
 
-        return view('stores.worker-edit', compact('store', 'worker', 'rolesList'));
+        return view('stores.trabajadoryrol.worker-edit', compact('store', 'worker', 'rolesList'));
     }
 
     public function update(Store $store, Worker $worker, StoreWorkerRequest $request, StorePermissionService $permission, WorkerService $workerService)

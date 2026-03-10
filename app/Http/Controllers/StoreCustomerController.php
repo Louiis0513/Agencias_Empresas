@@ -21,7 +21,7 @@ class StoreCustomerController extends Controller
 
         $customers = $customerService->getStoreCustomers($store, $filtros);
 
-        return view('stores.clientes', compact('store', 'customers'));
+        return view('stores.customer.clientes', compact('store', 'customers'));
     }
 
     public function store(Store $store, StoreCustomerRequest $request, CustomerService $customerService, StorePermissionService $permission)

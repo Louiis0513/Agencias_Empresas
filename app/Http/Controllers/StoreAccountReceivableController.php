@@ -35,7 +35,7 @@ class StoreAccountReceivableController extends Controller
         $saldoPendiente = $this->accountReceivableService->saldoPendienteTotal($store);
         $customers = $this->customerService->getAllStoreCustomers($store);
 
-        return view('stores.cuentas-por-cobrar', compact('store', 'cuentas', 'saldoPendiente', 'customers'));
+        return view('stores.cuentasporcobrarypagar.cuentas-por-cobrar', compact('store', 'cuentas', 'saldoPendiente', 'customers'));
     }
 
     public function show(Store $store, AccountReceivable $accountReceivable)
@@ -49,7 +49,7 @@ class StoreAccountReceivableController extends Controller
         $accountReceivable = $this->accountReceivableService->obtener($store, $accountReceivable->id);
         $bolsillos = Bolsillo::deTienda($store->id)->activos()->orderBy('name')->get();
 
-        return view('stores.cuenta-por-cobrar-detalle', compact('store', 'accountReceivable', 'bolsillos'));
+        return view('stores.cuentasporcobrarypagar.cuenta-por-cobrar-detalle', compact('store', 'accountReceivable', 'bolsillos'));
     }
 
     public function cobrar(Store $store, AccountReceivable $accountReceivable, Request $request)

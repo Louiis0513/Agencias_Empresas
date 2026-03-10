@@ -37,7 +37,7 @@ class StoreInvoiceController extends Controller
         $customers = $customerService->getAllStoreCustomers($store);
         $bolsillos = $store->bolsillos()->activos()->orderBy('name')->get();
 
-        return view('stores.facturas', compact('store', 'invoices', 'customers', 'rangoFechas', 'bolsillos'));
+        return view('stores.factura.facturas', compact('store', 'invoices', 'customers', 'rangoFechas', 'bolsillos'));
     }
 
     public function show(Store $store, Invoice $invoice, InvoiceService $invoiceService, StorePermissionService $permission)
@@ -50,7 +50,7 @@ class StoreInvoiceController extends Controller
 
         $invoice = $invoiceService->obtenerFactura($store, $invoice->id);
 
-        return view('stores.factura-detalle', compact('store', 'invoice'));
+        return view('stores.factura.factura-detalle', compact('store', 'invoice'));
     }
 
     public function store(Store $store, StoreInvoiceRequest $request, VentaService $ventaService, StorePermissionService $permission)

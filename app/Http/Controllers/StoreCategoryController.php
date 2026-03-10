@@ -19,7 +19,7 @@ class StoreCategoryController extends Controller
         $categoryTree = $categoryService->getCategoryTreePaginated($store, $request->input('search'), 10);
         $categoriesFlat = $categoryService->getFlatList($store);
 
-        return view('stores.categorias', compact('store', 'categoryTree', 'categoriesFlat'));
+        return view('stores.productos.categorias', compact('store', 'categoryTree', 'categoriesFlat'));
     }
 
     public function show(Store $store, Category $category, StorePermissionService $permission)
@@ -33,7 +33,7 @@ class StoreCategoryController extends Controller
         $category->load(['attributes']);
         $products = $category->products()->orderBy('name')->get();
 
-        return view('stores.category-show', compact('store', 'category', 'products'));
+        return view('stores.productos.category-show', compact('store', 'category', 'products'));
     }
 
     public function destroy(Store $store, Category $category, CategoryService $categoryService, StorePermissionService $permission)
@@ -57,7 +57,7 @@ class StoreCategoryController extends Controller
         $storeAttributeGroups = $attributeService->getStoreAttributeGroups($store);
         $categoryAttributes = $category->attributes()->with(['groups'])->get();
 
-        return view('stores.category-attributes', compact('store', 'category', 'storeAttributeGroups', 'categoryAttributes'));
+        return view('stores.productos.category-attributes', compact('store', 'category', 'storeAttributeGroups', 'categoryAttributes'));
     }
 
     public function assignAttributes(Store $store, Category $category, StoreCategoryRequest $request, AttributeService $attributeService, StorePermissionService $permission)

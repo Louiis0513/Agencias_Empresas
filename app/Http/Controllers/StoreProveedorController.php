@@ -21,14 +21,14 @@ class StoreProveedorController extends Controller
 
         $proveedores = $proveedorService->listarProveedores($store, $filtros);
 
-        return view('stores.proveedores', compact('store', 'proveedores'));
+        return view('stores.proovedor.proveedores', compact('store', 'proveedores'));
     }
 
     public function create(Store $store, StorePermissionService $permission)
     {
         $permission->authorize($store, 'proveedores.create');
 
-        return view('stores.proveedores', compact('store'));
+        return view('stores.proovedor.proveedores', compact('store'));
     }
 
     public function store(Store $store, StoreProveedorRequest $request, ProveedorService $proveedorService, StorePermissionService $permission)
@@ -56,7 +56,7 @@ class StoreProveedorController extends Controller
             abort(404);
         }
 
-        return view('stores.proveedores', compact('store', 'proveedor'));
+        return view('stores.proovedor.proveedores', compact('store', 'proveedor'));
     }
 
     public function update(Store $store, Proveedor $proveedor, StoreProveedorRequest $request, ProveedorService $proveedorService, StorePermissionService $permission)

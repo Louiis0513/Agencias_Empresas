@@ -23,7 +23,7 @@ class StoreRoleController extends Controller
 
         $allPermissions = Permission::orderBy('name')->get();
 
-        return view('stores.roles', compact('store', 'roles', 'allPermissions'));
+        return view('stores.trabajadoryrol.roles', compact('store', 'roles', 'allPermissions'));
     }
 
     public function store(Store $store, StoreRoleRequest $request, StorePermissionService $permission)
@@ -87,7 +87,7 @@ class StoreRoleController extends Controller
         $allPermissions = Permission::orderBy('name')->get();
         $workersWithRole = $store->workerRecords()->where('role_id', $role->id)->get();
 
-        return view('stores.role-permissions', compact('store', 'role', 'allPermissions', 'workersWithRole'));
+        return view('stores.trabajadoryrol.role-permissions', compact('store', 'role', 'allPermissions', 'workersWithRole'));
     }
 
     public function updatePermissions(Store $store, Role $role, StoreRoleRequest $request, StorePermissionService $permission)

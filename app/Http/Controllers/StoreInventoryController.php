@@ -60,6 +60,6 @@ class StoreInventoryController extends Controller
             }
         }
 
-        return view('stores.inventario', compact('store', 'movimientos', 'productoSeleccionado', 'productoSeleccionadoDisplay'));
+        return view('stores.productos.inventario', compact('store', 'movimientos', 'productoSeleccionado', 'productoSeleccionadoDisplay'));
     }
 }

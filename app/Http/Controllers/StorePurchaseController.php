@@ -34,7 +34,7 @@ class StorePurchaseController extends Controller
         $purchases = $this->purchaseService->listarCompras($store, $filtros);
         $proveedores = $store->proveedores()->orderBy('nombre')->get();
 
-        return view('stores.compras', compact('store', 'purchases', 'proveedores'));
+        return view('stores.compras.compras', compact('store', 'purchases', 'proveedores'));
     }
 
     public function create(Store $store)
@@ -43,7 +43,7 @@ class StorePurchaseController extends Controller
 
         $proveedores = $store->proveedores()->orderBy('nombre')->get();
 
-        return view('stores.compra-crear', compact('store', 'proveedores'));
+        return view('stores.compras.compra-crear', compact('store', 'proveedores'));
     }
 
     public function store(Store $store, Request $request)
@@ -90,7 +90,7 @@ class StorePurchaseController extends Controller
         $purchase = $this->purchaseService->obtenerCompra($store, $purchase->id);
         $bolsillos = Bolsillo::deTienda($store->id)->activos()->orderBy('name')->get();
 
-        return view('stores.compra-detalle', compact('store', 'purchase', 'bolsillos'));
+        return view('stores.compras.compra-detalle', compact('store', 'purchase', 'bolsillos'));
     }
 
     public function edit(Store $store, Purchase $purchase)
@@ -104,7 +104,7 @@ class StorePurchaseController extends Controller
         $purchase->load(['details.product', 'details.activo', 'proveedor']);
         $proveedores = $store->proveedores()->orderBy('nombre')->get();
 
-        return view('stores.compra-editar', compact('store', 'purchase', 'proveedores'));
+        return view('stores.compras.compra-editar', compact('store', 'purchase', 'proveedores'));
     }
 
     public function update(Store $store, Purchase $purchase, Request $request)
