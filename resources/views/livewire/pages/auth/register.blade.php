@@ -12,7 +12,7 @@ use Illuminate\Validation\Rules;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 
-new #[Layout('layouts.guest')] class extends Component
+new #[Layout('layouts.guest-centradia')] class extends Component
 {
     public string $name = '';
     public string $email = '';
@@ -56,54 +56,95 @@ new #[Layout('layouts.guest')] class extends Component
     }
 }; ?>
 
-<div>
-    <form wire:submit="register">
+<div class="space-y-6">
+    <header>
+        <h1 class="text-xl sm:text-2xl font-semibold tracking-tight text-slate-50">
+            Crea tu cuenta para empezar
+        </h1>
+    </header>
+
+    <form wire:submit="register" class="space-y-4 mt-2">
         <!-- Name -->
         <div>
-            <x-input-label for="name" :value="__('Name')" />
-            <x-text-input wire:model="name" id="name" class="block mt-1 w-full" type="text" name="name" required autofocus autocomplete="name" />
-            <x-input-error :messages="$errors->get('name')" class="mt-2" />
+            <x-input-label for="name" value="Nombre completo" class="text-xs font-medium text-slate-200" />
+            <x-text-input
+                wire:model="name"
+                id="name"
+                class="mt-1 block w-full rounded-xl border border-slate-700 bg-slate-900/70 text-slate-50 placeholder:text-slate-500 focus:border-sky-400 focus:ring-sky-500"
+                type="text"
+                name="name"
+                required
+                autofocus
+                autocomplete="name"
+                placeholder="Cómo te llamas"
+            />
+            <x-input-error :messages="$errors->get('name')" class="mt-2 text-xs" />
         </div>
 
         <!-- Email Address -->
-        <div class="mt-4">
-            <x-input-label for="email" :value="__('Email')" />
-            <x-text-input wire:model="email" id="email" class="block mt-1 w-full" type="email" name="email" required autocomplete="username" />
-            <x-input-error :messages="$errors->get('email')" class="mt-2" />
+        <div>
+            <x-input-label for="email" value="Correo electrónico" class="text-xs font-medium text-slate-200" />
+            <x-text-input
+                wire:model="email"
+                id="email"
+                class="mt-1 block w-full rounded-xl border border-slate-700 bg-slate-900/70 text-slate-50 placeholder:text-slate-500 focus:border-sky-400 focus:ring-sky-500"
+                type="email"
+                name="email"
+                required
+                autocomplete="username"
+                placeholder="tu@empresa.com"
+            />
+            <x-input-error :messages="$errors->get('email')" class="mt-2 text-xs" />
         </div>
 
         <!-- Password -->
-        <div class="mt-4">
-            <x-input-label for="password" :value="__('Password')" />
-            <p class="mt-1 text-xs text-gray-500">Debe contener al menos 8 caracteres, 1 mayúscula y 1 símbolo.</p>
+        <div>
+            <x-input-label for="password" value="Contraseña" class="text-xs font-medium text-slate-200" />
+            <p class="mt-1 text-[11px] text-slate-400">
+                Debe tener al menos 8 caracteres, una mayúscula y un símbolo.
+            </p>
 
-            <x-text-input wire:model="password" id="password" class="block mt-1 w-full"
-                            type="password"
-                            name="password"
-                            required autocomplete="new-password" />
-
-            <x-input-error :messages="$errors->get('password')" class="mt-2" />
+            <x-text-input
+                wire:model="password"
+                id="password"
+                class="mt-1 block w-full rounded-xl border border-slate-700 bg-slate-900/70 text-slate-50 placeholder:text-slate-500 focus:border-sky-400 focus:ring-sky-500"
+                type="password"
+                name="password"
+                required
+                autocomplete="new-password"
+                placeholder="Crea una contraseña segura"
+            />
+            <x-input-error :messages="$errors->get('password')" class="mt-2 text-xs" />
         </div>
 
         <!-- Confirm Password -->
-        <div class="mt-4">
-            <x-input-label for="password_confirmation" :value="__('Confirm Password')" />
+        <div>
+            <x-input-label for="password_confirmation" value="Confirmar contraseña" class="text-xs font-medium text-slate-200" />
 
-            <x-text-input wire:model="password_confirmation" id="password_confirmation" class="block mt-1 w-full"
-                            type="password"
-                            name="password_confirmation" required autocomplete="new-password" />
-
-            <x-input-error :messages="$errors->get('password_confirmation')" class="mt-2" />
+            <x-text-input
+                wire:model="password_confirmation"
+                id="password_confirmation"
+                class="mt-1 block w-full rounded-xl border border-slate-700 bg-slate-900/70 text-slate-50 placeholder:text-slate-500 focus:border-sky-400 focus:ring-sky-500"
+                type="password"
+                name="password_confirmation"
+                required
+                autocomplete="new-password"
+                placeholder="Repite tu contraseña"
+            />
+            <x-input-error :messages="$errors->get('password_confirmation')" class="mt-2 text-xs" />
         </div>
 
-        <div class="flex items-center justify-end mt-4">
-            <a class="underline text-sm text-gray-600 hover:text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" href="{{ route('login') }}" wire:navigate>
-                {{ __('Already registered?') }}
-            </a>
-
-            <x-primary-button class="ms-4">
-                {{ __('Register') }}
+        <div class="pt-2 flex flex-col gap-3">
+            <x-primary-button class="w-full justify-center rounded-full bg-sky-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-md shadow-sky-500/40 hover:bg-sky-400 focus:ring-sky-500">
+                Crear cuenta
             </x-primary-button>
+
+            <p class="text-[11px] text-slate-500 text-center">
+                ¿Ya tienes cuenta?
+                <a href="{{ route('login') }}" wire:navigate class="font-medium text-sky-300 hover:text-sky-200">
+                    Inicia sesión
+                </a>
+            </p>
         </div>
     </form>
 </div>

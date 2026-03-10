@@ -25,7 +25,9 @@ use App\Http\Controllers\VitrinaController;
 use App\Http\Controllers\PanelSuscripcionesAuthController;
 use App\Http\Controllers\PanelSuscripcionesController;
 
-Route::view('/', 'welcome');
+Route::view('/', 'marketing.centradia')->name('centradia.landing');
+Route::view('/centradia', 'marketing.centradia');
+Route::view('/laravel-welcome', 'welcome')->name('laravel.welcome');
 
 Route::view('dashboard', 'dashboard')
     ->middleware(['auth', 'verified'])
