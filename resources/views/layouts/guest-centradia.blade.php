@@ -34,7 +34,12 @@
                 </a>
                 <div class="hidden sm:flex items-center gap-3 text-xs text-slate-300">
                     <span class="hidden md:inline text-slate-400">¿Necesitas ayuda?</span>
-                    <a href="{{ url('/#cta') }}" class="rounded-full border border-slate-600/80 bg-slate-900/60 px-3 py-1.5 text-[11px] font-medium hover:border-sky-400 hover:text-sky-200 transition">
+                    <a
+                        href="https://wa.me/573015031041?text={{ urlencode('Hola, necesito ayuda con CENTRADIA.') }}"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="rounded-full border border-slate-600/80 bg-slate-900/60 px-3 py-1.5 text-[11px] font-medium hover:border-sky-400 hover:text-sky-200 transition"
+                    >
                         Hablar con un asesor
                     </a>
                 </div>
