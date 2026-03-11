@@ -47,36 +47,10 @@
         </header>
 
         <main class="flex-1">
-            <div class="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-10 sm:py-16">
-                <div class="flex justify-center">
-                    <div class="relative w-full max-w-3xl">
-                        {{-- Tarjeta de logo / bienvenida (clara, por detrás) --}}
-                        <div class="hidden sm:block absolute -left-6 top-6 w-1/2 rounded-2xl bg-white px-6 py-7 shadow-lg shadow-black/10">
-                            <div class="flex flex-col items-start gap-4">
-                                <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-900/5">
-                                    <img
-                                        src="{{ asset('centradialogo.png') }}"
-                                        alt="CENTRADIA"
-                                        class="h-10 w-auto"
-                                    >
-                                </div>
-                                <div>
-                                    <h2 class="text-sm font-semibold text-slate-900">
-                                        Bienvenido a CENTRADIA
-                                    </h2>
-                                    <p class="mt-2 text-xs text-slate-500">
-                                        Inicia sesión o crea tu cuenta para centralizar la operación de tu empresa.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {{-- Tarjeta del formulario (oscura, al frente) --}}
-                        <section class="relative z-10 mx-auto w-full rounded-2xl bg-slate-950 border border-slate-800 px-6 py-8 sm:px-8 sm:py-9 shadow-2xl shadow-black/50 sm:w-3/5">
-                            {{ $slot }}
-                        </section>
-                    </div>
-                </div>
+            <div class="mx-auto max-w-md px-4 sm:px-6 lg:px-8 py-10 sm:py-16">
+                <section class="w-full rounded-2xl border border-slate-800 bg-slate-950/95 px-6 py-8 sm:px-8 sm:py-9 shadow-xl shadow-black/40">
+                    {{ $slot }}
+                </section>
             </div>
         </main>
 
