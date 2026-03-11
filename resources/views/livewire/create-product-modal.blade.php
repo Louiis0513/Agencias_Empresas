@@ -151,19 +151,6 @@
                         <x-input-error :messages="$errors->get('name')" class="mt-1" />
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <x-input-label for="sku_batch" value="{{ __('SKU') }}" />
-                            <x-text-input wire:model="sku" id="sku_batch" class="block mt-1 w-full" type="text" placeholder="Ej: LEC-001" />
-                            <x-input-error :messages="$errors->get('sku')" class="mt-1" />
-                        </div>
-                        <div>
-                            <x-input-label for="barcode_batch" value="{{ __('Barcode') }}" />
-                            <x-text-input wire:model="barcode" id="barcode_batch" class="block mt-1 w-full" type="text" placeholder="Ej: 8412345678901" />
-                            <x-input-error :messages="$errors->get('barcode')" class="mt-1" />
-                        </div>
-                    </div>
-
                     @if($this->categoriesWithAttributes->isNotEmpty())
                         <div>
                             <x-input-label for="category_id_batch" value="{{ __('Categoría') }}" />

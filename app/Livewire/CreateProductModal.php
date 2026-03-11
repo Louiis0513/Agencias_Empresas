@@ -209,7 +209,13 @@ class CreateProductModal extends Component
         $this->variants = [];
         $this->serializedItems = [];
         $this->attribute_values = [];
-        
+
+        // En producto por lote, SKU/Barcode son por variante; no enviar valores a nivel producto
+        if ($this->type === MovimientoInventario::PRODUCT_TYPE_BATCH) {
+            $this->sku = '';
+            $this->barcode = '';
+        }
+
         // Si cambia a tipo Lote y ya hay una categoría seleccionada, agregar automáticamente la primera variante
         if ($this->type === MovimientoInventario::PRODUCT_TYPE_BATCH && $this->category_id) {
             $cat = $this->getSelectedCategoryProperty();

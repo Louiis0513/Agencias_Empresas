@@ -61,6 +61,7 @@ class VitrinaController extends Controller
 		}
 
 		$order = $request->input('order', 'price_asc');
+		$search = $request->filled('search') ? trim($request->input('search')) : null;
 
 		if ($currentCategoryId) {
 			$currentCategory = Category::where('store_id', $store->id)
@@ -201,6 +202,10 @@ class VitrinaController extends Controller
                 }
             }
 
+			if ($search !== null && $search !== '') {
+				$catalogItems = $catalogItems->filter(fn ($item) => $this->displayNameMatchesSearch($item->display_name, $search))->values();
+			}
+
 			if ($order === 'price_desc') {
 				$catalogItems = $catalogItems->sortByDesc('price')->values();
 			} else {
@@ -245,6 +250,7 @@ class VitrinaController extends Controller
 			'order' => $order,
 			'pageSize' => $pageSize,
 			'pageSizeOptions' => $allowedPageSizes,
+			'search' => $search,
             'plans' => $plans,
             'cartItems' => $cartItems,
             'cartSubtotal' => $totals['subtotal'],
@@ -493,6 +499,56 @@ class VitrinaController extends Controller
 			return ['product_id' => $productId, 'product_variant_id' => $variantId, 'quantity' => $quantity];
 		}
 		return ['product_id' => $productId, 'quantity' => $quantity];
+	}
+
+	/**
+	 * Búsqueda por "contiene": el texto del producto coincide si la búsqueda está contenida
+	 * o si alguna palabra de la búsqueda coincide con alguna palabra del nombre/atributos
+	 * (p. ej. "camisetas" encuentra "Camiseta" y "camiseta" encuentra "Camisetas").
+	 */
+	private function displayNameMatchesSearch(string $displayName, string $search): bool
+	{
+		$displayName = (string) $displayName;
+		$search = trim((string) $search);
+		if ($search === '') {
+			return true;
+		}
+		// Coincidencia directa: la búsqueda está contenida en el nombre
+		if (stripos($displayName, $search) !== false) {
+			return true;
+		}
+		// Por palabras: cada palabra de la búsqueda debe coincidir con algún token del nombre
+		$searchWords = array_filter(preg_split('/\s+/', $search, -1, PREG_SPLIT_NO_EMPTY));
+		$tokens = array_filter(preg_split('/[\s,()]+/u', $displayName, -1, PREG_SPLIT_NO_EMPTY));
+		$displayLower = mb_strtolower($displayName);
+		foreach ($searchWords as $searchWord) {
+			$sw = mb_strtolower($searchWord);
+			$found = false;
+			foreach ($tokens as $token) {
+				$tk = mb_strtolower(trim($token, ':'));
+				if ($tk === '' || $sw === '') {
+					continue;
+				}
+				// Contiene: la palabra del usuario está en el token
+				if (mb_strpos($tk, $sw) !== false) {
+					$found = true;
+					break;
+				}
+				// O el token está en la palabra del usuario, solo si el token tiene al menos 2 caracteres
+				// (evita que "S", "M", "L" de tallas coincidan con "camiseta", "mesa", etc.)
+				if (mb_strlen($tk) >= 2 && mb_strpos($sw, $tk) !== false) {
+					$found = true;
+					break;
+				}
+			}
+			if (! $found && mb_strpos($displayLower, $sw) !== false) {
+				$found = true;
+			}
+			if (! $found) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/**

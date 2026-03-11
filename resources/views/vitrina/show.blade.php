@@ -46,8 +46,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ $store->name }} - Vitrina</title>
     @vite('resources/css/app.css')
+    <style>
+        /* Ocultar flechas del input number: ya usamos botones + y - */
+        .js-qty-group input[type="number"]::-webkit-outer-spin-button,
+        .js-qty-group input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        .js-qty-group input[type="number"] {
+            -moz-appearance: textfield;
+            appearance: textfield;
+        }
+    </style>
 </head>
-<body class="min-h-screen bg-gray-100" @if(session('show_checkout_modal')) data-show-checkout-modal="1" @endif @if(session('auth_form')) data-auth-form="{{ session('auth_form') }}" @endif>
+<body class="min-h-screen bg-gray-100" @if(session('show_checkout_modal')) data-show-checkout-modal="1" @endif @if(session('auth_form')) data-auth-form="{{ session('auth_form') }}" @endif data-cart-url="{{ route('vitrina.show', ['slug' => $config->slug, 'view' => 'cart']) }}">
     <div
         class="min-h-screen flex flex-col"
         style="background-image: url('{{ $bgUrl }}'); background-size: cover; background-position: center;"
@@ -228,6 +240,16 @@
                             {{-- Contenido de campos de filtro --}}
                             <div class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5 min-w-0">
                                 <div class="lg:col-span-5">
+                                    <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1">Nombre del producto</label>
+                                    <input
+                                        type="text"
+                                        name="search"
+                                        value="{{ old('search', request('search', $search ?? '')) }}"
+                                        placeholder="Nombre del producto"
+                                        class="w-full rounded-lg border-gray-200 bg-white text-gray-900 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                    >
+                                </div>
+                                <div class="lg:col-span-5">
                                     <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1">Categoría principal</label>
                                     <select
                                         name="root_category_id"
@@ -331,7 +353,9 @@
                                         data-product-id="{{ $item->product_id ?? 0 }}"
                                         data-variant-id="{{ $item->variant_id ?? 0 }}"
                                         data-product-item-id="{{ $item->product_item_id ?? 0 }}"
-                                        data-stock="{{ (int) ($item->stock ?? 0) }}">
+                                        data-stock="{{ (int) ($item->stock ?? 0) }}"
+                                        data-unit-price="{{ (float) ($item->price ?? 0) }}"
+                                        data-currency="{{ $store->currency ?? 'COP' }}">
                                     <div class="mb-3">
     {{-- CONTENEDOR EXTERNO: Cuadrado perfecto --}}
     <div style="position: relative; width: 100%; aspect-ratio: 1 / 1; background-color: #ffffff; border-radius: 0.5rem; border: 1px solid #f3f4f6; overflow: hidden;">
@@ -366,7 +390,14 @@
                                                 $canAdd = $stock > 0;
                                                 $isSerialized = !empty($item->product_item_id);
                                                 $maxQty = $isSerialized ? 1 : max(1, $stock);
+                                                $itemLineKey = $item->product_id . '_' . ($item->variant_id ?? 0) . '_' . ($item->product_item_id ?? 0);
+                                                $inCart = collect($cartItems ?? [])->contains(fn($r) => ($r['line_key'] ?? '') === $itemLineKey);
                                             @endphp
+                                            @if ($inCart)
+                                                <a href="{{ route('vitrina.show', ['slug' => $config->slug, 'view' => 'cart']) }}" class="mt-3 inline-flex items-center justify-center px-3 py-2 rounded-lg text-sm font-medium shadow transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-offset-1" style="background-color: {{ $primaryColor }}; color: #ffffff;">
+                                                    Ver en carrito
+                                                </a>
+                                            @else
                                             <form method="POST" action="{{ route('vitrina.cart.add', $config->slug) }}" class="mt-3 js-add-to-cart-form">
                                                 @csrf
                                                 <input type="hidden" name="product_id" value="{{ $item->product_id }}">
@@ -377,20 +408,26 @@
                                                     <input type="hidden" name="product_item_id" value="{{ $item->product_item_id }}">
                                                 @endif
                                                 @if (!$isSerialized && $maxQty > 1)
-                                                    <label for="qty-{{ $item->product_id }}-{{ $item->variant_id ?? 0 }}-{{ $item->product_item_id ?? 0 }}" class="sr-only">Cantidad</label>
-                                                    <input type="number" name="quantity" id="qty-{{ $item->product_id }}-{{ $item->variant_id ?? 0 }}-{{ $item->product_item_id ?? 0 }}" value="1" min="1" max="{{ $maxQty }}" class="mb-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                                    <div class="js-qty-group inline-flex items-center max-w-[140px] rounded-lg border border-gray-300 overflow-hidden mb-2" role="group" aria-label="Cantidad">
+                                                        <button type="button" class="js-qty-minus w-9 h-9 flex items-center justify-center bg-gray-100 text-gray-700 font-medium hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-500" aria-label="Disminuir">−</button>
+                                                        <label for="qty-{{ $item->product_id }}-{{ $item->variant_id ?? 0 }}-{{ $item->product_item_id ?? 0 }}" class="sr-only">Cantidad</label>
+                                                        <input type="number" name="quantity" id="qty-{{ $item->product_id }}-{{ $item->variant_id ?? 0 }}-{{ $item->product_item_id ?? 0 }}" value="1" min="1" max="{{ $maxQty }}" class="js-qty-input w-12 h-9 text-center border-0 border-x border-gray-300 text-sm">
+                                                        <button type="button" class="js-qty-plus w-9 h-9 flex items-center justify-center bg-gray-100 text-gray-700 font-medium hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-500" aria-label="Aumentar">+</button>
+                                                    </div>
+                                                    <p class="text-sm text-gray-700 mb-2">Total: <span class="js-line-total font-medium">{{ money($item->price, $store->currency ?? 'COP', false) }}</span></p>
                                                 @else
                                                     <input type="hidden" name="quantity" value="1">
                                                 @endif
                                                 <button
                                                     type="submit"
                                                     @if (!$canAdd) disabled @endif
-                                                    class="w-full inline-flex items-center justify-center px-3 py-2 rounded-lg text-sm font-medium shadow transition focus:outline-none focus:ring-2 focus:ring-offset-1 {{ $canAdd ? 'hover:brightness-110' : 'opacity-50 cursor-not-allowed' }}"
+                                                    class="js-add-to-cart-btn w-full inline-flex items-center justify-center px-3 py-2 rounded-lg text-sm font-medium shadow transition focus:outline-none focus:ring-2 focus:ring-offset-1 {{ $canAdd ? 'hover:brightness-110' : 'opacity-50 cursor-not-allowed' }}"
                                                     style="{{ $canAdd ? 'background-color: ' . $primaryColor . '; color: #ffffff;' : 'background-color: #9ca3af; color: #ffffff;' }}"
                                                 >
                                                     {{ $canAdd ? 'Añadir al carrito' : 'No disponible' }}
                                                 </button>
                                             </form>
+                                            @endif
                                         @endif
                                     </div>
                                 @endforeach
@@ -398,6 +435,18 @@
                             <div class="mt-6">
                                 {{ $catalogPaginator->appends(request()->except('page'))->fragment('catalogo')->links() }}
                             </div>
+                        </div>
+                    @endif
+                    @if ($config->show_products && isset($catalogPaginator) && $catalogPaginator && $catalogPaginator->isEmpty() && !empty(trim($search ?? '')))
+                        <div class="bg-white/90 backdrop-blur rounded-xl shadow border border-gray-100 p-6 sm:p-8 text-center">
+                            <p class="text-gray-600 mb-2">No se encontraron productos con ese nombre.</p>
+                            <p class="text-sm text-gray-500 mb-4">Prueba con otro término o limpia el filtro de búsqueda.</p>
+                            <a
+                                href="{{ url()->current() }}#catalogo"
+                                class="inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            >
+                                Limpiar filtros
+                            </a>
                         </div>
                     @endif
                     @if ($config->show_plans && $plans->isNotEmpty())
@@ -749,6 +798,48 @@
             if (count === 0) cartCountEl.classList.add('hidden');
         }
 
+        function formatLineTotal(amount, currency) {
+            var n = parseFloat(amount) || 0;
+            currency = (currency || 'COP').toUpperCase();
+            if (currency === 'COP') {
+                return Math.round(n).toLocaleString('es-CO', { maximumFractionDigits: 0 });
+            }
+            return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function updateLineTotal(card) {
+            var totalEl = card ? card.querySelector('.js-line-total') : null;
+            if (!totalEl) return;
+            var input = card.querySelector('.js-qty-input');
+            var qty = input ? (parseInt(input.value, 10) || 1) : 1;
+            var unitPrice = parseFloat(card.getAttribute('data-unit-price')) || 0;
+            var currency = card.getAttribute('data-currency') || 'COP';
+            totalEl.textContent = formatLineTotal(unitPrice * qty, currency);
+        }
+
+        document.querySelectorAll('.js-qty-group').forEach(function(group) {
+            var card = group.closest('.js-product-card');
+            var input = group.querySelector('.js-qty-input');
+            if (!input || !card) return;
+            var min = parseInt(input.getAttribute('min'), 10) || 1;
+            var max = parseInt(input.getAttribute('max'), 10) || 999;
+            function clamp(v) { return Math.max(min, Math.min(max, v)); }
+            function sync() {
+                var v = clamp(parseInt(input.value, 10) || min);
+                input.value = v;
+                updateLineTotal(card);
+            }
+            group.querySelector('.js-qty-minus').addEventListener('click', function() {
+                input.value = clamp((parseInt(input.value, 10) || min) - 1);
+                sync();
+            });
+            group.querySelector('.js-qty-plus').addEventListener('click', function() {
+                input.value = clamp((parseInt(input.value, 10) || min) + 1);
+                sync();
+            });
+            input.addEventListener('change', sync);
+        });
+
         var checkoutModal = document.getElementById('vitrina-checkout-modal');
         var checkoutOpenBtn = document.getElementById('vitrina-checkout-open-modal');
         var checkoutCloseBtn = document.getElementById('vitrina-checkout-close-modal');
@@ -833,29 +924,14 @@
                                 stockText.classList.remove('text-gray-500', 'text-red-600');
                                 stockText.classList.add(newStock > 0 ? 'text-gray-500' : 'text-red-600');
                             }
-                            if (qtyInput && qtyInput.type === 'number') {
-                                qtyInput.setAttribute('max', newStock);
-                                var val = parseInt(qtyInput.value, 10) || 1;
-                                if (val > newStock) qtyInput.value = newStock;
-                            }
-                            var btn = form.querySelector('button[type="submit"]');
-                            if (btn) {
-                                if (newStock === 0) {
-                                    btn.disabled = true;
-                                    btn.textContent = 'No disponible';
-                                    btn.classList.add('opacity-50', 'cursor-not-allowed');
-                                    btn.classList.remove('hover:brightness-110');
-                                    btn.style.backgroundColor = '#9ca3af';
-                                    btn.style.color = '#ffffff';
-                                } else {
-                                    btn.disabled = false;
-                                    btn.textContent = 'Añadir al carrito';
-                                    btn.classList.remove('opacity-50', 'cursor-not-allowed');
-                                    btn.classList.add('hover:brightness-110');
-                                    btn.style.backgroundColor = primaryColor || '#10b981';
-                                    btn.style.color = '#ffffff';
-                                }
-                            }
+                            var cartUrl = document.body.getAttribute('data-cart-url') || '';
+                            var link = document.createElement('a');
+                            link.href = cartUrl;
+                            link.className = 'mt-3 inline-flex items-center justify-center px-3 py-2 rounded-lg text-sm font-medium shadow transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-offset-1';
+                            link.style.backgroundColor = primaryColor || '#10b981';
+                            link.style.color = '#ffffff';
+                            link.textContent = 'Ver en carrito';
+                            form.parentNode.replaceChild(link, form);
                         }
                     } else {
                         showToast((result.data && result.data.message) ? result.data.message : 'No se pudo añadir al carrito.');
