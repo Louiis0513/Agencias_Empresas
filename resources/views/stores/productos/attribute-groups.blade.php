@@ -33,13 +33,13 @@
             <div class="bg-dark-card border border-white/5 sm:rounded-xl overflow-visible">
                 <div class="p-6">
                     {{-- Filtro y botón crear grupo --}}
-                    <div class="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-                        <form method="GET" action="{{ route('stores.attribute-groups', $store) }}" class="flex-1 w-full flex flex-wrap gap-2">
+                    <div class="mb-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                        <form method="GET" action="{{ route('stores.attribute-groups', $store) }}" class="flex flex-col sm:flex-row gap-2 sm:items-center w-full lg:max-w-2xl">
                             <input type="text"
                                    name="search"
                                    value="{{ request('search') }}"
                                    placeholder="Buscar por nombre del grupo o del atributo"
-                                   class="min-w-0 flex-1 rounded-md border-white/10 bg-white/5 text-gray-100">
+                                   class="min-w-0 flex-1 rounded-md border border-white/10 bg-white/5 text-gray-100 px-3 py-2 text-sm focus:ring-2 focus:ring-brand/50 focus:border-brand/50">
                             <button type="submit"
                                     class="px-4 py-2 bg-brand text-white rounded-xl shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)] transition shrink-0">
                                 Buscar
@@ -74,7 +74,7 @@
                                             <span class="font-semibold text-gray-100 truncate">{{ $group->name }}</span>
                                             <span class="text-xs text-gray-500 shrink-0">{{ $group->attributes->count() }} attr.</span>
                                         </div>
-                                        <div @click.stop class="shrink-0 relative z-10">
+                                        <div @click.stop class="shrink-0">
                                             <x-dropdown align="right" width="48" content-classes="py-1 bg-dark-card border border-white/5 shadow-xl ring-1 ring-black/20">
                                                 <x-slot name="trigger">
                                                     <button type="button" class="inline-flex items-center justify-center p-2 text-gray-300 hover:text-white border border-white/10 rounded-lg hover:bg-white/5">
@@ -127,22 +127,22 @@
                             @endforeach
                         </div>
 
-                        {{-- Vista desktop: tabla --}}
-                        <div class="hidden md:block border border-white/10 rounded-xl overflow-x-auto">
-                            <table class="min-w-full divide-y divide-white/10" style="min-width: 560px;">
-                                <thead class="bg-white/5">
-                                    <tr>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Nombre del grupo</th>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider w-32">Cantidad</th>
-                                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider w-32">Opciones</th>
-                                    </tr>
-                                </thead>
+                        {{-- Vista desktop: tabla (sin overflow en el contenedor para que el menú Opciones no se corte) --}}
+                        <div class="hidden md:block border border-white/10 rounded-xl overflow-visible">
+                            <table class="min-w-full divide-y divide-white/10 w-full">
+                                    <thead class="bg-white/5">
+                                        <tr>
+                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Nombre del grupo</th>
+                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider w-40">Cantidad</th>
+                                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider w-36 pl-4">Opciones</th>
+                                        </tr>
+                                    </thead>
                                     @foreach($groups as $group)
                                         <tbody x-data="{ expanded: false }" class="divide-y divide-white/10 border-b border-white/10">
                                         <tr @click="expanded = !expanded"
                                             class="cursor-pointer transition-colors hover:bg-white/5"
                                             :class="{ 'bg-white/[0.07]': expanded }">
-                                            <td class="px-6 py-4">
+                                            <td class="px-6 py-4 align-middle">
                                                 <div class="flex items-center gap-2">
                                                     <svg class="w-5 h-5 text-gray-400 transition-transform shrink-0"
                                                          :class="{ 'rotate-90': expanded }"
@@ -152,11 +152,12 @@
                                                     <span class="font-semibold text-gray-100">{{ $group->name }}</span>
                                                 </div>
                                             </td>
-                                            <td class="px-6 py-4 text-sm text-gray-400">
+                                            <td class="px-6 py-4 text-sm text-gray-400 align-middle">
                                                 {{ $group->attributes->count() }} atributo(s)
                                             </td>
-                                            <td class="px-6 py-4 text-right whitespace-nowrap shrink-0" @click.stop>
-                                                <x-dropdown align="right" width="48">
+                                            <td class="px-6 py-4 text-right whitespace-nowrap align-middle" @click.stop>
+                                                <div class="flex justify-end">
+                                                    <x-dropdown align="right" width="48" content-classes="py-1 bg-dark-card border border-white/10 shadow-xl ring-1 ring-black/20">
                                                     <x-slot name="trigger">
                                                         <button type="button" class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-300 hover:text-white border border-white/10 rounded-lg hover:bg-white/5 transition">
                                                             Opciones
@@ -180,6 +181,7 @@
                                                         </form>
                                                     </x-slot>
                                                 </x-dropdown>
+                                                </div>
                                             </td>
                                         </tr>
                                         <tr x-show="expanded"
