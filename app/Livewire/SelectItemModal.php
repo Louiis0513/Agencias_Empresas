@@ -48,18 +48,31 @@ class SelectItemModal extends Component
             return collect();
         }
 
+        $term = trim($this->search);
+        if (strlen($term) < 2) {
+            return collect();
+        }
+
         if ($this->itemType === 'INVENTARIO') {
-            // Vista de ventas (carrito) o facturas: búsqueda con tipo (simple/batch/serialized) para selector coherente
-            $productos = in_array($this->rowId, ['venta', 'factura', 'inventario-filtro', 'movimiento-inventario'], true)
-                ? app(VentaService::class)->buscarProductos($store, $this->search, 25)
-                : app(InventarioService::class)->buscarProductosInventario($store, $this->search, 25);
-            return $productos->map(fn ($p) => [
-                'id' => $p->id,
-                'name' => $p->name,
-                'code' => $p->sku ?? null,
-                'type' => 'INVENTARIO',
-                'product_type' => $p->type ?? 'simple',
-            ]);
+            // Vista de ventas (carrito), facturas, inventario y compras: búsqueda con tipo (simple/batch/serialized)
+            // La capa de servicio ya devuelve ítems lógicos (producto simple, variante de lote, ítem serializado).
+            $items = in_array($this->rowId, ['venta', 'factura', 'inventario-filtro', 'movimiento-inventario'], true)
+                ? app(VentaService::class)->buscarProductos($store, $term, 25)
+                : app(InventarioService::class)->buscarProductosInventario($store, $term, 25);
+
+            return $items->map(function ($row) {
+                // $row es un array normal con la forma documentada en InventarioService::buscarProductosInventario.
+                return [
+                    'id' => $row['id'],
+                    'name' => $row['name'],
+                    'display_name' => $row['display_name'] ?? $row['name'],
+                    'code' => $row['code'] ?? null,
+                    'type' => 'INVENTARIO',
+                    'product_type' => $row['product_type'] ?? 'simple',
+                    'variant_id' => $row['variant_id'] ?? null,
+                    'item_id' => $row['item_id'] ?? null,
+                ];
+            });
         }
 
         return app(ActivoService::class)->buscarActivosParaCompra(
@@ -75,7 +88,15 @@ class SelectItemModal extends Component
         ]);
     }
 
-    public function selectItem(int $id, string $name, string $type, ?string $controlType = null, ?string $productType = null): void
+    public function selectItem(
+        int $id,
+        string $name,
+        string $type,
+        ?string $controlType = null,
+        ?string $productType = null,
+        ?int $productVariantId = null,
+        ?int $productItemId = null
+    ): void
     {
         $productType = $productType ?? 'simple';
         if ($type === 'INVENTARIO' && $this->rowId === 'venta' && $productType === 'simple' && in_array($id, $this->productIdsInCartSimple, true)) {
@@ -95,6 +116,12 @@ class SelectItemModal extends Component
         }
         if ($type === 'INVENTARIO' && $productType !== null) {
             $payload['productType'] = $productType;
+        }
+        if ($type === 'INVENTARIO' && $productVariantId !== null) {
+            $payload['productVariantId'] = $productVariantId;
+        }
+        if ($type === 'INVENTARIO' && $productItemId !== null) {
+            $payload['productItemId'] = $productItemId;
         }
         $this->dispatch('item-selected', ...$payload);
         $this->dispatch('close-modal', 'select-item-compra');

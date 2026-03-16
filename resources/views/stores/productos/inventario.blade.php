@@ -35,15 +35,41 @@
                 productVariantId = '';
                 productItemId = '';
             } else if (pt === 'batch') {
-                pendingProductId = $event.detail.id;
-                pendingProductName = $event.detail.name ?? '';
-                pendingProductType = 'batch';
-                Livewire.dispatch('open-select-batch-variant', { productId: parseInt($event.detail.id), rowId: 'inventario-filtro', productName: pendingProductName, variantKeysInCart: [] });
+                const variantId = $event.detail.productVariantId || null;
+                if (variantId) {
+                    // Variante ya resuelta: asignar directamente sin abrir modal de variantes
+                    productId = String($event.detail.id ?? '');
+                    productVariantId = String(variantId);
+                    productName = $event.detail.name ?? '';
+                    productDisplay = productName;
+                    productItemId = '';
+                    pendingProductId = '';
+                    pendingProductName = '';
+                    pendingProductType = '';
+                } else {
+                    pendingProductId = $event.detail.id;
+                    pendingProductName = $event.detail.name ?? '';
+                    pendingProductType = 'batch';
+                    Livewire.dispatch('open-select-batch-variant', { productId: parseInt($event.detail.id), rowId: 'inventario-filtro', productName: pendingProductName, variantKeysInCart: [] });
+                }
             } else if (pt === 'serialized') {
-                pendingProductId = $event.detail.id;
-                pendingProductName = $event.detail.name ?? '';
-                pendingProductType = 'serialized';
-                Livewire.dispatch('open-select-serial-for-filter', { productId: parseInt($event.detail.id), productName: pendingProductName });
+                const itemId = $event.detail.productItemId || null;
+                if (itemId) {
+                    // Ítem serializado ya resuelto: asignar directamente sin abrir modal de seriales
+                    productId = String($event.detail.id ?? '');
+                    productItemId = String(itemId);
+                    productName = $event.detail.name ?? '';
+                    productDisplay = productName;
+                    productVariantId = '';
+                    pendingProductId = '';
+                    pendingProductName = '';
+                    pendingProductType = '';
+                } else {
+                    pendingProductId = $event.detail.id;
+                    pendingProductName = $event.detail.name ?? '';
+                    pendingProductType = 'serialized';
+                    Livewire.dispatch('open-select-serial-for-filter', { productId: parseInt($event.detail.id), productName: pendingProductName });
+                }
             }
         }
     "

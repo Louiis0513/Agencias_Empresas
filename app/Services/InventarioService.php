@@ -1120,83 +1120,176 @@ class InventarioService
 
     /**
      * Busca productos de inventario por término.
+     * Devuelve ítems lógicos para selectores:
+     * - Productos simples: una fila por producto.
+     * - Productos por lote (batch): una fila por variante (ProductVariant).
+     * - Productos serializados: una fila por ítem (ProductItem).
+     *
+     * Cada elemento de la colección tiene la forma:
+     * - id            => product_id
+     * - name          => nombre base del producto
+     * - display_name  => nombre mostrado en selector (nombre + atributos [+ serial])
+     * - code          => SKU / barcode / serial principal
+     * - type          => 'INVENTARIO'
+     * - product_type  => 'simple' | PRODUCT_TYPE_BATCH | PRODUCT_TYPE_SERIALIZED
+     * - variant_id    => product_variant_id (para lote) o null
+     * - item_id       => product_item_id (para serializado) o null
      */
     public function buscarProductosInventario(Store $store, string $term, int $limit = 15): \Illuminate\Support\Collection
     {
         $term = trim($term);
 
-        $baseQuery = Product::where('store_id', $store->id)
-            ->whereIn('type', ['simple', MovimientoInventario::PRODUCT_TYPE_SERIALIZED, MovimientoInventario::PRODUCT_TYPE_BATCH])
+        // Base de productos aptos para inventario (para selectores):
+        /** @var \Illuminate\Support\Collection<int, Product> $products */
+        $products = $this->queryProductosBusqueda($store, $term, true)
+            ->orderBy('name')
+            ->limit($limit)
+            ->get(['id', 'name', 'sku', 'barcode', 'stock', 'cost', 'type']);
+
+        $items = collect();
+
+        // 1) Productos simples: una fila por producto.
+        $simpleProducts = $products->filter(function (Product $p) {
+            return $p->type === 'simple' || $p->type === null || $p->type === '';
+        });
+
+        foreach ($simpleProducts as $p) {
+            $items->push([
+                'id' => $p->id,
+                'name' => $p->name,
+                'display_name' => $p->name,
+                'code' => $p->sku ?? $p->barcode ?? null,
+                'type' => 'INVENTARIO',
+                'product_type' => 'simple',
+                'variant_id' => null,
+                'item_id' => null,
+            ]);
+        }
+
+        // 2) Productos por lote (batch): una fila por variante.
+        $batchProductIds = $products
+            ->filter(fn (Product $p) => $p->type === MovimientoInventario::PRODUCT_TYPE_BATCH)
+            ->pluck('id')
+            ->all();
+
+        if (! empty($batchProductIds)) {
+            $batchVariants = ProductVariant::query()
+                ->whereIn('product_id', $batchProductIds)
+                ->whereHas('product', function ($q) use ($store) {
+                    $q->where('store_id', $store->id)
+                        ->where('is_active', true)
+                        ->where('type', MovimientoInventario::PRODUCT_TYPE_BATCH);
+                })
+                ->with('product.category.attributes')
+                ->get();
+
+            foreach ($batchVariants as $variant) {
+                /** @var Product $product */
+                $product = $variant->product;
+                $displayName = $product->name;
+                if ($variant->display_name) {
+                    $displayName .= ' (' . $variant->display_name . ')';
+                }
+
+                $items->push([
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'display_name' => $displayName,
+                    'code' => $variant->sku ?? $variant->barcode ?? $product->sku ?? $product->barcode ?? null,
+                    'type' => 'INVENTARIO',
+                    'product_type' => MovimientoInventario::PRODUCT_TYPE_BATCH,
+                    'variant_id' => $variant->id,
+                    'item_id' => null,
+                ]);
+            }
+        }
+
+        // 3) Productos serializados: una fila por ítem (ProductItem) que matchee el término.
+        $like = '%' . $term . '%';
+        if (strlen($term) >= 2) {
+            $serializedItems = ProductItem::query()
+                ->where('store_id', $store->id)
+                ->where('serial_number', 'like', $like)
+                ->whereHas('product', function ($q) {
+                    $q->where('is_active', true)
+                        ->where('type', MovimientoInventario::PRODUCT_TYPE_SERIALIZED);
+                })
+                ->with('product.category.attributes')
+                ->limit($limit * 3)
+                ->get();
+
+            foreach ($serializedItems as $pi) {
+                /** @var Product $product */
+                $product = $pi->product;
+                $product->loadMissing('category.attributes');
+                $attrNames = $product->category
+                    ? $product->category->attributes->pluck('name', 'id')->all()
+                    : [];
+
+                $featStr = ProductVariant::formatFeaturesWithAttributeNames($pi->features ?? [], $attrNames);
+                $displayName = $product->name;
+                if ($featStr !== '') {
+                    $displayName .= ' (' . $featStr . ')';
+                }
+                $displayName .= ' - Serial: ' . $pi->serial_number;
+
+                $items->push([
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'display_name' => $displayName,
+                    'code' => $pi->serial_number,
+                    'type' => 'INVENTARIO',
+                    'product_type' => MovimientoInventario::PRODUCT_TYPE_SERIALIZED,
+                    'variant_id' => null,
+                    'item_id' => $pi->id,
+                ]);
+            }
+        }
+
+        // Normalizar únicos por combinación lógica (product_id, variant_id, item_id) y limitar.
+        $unique = $items->unique(function (array $row) {
+            return implode(':', [
+                $row['id'],
+                $row['product_type'] ?? '',
+                $row['variant_id'] ?? 'null',
+                $row['item_id'] ?? 'null',
+            ]);
+        });
+
+        return $unique
+            ->sortBy('display_name')
+            ->values()
+            ->take($limit);
+    }
+
+    /**
+     * Construye un query builder de productos de la tienda con filtro de búsqueda
+     * coherente para inventario:
+     * - Busca por nombre, sku, barcode del producto.
+     * - Además, por sku/barcode de variantes y por serial_number de product_items.
+     * - Si $soloInventario es true, restringe a tipos aptos para inventario.
+     */
+    public function queryProductosBusqueda(Store $store, ?string $search, bool $soloInventario = false)
+    {
+        $query = Product::where('store_id', $store->id)
             ->where('is_active', true);
 
-        if (strlen($term) >= 2) {
-            $like = '%' . $term . '%';
-            $baseQuery->where(function ($q) use ($like) {
-                $q->where('name', 'like', $like)
-                    ->orWhere('sku', 'like', $like)
-                    ->orWhere('barcode', 'like', $like);
+        if ($soloInventario) {
+            $query->whereIn('type', ['simple', MovimientoInventario::PRODUCT_TYPE_SERIALIZED, MovimientoInventario::PRODUCT_TYPE_BATCH]);
+        }
+
+        $search = trim((string) $search);
+        if ($search !== '') {
+            $term = '%' . $search . '%';
+            $query->where(function ($q) use ($term) {
+                $q->where('name', 'like', $term)
+                    ->orWhere('sku', 'like', $term)
+                    ->orWhere('barcode', 'like', $term)
+                    ->orWhereHas('variants', fn ($v) => $v->where('sku', 'like', $term)->orWhere('barcode', 'like', $term))
+                    ->orWhereHas('productItems', fn ($pi) => $pi->where('serial_number', 'like', $term));
             });
         }
 
-        /** @var \Illuminate\Support\Collection<int, Product> $products */
-        $products = $baseQuery
-            ->orderBy('name')
-            ->limit($limit)
-            ->get(['id', 'name', 'sku', 'stock', 'cost', 'type']);
-
-        // Si no hay término de búsqueda suficiente, devolvemos solo por producto.
-        if (strlen($term) < 2) {
-            return $products;
-        }
-
-        $like = '%' . $term . '%';
-        $existingIds = $products->pluck('id')->all();
-
-        // Buscar coincidencias por SKU / barcode en variantes (productos por lote).
-        $variantProductIds = ProductVariant::query()
-            ->where(function ($q) use ($like) {
-                $q->where('sku', 'like', $like)
-                    ->orWhere('barcode', 'like', $like);
-            })
-            ->whereHas('product', function ($q) use ($store) {
-                $q->where('store_id', $store->id)
-                    ->where('is_active', true)
-                    ->where('type', MovimientoInventario::PRODUCT_TYPE_BATCH);
-            })
-            ->limit($limit * 3)
-            ->pluck('product_id')
-            ->all();
-
-        // Buscar coincidencias por número de serie en items serializados.
-        $itemProductIds = ProductItem::query()
-            ->where('store_id', $store->id)
-            ->where('serial_number', 'like', $like)
-            ->limit($limit * 3)
-            ->pluck('product_id')
-            ->all();
-
-        $extraIds = array_unique(array_merge($variantProductIds, $itemProductIds));
-        if (! empty($existingIds)) {
-            $extraIds = array_values(array_diff($extraIds, $existingIds));
-        }
-
-        if (! empty($extraIds)) {
-            $extraProducts = Product::whereIn('id', $extraIds)
-                ->where('store_id', $store->id)
-                ->whereIn('type', ['simple', MovimientoInventario::PRODUCT_TYPE_SERIALIZED, MovimientoInventario::PRODUCT_TYPE_BATCH])
-                ->where('is_active', true)
-                ->orderBy('name')
-                ->limit($limit)
-                ->get(['id', 'name', 'sku', 'stock', 'cost', 'type']);
-
-            $products = $products->concat($extraProducts);
-        }
-
-        // Normalizar: únicos por product_id y limitar al máximo solicitado.
-        return $products
-            ->unique('id')
-            ->sortBy('name')
-            ->values()
-            ->take($limit);
+        return $query;
     }
 }

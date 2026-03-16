@@ -49,7 +49,7 @@
                             @endphp
                             <tr class="{{ $yaEnCarrito ? 'bg-gray-100 dark:bg-gray-800/70' : 'hover:bg-gray-50 dark:hover:bg-gray-700' }}">
                                 <td class="px-4 py-2 text-sm {{ $yaEnCarrito ? 'text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-gray-100' }}">
-                                    {{ $item['name'] }}
+                                    {{ $item['display_name'] ?? $item['name'] }}
                                     @if($yaEnCarrito)
                                         <span class="ml-2 text-xs font-medium text-amber-600 dark:text-amber-400">(Ya en carrito)</span>
                                     @endif
@@ -60,7 +60,7 @@
                                         <span class="text-sm text-gray-400 dark:text-gray-500 cursor-not-allowed">Seleccionar</span>
                                     @else
                                         <button type="button"
-                                                wire:click="selectItem({{ $item['id'] }}, @js($item['name']), '{{ $item['type'] }}', @js($item['control_type'] ?? null), @js($item['product_type'] ?? null))"
+                                                wire:click="selectItem({{ $item['id'] }}, @js($item['display_name'] ?? $item['name']), '{{ $item['type'] }}', @js($item['control_type'] ?? null), @js($item['product_type'] ?? null), @js($item['variant_id'] ?? null), @js($item['item_id'] ?? null))"
                                                 class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 text-sm font-medium">
                                             Seleccionar
                                         </button>

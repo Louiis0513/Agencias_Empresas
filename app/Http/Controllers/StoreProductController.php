@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\Store;
 use App\Services\ConvertidorImgService;
 use App\Services\ProductService;
+use App\Services\InventarioService;
 use App\Services\StorePermissionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,23 +17,14 @@ use Illuminate\Support\Facades\Storage;
 
 class StoreProductController extends Controller
 {
-    public function index(Store $store, Request $request, StorePermissionService $permission)
+    public function index(Store $store, Request $request, StorePermissionService $permission, InventarioService $inventarioService)
     {
         $permission->authorize($store, 'products.view');
 
-        $query = $store->products()->with('category');
-
-        // Filtro texto (nombre, sku, barcode, serial en variantes y product_items)
-        if ($search = trim((string) $request->get('search'))) {
-            $term = '%'.$search.'%';
-            $query->where(function ($q) use ($term) {
-                $q->where('name', 'like', $term)
-                    ->orWhere('sku', 'like', $term)
-                    ->orWhere('barcode', 'like', $term)
-                    ->orWhereHas('variants', fn ($v) => $v->where('sku', 'like', $term)->orWhere('barcode', 'like', $term))
-                    ->orWhereHas('productItems', fn ($pi) => $pi->where('serial_number', 'like', $term));
-            });
-        }
+        // Búsqueda unificada vía servicio de inventario (nombre, SKU, barcode, variantes, seriales)
+        $query = $inventarioService
+            ->queryProductosBusqueda($store, $request->get('search'), false)
+            ->with('category');
 
         // Filtro categoría
         if ($categoryId = $request->get('category_id')) {
