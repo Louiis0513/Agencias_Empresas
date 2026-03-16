@@ -1123,18 +1123,80 @@ class InventarioService
      */
     public function buscarProductosInventario(Store $store, string $term, int $limit = 15): \Illuminate\Support\Collection
     {
-        $query = Product::where('store_id', $store->id)
+        $term = trim($term);
+
+        $baseQuery = Product::where('store_id', $store->id)
             ->whereIn('type', ['simple', MovimientoInventario::PRODUCT_TYPE_SERIALIZED, MovimientoInventario::PRODUCT_TYPE_BATCH])
             ->where('is_active', true);
 
-        if (strlen(trim($term)) >= 2) {
-            $query->where(function ($q) use ($term) {
-                $q->where('name', 'like', '%' . trim($term) . '%')
-                    ->orWhere('sku', 'like', '%' . trim($term) . '%')
-                    ->orWhere('barcode', 'like', '%' . trim($term) . '%');
+        if (strlen($term) >= 2) {
+            $like = '%' . $term . '%';
+            $baseQuery->where(function ($q) use ($like) {
+                $q->where('name', 'like', $like)
+                    ->orWhere('sku', 'like', $like)
+                    ->orWhere('barcode', 'like', $like);
             });
         }
 
-        return $query->orderBy('name')->limit($limit)->get(['id', 'name', 'sku', 'stock', 'cost', 'type']);
+        /** @var \Illuminate\Support\Collection<int, Product> $products */
+        $products = $baseQuery
+            ->orderBy('name')
+            ->limit($limit)
+            ->get(['id', 'name', 'sku', 'stock', 'cost', 'type']);
+
+        // Si no hay término de búsqueda suficiente, devolvemos solo por producto.
+        if (strlen($term) < 2) {
+            return $products;
+        }
+
+        $like = '%' . $term . '%';
+        $existingIds = $products->pluck('id')->all();
+
+        // Buscar coincidencias por SKU / barcode en variantes (productos por lote).
+        $variantProductIds = ProductVariant::query()
+            ->where(function ($q) use ($like) {
+                $q->where('sku', 'like', $like)
+                    ->orWhere('barcode', 'like', $like);
+            })
+            ->whereHas('product', function ($q) use ($store) {
+                $q->where('store_id', $store->id)
+                    ->where('is_active', true)
+                    ->where('type', MovimientoInventario::PRODUCT_TYPE_BATCH);
+            })
+            ->limit($limit * 3)
+            ->pluck('product_id')
+            ->all();
+
+        // Buscar coincidencias por número de serie en items serializados.
+        $itemProductIds = ProductItem::query()
+            ->where('store_id', $store->id)
+            ->where('serial_number', 'like', $like)
+            ->limit($limit * 3)
+            ->pluck('product_id')
+            ->all();
+
+        $extraIds = array_unique(array_merge($variantProductIds, $itemProductIds));
+        if (! empty($existingIds)) {
+            $extraIds = array_values(array_diff($extraIds, $existingIds));
+        }
+
+        if (! empty($extraIds)) {
+            $extraProducts = Product::whereIn('id', $extraIds)
+                ->where('store_id', $store->id)
+                ->whereIn('type', ['simple', MovimientoInventario::PRODUCT_TYPE_SERIALIZED, MovimientoInventario::PRODUCT_TYPE_BATCH])
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->limit($limit)
+                ->get(['id', 'name', 'sku', 'stock', 'cost', 'type']);
+
+            $products = $products->concat($extraProducts);
+        }
+
+        // Normalizar: únicos por product_id y limitar al máximo solicitado.
+        return $products
+            ->unique('id')
+            ->sortBy('name')
+            ->values()
+            ->take($limit);
     }
 }
