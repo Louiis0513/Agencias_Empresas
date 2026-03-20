@@ -124,7 +124,11 @@ class VentasCarrito extends Component
         } else {
             $this->pendienteSimple = null;
             $this->pendienteBatch = null;
-            $this->abrirModalUnidades((int) $id);
+            if ($productItemId) {
+                $this->agregarSerializadoDirectoPorItemId((int) $id, (int) $productItemId);
+            } else {
+                $this->abrirModalUnidades((int) $id);
+            }
         }
     }
 
@@ -421,6 +425,76 @@ class VentasCarrito extends Component
         }
 
         $this->cerrarModalUnidades();
+    }
+
+    /**
+     * Agrega directamente al carrito una unidad serializada cuando el selector
+     * ya devuelve productItemId (evita abrir un segundo modal).
+     */
+    protected function agregarSerializadoDirectoPorItemId(int $productId, int $productItemId): void
+    {
+        $this->errorStock = null;
+        $store = $this->getStoreProperty();
+        if (! $store || $productId < 1 || $productItemId < 1) {
+            return;
+        }
+
+        $producto = Product::where('id', $productId)
+            ->where('store_id', $store->id)
+            ->where('is_active', true)
+            ->first();
+        if (! $producto || ! $producto->isSerialized()) {
+            return;
+        }
+
+        $item = ProductItem::where('id', $productItemId)
+            ->where('store_id', $store->id)
+            ->where('product_id', $productId)
+            ->where('status', ProductItem::STATUS_AVAILABLE)
+            ->first();
+        if (! $item) {
+            $this->errorStock = 'La unidad serializada seleccionada no está disponible.';
+            return;
+        }
+
+        $serial = trim((string) $item->serial_number);
+        if ($serial === '') {
+            $this->errorStock = 'La unidad seleccionada no tiene serial válido.';
+            return;
+        }
+
+        // Evitar duplicados del mismo serial en carrito.
+        foreach ($this->carrito as $row) {
+            if ((int) ($row['product_id'] ?? 0) !== $productId) {
+                continue;
+            }
+            if (in_array($serial, $row['serial_numbers'] ?? [], true)) {
+                $this->errorStock = 'Ese serial ya está en el carrito.';
+                return;
+            }
+        }
+
+        $ventaService = app(VentaService::class);
+        $items = [['product_id' => $productId, 'serial_numbers' => [$serial]]];
+        try {
+            $ventaService->validarGuardadoItemCarrito($store, $items);
+        } catch (Exception $e) {
+            $this->errorStock = $e->getMessage();
+            return;
+        }
+
+        $precio = $ventaService->verPrecio($store, $productId, 'serialized', null, [$serial]);
+        $this->carrito[] = [
+            'product_id' => $productId,
+            'name' => $producto->name,
+            'quantity' => 1,
+            'stock' => (int) $producto->stock,
+            'price' => $precio,
+            'type' => 'serialized',
+            'serial_numbers' => [$serial],
+            'prices' => [$precio],
+            'serial_features' => [is_array($item->features) ? $item->features : []],
+        ];
     }
 
     /**

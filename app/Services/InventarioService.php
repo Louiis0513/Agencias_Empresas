@@ -1223,12 +1223,21 @@ class InventarioService
             }
         }
 
-        // 3) Productos serializados: una fila por ítem (ProductItem) que matchee el término.
+        // 3) Productos serializados: una fila por ítem (ProductItem) disponible.
+        // Permite búsqueda por serial_number y también por nombre/SKU/barcode del producto.
         $like = '%' . $term . '%';
         if (strlen($term) >= 2) {
             $serializedItems = ProductItem::query()
                 ->where('store_id', $store->id)
-                ->where('serial_number', 'like', $like)
+                ->where('status', ProductItem::STATUS_AVAILABLE)
+                ->where(function ($q) use ($like) {
+                    $q->where('serial_number', 'like', $like)
+                        ->orWhereHas('product', function ($pq) use ($like) {
+                            $pq->where('name', 'like', $like)
+                                ->orWhere('sku', 'like', $like)
+                                ->orWhere('barcode', 'like', $like);
+                        });
+                })
                 ->whereHas('product', function ($q) {
                     $q->where('is_active', true)
                         ->where('type', MovimientoInventario::PRODUCT_TYPE_SERIALIZED);
