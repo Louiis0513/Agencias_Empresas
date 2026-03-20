@@ -67,7 +67,7 @@ class VentasCarrito extends Component
      * Escucha selección de producto desde SelectItemModal. Si rowId === 'venta', deriva a simple / batch / serialized.
      */
     #[On('item-selected')]
-    public function onItemSelected($rowId, $id, $name, $type, $productType = null): void
+    public function onItemSelected($rowId, $id, $name, $type, $productType = null, $productVariantId = null, $productItemId = null): void
     {
         if ($rowId !== 'venta' || $type !== 'INVENTARIO') {
             return;
@@ -94,7 +94,33 @@ class VentasCarrito extends Component
             $this->cantidadSimple = 1;
         } elseif ($productType === 'batch') {
             $this->pendienteSimple = null;
-            $this->dispatch('open-select-batch-variant', productId: $id, rowId: 'venta', productName: $name, variantKeysInCart: $this->getVariantKeysInCartForProduct((int) $id));
+
+            if ($productVariantId) {
+                $store = $this->getStoreProperty();
+                if (! $store) {
+                    return;
+                }
+                $producto = Product::where('id', $id)->where('store_id', $store->id)->first();
+                if (! $producto) {
+                    return;
+                }
+                $ventaService = app(VentaService::class);
+                $r = $ventaService->verificadorCarritoVariante($store, (int) $id, (int) $productVariantId);
+                $stock = (int) $r['cantidad'];
+
+                $this->pendienteBatch = [
+                    'product_id' => (int) $id,
+                    'name' => $name,
+                    'product_variant_id' => (int) $productVariantId,
+                    'variant_features' => [],
+                    'variant_display_name' => $name,
+                    'price' => $ventaService->verPrecio($store, (int) $id, 'batch', (int) $productVariantId),
+                    'stock' => $stock,
+                ];
+                $this->cantidadBatch = 1;
+            } else {
+                $this->dispatch('open-select-batch-variant', productId: $id, rowId: 'venta', productName: $name, variantKeysInCart: $this->getVariantKeysInCartForProduct((int) $id));
+            }
         } else {
             $this->pendienteSimple = null;
             $this->pendienteBatch = null;

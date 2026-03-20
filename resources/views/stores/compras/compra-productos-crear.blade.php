@@ -405,12 +405,72 @@
                         row.querySelector('.detail-serial-dash').classList.add('hidden');
                         compraProductosUpdateSubtotal(row);
                     } else if (productType === 'batch') {
-                        // Productos batch: abrir modal para seleccionar variante
-                        Livewire.dispatch('open-select-batch-variant', {
-                            productId: productId,
-                            rowId: rowId,
-                            productName: productName
-                        });
+                        const variantId = detail.productVariantId || detail.variant_id || null;
+                        if (variantId) {
+                            row.setAttribute('data-product-variant-id', String(variantId));
+                            row.setAttribute('data-is-batch', '1');
+
+                            const qtyCell = row.querySelector('.detail-qty-cell');
+                            const costCell = row.querySelector('.detail-cost-cell');
+                            const qtyInput = row.querySelector('.detail-qty');
+                            const costInput = row.querySelector('.detail-cost');
+
+                            if (row.querySelector('.detail-serial-qty')) row.querySelector('.detail-serial-qty').classList.add('hidden');
+                            if (row.querySelector('.detail-serial-dash')) row.querySelector('.detail-serial-dash').classList.add('hidden');
+                            if (row.querySelector('.detail-batch-qty')) row.querySelector('.detail-batch-qty').classList.add('hidden');
+                            if (row.querySelector('.detail-batch-cost')) row.querySelector('.detail-batch-cost').classList.add('hidden');
+
+                            if (qtyInput) { qtyInput.classList.remove('hidden'); qtyInput.name = `details[${rowId}][batch_items][0][quantity]`; qtyInput.value = '1'; }
+                            if (costInput) { costInput.classList.remove('hidden'); costInput.name = `details[${rowId}][batch_items][0][unit_cost]`; costInput.value = '0'; }
+
+                            if (qtyCell && !row.querySelector('.detail-qty-hidden')) {
+                                var qtyH = document.createElement('input');
+                                qtyH.type = 'hidden';
+                                qtyH.name = 'details[' + rowId + '][quantity]';
+                                qtyH.className = 'detail-qty-hidden';
+                                qtyH.value = '1';
+                                qtyCell.insertBefore(qtyH, qtyCell.firstChild);
+                            }
+                            if (costCell && !row.querySelector('.detail-cost-hidden')) {
+                                var costH = document.createElement('input');
+                                costH.type = 'hidden';
+                                costH.name = 'details[' + rowId + '][unit_cost]';
+                                costH.className = 'detail-cost-hidden';
+                                costH.value = '0';
+                                costCell.insertBefore(costH, costCell.firstChild);
+                            }
+
+                            const wrapper = row.querySelector('.item-select-wrapper');
+                            if (wrapper) {
+                                row.querySelectorAll('input[name*="[batch_items][0][product_variant_id]"]').forEach(function(inp) { inp.remove(); });
+                                const hid = document.createElement('input');
+                                hid.type = 'hidden';
+                                hid.name = `details[${rowId}][batch_items][0][product_variant_id]`;
+                                hid.value = String(variantId);
+                                wrapper.appendChild(hid);
+                            }
+
+                            const expCell = row.querySelector('.detail-expiration-cell');
+                            if (expCell) {
+                                expCell.textContent = '';
+                                expCell.classList.remove('text-gray-500', 'dark:text-gray-400');
+                                const expInput = document.createElement('input');
+                                expInput.type = 'date';
+                                expInput.className = 'detail-batch-expiration w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm';
+                                expInput.name = `details[${rowId}][batch_items][0][expiration_date]`;
+                                expInput.placeholder = 'Opcional';
+                                expCell.appendChild(expInput);
+                            }
+
+                            compraProductosUpdateSubtotal(row);
+                        } else {
+                            // Búsqueda genérica: abrir modal para seleccionar variante
+                            Livewire.dispatch('open-select-batch-variant', {
+                                productId: productId,
+                                rowId: rowId,
+                                productName: productName
+                            });
+                        }
                     } else if (productType === 'serialized') {
                         // Productos serializados: mostrar campos para atributos, serie y costo
                         row.setAttribute('data-product-type', 'serialized');

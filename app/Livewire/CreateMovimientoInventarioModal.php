@@ -122,7 +122,7 @@ class CreateMovimientoInventarioModal extends Component
     }
 
     #[On('item-selected')]
-    public function onItemSelected($rowId, $id, $name, $type, $productType = null): void
+    public function onItemSelected($rowId, $id, $name, $type, $productType = null, $productVariantId = null, $productItemId = null): void
     {
         if ($rowId !== 'movimiento-inventario' || $type !== 'INVENTARIO') {
             return;
@@ -137,9 +137,36 @@ class CreateMovimientoInventarioModal extends Component
         if ($product) {
             if ($productType === 'batch') {
                 $this->updatedProductId($this->product_id);
-                $this->dispatch('open-select-batch-variant', productId: $id, rowId: 'movimiento-inventario', productName: $name, variantKeysInCart: []);
+                if ($productVariantId) {
+                    $this->product_variant_id = (int) $productVariantId;
+                    $this->selectedVariantDisplayName = $name;
+                    if ($this->type === MovimientoInventario::TYPE_SALIDA) {
+                        $selected = collect($this->batch_items_available)->firstWhere('product_variant_id', (int) $productVariantId);
+                        $available = (int) ($selected['quantity'] ?? 0);
+                        $this->quantity = (string) min(1, $available);
+                    } else {
+                        $this->quantity = '1';
+                    }
+                } else {
+                    $this->dispatch('open-select-batch-variant', productId: $id, rowId: 'movimiento-inventario', productName: $name, variantKeysInCart: []);
+                }
             } elseif ($productType === 'serialized' && $this->type === 'SALIDA') {
-                $this->abrirModalSerialesMovimiento($id);
+                if ($productItemId) {
+                    $item = ProductItem::query()
+                        ->where('id', (int) $productItemId)
+                        ->where('product_id', (int) $id)
+                        ->where('store_id', (int) $this->storeId)
+                        ->where('status', ProductItem::STATUS_AVAILABLE)
+                        ->first();
+                    if ($item) {
+                        $this->updatedProductId($this->product_id);
+                        $this->serials_selected = [$item->serial_number];
+                    } else {
+                        $this->abrirModalSerialesMovimiento($id);
+                    }
+                } else {
+                    $this->abrirModalSerialesMovimiento($id);
+                }
             } else {
                 $this->updatedProductId($this->product_id);
             }

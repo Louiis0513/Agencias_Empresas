@@ -1173,8 +1173,14 @@ class InventarioService
             ->all();
 
         if (! empty($batchProductIds)) {
-            $batchVariants = ProductVariant::query()
+            // Si el término coincide EXACTAMENTE con SKU/barcode de variante,
+            // mostramos solo esa(s) variante(s) y no todas las del producto.
+            $exactVariantMatches = ProductVariant::query()
                 ->whereIn('product_id', $batchProductIds)
+                ->where(function ($q) use ($term) {
+                    $q->where('sku', $term)
+                        ->orWhere('barcode', $term);
+                })
                 ->whereHas('product', function ($q) use ($store) {
                     $q->where('store_id', $store->id)
                         ->where('is_active', true)
@@ -1183,7 +1189,20 @@ class InventarioService
                 ->with('product.category.attributes')
                 ->get();
 
-            foreach ($batchVariants as $variant) {
+            $variantsToUse = $exactVariantMatches;
+            if ($variantsToUse->isEmpty()) {
+                $variantsToUse = ProductVariant::query()
+                    ->whereIn('product_id', $batchProductIds)
+                    ->whereHas('product', function ($q) use ($store) {
+                        $q->where('store_id', $store->id)
+                            ->where('is_active', true)
+                            ->where('type', MovimientoInventario::PRODUCT_TYPE_BATCH);
+                    })
+                    ->with('product.category.attributes')
+                    ->get();
+            }
+
+            foreach ($variantsToUse as $variant) {
                 /** @var Product $product */
                 $product = $variant->product;
                 $displayName = $product->name;
