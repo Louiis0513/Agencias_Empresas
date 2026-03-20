@@ -268,6 +268,28 @@
     </div>
 
     <script>
+        function compraProductosGetCurrency() {
+            var form = document.getElementById('form-compra-productos');
+            return form && form.dataset.currency ? form.dataset.currency : 'COP';
+        }
+        function compraProductosCurrencyHasDecimals(currency) {
+            var c = (currency || 'COP').toUpperCase();
+            return !['COP', 'CLP', 'JPY'].includes(c);
+        }
+        function compraProductosFormatMoney(amount, currency) {
+            var value = Number(amount || 0);
+            if (!Number.isFinite(value)) value = 0;
+            if (!compraProductosCurrencyHasDecimals(currency)) {
+                return Math.round(value).toLocaleString('es-CO', {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0
+                });
+            }
+            return value.toLocaleString('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
         function compraProductosParseMoney(val, currency) {
             if (val === '' || val == null) return 0;
             var s = String(val).trim();
@@ -276,14 +298,18 @@
             if (noDecimals) return parseFloat(s.replace(/\./g,'').replace(/,/g,'')) || 0;
             return parseFloat(s.replace(/,/g,'')) || 0;
         }
+        function compraProductosNormalizeMoneyInput(inputEl, currency) {
+            if (!inputEl) return;
+            var parsed = compraProductosParseMoney(inputEl.value, currency);
+            inputEl.value = compraProductosFormatMoney(parsed, currency);
+        }
         function compraProductosUpdateSubtotal(row) {
-            var form = document.getElementById('form-compra-productos');
-            var currency = form && form.dataset.currency ? form.dataset.currency : 'COP';
+            var currency = compraProductosGetCurrency();
             var qtyEl = row.querySelector('.detail-qty');
             var costEl = row.querySelector('.detail-cost') || row.querySelector('input.detail-cost');
             var qty = parseFloat(qtyEl && qtyEl.value ? qtyEl.value : 0) || 0;
             var cost = costEl ? compraProductosParseMoney(costEl.value, currency) : 0;
-            row.querySelector('.detail-subtotal').textContent = (qty * cost).toFixed(2);
+            row.querySelector('.detail-subtotal').textContent = compraProductosFormatMoney(qty * cost, currency);
             // Para filas tipo lote: mantener sincronizados los hidden quantity/unit_cost que exige el backend
             if (row.getAttribute('data-is-batch') === '1') {
                 var qtyHidden = row.querySelector('.detail-qty-hidden');
@@ -294,8 +320,7 @@
         }
 
         function compraProductosUpdateSerialQtyAndSubtotal(detailRow) {
-            var form = document.getElementById('form-compra-productos');
-            var currency = form && form.dataset.currency ? form.dataset.currency : 'COP';
+            var currency = compraProductosGetCurrency();
             var serialRow = detailRow.nextElementSibling;
             if (!serialRow || !serialRow.classList.contains('serial-details-row')) return;
             var container = serialRow.querySelector('.serial-items-container');
@@ -311,12 +336,11 @@
             var qtyInput = detailRow.querySelector('.detail-qty');
             if (qtySpan) qtySpan.textContent = items.length + ' unidad(es)';
             if (qtyInput) qtyInput.value = items.length;
-            detailRow.querySelector('.detail-subtotal').textContent = total.toFixed(2);
+            detailRow.querySelector('.detail-subtotal').textContent = compraProductosFormatMoney(total, currency);
         }
 
         function compraProductosUpdateBatchTotals(detailRow) {
-            var form = document.getElementById('form-compra-productos');
-            var currency = form && form.dataset.currency ? form.dataset.currency : 'COP';
+            var currency = compraProductosGetCurrency();
             var batchRow = detailRow.nextElementSibling;
             if (!batchRow || !batchRow.classList.contains('batch-details-row')) return;
             var totalQty = 0;
@@ -343,13 +367,13 @@
             var qtyInput = detailRow.querySelector('.detail-qty');
             var costInput = detailRow.querySelector('.detail-cost');
             if (qtyInput) qtyInput.value = totalQty;
-            if (costInput) costInput.value = totalQty > 0 ? (totalCost / totalQty).toFixed(2) : '0';
+            if (costInput) costInput.value = compraProductosFormatMoney(totalQty > 0 ? (totalCost / totalQty) : 0, currency);
             var subtotalEl = detailRow.querySelector('.detail-subtotal');
-            if (subtotalEl) subtotalEl.textContent = totalCost.toFixed(2);
+            if (subtotalEl) subtotalEl.textContent = compraProductosFormatMoney(totalCost, currency);
             var batchQtySpan = detailRow.querySelector('.detail-batch-qty');
             var batchCostSpan = detailRow.querySelector('.detail-batch-cost');
             if (batchQtySpan) batchQtySpan.textContent = totalQty;
-            if (batchCostSpan) batchCostSpan.textContent = totalQty > 0 ? (totalCost / totalQty).toFixed(2) : '0.00';
+            if (batchCostSpan) batchCostSpan.textContent = compraProductosFormatMoney(totalQty > 0 ? (totalCost / totalQty) : 0, currency);
         }
 
         function compraProductosSelection() {
@@ -421,7 +445,7 @@
                             if (row.querySelector('.detail-batch-cost')) row.querySelector('.detail-batch-cost').classList.add('hidden');
 
                             if (qtyInput) { qtyInput.classList.remove('hidden'); qtyInput.name = `details[${rowId}][batch_items][0][quantity]`; qtyInput.value = '1'; }
-                            if (costInput) { costInput.classList.remove('hidden'); costInput.name = `details[${rowId}][batch_items][0][unit_cost]`; costInput.value = '0'; }
+                            if (costInput) { costInput.classList.remove('hidden'); costInput.name = `details[${rowId}][batch_items][0][unit_cost]`; costInput.value = compraProductosFormatMoney(0, compraProductosGetCurrency()); }
 
                             if (qtyCell && !row.querySelector('.detail-qty-hidden')) {
                                 var qtyH = document.createElement('input');
@@ -519,7 +543,7 @@
                     if (row.querySelector('.detail-batch-qty')) row.querySelector('.detail-batch-qty').classList.add('hidden');
                     if (row.querySelector('.detail-batch-cost')) row.querySelector('.detail-batch-cost').classList.add('hidden');
                     if (qtyInput) { qtyInput.classList.remove('hidden'); qtyInput.name = `details[${rowId}][batch_items][0][quantity]`; qtyInput.value = '1'; }
-                    if (costInput) { costInput.classList.remove('hidden'); costInput.name = `details[${rowId}][batch_items][0][unit_cost]`; costInput.value = '0'; }
+                    if (costInput) { costInput.classList.remove('hidden'); costInput.name = `details[${rowId}][batch_items][0][unit_cost]`; costInput.value = compraProductosFormatMoney(0, compraProductosGetCurrency()); }
                     // Hidden quantity/unit_cost para que el backend reciba details.*.quantity y details.*.unit_cost
                     if (qtyCell && !row.querySelector('.detail-qty-hidden')) {
                         var qtyH = document.createElement('input');
@@ -596,13 +620,13 @@
                         <span class="detail-batch-qty text-sm text-gray-700 dark:text-gray-300 hidden"></span>
                     </td>
                     <td class="px-3 py-2 detail-cost-cell">
-                        <input type="number" name="details[${idx}][unit_cost]" value="0" min="0" step="0.01" class="detail-cost w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm">
+                        <input type="text" inputmode="decimal" autocomplete="off" name="details[${idx}][unit_cost]" value="${compraProductosFormatMoney(0, compraProductosGetCurrency())}" class="detail-cost w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm">
                         <span class="detail-serial-dash hidden">—</span>
                         <span class="detail-batch-cost text-sm text-gray-700 dark:text-gray-300 hidden"></span>
                     </td>
                     <td class="px-3 py-2 detail-expiration-cell text-sm text-gray-400">—</td>
                     <td class="px-3 py-2">
-                        <span class="detail-subtotal text-sm font-medium">0.00</span>
+                        <span class="detail-subtotal text-sm font-medium">${compraProductosFormatMoney(0, compraProductosGetCurrency())}</span>
                     </td>
                     <td class="px-3 py-2">
                         <button type="button" class="remove-row text-red-600 hover:text-red-800 text-sm">Quitar</button>
@@ -664,13 +688,13 @@
                                     </div>
                                     <div>
                                         <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Costo de esta unidad (` + currencySymbol + `)</label>
-                                        <input type="number" step="0.01" min="0" class="serial-cost w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" placeholder="0.00" name="details[${rowId}][serial_items][${index}][cost]">
+                                        <input type="text" inputmode="decimal" autocomplete="off" class="serial-cost w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" placeholder="${compraProductosFormatMoney(0, compraProductosGetCurrency())}" name="details[${rowId}][serial_items][${index}][cost]" value="${compraProductosFormatMoney(0, compraProductosGetCurrency())}">
                                     </div>
                                 </div>
                                 ${attrs.length ? '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">' + attrsHtml + '</div>' : ''}
                             `;
                             container.appendChild(unitDiv);
-                            unitDiv.querySelector('.serial-cost').addEventListener('input', function() { compraProductosUpdateSerialQtyAndSubtotal(detailRow); });
+                            bindMoneyInputFormatting(unitDiv.querySelector('.serial-cost'), function() { compraProductosUpdateSerialQtyAndSubtotal(detailRow); });
                             const removeBtn = unitDiv.querySelector('.btn-remove-serial');
                             if (removeBtn) {
                                 removeBtn.addEventListener('click', function() {
@@ -706,12 +730,12 @@
                                 </div>
                                 <div>
                                     <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Costo de esta unidad (` + currencySymbol + `)</label>
-                                    <input type="number" step="0.01" min="0" class="serial-cost w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" name="details[${rowId}][serial_items][0][cost]">
+                                    <input type="text" inputmode="decimal" autocomplete="off" class="serial-cost w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" name="details[${rowId}][serial_items][0][cost]" value="${compraProductosFormatMoney(0, compraProductosGetCurrency())}">
                                 </div>
                             </div>
                         `;
                         container.appendChild(unitDiv);
-                        unitDiv.querySelector('.serial-cost').addEventListener('input', function() { compraProductosUpdateSerialQtyAndSubtotal(detailRow); });
+                        bindMoneyInputFormatting(unitDiv.querySelector('.serial-cost'), function() { compraProductosUpdateSerialQtyAndSubtotal(detailRow); });
                         tr.querySelector('.btn-add-serial-unit').addEventListener('click', function() {
                             const n = container.querySelectorAll('.serial-item').length;
                             const u = document.createElement('div');
@@ -720,11 +744,11 @@
                                 <div class="flex justify-between"><span class="text-sm font-semibold">Unidad #${n + 1}</span><button type="button" class="btn-remove-serial text-red-600 hover:underline text-sm">Eliminar</button></div>
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Número de serie</label><input type="text" class="serial-number w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" name="details[${rowId}][serial_items][${n}][serial_number]"></div>
-                                    <div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Costo (` + currencySymbol + `)</label><input type="number" step="0.01" min="0" class="serial-cost w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" name="details[${rowId}][serial_items][${n}][cost]"></div>
+                                    <div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Costo (` + currencySymbol + `)</label><input type="text" inputmode="decimal" autocomplete="off" class="serial-cost w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" name="details[${rowId}][serial_items][${n}][cost]" value="${compraProductosFormatMoney(0, compraProductosGetCurrency())}"></div>
                                 </div>
                             `;
                             container.appendChild(u);
-                            u.querySelector('.serial-cost').addEventListener('input', function() { compraProductosUpdateSerialQtyAndSubtotal(detailRow); });
+                            bindMoneyInputFormatting(u.querySelector('.serial-cost'), function() { compraProductosUpdateSerialQtyAndSubtotal(detailRow); });
                             u.querySelector('.btn-remove-serial').addEventListener('click', function() { if (container.querySelectorAll('.serial-item').length > 1) { u.remove(); renumberSerialItems(container, rowId, []); compraProductosUpdateSerialQtyAndSubtotal(detailRow); } });
                             compraProductosUpdateSerialQtyAndSubtotal(detailRow);
                         });
@@ -902,20 +926,18 @@
             }
 
             function updateSerialQtyAndSubtotal(detailRow) {
-                const serialRow = detailRow.nextElementSibling;
-                if (!serialRow || !serialRow.classList.contains('serial-details-row')) return;
-                const container = serialRow.querySelector('.serial-items-container');
-                const items = container.querySelectorAll('.serial-item');
-                let total = 0;
-                items.forEach(function(item) {
-                    const cost = parseFloat(item.querySelector('.serial-cost').value) || 0;
-                    total += cost;
+                compraProductosUpdateSerialQtyAndSubtotal(detailRow);
+            }
+
+            function bindMoneyInputFormatting(input, onInputCb) {
+                if (!input) return;
+                input.addEventListener('input', function() {
+                    if (typeof onInputCb === 'function') onInputCb();
                 });
-                const qtySpan = detailRow.querySelector('.detail-serial-qty');
-                const qtyInput = detailRow.querySelector('.detail-qty');
-                if (qtySpan) qtySpan.textContent = items.length + ' unidad(es)';
-                if (qtyInput) qtyInput.value = items.length;
-                detailRow.querySelector('.detail-subtotal').textContent = total.toFixed(2);
+                input.addEventListener('blur', function() {
+                    compraProductosNormalizeMoneyInput(input, compraProductosGetCurrency());
+                    if (typeof onInputCb === 'function') onInputCb();
+                });
             }
 
             function escapeHtml(text) {
@@ -925,9 +947,7 @@
             }
 
             function updateSubtotal(row) {
-                const qty = parseFloat(row.querySelector('.detail-qty').value) || 0;
-                const cost = parseFloat(row.querySelector('.detail-cost').value) || 0;
-                row.querySelector('.detail-subtotal').textContent = (qty * cost).toFixed(2);
+                compraProductosUpdateSubtotal(row);
             }
 
             function renumberRows() {
@@ -995,8 +1015,11 @@
             }
 
             function bindRowEvents(row) {
-                row.querySelectorAll('.detail-qty, .detail-cost').forEach(function(input) {
+                row.querySelectorAll('.detail-qty').forEach(function(input) {
                     input.addEventListener('input', function() { updateSubtotal(row); });
+                });
+                row.querySelectorAll('.detail-cost').forEach(function(input) {
+                    bindMoneyInputFormatting(input, function() { updateSubtotal(row); });
                 });
                 const btnSelect = row.querySelector('.btn-select-item');
                 const btnChange = row.querySelector('.btn-change-item');
@@ -1027,7 +1050,7 @@
                         var qtyInput = row.querySelector('.detail-qty');
                         var costInput = row.querySelector('.detail-cost');
                         if (qtyInput) { qtyInput.value = '1'; qtyInput.name = 'details[' + rowId + '][quantity]'; qtyInput.classList.remove('hidden'); }
-                        if (costInput) { costInput.value = '0'; costInput.name = 'details[' + rowId + '][unit_cost]'; costInput.classList.remove('hidden'); }
+                        if (costInput) { costInput.value = compraProductosFormatMoney(0, compraProductosGetCurrency()); costInput.name = 'details[' + rowId + '][unit_cost]'; costInput.classList.remove('hidden'); }
                         row.querySelector('.detail-serial-qty').classList.add('hidden').textContent = '';
                         row.querySelector('.detail-serial-dash').classList.add('hidden');
                         var bq = row.querySelector('.detail-batch-qty');
@@ -1077,7 +1100,7 @@
                 if (!container) return;
                 container.querySelectorAll('.serial-item').forEach(function(item) {
                     const costInp = item.querySelector('.serial-cost');
-                    if (costInp) costInp.addEventListener('input', function() { updateSerialQtyAndSubtotal(parentRow); });
+                    if (costInp) bindMoneyInputFormatting(costInp, function() { updateSerialQtyAndSubtotal(parentRow); });
                     const removeBtn = item.querySelector('.btn-remove-serial');
                     if (removeBtn) {
                         removeBtn.addEventListener('click', function() {
@@ -1108,9 +1131,9 @@
                         const div = document.createElement('div');
                         div.className = 'serial-item border rounded-lg p-4 space-y-3 border-b border-white/5/30 border-gray-200 dark:border-gray-700';
                         div.setAttribute('data-serial-index', j);
-                        div.innerHTML = '<div class="flex justify-between items-center serial-item-header"><span class="text-sm font-semibold text-gray-600 dark:text-gray-300">Unidad #' + (j + 1) + '</span><button type="button" class="btn-remove-serial text-red-600 hover:underline text-sm">Eliminar</button></div><div class="grid grid-cols-1 sm:grid-cols-2 gap-3"><div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Número de serie</label><input type="text" class="serial-number w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" name="details[' + rowId + '][serial_items][' + j + '][serial_number]"></div><div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Costo (' + ((document.getElementById('form-compra-productos') && document.getElementById('form-compra-productos').dataset.currencySymbol) || '$') + ')</label><input type="number" step="0.01" min="0" class="serial-cost w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" name="details[' + rowId + '][serial_items][' + j + '][cost]" value="0"></div></div>';
+                        div.innerHTML = '<div class="flex justify-between items-center serial-item-header"><span class="text-sm font-semibold text-gray-600 dark:text-gray-300">Unidad #' + (j + 1) + '</span><button type="button" class="btn-remove-serial text-red-600 hover:underline text-sm">Eliminar</button></div><div class="grid grid-cols-1 sm:grid-cols-2 gap-3"><div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Número de serie</label><input type="text" class="serial-number w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" name="details[' + rowId + '][serial_items][' + j + '][serial_number]"></div><div><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-0.5">Costo (' + ((document.getElementById('form-compra-productos') && document.getElementById('form-compra-productos').dataset.currencySymbol) || '$') + ')</label><input type="text" inputmode="decimal" autocomplete="off" class="serial-cost w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" name="details[' + rowId + '][serial_items][' + j + '][cost]" value="' + compraProductosFormatMoney(0, compraProductosGetCurrency()) + '"></div></div>';
                         container.appendChild(div);
-                        div.querySelector('.serial-cost').addEventListener('input', function() { updateSerialQtyAndSubtotal(parentRow); });
+                        bindMoneyInputFormatting(div.querySelector('.serial-cost'), function() { updateSerialQtyAndSubtotal(parentRow); });
                         div.querySelector('.btn-remove-serial').addEventListener('click', function() {
                             if (container.querySelectorAll('.serial-item').length > 1) {
                                 div.remove();
