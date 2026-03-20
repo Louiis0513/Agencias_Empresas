@@ -151,11 +151,8 @@
                                     <button type="button" class="px-3 py-2 text-sm rounded-md bg-indigo-600 text-white hover:bg-indigo-700" @click="selectProductForModal()">Seleccionar</button>
                                 </div>
                             </div>
-                            <div x-show="lineForm.product_type === 'serialized'" class="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
-                                Los productos serializados se implementarán en la siguiente fase.
-                            </div>
                             <div x-show="lineModalError" class="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300" x-text="lineModalError"></div>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div x-show="lineForm.product_type !== 'serialized'" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div>
                                     <label class="block text-xs text-gray-400 mb-1">Cantidad</label>
                                     <input type="number" min="1" class="w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" x-model.number="lineForm.quantity" @input="recomputeModalSubtotal()">
@@ -168,6 +165,39 @@
                             <div x-show="lineForm.product_type === 'batch'">
                                 <label class="block text-xs text-gray-400 mb-1">Fecha de caducidad (opcional)</label>
                                 <input type="date" class="w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" x-model="lineForm.expiration_date">
+                            </div>
+                            <div x-show="lineForm.product_type === 'serialized'" class="space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <label class="block text-xs text-gray-400">Unidades serializadas</label>
+                                    <button type="button" class="text-xs text-indigo-400 hover:text-indigo-300" @click="addSerializedUnit()">+ Agregar unidad</button>
+                                </div>
+                                <template x-for="(unit, unitIdx) in lineForm.serial_items" :key="unitIdx">
+                                    <div class="rounded-md border border-white/10 p-3 space-y-2">
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-xs text-gray-400" x-text="'Unidad #' + (unitIdx + 1)"></span>
+                                            <button type="button" class="text-xs text-red-400 hover:text-red-300" x-show="lineForm.serial_items.length > 1" @click="removeSerializedUnit(unitIdx)">Quitar</button>
+                                        </div>
+                                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            <div>
+                                                <label class="block text-[11px] text-gray-400 mb-1">Serial *</label>
+                                                <input type="text" class="w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" x-model="unit.serial_number" @input="recomputeModalSubtotal()">
+                                            </div>
+                                            <div>
+                                                <label class="block text-[11px] text-gray-400 mb-1">Costo ({{ currency_symbol($store->currency ?? 'COP') }}) *</label>
+                                                <input type="text" inputmode="decimal" autocomplete="off" class="w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" x-model="unit.cost_display" @input="recomputeModalSubtotal()" @blur="normalizeSerializedUnitCost(unitIdx)">
+                                            </div>
+                                        </div>
+                                        <div x-show="serializedAttributes.length > 0" class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            <template x-for="attr in serializedAttributes" :key="attr.id">
+                                                <div>
+                                                    <label class="block text-[11px] text-gray-400 mb-1" x-text="attr.name"></label>
+                                                    <input type="text" class="w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm"
+                                                           x-model="unit.features[attr.id]">
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </template>
                             </div>
                             <div class="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-gray-200">
                                 Subtotal: <span class="font-semibold" x-text="formatMoney(lineForm.subtotal || 0)"></span>
@@ -219,15 +249,34 @@
                 const d = (raw && typeof raw === 'object') ? raw : {};
                 const bi = Array.isArray(d.batch_items) ? (d.batch_items[0] || {}) : {};
                 const isBatch = !!(bi && (bi.product_variant_id || bi.batch_item_id));
+                const serialItemsRaw = Array.isArray(d.serial_items) ? d.serial_items : [];
+                const isSerialized = serialItemsRaw.length > 0 || String(d.product_type || '') === 'serialized';
+                const serialItems = serialItemsRaw.map((row) => {
+                    const unit = (row && typeof row === 'object') ? row : {};
+                    const cost = parseFloat(unit.cost) || 0;
+                    return {
+                        serial_number: String(unit.serial_number || ''),
+                        cost: cost,
+                        cost_display: formatMoney(cost),
+                        features: unit.features && typeof unit.features === 'object' ? unit.features : {}
+                    };
+                });
+                const serializedQty = serialItems.length > 0 ? serialItems.length : Math.max(1, parseInt(d.quantity, 10) || 1);
+                const serializedTotal = serialItems.reduce((acc, u) => acc + (parseFloat(u.cost) || 0), 0);
                 return {
                     item_type: 'INVENTARIO',
                     product_id: Number(d.product_id || 0) || null,
                     description: String(d.description || ''),
-                    product_type: isBatch ? 'batch' : String(d.product_type || 'simple'),
+                    product_type: isSerialized ? 'serialized' : (isBatch ? 'batch' : String(d.product_type || 'simple')),
                     product_variant_id: bi.product_variant_id ? Number(bi.product_variant_id) : null,
-                    quantity: Math.max(1, parseInt(isBatch ? (bi.quantity ?? d.quantity) : d.quantity, 10) || 1),
-                    unit_cost: parseFloat(isBatch ? (bi.unit_cost ?? d.unit_cost) : d.unit_cost) || 0,
-                    expiration_date: isBatch ? String(bi.expiration_date || '') : ''
+                    quantity: isSerialized
+                        ? serializedQty
+                        : Math.max(1, parseInt(isBatch ? (bi.quantity ?? d.quantity) : d.quantity, 10) || 1),
+                    unit_cost: isSerialized
+                        ? (serializedQty > 0 ? (serializedTotal / serializedQty) : 0)
+                        : (parseFloat(isBatch ? (bi.unit_cost ?? d.unit_cost) : d.unit_cost) || 0),
+                    expiration_date: isBatch ? String(bi.expiration_date || '') : '',
+                    serial_items: serialItems
                 };
             };
 
@@ -238,6 +287,7 @@
                 lineModalMode: 'create',
                 editIndex: null,
                 lineModalError: '',
+                serializedAttributes: [],
                 lineForm: {
                     product_id: null,
                     description: '',
@@ -247,22 +297,72 @@
                     unit_cost: 0,
                     unit_cost_display: '',
                     expiration_date: '',
-                    subtotal: 0
+                    subtotal: 0,
+                    serial_items: []
                 },
                 formatMoney(value) { return formatMoney(value); },
                 init() {
-                    this.details = (initialDetails || []).map(normalizeLine).filter((line) => line.product_type !== 'serialized');
+                    this.details = (initialDetails || []).map(normalizeLine);
                     this.syncHiddenInputs();
                 },
                 recomputeModalSubtotal() {
+                    if (this.lineForm.product_type === 'serialized') {
+                        let total = 0;
+                        this.lineForm.serial_items = (this.lineForm.serial_items || []).map((unit) => {
+                            const cost = parseMoney(unit.cost_display);
+                            total += cost;
+                            return {
+                                ...unit,
+                                serial_number: String(unit.serial_number || ''),
+                                cost,
+                                cost_display: unit.cost_display ?? formatMoney(cost),
+                                features: unit.features && typeof unit.features === 'object' ? unit.features : {}
+                            };
+                        });
+                        const qty = this.lineForm.serial_items.length || 0;
+                        this.lineForm.quantity = qty;
+                        this.lineForm.unit_cost = qty > 0 ? (total / qty) : 0;
+                        this.lineForm.unit_cost_display = formatMoney(this.lineForm.unit_cost);
+                        this.lineForm.subtotal = total;
+                        return;
+                    }
                     this.lineForm.quantity = Math.max(1, parseInt(this.lineForm.quantity, 10) || 1);
                     this.lineForm.unit_cost = parseMoney(this.lineForm.unit_cost_display);
                     this.lineForm.subtotal = this.lineForm.quantity * this.lineForm.unit_cost;
                 },
                 normalizeModalCost() {
+                    if (this.lineForm.product_type === 'serialized') return;
                     this.lineForm.unit_cost = parseMoney(this.lineForm.unit_cost_display);
                     this.lineForm.unit_cost_display = formatMoney(this.lineForm.unit_cost);
                     this.recomputeModalSubtotal();
+                },
+                normalizeSerializedUnitCost(index) {
+                    const unit = this.lineForm.serial_items[index];
+                    if (!unit) return;
+                    unit.cost = parseMoney(unit.cost_display);
+                    unit.cost_display = formatMoney(unit.cost);
+                    this.recomputeModalSubtotal();
+                },
+                addSerializedUnit() {
+                    const features = {};
+                    (this.serializedAttributes || []).forEach((attr) => {
+                        features[attr.id] = '';
+                    });
+                    this.lineForm.serial_items.push({
+                        serial_number: '',
+                        cost: 0,
+                        cost_display: formatMoney(0),
+                        features
+                    });
+                    this.recomputeModalSubtotal();
+                },
+                removeSerializedUnit(index) {
+                    this.lineForm.serial_items.splice(index, 1);
+                    if (this.lineForm.serial_items.length === 0) {
+                        this.addSerializedUnit();
+                    } else {
+                        this.recomputeModalSubtotal();
+                    }
                 },
                 openCreateLine() {
                     this.lineModalMode = 'create';
@@ -277,8 +377,10 @@
                         unit_cost: 0,
                         unit_cost_display: formatMoney(0),
                         expiration_date: '',
-                        subtotal: 0
+                        subtotal: 0,
+                        serial_items: []
                     };
+                    this.serializedAttributes = [];
                     this.lineModalOpen = true;
                 },
                 openEditLine(index) {
@@ -290,9 +392,22 @@
                     this.lineForm = {
                         ...line,
                         unit_cost_display: formatMoney(line.unit_cost),
-                        subtotal: line.quantity * line.unit_cost
+                        subtotal: line.quantity * line.unit_cost,
+                        serial_items: Array.isArray(line.serial_items) ? line.serial_items.map((u) => ({
+                            serial_number: String(u.serial_number || ''),
+                            cost: parseFloat(u.cost) || 0,
+                            cost_display: formatMoney(parseFloat(u.cost) || 0),
+                            features: u.features && typeof u.features === 'object' ? u.features : {}
+                        })) : []
                     };
+                    if (this.lineForm.product_type === 'serialized' && this.lineForm.serial_items.length === 0) {
+                        this.addSerializedUnit();
+                    }
+                    this.recomputeModalSubtotal();
                     this.lineModalOpen = true;
+                    if (this.lineForm.product_type === 'serialized' && this.lineForm.product_id) {
+                        this.loadSerializedAttributes(this.lineForm.product_id);
+                    }
                 },
                 closeLineModal() {
                     this.lineModalOpen = false;
@@ -322,6 +437,43 @@
                         this.lineForm.expiration_date = '';
                         this.lineForm.product_variant_id = null;
                     }
+                    if (productType === 'serialized' && (!Array.isArray(this.lineForm.serial_items) || this.lineForm.serial_items.length === 0)) {
+                        this.lineForm.serial_items = [];
+                        this.addSerializedUnit();
+                    }
+                    if (productType === 'serialized') {
+                        this.loadSerializedAttributes(this.lineForm.product_id);
+                    } else {
+                        this.serializedAttributes = [];
+                    }
+                    this.recomputeModalSubtotal();
+                },
+                async loadSerializedAttributes(productId) {
+                    const form = document.getElementById('form-compra-productos');
+                    const template = form?.getAttribute('data-atributos-url') || '';
+                    if (!template || !productId) {
+                        this.serializedAttributes = [];
+                        return;
+                    }
+                    try {
+                        const url = template.replace(/\/0\/atributos-categoria$/, `/${productId}/atributos-categoria`);
+                        const res = await fetch(url, {
+                            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+                        });
+                        const data = await res.json();
+                        this.serializedAttributes = Array.isArray(data.attributes) ? data.attributes : [];
+                        if (Array.isArray(this.lineForm.serial_items)) {
+                            this.lineForm.serial_items = this.lineForm.serial_items.map((unit) => {
+                                const features = unit.features && typeof unit.features === 'object' ? { ...unit.features } : {};
+                                this.serializedAttributes.forEach((attr) => {
+                                    if (features[attr.id] === undefined) features[attr.id] = '';
+                                });
+                                return { ...unit, features };
+                            });
+                        }
+                    } catch (e) {
+                        this.serializedAttributes = [];
+                    }
                 },
                 onBatchVariantSelected(detail) {
                     if (!this.lineModalOpen || detail.rowId !== 'line-modal') return;
@@ -337,13 +489,34 @@
                         this.lineModalError = 'Debes seleccionar un producto.';
                         return;
                     }
-                    if (this.lineForm.product_type === 'serialized') {
-                        this.lineModalError = 'Los serializados se implementarán en la siguiente fase.';
-                        return;
-                    }
                     if (this.lineForm.product_type === 'batch' && !this.lineForm.product_variant_id) {
                         this.lineModalError = 'Debes seleccionar una variante para producto por lote.';
                         return;
+                    }
+                    if (this.lineForm.product_type === 'serialized') {
+                        const units = Array.isArray(this.lineForm.serial_items) ? this.lineForm.serial_items : [];
+                        if (units.length === 0) {
+                            this.lineModalError = 'Debes agregar al menos una unidad serializada.';
+                            return;
+                        }
+                        const seen = new Set();
+                        for (const u of units) {
+                            const serial = String(u.serial_number || '').trim();
+                            if (!serial) {
+                                this.lineModalError = 'Cada unidad serializada debe tener número de serie.';
+                                return;
+                            }
+                            const key = serial.toLowerCase();
+                            if (seen.has(key)) {
+                                this.lineModalError = 'No puedes repetir seriales en la misma línea.';
+                                return;
+                            }
+                            seen.add(key);
+                            if ((parseFloat(u.cost) || 0) < 0) {
+                                this.lineModalError = 'El costo de una unidad serializada no puede ser negativo.';
+                                return;
+                            }
+                        }
                     }
                     const payload = {
                         item_type: 'INVENTARIO',
@@ -353,7 +526,14 @@
                         product_variant_id: this.lineForm.product_variant_id || null,
                         quantity: this.lineForm.quantity,
                         unit_cost: this.lineForm.unit_cost,
-                        expiration_date: this.lineForm.product_type === 'batch' ? (this.lineForm.expiration_date || '') : ''
+                        expiration_date: this.lineForm.product_type === 'batch' ? (this.lineForm.expiration_date || '') : '',
+                        serial_items: this.lineForm.product_type === 'serialized'
+                            ? (this.lineForm.serial_items || []).map((u) => ({
+                                serial_number: String(u.serial_number || '').trim(),
+                                cost: parseFloat(u.cost) || 0,
+                                features: u.features && typeof u.features === 'object' ? u.features : {}
+                            }))
+                            : []
                     };
                     if (this.lineModalMode === 'edit' && this.editIndex !== null) {
                         this.details.splice(this.editIndex, 1, payload);
@@ -382,6 +562,20 @@
                             html.push(`<input type="hidden" name="details[${i}][batch_items][0][unit_cost]" value="${line.unit_cost}">`);
                             html.push(`<input type="hidden" name="details[${i}][batch_items][0][product_variant_id]" value="${line.product_variant_id || ''}">`);
                             html.push(`<input type="hidden" name="details[${i}][batch_items][0][expiration_date]" value="${line.expiration_date || ''}">`);
+                        }
+                        if (line.product_type === 'serialized' && Array.isArray(line.serial_items)) {
+                            line.serial_items.forEach((unit, j) => {
+                                const serial = String(unit.serial_number || '').replace(/"/g, '&quot;');
+                                const cost = parseFloat(unit.cost) || 0;
+                                html.push(`<input type="hidden" name="details[${i}][serial_items][${j}][serial_number]" value="${serial}">`);
+                                html.push(`<input type="hidden" name="details[${i}][serial_items][${j}][cost]" value="${cost}">`);
+                                const features = unit.features && typeof unit.features === 'object' ? unit.features : {};
+                                Object.keys(features).forEach((attrId) => {
+                                    const raw = features[attrId];
+                                    const val = String(raw == null ? '' : raw).replace(/"/g, '&quot;');
+                                    html.push(`<input type="hidden" name="details[${i}][serial_items][${j}][features][${attrId}]" value="${val}">`);
+                                });
+                            });
                         }
                     });
                     container.innerHTML = html.join('');

@@ -58,7 +58,7 @@ class SelectItemModal extends Component
             // La capa de servicio ya devuelve ítems lógicos (producto simple, variante de lote, ítem serializado).
             $items = in_array($this->rowId, ['venta', 'factura', 'inventario-filtro', 'movimiento-inventario'], true)
                 ? app(VentaService::class)->buscarProductos($store, $term, 25)
-                : app(InventarioService::class)->buscarProductosInventario($store, $term, 25);
+                : app(InventarioService::class)->buscarProductosParaCompra($store, $term, 25);
 
             return $items->map(function ($row) {
                 // $row es un array normal con la forma documentada en InventarioService::buscarProductosInventario.

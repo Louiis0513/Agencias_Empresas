@@ -1282,6 +1282,127 @@ class InventarioService
     }
 
     /**
+     * Variante para contexto de compras:
+     * - simple: por producto
+     * - batch: por variante
+     * - serialized: por producto base (aunque no tenga ProductItem aún)
+     */
+    public function buscarProductosParaCompra(Store $store, string $term, int $limit = 15): \Illuminate\Support\Collection
+    {
+        $term = trim($term);
+
+        /** @var \Illuminate\Support\Collection<int, Product> $products */
+        $products = $this->queryProductosBusqueda($store, $term, true)
+            ->orderBy('name')
+            ->limit($limit)
+            ->get(['id', 'name', 'sku', 'barcode', 'stock', 'cost', 'type']);
+
+        $items = collect();
+
+        // 1) Productos simples: una fila por producto.
+        $simpleProducts = $products->filter(function (Product $p) {
+            return $p->type === 'simple' || $p->type === null || $p->type === '';
+        });
+        foreach ($simpleProducts as $p) {
+            $items->push([
+                'id' => $p->id,
+                'name' => $p->name,
+                'display_name' => $p->name,
+                'code' => $p->sku ?? $p->barcode ?? null,
+                'type' => 'INVENTARIO',
+                'product_type' => 'simple',
+                'variant_id' => null,
+                'item_id' => null,
+            ]);
+        }
+
+        // 2) Productos por lote: una fila por variante (misma lógica que selector general).
+        $batchProductIds = $products
+            ->filter(fn (Product $p) => $p->type === MovimientoInventario::PRODUCT_TYPE_BATCH)
+            ->pluck('id')
+            ->all();
+
+        if (! empty($batchProductIds)) {
+            $exactVariantMatches = ProductVariant::query()
+                ->whereIn('product_id', $batchProductIds)
+                ->where(function ($q) use ($term) {
+                    $q->where('sku', $term)
+                        ->orWhere('barcode', $term);
+                })
+                ->whereHas('product', function ($q) use ($store) {
+                    $q->where('store_id', $store->id)
+                        ->where('is_active', true)
+                        ->where('type', MovimientoInventario::PRODUCT_TYPE_BATCH);
+                })
+                ->with('product.category.attributes')
+                ->get();
+
+            $variantsToUse = $exactVariantMatches;
+            if ($variantsToUse->isEmpty()) {
+                $variantsToUse = ProductVariant::query()
+                    ->whereIn('product_id', $batchProductIds)
+                    ->whereHas('product', function ($q) use ($store) {
+                        $q->where('store_id', $store->id)
+                            ->where('is_active', true)
+                            ->where('type', MovimientoInventario::PRODUCT_TYPE_BATCH);
+                    })
+                    ->with('product.category.attributes')
+                    ->get();
+            }
+
+            foreach ($variantsToUse as $variant) {
+                /** @var Product $product */
+                $product = $variant->product;
+                $displayName = $product->name;
+                if ($variant->display_name) {
+                    $displayName .= ' (' . $variant->display_name . ')';
+                }
+
+                $items->push([
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'display_name' => $displayName,
+                    'code' => $variant->sku ?? $variant->barcode ?? $product->sku ?? $product->barcode ?? null,
+                    'type' => 'INVENTARIO',
+                    'product_type' => MovimientoInventario::PRODUCT_TYPE_BATCH,
+                    'variant_id' => $variant->id,
+                    'item_id' => null,
+                ]);
+            }
+        }
+
+        // 3) Productos serializados: una fila por producto base, sin requerir ProductItem.
+        $serializedProducts = $products
+            ->filter(fn (Product $p) => $p->type === MovimientoInventario::PRODUCT_TYPE_SERIALIZED);
+        foreach ($serializedProducts as $p) {
+            $items->push([
+                'id' => $p->id,
+                'name' => $p->name,
+                'display_name' => $p->name,
+                'code' => $p->sku ?? $p->barcode ?? null,
+                'type' => 'INVENTARIO',
+                'product_type' => MovimientoInventario::PRODUCT_TYPE_SERIALIZED,
+                'variant_id' => null,
+                'item_id' => null,
+            ]);
+        }
+
+        $unique = $items->unique(function (array $row) {
+            return implode(':', [
+                $row['id'],
+                $row['product_type'] ?? '',
+                $row['variant_id'] ?? 'null',
+                $row['item_id'] ?? 'null',
+            ]);
+        });
+
+        return $unique
+            ->sortBy('display_name')
+            ->values()
+            ->take($limit);
+    }
+
+    /**
      * Construye un query builder de productos de la tienda con filtro de búsqueda
      * coherente para inventario:
      * - Busca por nombre, sku, barcode del producto.
