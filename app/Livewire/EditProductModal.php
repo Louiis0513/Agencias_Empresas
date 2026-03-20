@@ -25,6 +25,7 @@ class EditProductModal extends Component
 
     public string $name = '';
     public string $price = '0';
+    public string $margin = '';
     public string $location = '';
     public bool $is_active = true;
     public bool $in_showcase = false;
@@ -43,7 +44,8 @@ class EditProductModal extends Component
     {
         return [
             'name' => ['required', 'string', 'min:1', 'max:255'],
-            'price' => ['required', 'numeric', 'min:0'],
+            'price' => ['nullable', 'numeric', 'min:0'],
+            'margin' => ['nullable', 'numeric'],
             'location' => ['nullable', 'string', 'max:255'],
             'is_active' => ['boolean'],
             'in_showcase' => ['boolean'],
@@ -87,6 +89,7 @@ class EditProductModal extends Component
             $this->productType = $product->isBatch() ? 'batch' : ($product->isSerialized() ? 'serialized' : 'simple');
             $this->name = $product->name;
             $this->price = (string) $product->price;
+            $this->margin = '';
             $this->location = $product->location ?? '';
             $this->is_active = (bool) $product->is_active;
             $this->in_showcase = (bool) $product->in_showcase;
@@ -117,7 +120,19 @@ class EditProductModal extends Component
         $isSimple = $this->productType === 'simple';
 
         if ($isSimple) {
+            // Si el usuario define margen, ese modo tiene prioridad sobre el precio precargado.
+            if ($this->margin !== '') {
+                $this->price = '';
+            }
             $this->validate();
+            if ($this->price !== '' && $this->margin !== '') {
+                $this->addError('margin', 'Ingresa precio o margen, no ambos.');
+                return;
+            }
+            if ($this->price === '' && $this->margin === '') {
+                $this->addError('price', 'Ingresa precio o margen.');
+                return;
+            }
         } else {
             $this->validate([
                 'name' => ['required', 'string', 'min:1', 'max:255'],
@@ -163,7 +178,12 @@ class EditProductModal extends Component
 
         if ($isSimple) {
             $currency = $store->currency ?? 'COP';
-            $data['price'] = parse_money($this->price, $currency);
+            if ($this->price !== '') {
+                $data['price'] = parse_money($this->price, $currency);
+            }
+            if ($this->margin !== '') {
+                $data['margin'] = (float) $this->margin;
+            }
             $data['is_active'] = $this->is_active;
             $data['in_showcase'] = $this->in_showcase;
             $data['category_id'] = $this->category_id;
@@ -225,6 +245,7 @@ class EditProductModal extends Component
         $this->reset([
             'name',
             'price',
+            'margin',
             'location',
             'is_active',
             'in_showcase',

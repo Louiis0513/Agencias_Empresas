@@ -95,6 +95,16 @@
                         <dt class="text-xs font-medium text-gray-400">Costo (ref.)</dt>
                         <dd class="mt-0.5 text-sm text-gray-100">{{ money($product->cost, $store->currency ?? 'COP') }}</dd>
                     </div>
+                    <div>
+                        <dt class="text-xs font-medium text-gray-400">Margen</dt>
+                        <dd class="mt-0.5 text-sm text-gray-100">
+                            @if($product->margin !== null)
+                                {{ number_format((float) $product->margin, 2, '.', ',') }}%
+                            @else
+                                —
+                            @endif
+                        </dd>
+                    </div>
                     @endif
                     @if(!$product->isBatch() && !$product->isSerialized() && $product->attributeValues->isNotEmpty())
                         @foreach($product->attributeValues as $attrValue)
@@ -152,6 +162,7 @@
                             'costo_promedio' => $totalQty > 0 ? $totalCost / $totalQty : 0,
                             'cost_reference' => (float) $variant->cost_reference,
                             'price' => $variant->price,
+                            'margin' => $variant->margin,
                             'barcode' => $variant->barcode,
                             'sku' => $variant->sku,
                             'image_path' => $variant->image_path,
@@ -190,6 +201,7 @@
                                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Precio</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Barcode</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">SKU</th>
+                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Margen</th>
                                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Estado</th>
                                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Acción</th>
                                     </tr>
@@ -209,6 +221,13 @@
                                             </td>
                                             <td class="px-4 py-3 text-sm text-gray-400">{{ $vp->barcode ?? '—' }}</td>
                                             <td class="px-4 py-3 text-sm text-gray-400">{{ $vp->sku ?? '—' }}</td>
+                                            <td class="px-4 py-3 text-right text-sm text-gray-100">
+                                                @if($vp->margin !== null)
+                                                    {{ number_format((float) $vp->margin, 2, '.', ',') }}%
+                                                @else
+                                                    —
+                                                @endif
+                                            </td>
                                             <td class="px-4 py-3 text-right">
                                                 <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ ($vp->is_active ?? true) ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300' }}">
                                                     {{ ($vp->is_active ?? true) ? 'Activo' : 'Inactivo' }}
@@ -359,6 +378,7 @@
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Nº Serie</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Costo</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Precio venta</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Margen</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Estado</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Referencia</th>
                                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Acción</th>
@@ -372,6 +392,13 @@
                                             <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-100">
                                                 @if($item->price !== null && (float)$item->price > 0)
                                                     {{ money($item->price, $store->currency ?? 'COP') }}
+                                                @else
+                                                    <span class="text-gray-400 dark:text-gray-500">—</span>
+                                                @endif
+                                            </td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-100">
+                                                @if($item->margin !== null)
+                                                    {{ number_format((float) $item->margin, 2, '.', ',') }}%
                                                 @else
                                                     <span class="text-gray-400 dark:text-gray-500">—</span>
                                                 @endif
@@ -527,6 +554,11 @@
                                             <x-text-input name="price" id="mod-var-{{ $loop->index }}-price" class="block mt-1 w-full" type="number" step="0.01" min="0" placeholder="0.00" value="{{ $uv->price !== null && $uv->price !== '' ? number_format((float) $uv->price, 2, '.', '') : '' }}" />
                                         </div>
                                         <div>
+                                            <x-input-label for="mod-var-{{ $loop->index }}-margin" value="{{ __('Margen (%)') }}" class="dark:text-white font-semibold" />
+                                            <x-text-input name="margin" id="mod-var-{{ $loop->index }}-margin" class="block mt-1 w-full" type="number" step="0.01" min="-999" max="99.99" placeholder="Ej: 20" value="" />
+                                            <p class="mt-1 text-xs text-gray-400">{{ __('Ingresa precio o margen, no ambos.') }}</p>
+                                        </div>
+                                        <div>
                                             <x-input-label for="mod-var-{{ $loop->index }}-cost-ref" value="{{ __('Costo de referencia') }}" class="dark:text-white font-semibold" />
                                             <x-text-input name="cost_reference" id="mod-var-{{ $loop->index }}-cost-ref" class="block mt-1 w-full" type="number" step="0.01" min="0" placeholder="0.00" value="{{ number_format((float) $uv->cost_reference, 2, '.', '') }}" />
                                         </div>
@@ -625,6 +657,9 @@
                                     <div class="mt-4 pt-3 border-t border-gray-200 dark:border-gray-600">
                                         <x-input-label for="crear-var-price" value="{{ __('Precio al público') }}" class="dark:text-gray-200 font-semibold" />
                                         <x-text-input name="price" id="crear-var-price" class="block mt-1 w-full" type="number" step="0.01" min="0" placeholder="0.00" />
+                                        <x-input-label for="crear-var-margin" value="{{ __('Margen (%)') }}" class="dark:text-gray-200 font-semibold mt-3" />
+                                        <x-text-input name="margin" id="crear-var-margin" class="block mt-1 w-full" type="number" step="0.01" min="-999" max="99.99" placeholder="Ej: 20" />
+                                        <p class="mt-1 text-xs text-gray-400">{{ __('Ingresa precio o margen, no ambos.') }}</p>
                                     </div>
                                     {{-- SKU y Barcode --}}
                                     <div class="mt-4 pt-3 border-t border-gray-200 dark:border-gray-600 grid grid-cols-1 sm:grid-cols-2 gap-4">

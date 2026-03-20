@@ -18,6 +18,7 @@ class StoreProductRequest extends FormRequest
             'attribute_values.*' => ['nullable'],
             'product_variant_id' => ['nullable', 'integer'],
             'price' => ['nullable'],
+            'margin' => ['nullable', 'numeric'],
             'cost_reference' => ['nullable'],
             'barcode' => ['nullable', 'string', 'max:255'],
             'sku' => ['nullable', 'string', 'max:255'],

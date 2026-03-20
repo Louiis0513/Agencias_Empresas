@@ -22,6 +22,7 @@ class ProductItem extends Model
         'expiration_date',
         'cost',
         'price',
+        'margin',
         'status',
         'image_path',
         'features',
@@ -31,6 +32,7 @@ class ProductItem extends Model
     protected $casts = [
         'cost' => 'decimal:2',
         'price' => 'decimal:2',
+        'margin' => 'decimal:2',
         'expiration_date' => 'date',
         'features' => 'array',
         'in_showcase' => 'boolean',

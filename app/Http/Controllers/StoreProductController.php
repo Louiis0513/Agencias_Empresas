@@ -91,8 +91,16 @@ class StoreProductController extends Controller
 
         $currency = $store->currency ?? 'COP';
         $price = $request->input('price');
+        $margin = $request->input('margin');
+        if ($price !== null && $price !== '' && $margin !== null && $margin !== '') {
+            return redirect()->route('stores.products.show', [$store, $product])
+                ->with('error', 'Ingresa precio o margen, no ambos.');
+        }
         if ($price !== null && $price !== '') {
             $data['price'] = parse_money($price, $currency);
+        }
+        if ($margin !== null && $margin !== '') {
+            $data['margin'] = (float) $margin;
         }
 
         $costRef = $request->input('cost_reference');
@@ -186,6 +194,7 @@ class StoreProductController extends Controller
         $variant = [
             'attribute_values' => $attributeValues,
             'price' => $request->input('price') !== '' && $request->input('price') !== null ? parse_money($request->input('price'), $currency) : null,
+            'margin' => $request->input('margin') !== '' && $request->input('margin') !== null ? (float) $request->input('margin') : null,
             'sku' => $request->input('sku'),
             'barcode' => $request->input('barcode'),
             'has_stock' => $request->boolean('has_stock'),
@@ -194,6 +203,11 @@ class StoreProductController extends Controller
             'batch_number' => $request->input('batch_number'),
             'expiration_date' => $request->input('expiration_date') ?: null,
         ];
+
+        if ($variant['price'] !== null && $variant['margin'] !== null) {
+            return redirect()->route('stores.products.show', [$store, $product])
+                ->with('error', 'Ingresa precio o margen, no ambos.');
+        }
 
         $features = array_filter($attributeValues, fn ($v) => $v !== '' && $v !== null);
         if ($productService->variantExists($store, $product, $features)) {

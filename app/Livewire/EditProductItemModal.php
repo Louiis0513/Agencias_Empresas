@@ -6,6 +6,7 @@ use App\Models\Product;
 use App\Models\ProductItem;
 use App\Models\Store;
 use App\Services\ConvertidorImgService;
+use App\Services\ProductService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -22,6 +23,7 @@ class EditProductItemModal extends Component
     public ?int $productItemId = null;
     public string $serial_number = '';
     public string $price = '';
+    public string $margin = '';
     public string $status = 'AVAILABLE';
     public $image = null;
     public bool $remove_image = false;
@@ -46,6 +48,7 @@ class EditProductItemModal extends Component
                     ->ignore($this->productItemId),
             ],
             'price' => ['nullable', 'numeric', 'min:0'],
+            'margin' => ['nullable', 'numeric'],
             'status' => ['required', 'string', 'in:AVAILABLE,SOLD,RESERVED,DEFECTIVE'],
             'image' => ['nullable', 'image', 'mimes:jpeg,png,webp', 'max:5120'],
             'remove_image' => ['boolean'],
@@ -95,6 +98,7 @@ class EditProductItemModal extends Component
 
         $this->serial_number = $item->serial_number;
         $this->price = $item->price !== null ? (string) $item->price : '';
+        $this->margin = '';
         $this->status = $item->status ?? ProductItem::STATUS_AVAILABLE;
         $this->current_image_path = $item->image_path;
         $this->image = null;
@@ -120,9 +124,17 @@ class EditProductItemModal extends Component
         $this->dispatch('open-modal', 'edit-product-item');
     }
 
-    public function update(): void
+    public function update(ProductService $productService): void
     {
         $this->validate();
+        if ($this->price !== '' && $this->margin !== '') {
+            $this->addError('margin', 'Ingresa precio o margen, no ambos.');
+            return;
+        }
+        if ($this->price === '' && $this->margin === '') {
+            $this->addError('price', 'Ingresa precio o margen.');
+            return;
+        }
 
         $store = $this->getStoreProperty();
         if (! $store || $this->productItemId === null) {
@@ -144,9 +156,24 @@ class EditProductItemModal extends Component
         }
 
         $currency = $store->currency ?? 'COP';
+        $priceValue = $this->price !== '' ? parse_money($this->price, $currency) : null;
+        $marginValue = $this->margin !== '' ? (float) $this->margin : null;
+        try {
+            $resolvedPricing = $productService->resolvePriceAndMargin(
+                (float) $item->cost,
+                $priceValue,
+                $marginValue,
+                $currency
+            );
+        } catch (\Exception $e) {
+            $this->addError('margin', $e->getMessage());
+            return;
+        }
+
         $data = [
             'serial_number' => trim($this->serial_number),
-            'price' => $this->price !== '' ? parse_money($this->price, $currency) : null,
+            'price' => $resolvedPricing['price'],
+            'margin' => $resolvedPricing['margin'],
             'status' => $this->status,
             'features' => ! empty($features) ? $features : null,
         ];

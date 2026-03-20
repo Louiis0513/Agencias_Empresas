@@ -18,8 +18,13 @@
                 <div>
                     <x-input-label for="item_price" value="{{ __('Precio de venta') }} ({{ currency_symbol($this->store?->currency ?? 'COP') }})" />
                     <x-money-input wire:model="price" :currency="$this->store?->currency ?? 'COP'" :value="$price" id="item_price" />
-                    <p class="mt-0.5 text-xs text-gray-400">Dejar vacío si aún no tiene precio de venta asignado.</p>
+                    <p class="mt-0.5 text-xs text-gray-400">Ingresa precio o margen, no ambos.</p>
                     <x-input-error :messages="$errors->get('price')" class="mt-1" />
+                </div>
+                <div>
+                    <x-input-label for="item_margin" value="{{ __('Margen (%)') }}" />
+                    <x-text-input wire:model="margin" id="item_margin" class="block mt-1 w-full" type="number" step="0.01" min="-999" max="99.99" placeholder="Ej: 20" />
+                    <x-input-error :messages="$errors->get('margin')" class="mt-1" />
                 </div>
 
                 <div>

@@ -18,6 +18,7 @@ class Product extends Model
         'image_path',
         'price',
         'cost',
+        'margin',
         'stock',
         'location',
         'type',
@@ -28,6 +29,7 @@ class Product extends Model
     protected $casts = [
         'price' => 'decimal:2',
         'cost' => 'decimal:2',
+        'margin' => 'decimal:2',
         'stock' => 'integer',
         'is_active' => 'boolean',
         'in_showcase' => 'boolean',

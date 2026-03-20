@@ -7,6 +7,7 @@ use App\Models\BatchItem;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\ProductAttributeValue;
+use App\Models\ProductItem;
 use App\Models\ProductVariant;
 use App\Models\Store;
 use App\Services\CurrencyFormatService;
@@ -15,6 +16,60 @@ use Exception;
 
 class ProductService
 {
+    /**
+     * Resuelve precio y margen con regla estricta:
+     * - Debe venir exactamente uno entre price y margin.
+     * - Si viene margin, calcula price usando cost.
+     * - Si viene price, calcula margin usando price y cost.
+     *
+     * @return array{price: float, margin: float|null}
+     */
+    public function resolvePriceAndMargin(float $cost, mixed $price = null, mixed $margin = null, string $currency = 'COP'): array
+    {
+        $hasPrice = $price !== null && $price !== '';
+        $hasMargin = $margin !== null && $margin !== '';
+
+        if ($hasPrice === $hasMargin) {
+            throw new Exception('Ingresa precio o margen, no ambos.');
+        }
+
+        $currencyService = app(CurrencyFormatService::class);
+
+        if ($hasMargin) {
+            $marginValue = round((float) $margin, 2);
+            if ($marginValue >= 100) {
+                throw new Exception('No se puede calcular precio con margen >= 100%.');
+            }
+
+            $priceValue = (float) ($cost / (1 - ($marginValue / 100)));
+            $priceValue = $currencyService->roundForCurrency($priceValue, $currency);
+
+            return [
+                'price' => $priceValue,
+                'margin' => $marginValue,
+            ];
+        }
+
+        $priceValue = $currencyService->roundForCurrency((float) $price, $currency);
+        $marginValue = $priceValue > 0
+            ? round((($priceValue - $cost) / $priceValue) * 100, 2)
+            : null;
+
+        return [
+            'price' => $priceValue,
+            'margin' => $marginValue,
+        ];
+    }
+
+    public function computeMarginFromCostAndPrice(float $cost, ?float $price): ?float
+    {
+        if ($price === null || $price <= 0) {
+            return null;
+        }
+
+        return round((($price - $cost) / $price) * 100, 2);
+    }
+
     /**
      * Crea un nuevo producto en la tienda.
      * - Categoría obligatoria.
@@ -88,14 +143,30 @@ class ProductService
                 $data['stock'] = 0;
             }
 
-            // Redondear precio y costo según moneda de la tienda
             $currency = $store->currency ?? 'COP';
             $currencyService = app(CurrencyFormatService::class);
-            if (isset($data['price'])) {
-                $data['price'] = $currencyService->roundForCurrency((float) $data['price'], $currency);
-            }
             if (isset($data['cost'])) {
                 $data['cost'] = $currencyService->roundForCurrency((float) $data['cost'], $currency);
+            }
+
+            if ($isSimpleProduct) {
+                $hasPrice = array_key_exists('price', $data) && $data['price'] !== '' && $data['price'] !== null;
+                $hasMargin = array_key_exists('margin', $data) && $data['margin'] !== '' && $data['margin'] !== null;
+                $costForCalc = (float) ($data['cost'] ?? 0);
+
+                if ($hasPrice || $hasMargin) {
+                    $resolved = $this->resolvePriceAndMargin(
+                        $costForCalc,
+                        $hasPrice ? $data['price'] : null,
+                        $hasMargin ? $data['margin'] : null,
+                        $currency
+                    );
+                    $data['price'] = $resolved['price'];
+                    $data['margin'] = $resolved['margin'];
+                } elseif (isset($data['price'])) {
+                    $data['price'] = $currencyService->roundForCurrency((float) $data['price'], $currency);
+                    $data['margin'] = $this->computeMarginFromCostAndPrice($costForCalc, (float) $data['price']);
+                }
             }
 
             $product = Product::create($data);
@@ -228,10 +299,31 @@ class ProductService
             $proveedorIds = $data['proveedor_ids'] ?? null;
             unset($data['attribute_values'], $data['proveedor_ids']);
 
-            // Redondear precio según moneda de la tienda
             $currency = $store->currency ?? 'COP';
             $currencyService = app(CurrencyFormatService::class);
-            if (array_key_exists('price', $data)) {
+            if (array_key_exists('cost', $data)) {
+                $data['cost'] = $currencyService->roundForCurrency((float) $data['cost'], $currency);
+            }
+
+            $isSimpleProduct = ($product->type === 'simple' || empty($product->type));
+            if ($isSimpleProduct) {
+                $hasPrice = array_key_exists('price', $data) && $data['price'] !== '' && $data['price'] !== null;
+                $hasMargin = array_key_exists('margin', $data) && $data['margin'] !== '' && $data['margin'] !== null;
+                $costForCalc = (float) ($data['cost'] ?? $product->cost ?? 0);
+
+                if ($hasPrice || $hasMargin) {
+                    $resolved = $this->resolvePriceAndMargin(
+                        $costForCalc,
+                        $hasPrice ? $data['price'] : null,
+                        $hasMargin ? $data['margin'] : null,
+                        $currency
+                    );
+                    $data['price'] = $resolved['price'];
+                    $data['margin'] = $resolved['margin'];
+                } elseif (array_key_exists('cost', $data)) {
+                    $data['margin'] = $this->computeMarginFromCostAndPrice($costForCalc, (float) ($product->price ?? 0));
+                }
+            } elseif (array_key_exists('price', $data)) {
                 $data['price'] = $currencyService->roundForCurrency((float) $data['price'], $currency);
             }
 
@@ -336,6 +428,9 @@ class ProductService
             if (! empty($variant['cost'])) {
                 $updateData['cost_reference'] = (float) $variant['cost'];
             }
+            if (array_key_exists('margin', $variant) && $variant['margin'] !== '' && $variant['margin'] !== null) {
+                $updateData['margin'] = (float) $variant['margin'];
+            }
             if (isset($variant['sku'])) {
                 $skuValue = trim((string) $variant['sku']);
                 if ($skuValue !== '') {
@@ -349,6 +444,23 @@ class ProductService
                 }
             }
             if (! empty($updateData)) {
+                $hasPrice = array_key_exists('price', $updateData) && $updateData['price'] !== null;
+                $hasMargin = array_key_exists('margin', $updateData) && $updateData['margin'] !== null;
+                if ($hasPrice || $hasMargin) {
+                    $resolved = $this->resolvePriceAndMargin(
+                        (float) ($updateData['cost_reference'] ?? $productVariant->cost_reference ?? 0),
+                        $hasPrice ? $updateData['price'] : null,
+                        $hasMargin ? $updateData['margin'] : null,
+                        $store->currency ?? 'COP'
+                    );
+                    $updateData['price'] = $resolved['price'];
+                    $updateData['margin'] = $resolved['margin'];
+                } elseif (array_key_exists('cost_reference', $updateData)) {
+                    $updateData['margin'] = $this->computeMarginFromCostAndPrice(
+                        (float) $updateData['cost_reference'],
+                        $productVariant->price !== null ? (float) $productVariant->price : null
+                    );
+                }
                 $productVariant->update($updateData);
             }
 
@@ -468,6 +580,27 @@ class ProductService
         }
         if (array_key_exists('image_path', $data)) {
             $updateData['image_path'] = $data['image_path'];
+        }
+
+        $hasPrice = array_key_exists('price', $data) && $data['price'] !== '' && $data['price'] !== null;
+        $hasMargin = array_key_exists('margin', $data) && $data['margin'] !== '' && $data['margin'] !== null;
+        $hasCostReference = array_key_exists('cost_reference', $data);
+
+        if ($hasPrice || $hasMargin) {
+            $costReference = (float) ($updateData['cost_reference'] ?? $variant->cost_reference ?? 0);
+            $resolved = $this->resolvePriceAndMargin(
+                $costReference,
+                $hasPrice ? ($updateData['price'] ?? $data['price']) : null,
+                $hasMargin ? $data['margin'] : null,
+                $currency
+            );
+            $updateData['price'] = $resolved['price'];
+            $updateData['margin'] = $resolved['margin'];
+        } elseif ($hasCostReference) {
+            $updateData['margin'] = $this->computeMarginFromCostAndPrice(
+                (float) ($updateData['cost_reference'] ?? 0),
+                $variant->price !== null ? (float) $variant->price : null
+            );
         }
 
         if (! empty($updateData)) {
@@ -598,10 +731,24 @@ class ProductService
             $price = isset($item['price']) && $item['price'] !== '' && $item['price'] !== null
                 ? $currencyService->roundForCurrency((float) $item['price'], $currency)
                 : null;
+            $cost = $currencyService->roundForCurrency((float) ($item['cost'] ?? 0), $currency);
+            $margin = array_key_exists('margin', $item) && $item['margin'] !== '' && $item['margin'] !== null
+                ? round((float) $item['margin'], 2)
+                : null;
+
+            if ($margin !== null) {
+                $resolved = $this->resolvePriceAndMargin($cost, null, $margin, $currency);
+                $price = $resolved['price'];
+                $margin = $resolved['margin'];
+            } elseif ($price !== null) {
+                $margin = $this->computeMarginFromCostAndPrice($cost, (float) $price);
+            }
+
             $serialItems[] = [
                 'serial_number' => $serial,
-                'cost' => $currencyService->roundForCurrency((float) ($item['cost'] ?? 0), $currency),
+                'cost' => $cost,
                 'price' => $price,
+                'margin' => $margin,
                 'features' => ! empty($features) ? $features : null,
                 'expiration_date' => $item['expiration_date'] ?? null,
             ];
@@ -673,6 +820,9 @@ class ProductService
             if (! empty($variant['cost'])) {
                 $updateData['cost_reference'] = $currencyService->roundForCurrency((float) $variant['cost'], $currency);
             }
+            if (array_key_exists('margin', $variant) && $variant['margin'] !== '' && $variant['margin'] !== null) {
+                $updateData['margin'] = round((float) $variant['margin'], 2);
+            }
             if (isset($variant['sku'])) {
                 $skuValue = trim((string) $variant['sku']);
                 if ($skuValue !== '') {
@@ -686,6 +836,23 @@ class ProductService
                 }
             }
             if (! empty($updateData)) {
+                $hasPrice = array_key_exists('price', $updateData) && $updateData['price'] !== null;
+                $hasMargin = array_key_exists('margin', $updateData) && $updateData['margin'] !== null;
+                if ($hasPrice || $hasMargin) {
+                    $resolved = $this->resolvePriceAndMargin(
+                        (float) ($updateData['cost_reference'] ?? $productVariant->cost_reference ?? 0),
+                        $hasPrice ? $updateData['price'] : null,
+                        $hasMargin ? $updateData['margin'] : null,
+                        $currency
+                    );
+                    $updateData['price'] = $resolved['price'];
+                    $updateData['margin'] = $resolved['margin'];
+                } elseif (array_key_exists('cost_reference', $updateData)) {
+                    $updateData['margin'] = $this->computeMarginFromCostAndPrice(
+                        (float) $updateData['cost_reference'],
+                        $productVariant->price !== null ? (float) $productVariant->price : null
+                    );
+                }
                 $productVariant->update($updateData);
             }
 
@@ -719,5 +886,36 @@ class ProductService
                 ]);
             }
         }
+    }
+
+    public function recalculateProductMargin(Product $product): void
+    {
+        if (! ($product->type === 'simple' || empty($product->type))) {
+            return;
+        }
+
+        $product->update([
+            'margin' => $this->computeMarginFromCostAndPrice((float) $product->cost, (float) $product->price),
+        ]);
+    }
+
+    public function recalculateVariantMargin(ProductVariant $variant): void
+    {
+        $variant->update([
+            'margin' => $this->computeMarginFromCostAndPrice(
+                (float) $variant->cost_reference,
+                $variant->price !== null ? (float) $variant->price : null
+            ),
+        ]);
+    }
+
+    public function recalculateProductItemMargin(ProductItem $item): void
+    {
+        $item->update([
+            'margin' => $this->computeMarginFromCostAndPrice(
+                (float) $item->cost,
+                $item->price !== null ? (float) $item->price : null
+            ),
+        ]);
     }
 }

@@ -174,6 +174,7 @@ class InventarioService
                 }
                 $product->save();
                 $this->actualizarCostReferencePorVariantes($product, $entradaItems);
+                app(ProductService::class)->recalculateProductMargin($product);
                 return;
             }
         } elseif ($product->isBatch() || $product->type === 'simple' || empty($product->type)) {
@@ -189,6 +190,7 @@ class InventarioService
 
         $product->cost = $qty > 0 ? (float) round($total / $qty, 2) : 0.0;
         $product->save();
+        app(ProductService::class)->recalculateProductMargin($product);
 
         if ($product->isBatch()) {
             $this->actualizarCostReferencePorVariantes($product);
@@ -243,6 +245,7 @@ class InventarioService
                     $avgCost = 0.0;
                 }
                 $variant->update(['cost_reference' => $avgCost]);
+                app(ProductService::class)->recalculateVariantMargin($variant->fresh());
             }
 
             return;
@@ -266,9 +269,14 @@ class InventarioService
                 }
 
                 $avgCost = (float) round($row->total_cost / (int) $row->total_qty, 2);
-                ProductVariant::where('id', $variantId)
+                $variant = ProductVariant::where('id', $variantId)
                     ->where('product_id', $product->id)
-                    ->update(['cost_reference' => $avgCost]);
+                    ->first();
+                if (! $variant) {
+                    return;
+                }
+                $variant->update(['cost_reference' => $avgCost]);
+                app(ProductService::class)->recalculateVariantMargin($variant->fresh());
             });
     }
 
@@ -442,6 +450,9 @@ class InventarioService
                         ];
                         if (isset($row['price']) && $row['price'] !== '' && $row['price'] !== null) {
                             $productItemData['price'] = (float) $row['price'];
+                        }
+                        if (isset($row['margin']) && $row['margin'] !== '' && $row['margin'] !== null) {
+                            $productItemData['margin'] = (float) $row['margin'];
                         }
                         $created = ProductItem::create($productItemData);
                         if ($productItemIdForMov === null) {

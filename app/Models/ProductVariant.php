@@ -16,6 +16,7 @@ class ProductVariant extends Model
         'features',
         'cost_reference',
         'price',
+        'margin',
         'barcode',
         'sku',
         'image_path',
@@ -27,6 +28,7 @@ class ProductVariant extends Model
         'features' => 'array',
         'cost_reference' => 'decimal:2',
         'price' => 'decimal:2',
+        'margin' => 'decimal:2',
         'is_active' => 'boolean',
         'in_showcase' => 'boolean',
     ];
