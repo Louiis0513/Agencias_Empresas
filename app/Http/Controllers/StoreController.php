@@ -2,17 +2,17 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Store;
 use App\Models\Category;
-use App\Services\CategoryService;
+use App\Models\Purchase;
+use App\Models\Store;
 use App\Services\AttributeService;
-use App\Services\StorePermissionService;
+use App\Services\CategoryService;
 use App\Services\CotizacionService;
 use App\Services\PurchaseService;
-use App\Models\Purchase;
-use Exception;
+use App\Services\StorePermissionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+
 class StoreController extends Controller
 {
     public function show(Store $store)
@@ -31,7 +31,6 @@ class StoreController extends Controller
         return view('stores.dashboard', compact('store'));
     }
 
-
     public function categories(Store $store, CategoryService $categoryService, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
@@ -43,7 +42,7 @@ class StoreController extends Controller
 
         // Obtenemos el árbol de categorías (raíces con hijos)
         $categoryTree = $categoryService->getCategoryTree($store);
-        
+
         // También obtenemos lista plana para dropdowns
         $categoriesFlat = $categoryService->getFlatList($store);
 
@@ -59,6 +58,7 @@ class StoreController extends Controller
 
         try {
             $categoryService->deleteCategory($store, $category->id);
+
             return redirect()->route('stores.categories', $store)
                 ->with('success', 'Categoría eliminada correctamente.');
         } catch (\Exception $e) {
@@ -167,6 +167,7 @@ class StoreController extends Controller
 
         try {
             $attributeService->deleteAttributeGroup($store, $attributeGroup->id);
+
             return redirect()->route('stores.attribute-groups', $store)->with('success', 'Grupo eliminado.');
         } catch (\Exception $e) {
             return redirect()->route('stores.attribute-groups', $store)->with('error', $e->getMessage());
@@ -185,6 +186,7 @@ class StoreController extends Controller
 
         try {
             $attributeService->deleteAttribute($store, $attribute->id);
+
             return redirect()->route('stores.attribute-groups', $store)->with('success', 'Atributo eliminado.');
         } catch (\Exception $e) {
             return redirect()->route('stores.attribute-groups', $store)->with('error', $e->getMessage());
@@ -192,6 +194,45 @@ class StoreController extends Controller
     }
 
     // ==================== VENTAS ====================
+
+    /**
+     * Informes: pestañas por tipo (productos, facturación, …). Solo UI; el contenido no activo no se renderiza.
+     */
+    public function reportsIndex(Request $request, Store $store, StorePermissionService $permission)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+
+        $tab = $request->query('tab', 'productos');
+        if (! in_array($tab, ['productos', 'facturacion'], true)) {
+            $tab = 'productos';
+        }
+
+        $canProductsReport = $permission->can($store, 'products.view');
+        $canBillingReport = $permission->can($store, 'invoices.view');
+
+        if (! $request->has('tab') && ! $canProductsReport && $canBillingReport) {
+            return redirect()->route('stores.reports.index', ['store' => $store, 'tab' => 'facturacion']);
+        }
+
+        if ($tab === 'productos' && ! $canProductsReport && $canBillingReport) {
+            return redirect()->route('stores.reports.index', ['store' => $store, 'tab' => 'facturacion']);
+        }
+        if ($tab === 'facturacion' && ! $canBillingReport && $canProductsReport) {
+            return redirect()->route('stores.reports.index', ['store' => $store, 'tab' => 'productos']);
+        }
+
+        if ($tab === 'productos') {
+            $permission->authorize($store, 'products.view');
+        } else {
+            $permission->authorize($store, 'invoices.view');
+        }
+
+        session(['current_store_id' => $store->id]);
+
+        return view('stores.informes.index', compact('store', 'tab'));
+    }
 
     public function carrito(Store $store, StorePermissionService $permission)
     {
@@ -394,20 +435,20 @@ class StoreController extends Controller
                             }
                         }
                     }
-                    $unitLabel = $sn !== '' ? "Serial: {$sn}" : 'Unidad ' . ($idx + 1);
+                    $unitLabel = $sn !== '' ? "Serial: {$sn}" : 'Unidad '.($idx + 1);
                     if (! empty($featParts)) {
-                        $unitLabel .= ' (' . implode(', ', $featParts) . ')';
+                        $unitLabel .= ' ('.implode(', ', $featParts).')';
                     }
                     $parts[] = $unitLabel;
                 }
-                $description = $product->name . (empty($parts) ? '' : ' — ' . implode('; ', $parts));
+                $description = $product->name.(empty($parts) ? '' : ' — '.implode('; ', $parts));
             } elseif ($product && $product->isBatch() && ! empty($d->batch_items) && is_array($d->batch_items)) {
                 $bi = $d->batch_items[0] ?? null;
                 $variantId = $bi && isset($bi['product_variant_id']) ? (int) $bi['product_variant_id'] : 0;
                 if ($variantId > 0) {
                     $variant = \App\Models\ProductVariant::where('id', $variantId)->where('product_id', $product->id)->first();
                     if ($variant) {
-                        $description = $product->name . ' — ' . $variant->display_name;
+                        $description = $product->name.' — '.$variant->display_name;
                     }
                 }
             }
@@ -491,15 +532,7 @@ class StoreController extends Controller
 
     // ==================== CAJA (suma de bolsillos) Y BOLSILLOS ====================
 
-
-
-
-
-
-
-
     // ==================== COMPROBANTES DE INGRESO ====================
-
 
     // ==================== COMPROBANTES DE EGRESO ====================
 

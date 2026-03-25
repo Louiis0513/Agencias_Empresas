@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Store;
 use App\Services\InventarioService;
+use App\Services\InventoryExcelExportService;
 use App\Services\StorePermissionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -46,7 +47,7 @@ class StoreInventoryController extends Controller
                         ->where('product_id', $productoSeleccionado->id)
                         ->first();
                     if ($variant && $variant->display_name !== '—') {
-                        $productoSeleccionadoDisplay .= ' (' . $variant->display_name . ')';
+                        $productoSeleccionadoDisplay .= ' ('.$variant->display_name.')';
                     }
                 } elseif (! empty($filtros['product_item_id'])) {
                     $item = \App\Models\ProductItem::where('id', $filtros['product_item_id'])
@@ -54,12 +55,25 @@ class StoreInventoryController extends Controller
                         ->first();
                     if ($item) {
                         $serial = $item->serial_number ?? '';
-                        $productoSeleccionadoDisplay .= $serial !== '' ? ' (Serial: ' . $serial . ')' : '';
+                        $productoSeleccionadoDisplay .= $serial !== '' ? ' (Serial: '.$serial.')' : '';
                     }
                 }
             }
         }
 
         return view('stores.productos.inventario', compact('store', 'movimientos', 'productoSeleccionado', 'productoSeleccionadoDisplay'));
+    }
+
+    public function exportExcel(Store $store, InventoryExcelExportService $exportService, StorePermissionService $permission)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403);
+        }
+
+        $permission->authorize($store, 'inventario.view');
+
+        session(['current_store_id' => $store->id]);
+
+        return $exportService->download($store);
     }
 }

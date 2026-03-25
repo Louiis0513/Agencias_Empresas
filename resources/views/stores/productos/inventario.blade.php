@@ -1,12 +1,17 @@
 <x-app-layout>
     <x-slot name="header">
-        <div class="flex justify-between items-center">
+        <div class="flex flex-wrap justify-between items-center gap-3">
             <h2 class="font-semibold text-xl text-white leading-tight">
                 Inventario — {{ $store->name }}
             </h2>
-            <a href="{{ route('stores.dashboard', $store) }}" class="text-sm text-gray-400 hover:text-brand transition">
-                ← Volver al Resumen
-            </a>
+            <div class="flex items-center gap-3">
+                <a href="{{ route('stores.inventario.export-excel', $store) }}" class="text-sm px-3 py-2 rounded-lg bg-brand/20 text-brand border border-brand/30 hover:bg-brand/30 transition">
+                    Descargar Excel
+                </a>
+                <a href="{{ route('stores.dashboard', $store) }}" class="text-sm text-gray-400 hover:text-brand transition">
+                    ← Volver al Resumen
+                </a>
+            </div>
         </div>
     </x-slot>
 

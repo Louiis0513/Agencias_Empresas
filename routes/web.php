@@ -1,29 +1,29 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\StoreController;
-use App\Http\Controllers\StoreWorkerController;
-use App\Http\Controllers\StoreCategoryController;
-use App\Http\Controllers\StoreProductController;
-use App\Http\Controllers\StoreCustomerController;
-use App\Http\Controllers\StoreProveedorController;
-use App\Http\Controllers\StoreInvoiceController;
-use App\Http\Controllers\StoreRoleController;
-use App\Http\Controllers\StoreCajaController;
-use App\Http\Controllers\StoreInventoryController;
-use App\Http\Controllers\StoreActivoController;
-use App\Http\Controllers\StorePurchaseController;
-use App\Http\Controllers\StoreAccountPayableController;
-use App\Http\Controllers\StoreAccountReceivableController;
-use App\Http\Controllers\StoreSubscriptionController;
-use App\Http\Controllers\StoreAsistenciaController;
-use App\Http\Controllers\StoreVitrinaController;
-use App\Http\Controllers\StorePanelSuscripcionesController;
-use App\Http\Controllers\StoreConfigController;
-use App\Http\Controllers\VitrinaAuthController;
-use App\Http\Controllers\VitrinaController;
 use App\Http\Controllers\PanelSuscripcionesAuthController;
 use App\Http\Controllers\PanelSuscripcionesController;
+use App\Http\Controllers\StoreAccountPayableController;
+use App\Http\Controllers\StoreAccountReceivableController;
+use App\Http\Controllers\StoreActivoController;
+use App\Http\Controllers\StoreAsistenciaController;
+use App\Http\Controllers\StoreCajaController;
+use App\Http\Controllers\StoreCategoryController;
+use App\Http\Controllers\StoreConfigController;
+use App\Http\Controllers\StoreController;
+use App\Http\Controllers\StoreCustomerController;
+use App\Http\Controllers\StoreInventoryController;
+use App\Http\Controllers\StoreInvoiceController;
+use App\Http\Controllers\StorePanelSuscripcionesController;
+use App\Http\Controllers\StoreProductController;
+use App\Http\Controllers\StoreProveedorController;
+use App\Http\Controllers\StorePurchaseController;
+use App\Http\Controllers\StoreRoleController;
+use App\Http\Controllers\StoreSubscriptionController;
+use App\Http\Controllers\StoreVitrinaController;
+use App\Http\Controllers\StoreWorkerController;
+use App\Http\Controllers\VitrinaAuthController;
+use App\Http\Controllers\VitrinaController;
+use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'marketing.centradia')->name('centradia.landing');
 Route::view('/centradia', 'marketing.centradia');
@@ -60,8 +60,7 @@ Route::post('{slug}/PanelSuscripciones/cart/checkout', [PanelSuscripcionesContro
 Route::get('{slug}/PanelSuscripciones', [PanelSuscripcionesController::class, 'show'])->name('panel_suscripciones.show');
 
 Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:slug}')->name('stores.')->group(function () {
-    
-  
+
     Route::get('/', [StoreController::class, 'show'])->name('dashboard');
 
     Route::get('/vitrina', [StoreVitrinaController::class, 'edit'])->name('vitrina.edit');
@@ -88,6 +87,10 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::delete('/roles/{role}', [StoreRoleController::class, 'destroy'])->name('roles.destroy');
 
     Route::get('/productos', [StoreProductController::class, 'index'])->name('products');
+    Route::get('/informes', [StoreController::class, 'reportsIndex'])->name('reports.index');
+    Route::get('/informes/productos', function (\App\Models\Store $store) {
+        return redirect()->route('stores.reports.index', ['store' => $store, 'tab' => 'productos']);
+    })->name('reports.products');
     Route::get('/productos/compras', [StoreController::class, 'productPurchases'])->name('product-purchases');
     Route::get('/productos/compras/crear', [StoreController::class, 'createProductPurchase'])->name('product-purchases.create');
     Route::post('/productos/compras', [StoreController::class, 'storeProductPurchase'])->name('product-purchases.store');
@@ -102,7 +105,7 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::get('/categorias', [StoreCategoryController::class, 'index'])->name('categories');
     Route::get('/categorias/{category}', [StoreCategoryController::class, 'show'])->name('category.show');
     Route::delete('/categorias/{category}', [StoreCategoryController::class, 'destroy'])->name('categories.destroy');
-    
+
     // Grupos de atributos (gestión global)
     Route::get('/atributos', [StoreController::class, 'attributeGroups'])->name('attribute-groups');
     Route::delete('/atributos/grupos/{attributeGroup}', [StoreController::class, 'destroyAttributeGroup'])->name('attribute-groups.destroy');
@@ -176,6 +179,7 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     // Inventario
     Route::controller(StoreInventoryController::class)->group(function () {
         Route::get('/inventario', 'index')->name('inventario');
+        Route::get('/inventario/exportar-excel', 'exportExcel')->name('inventario.export-excel');
     });
 
     // Activos Fijos

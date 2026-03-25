@@ -6,6 +6,7 @@
     $canFinanciero = $store && ($perm->can($store, 'caja.view') || $perm->can($store, 'activos.view') || $perm->can($store, 'accounts-payables.view') || $perm->can($store, 'accounts-receivables.view') || $perm->can($store, 'comprobantes-egreso.view') || $perm->can($store, 'comprobantes-ingreso.view') || $perm->can($store, 'invoices.view') || $perm->can($store, 'purchases.view'));
     $canVentas = $store && $perm->can($store, 'invoices.view');
     $canSuscripciones = $store && $perm->can($store, 'subscriptions.view');
+    $canInformes = $store && ($perm->can($store, 'products.view') || $perm->can($store, 'invoices.view'));
     $isProductPurchase = false;
     if ($store && request()->routeIs('stores.purchases.show')) {
         $p = request()->route('purchase');
@@ -20,6 +21,7 @@
     $inFinanciero = $store && ((request()->routeIs('stores.cajas*') || request()->routeIs('stores.activos*') || request()->routeIs('stores.accounts-payables*') || request()->routeIs('stores.accounts-receivables*') || request()->routeIs('stores.comprobantes-egreso*') || request()->routeIs('stores.comprobantes-ingreso*') || request()->routeIs('stores.invoices*') || (request()->routeIs('stores.purchases*') && !$isProductPurchase)) && !request()->routeIs('stores.product-purchases*'));
     $inVentas = $store && request()->routeIs('stores.ventas*');
     $inSuscripciones = $store && (request()->routeIs('stores.subscriptions*') || request()->routeIs('stores.asistencias*'));
+    $inInformes = $store && request()->routeIs('stores.reports*');
 @endphp
 {{-- Sidebar: siempre expandido (icono + texto). Móvil: se despliega con hamburger. --}}
 <aside
@@ -153,6 +155,24 @@
                     <div x-show="open" x-transition class="ml-4 mt-0.5 space-y-0.5 border-l border-white/5 pl-2">
                         <a href="{{ route('stores.ventas.carrito', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.ventas.carrito*') ? 'text-brand' : 'text-gray-400 hover:text-white' }}">Carrito</a>
                         <a href="{{ route('stores.ventas.cotizaciones', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.ventas.cotizaciones*') ? 'text-brand' : 'text-gray-400 hover:text-white' }}">Cotizaciones</a>
+                    </div>
+                </li>
+                @endif
+                {{-- Informes (dropdown) --}}
+                @if($canInformes)
+                <li x-data="{ open: {{ $inInformes ? 'true' : 'false' }} }">
+                    <button type="button" @click="open = !open" class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-gray-300 transition {{ $inInformes ? 'bg-brand/20 text-brand' : 'hover:bg-white/5 hover:text-white' }}">
+                        <svg class="h-5 w-5 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18M7.5 15.75V12m4.5 3.75V8.25m4.5 7.5V10.5" /></svg>
+                        <span class="flex-1 whitespace-nowrap">Informes</span>
+                        <svg :class="open && 'rotate-180'" class="h-4 w-4 shrink-0 transition-transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                    </button>
+                    <div x-show="open" x-transition class="ml-4 mt-0.5 space-y-0.5 border-l border-white/5 pl-2">
+                        @storeCan($store, 'products.view')
+                        <a href="{{ route('stores.reports.index', [$store, 'tab' => 'productos']) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.reports*') && request()->query('tab', 'productos') === 'productos' ? 'text-brand' : 'text-gray-400 hover:text-white' }}">Productos</a>
+                        @endstoreCan
+                        @storeCan($store, 'invoices.view')
+                        <a href="{{ route('stores.reports.index', [$store, 'tab' => 'facturacion']) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.reports*') && request()->query('tab') === 'facturacion' ? 'text-brand' : 'text-gray-400 hover:text-white' }}">Facturación</a>
+                        @endstoreCan
                     </div>
                 </li>
                 @endif
