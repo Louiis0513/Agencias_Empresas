@@ -8,6 +8,7 @@ use App\Models\Store;
 use App\Services\AttributeService;
 use App\Services\CategoryService;
 use App\Services\CotizacionService;
+use App\Services\ProductReportsService;
 use App\Services\PurchaseService;
 use App\Services\StorePermissionService;
 use Illuminate\Http\Request;
@@ -231,7 +232,25 @@ class StoreController extends Controller
 
         session(['current_store_id' => $store->id]);
 
-        return view('stores.informes.index', compact('store', 'tab'));
+        $ventasRange = $request->query('ventas', ProductReportsService::VENTAS_7D);
+        if (! in_array($ventasRange, [
+            ProductReportsService::VENTAS_7D,
+            ProductReportsService::VENTAS_1M,
+            ProductReportsService::VENTAS_3M,
+            ProductReportsService::VENTAS_SIEMPRE,
+        ], true)) {
+            $ventasRange = ProductReportsService::VENTAS_7D;
+        }
+
+        $topMasVendidos = collect();
+        $topMayorMargen = collect();
+        if ($tab === 'productos') {
+            $reports = app(ProductReportsService::class);
+            $topMasVendidos = $reports->topMasVendidos($store, $ventasRange);
+            $topMayorMargen = $reports->topMayorMargen($store);
+        }
+
+        return view('stores.informes.index', compact('store', 'tab', 'topMasVendidos', 'topMayorMargen', 'ventasRange'));
     }
 
     public function carrito(Store $store, StorePermissionService $permission)

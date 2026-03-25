@@ -168,7 +168,7 @@
                     </button>
                     <div x-show="open" x-transition class="ml-4 mt-0.5 space-y-0.5 border-l border-white/5 pl-2">
                         @storeCan($store, 'products.view')
-                        <a href="{{ route('stores.reports.index', [$store, 'tab' => 'productos']) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.reports*') && request()->query('tab', 'productos') === 'productos' ? 'text-brand' : 'text-gray-400 hover:text-white' }}">Productos</a>
+                        <a href="{{ route('stores.reports.index', [$store, 'tab' => 'productos', 'ventas' => request()->query('ventas', \App\Services\ProductReportsService::VENTAS_7D)]) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.reports*') && request()->query('tab', 'productos') === 'productos' ? 'text-brand' : 'text-gray-400 hover:text-white' }}">Productos</a>
                         @endstoreCan
                         @storeCan($store, 'invoices.view')
                         <a href="{{ route('stores.reports.index', [$store, 'tab' => 'facturacion']) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.reports*') && request()->query('tab') === 'facturacion' ? 'text-brand' : 'text-gray-400 hover:text-white' }}">Facturación</a>

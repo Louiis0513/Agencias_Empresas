@@ -41,13 +41,13 @@
             {{-- Pestañas de tipo de informe: solo el panel activo se renderiza abajo --}}
             <div class="flex flex-wrap gap-2 border-b border-white/10 pb-4">
                 @storeCan($store, 'products.view')
-                <a href="{{ route('stores.reports.index', [$store, 'tab' => 'productos']) }}" wire:navigate
+                <a href="{{ route('stores.reports.index', [$store, 'tab' => 'productos', 'ventas' => $ventasRange ?? \App\Services\ProductReportsService::VENTAS_7D]) }}" wire:navigate
                    class="px-4 py-2 rounded-lg text-sm font-medium transition {{ $isProductos ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 border border-transparent hover:bg-white/5 hover:text-white' }}">
                     Productos
                 </a>
                 @endstoreCan
                 @storeCan($store, 'invoices.view')
-                <a href="{{ route('stores.reports.index', [$store, 'tab' => 'facturacion']) }}" wire:navigate
+                <a href="{{ route('stores.reports.index', [$store, 'tab' => 'facturacion', 'ventas' => $ventasRange ?? \App\Services\ProductReportsService::VENTAS_7D]) }}" wire:navigate
                    class="px-4 py-2 rounded-lg text-sm font-medium transition {{ ! $isProductos ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 border border-transparent hover:bg-white/5 hover:text-white' }}">
                     Facturación
                 </a>
@@ -199,12 +199,21 @@
                     </div>
                 </div>
 
-                {{-- Tablas Top 10 (siempre visibles) --}}
-                <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                {{-- Tablas Top 10: más vendidos arriba, mayor margen abajo (sin filtro de fechas); stock/utilidad en grid --}}
+                <div class="space-y-4">
                     <div class="bg-dark-card border border-white/5 rounded-xl overflow-hidden">
-                        <div class="px-4 py-3 border-b border-white/5">
-                            <h3 class="text-white font-semibold text-sm">Top 10 — Más vendidos</h3>
-                            <p class="text-xs text-gray-500">Mayor volumen de unidades</p>
+                        <div class="px-4 py-3 border-b border-white/5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <h3 class="text-white font-semibold text-sm">Top 10 — Más vendidos</h3>
+                                <p class="text-xs text-gray-500">Unidades vendidas (facturas no anuladas; incluye pendientes de pago)</p>
+                            </div>
+                            <div class="flex flex-wrap gap-1.5">
+                                @php $vr = $ventasRange ?? \App\Services\ProductReportsService::VENTAS_7D; @endphp
+                                <a href="{{ route('stores.reports.index', ['store' => $store, 'tab' => 'productos', 'ventas' => \App\Services\ProductReportsService::VENTAS_7D]) }}" wire:navigate class="px-2.5 py-1 rounded-md text-xs font-medium border transition {{ $vr === \App\Services\ProductReportsService::VENTAS_7D ? 'bg-brand/20 text-brand border-brand/30' : 'border-white/10 text-gray-400 hover:bg-white/5 hover:text-white' }}">7D</a>
+                                <a href="{{ route('stores.reports.index', ['store' => $store, 'tab' => 'productos', 'ventas' => \App\Services\ProductReportsService::VENTAS_1M]) }}" wire:navigate class="px-2.5 py-1 rounded-md text-xs font-medium border transition {{ $vr === \App\Services\ProductReportsService::VENTAS_1M ? 'bg-brand/20 text-brand border-brand/30' : 'border-white/10 text-gray-400 hover:bg-white/5 hover:text-white' }}">1M</a>
+                                <a href="{{ route('stores.reports.index', ['store' => $store, 'tab' => 'productos', 'ventas' => \App\Services\ProductReportsService::VENTAS_3M]) }}" wire:navigate class="px-2.5 py-1 rounded-md text-xs font-medium border transition {{ $vr === \App\Services\ProductReportsService::VENTAS_3M ? 'bg-brand/20 text-brand border-brand/30' : 'border-white/10 text-gray-400 hover:bg-white/5 hover:text-white' }}">3M</a>
+                                <a href="{{ route('stores.reports.index', ['store' => $store, 'tab' => 'productos', 'ventas' => \App\Services\ProductReportsService::VENTAS_SIEMPRE]) }}" wire:navigate class="px-2.5 py-1 rounded-md text-xs font-medium border transition {{ $vr === \App\Services\ProductReportsService::VENTAS_SIEMPRE ? 'bg-brand/20 text-brand border-brand/30' : 'border-white/10 text-gray-400 hover:bg-white/5 hover:text-white' }}">Siempre</a>
+                            </div>
                         </div>
                         <div class="overflow-x-auto">
                             <table class="min-w-full text-sm">
@@ -214,19 +223,21 @@
                                         <th class="px-3 py-2 text-left">Producto</th>
                                         <th class="px-3 py-2 text-left">SKU</th>
                                         <th class="px-3 py-2 text-right">Cant.</th>
-                                        <th class="px-3 py-2 text-right">Ingreso</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-white/5 text-gray-200">
-                                    @for($i = 1; $i <= 10; $i++)
+                                    @forelse($topMasVendidos ?? [] as $index => $fila)
                                         <tr class="hover:bg-white/5">
-                                            <td class="px-3 py-2">{{ $i }}</td>
-                                            <td class="px-3 py-2">Producto Demo {{ $i }}</td>
-                                            <td class="px-3 py-2">SKU-{{ str_pad((string) $i, 3, '0', STR_PAD_LEFT) }}</td>
-                                            <td class="px-3 py-2 text-right">{{ 120 - ($i * 4) }}</td>
-                                            <td class="px-3 py-2 text-right">$ {{ number_format(450000 - ($i * 15000), 0, ',', '.') }}</td>
+                                            <td class="px-3 py-2">{{ $index + 1 }}</td>
+                                            <td class="px-3 py-2 max-w-xs truncate" title="{{ $fila['nombre'] }}">{{ $fila['nombre'] }}</td>
+                                            <td class="px-3 py-2">@if($fila['sku'] !== null && $fila['sku'] !== ''){{ $fila['sku'] }}@else<span class="text-gray-500">—</span>@endif</td>
+                                            <td class="px-3 py-2 text-right">{{ number_format($fila['cantidad'], 0, ',', '.') }}</td>
                                         </tr>
-                                    @endfor
+                                    @empty
+                                        <tr>
+                                            <td colspan="4" class="px-3 py-6 text-center text-gray-500">Sin ventas en periodo seleccionado.</td>
+                                        </tr>
+                                    @endforelse
                                 </tbody>
                             </table>
                         </div>
@@ -235,7 +246,7 @@
                     <div class="bg-dark-card border border-white/5 rounded-xl overflow-hidden">
                         <div class="px-4 py-3 border-b border-white/5">
                             <h3 class="text-white font-semibold text-sm">Top 10 — Mayor margen</h3>
-                            <p class="text-xs text-gray-500">Mejor % de margen bruto</p>
+                            <p class="text-xs text-gray-500">% de margen bruto actual (simples, variantes en lote y unidades serializadas disponibles; sin filtro de fechas)</p>
                         </div>
                         <div class="overflow-x-auto">
                             <table class="min-w-full text-sm">
@@ -243,26 +254,33 @@
                                     <tr>
                                         <th class="px-3 py-2 text-left">#</th>
                                         <th class="px-3 py-2 text-left">Producto</th>
+                                        <th class="px-3 py-2 text-left">SKU</th>
                                         <th class="px-3 py-2 text-right">Costo</th>
                                         <th class="px-3 py-2 text-right">Precio</th>
                                         <th class="px-3 py-2 text-right">Margen</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-white/5 text-gray-200">
-                                    @for($i = 1; $i <= 10; $i++)
+                                    @forelse($topMayorMargen ?? [] as $index => $fila)
                                         <tr class="hover:bg-white/5">
-                                            <td class="px-3 py-2">{{ $i }}</td>
-                                            <td class="px-3 py-2">Producto Margen {{ $i }}</td>
-                                            <td class="px-3 py-2 text-right">$ {{ number_format(9000 + ($i * 700), 0, ',', '.') }}</td>
-                                            <td class="px-3 py-2 text-right">$ {{ number_format(15000 + ($i * 1200), 0, ',', '.') }}</td>
-                                            <td class="px-3 py-2 text-right">{{ 62 - $i }}%</td>
+                                            <td class="px-3 py-2">{{ $index + 1 }}</td>
+                                            <td class="px-3 py-2 max-w-md truncate" title="{{ $fila['nombre'] }}">{{ $fila['nombre'] }}</td>
+                                            <td class="px-3 py-2">@if($fila['sku'] !== null && $fila['sku'] !== ''){{ $fila['sku'] }}@else<span class="text-gray-500">—</span>@endif</td>
+                                            <td class="px-3 py-2 text-right">@if($fila['costo'] !== null){{ money($fila['costo'], $store->currency ?? 'COP', false) }}@else<span class="text-gray-500">—</span>@endif</td>
+                                            <td class="px-3 py-2 text-right">@if($fila['precio'] !== null){{ money($fila['precio'], $store->currency ?? 'COP') }}@else<span class="text-gray-500">—</span>@endif</td>
+                                            <td class="px-3 py-2 text-right">@if($fila['margen_pct'] !== null){{ number_format($fila['margen_pct'], 2, ',', '.') }}%@else<span class="text-gray-500">—</span>@endif</td>
                                         </tr>
-                                    @endfor
+                                    @empty
+                                        <tr>
+                                            <td colspan="6" class="px-3 py-6 text-center text-gray-500">Sin datos de margen en el catálogo.</td>
+                                        </tr>
+                                    @endforelse
                                 </tbody>
                             </table>
                         </div>
                     </div>
 
+                    <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
                     <div class="bg-dark-card border border-white/5 rounded-xl overflow-hidden">
                         <div class="px-4 py-3 border-b border-white/5">
                             <h3 class="text-white font-semibold text-sm">Top 10 — Stock bajo</h3>
@@ -327,6 +345,7 @@
                                 </tbody>
                             </table>
                         </div>
+                    </div>
                     </div>
                 </div>
 
