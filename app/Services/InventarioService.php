@@ -389,6 +389,7 @@ class InventarioService
                     'product_variant_id' => null,
                     'product_item_id'    => null,
                     'purchase_id'        => $datos['purchase_id'] ?? null,
+                    'invoice_id'         => $datos['invoice_id'] ?? null,
                     'type'               => $type,
                     'quantity'           => $quantity,
                     'description'        => $datos['description'] ?? null,
@@ -569,6 +570,7 @@ class InventarioService
                 'product_variant_id' => $productVariantIdForMov,
                 'product_item_id'    => $productItemIdForMov,
                 'purchase_id'        => $datos['purchase_id'] ?? null,
+                'invoice_id'         => $datos['invoice_id'] ?? null,
                 'type'               => $type,
                 'quantity'           => $quantity,
                 'description'        => $datos['description'] ?? null,
@@ -587,7 +589,7 @@ class InventarioService
     /**
      * Salida FIFO sin variante específica (productos simples o lote general).
      */
-    public function registrarSalidaPorCantidadFIFO(Store $store, int $userId, int $productId, int $quantity, ?string $description = null): void
+    public function registrarSalidaPorCantidadFIFO(Store $store, int $userId, int $productId, int $quantity, ?string $description = null, ?int $invoiceId = null): void
     {
         if ($quantity < 1) {
             return;
@@ -630,6 +632,7 @@ class InventarioService
                     'description'   => $description,
                     'batch_item_id' => $batchItem->id,
                     'unit_cost'     => $batchItem->unit_cost,
+                    'invoice_id'    => $invoiceId,
                 ], []);
                 $remaining -= $take;
             }
@@ -659,6 +662,7 @@ class InventarioService
                 'type'        => MovimientoInventario::TYPE_SALIDA,
                 'quantity'    => $quantity,
                 'description' => $description,
+                'invoice_id'  => $invoiceId,
             ], $serialNumbers);
         }
     }
@@ -667,7 +671,7 @@ class InventarioService
      * Salida por seriales (productos serializados).
      * El costo unitario del movimiento se obtiene de product_items (campo cost), no se calcula.
      */
-    public function registrarSalidaPorSeriales(Store $store, int $userId, int $productId, array $serialNumbers, ?string $description = null): void
+    public function registrarSalidaPorSeriales(Store $store, int $userId, int $productId, array $serialNumbers, ?string $description = null, ?int $invoiceId = null): void
     {
         $serialNumbers = array_values(array_filter(array_map('trim', $serialNumbers)));
         if (empty($serialNumbers)) {
@@ -700,6 +704,7 @@ class InventarioService
             'type'        => MovimientoInventario::TYPE_SALIDA,
             'quantity'    => count($serialNumbers),
             'description' => $description,
+            'invoice_id'  => $invoiceId,
         ];
         if ($unitCost !== null) {
             $datos['unit_cost'] = $unitCost;
@@ -715,7 +720,7 @@ class InventarioService
      * @param  int  $productVariantId  ID de la variante en product_variants
      * @throws Exception Si no hay stock suficiente
      */
-    public function registrarSalidaPorVarianteFIFO(Store $store, int $userId, int $productId, int $productVariantId, int $quantity, ?string $description = null): void
+    public function registrarSalidaPorVarianteFIFO(Store $store, int $userId, int $productId, int $productVariantId, int $quantity, ?string $description = null, ?int $invoiceId = null): void
     {
         if ($quantity < 1) {
             return;
@@ -751,6 +756,7 @@ class InventarioService
                 'description'   => $description,
                 'batch_item_id' => $batchItem->id,
                 'unit_cost'     => $batchItem->unit_cost,
+                'invoice_id'    => $invoiceId,
             ], []);
             $remaining -= $take;
         }
@@ -1083,6 +1089,7 @@ class InventarioService
                 'productVariant',
                 'productItem',
                 'user:id,name',
+                'invoice:id,store_id',
             ])
             ->orderByDesc('created_at');
 

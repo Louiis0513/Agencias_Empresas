@@ -19,6 +19,7 @@ class MovimientoInventario extends Model
         'product_variant_id',
         'product_item_id',
         'purchase_id',
+        'invoice_id',
         'type',
         'quantity',
         'description',
@@ -70,6 +71,11 @@ class MovimientoInventario extends Model
     public function purchase()
     {
         return $this->belongsTo(Purchase::class);
+    }
+
+    public function invoice()
+    {
+        return $this->belongsTo(Invoice::class);
     }
 
     public function scopeDeTienda(Builder $query, int $storeId): void

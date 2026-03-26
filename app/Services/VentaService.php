@@ -178,7 +178,8 @@ class VentaService
                         $userId,
                         $productId,
                         $serialNumbers,
-                        $description
+                        $description,
+                        $factura->id
                     );
                 } else {
                     $qty = (int) ($item['quantity'] ?? 0);
@@ -198,7 +199,8 @@ class VentaService
                             $productId,
                             (int) $productVariantId,
                             $qty,
-                            $description
+                            $description,
+                            $factura->id
                         );
                     } else {
                         $this->inventarioService->registrarSalidaPorCantidadFIFO(
@@ -206,7 +208,8 @@ class VentaService
                             $userId,
                             $productId,
                             $qty,
-                            $descBase
+                            $descBase,
+                            $factura->id
                         );
                     }
                 }
@@ -273,7 +276,8 @@ class VentaService
                         $userId,
                         $productId,
                         $serialNumbers,
-                        $description
+                        $description,
+                        $factura->id
                     );
                 } else {
                     $qty = (int) ($item['quantity'] ?? 0);
@@ -293,7 +297,8 @@ class VentaService
                             $productId,
                             (int) $productVariantId,
                             $qty,
-                            $description
+                            $description,
+                            $factura->id
                         );
                     } else {
                         $this->inventarioService->registrarSalidaPorCantidadFIFO(
@@ -301,7 +306,8 @@ class VentaService
                             $userId,
                             $productId,
                             $qty,
-                            $descBase
+                            $descBase,
+                            $factura->id
                         );
                     }
                 }
