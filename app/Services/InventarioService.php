@@ -762,8 +762,12 @@ class InventarioService
         }
 
         if ($remaining > 0) {
+            $available = (int) BatchItem::where('product_variant_id', $productVariantId)
+                ->whereHas('batch', fn ($q) => $q->where('store_id', $store->id)->where('product_id', $productId))
+                ->where('quantity', '>', 0)
+                ->sum('quantity');
             throw new Exception(
-                "Stock insuficiente en la variante seleccionada de «{$product->name}». Solicitado: {$quantity}."
+                "Stock insuficiente en la variante seleccionada de «{$product->name}». Disponible: {$available}, solicitado: {$quantity}."
             );
         }
     }

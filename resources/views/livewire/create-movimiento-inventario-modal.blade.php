@@ -162,21 +162,31 @@
                         @else
                             <div class="space-y-4">
                                 <div>
-                                    <x-input-label for="batch_item_id" value="Lote / variante disponible" />
-                                    @if(empty($batch_items_available))
-                                        <p class="text-sm text-amber-600 dark:text-amber-400">No hay lotes con stock disponible.</p>
+                                    <x-input-label for="batch_variant_salida" value="Variante a descontar" />
+                                    @php
+                                        $selected = $product_variant_id ? collect($batch_items_available)->firstWhere('product_variant_id', (int) $product_variant_id) : null;
+                                        $disp = $selected ? (int) ($selected['quantity'] ?? 0) : null;
+                                    @endphp
+
+                                    @if($product_variant_id && $selectedVariantDisplayName)
+                                        <div class="flex gap-2 items-center mt-1">
+                                            <span class="flex-1 px-3 py-2 rounded-md border border-white/10 bg-white/5 text-gray-100 text-sm">
+                                                {{ $selectedVariantDisplayName }}
+                                                @if($disp !== null)
+                                                    <span class="text-gray-400">— Disp: {{ $disp }}</span>
+                                                @endif
+                                            </span>
+                                            <button type="button" wire:click="abrirSelectorVarianteBatch" class="px-4 py-2 rounded-md border border-white/10 bg-brand/80 hover:bg-brand text-white text-sm font-medium">
+                                                Cambiar
+                                            </button>
+                                        </div>
                                     @else
-                                        <select wire:model="product_variant_id" id="product_variant_id" class="block mt-1 w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm">
-                                            <option value="">Selecciona una variante</option>
-                                            @foreach($batch_items_available as $item)
-                                                <option value="{{ $item['product_variant_id'] }}">
-                                                    {{ $item['display_name'] }} — Disp: {{ $item['quantity'] }}
-                                                    @if(!empty($item['features']))
-                                                        ({{ collect($item['features'])->map(fn($v, $k) => "$k: $v")->implode(', ') }})
-                                                    @endif
-                                                </option>
-                                            @endforeach
-                                        </select>
+                                        @if(empty($batch_items_available))
+                                            <p class="text-sm text-amber-600 dark:text-amber-400 mt-1">No hay variantes con stock disponible.</p>
+                                        @endif
+                                        <button type="button" wire:click="abrirSelectorVarianteBatch" class="mt-1 px-4 py-2 rounded-md border border-dashed border-white/30 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-gray-200 text-sm font-medium">
+                                            Seleccionar variante
+                                        </button>
                                     @endif
                                     <x-input-error :messages="$errors->get('product_variant_id')" class="mt-1" />
                                 </div>

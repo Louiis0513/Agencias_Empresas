@@ -139,14 +139,7 @@ class CreateMovimientoInventarioModal extends Component
                 $this->updatedProductId($this->product_id);
                 if ($productVariantId) {
                     $this->product_variant_id = (int) $productVariantId;
-                    $this->selectedVariantDisplayName = $name;
-                    if ($this->type === MovimientoInventario::TYPE_SALIDA) {
-                        $selected = collect($this->batch_items_available)->firstWhere('product_variant_id', (int) $productVariantId);
-                        $available = (int) ($selected['quantity'] ?? 0);
-                        $this->quantity = (string) min(1, $available);
-                    } else {
-                        $this->quantity = '1';
-                    }
+                    $this->syncSelectedVariantFromAvailable((int) $productVariantId);
                 } else {
                     $this->dispatch('open-select-batch-variant', productId: $id, rowId: 'movimiento-inventario', productName: $name, variantKeysInCart: []);
                 }
@@ -184,12 +177,7 @@ class CreateMovimientoInventarioModal extends Component
         $this->product_id = (int) $productId;
         $this->updatedProductId($this->product_id);
         $this->product_variant_id = (int) $productVariantId;
-        $this->selectedVariantDisplayName = $displayName ?: null;
-        if ($this->type === MovimientoInventario::TYPE_SALIDA) {
-            $this->quantity = (string) min(1, (int) $totalStock);
-        } else {
-            $this->quantity = '1';
-        }
+        $this->syncSelectedVariantFromAvailable((int) $productVariantId, $displayName ?: null, (int) $totalStock);
         $this->unit_cost = $price !== null && (float) $price >= 0 ? (string) $price : null;
     }
 
@@ -266,15 +254,44 @@ class CreateMovimientoInventarioModal extends Component
 
     public function updatedType(): void
     {
+        // Al cambiar ENTRADA/SALIDA preservamos la variante elegida del mismo producto batch.
+        // Evita que el usuario tenga que re-seleccionarla cada vez que cambia el tipo.
+        $prevVariantId = $this->product_variant_id;
+        $prevVariantDisplay = $this->selectedVariantDisplayName;
+
         $this->resetTypeSpecificFields(false);
 
-        if ($this->productoSeleccionado) {
-            if ($this->productoSeleccionado->isSerialized()) {
-                $this->loadAvailableSerials($this->productoSeleccionado);
-            } elseif ($this->productoSeleccionado->isBatch()) {
-                $this->loadAvailableBatchItems($this->productoSeleccionado);
+        $product = $this->productoSeleccionado;
+        if ($product) {
+            if ($product->isSerialized()) {
+                $this->loadAvailableSerials($product);
+            } elseif ($product->isBatch()) {
+                $this->loadAvailableBatchItems($product);
+                if ($prevVariantId) {
+                    $exists = collect($this->batch_items_available)
+                        ->contains(fn ($item) => (int) ($item['product_variant_id'] ?? 0) === (int) $prevVariantId);
+                    if ($exists) {
+                        $this->product_variant_id = (int) $prevVariantId;
+                        $this->syncSelectedVariantFromAvailable((int) $prevVariantId, $prevVariantDisplay);
+                    }
+                }
             }
         }
+    }
+
+    public function updatedProductVariantId($value): void
+    {
+        if (! $value) {
+            $this->selectedVariantDisplayName = null;
+            return;
+        }
+
+        $product = $this->productoSeleccionado;
+        if (! $product || ! $product->isBatch()) {
+            return;
+        }
+
+        $this->syncSelectedVariantFromAvailable((int) $value);
     }
 
     protected function resetTypeSpecificFields(bool $resetBase = true): void
@@ -445,6 +462,41 @@ class CreateMovimientoInventarioModal extends Component
                 'features' => $features,
             ];
         })->filter(fn ($v) => $v['quantity'] > 0)->values()->toArray();
+
+        if ($this->product_variant_id) {
+            $this->syncSelectedVariantFromAvailable((int) $this->product_variant_id);
+        }
+    }
+
+    /**
+     * Sincroniza el nombre visible de la variante y ajusta cantidad sugerida para SALIDA.
+     * La disponibilidad real se valida en InventarioService al guardar.
+     */
+    protected function syncSelectedVariantFromAvailable(int $variantId, ?string $fallbackDisplayName = null, ?int $fallbackStock = null): void
+    {
+        $selected = collect($this->batch_items_available)->firstWhere('product_variant_id', $variantId);
+        $display = $selected['display_name'] ?? null;
+        $available = isset($selected['quantity']) ? (int) $selected['quantity'] : null;
+
+        $this->selectedVariantDisplayName = $display ?: ($fallbackDisplayName ?: $this->selectedVariantDisplayName);
+
+        if ($this->type === MovimientoInventario::TYPE_SALIDA) {
+            $stock = $available ?? $fallbackStock;
+            if ($stock !== null) {
+                $currentQty = (int) ($this->quantity !== '' ? $this->quantity : 0);
+                if ($currentQty < 1) {
+                    $this->quantity = (string) min(1, $stock);
+                } elseif ($stock > 0 && $currentQty > $stock) {
+                    $this->quantity = (string) $stock;
+                }
+            } elseif ((int) ($this->quantity !== '' ? $this->quantity : 0) < 1) {
+                $this->quantity = '1';
+            }
+        } else {
+            if ((int) ($this->quantity !== '' ? $this->quantity : 0) < 1) {
+                $this->quantity = '1';
+            }
+        }
     }
 
     public function addSerialItem(): void
