@@ -37,6 +37,35 @@ class InventarioService
     }
 
     /**
+     * Clave normalizada de una línea de venta/factura tipo batch (lote/variante).
+     * Usa features si vienen; si no, resuelve por product_variant_id para alinear con SelectBatchVariantModal.
+     *
+     * @param  array{type?: string, product_variant_id?: int|null, variant_features?: array}  $item
+     */
+    public static function normalizedVariantKeyForBatchLine(array $item): string
+    {
+        if (($item['type'] ?? '') !== 'batch') {
+            return '';
+        }
+        $features = $item['variant_features'] ?? [];
+        if (is_array($features) && $features !== []) {
+            $key = self::detectorDeVariantesEnLotes($features);
+            if ($key !== '') {
+                return $key;
+            }
+        }
+        $pvId = (int) ($item['product_variant_id'] ?? 0);
+        if ($pvId > 0) {
+            $variant = ProductVariant::query()->find($pvId);
+            if ($variant) {
+                return $variant->normalized_key;
+            }
+        }
+
+        return '';
+    }
+
+    /**
      * Busca o crea un ProductVariant a partir de un product_variant_id explícito
      * o de un array de features. Retorna el ProductVariant resuelto.
      *

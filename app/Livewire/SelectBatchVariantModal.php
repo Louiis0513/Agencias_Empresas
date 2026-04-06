@@ -133,7 +133,9 @@ class SelectBatchVariantModal extends Component
 
         $variantKey = $selectedVariant['variant_key'] ?? null;
         if ($variantKey !== null && in_array($variantKey, $this->variantKeysInCart, true)) {
-            $this->addError('selectedVariantId', 'Esta variante ya está en el carrito.');
+            $this->addError('selectedVariantId', $this->rowId === 'factura'
+                ? 'Esta variante ya está en la factura.'
+                : 'Esta variante ya está en el carrito.');
             return;
         }
 

@@ -14,19 +14,19 @@
             <div class="mt-4">
                 @forelse($existingVariants as $index => $variant)
                     @php
-                        $yaEnCarrito = in_array($variant['variant_key'] ?? '', $variantKeysInCart ?? [], true);
+                        $yaEnDocumento = in_array($variant['variant_key'] ?? '', $variantKeysInCart ?? [], true);
                     @endphp
-                    <label class="flex items-center p-4 border-2 rounded-lg mb-2 transition-colors {{ $yaEnCarrito ? 'border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-800/50 cursor-not-allowed opacity-75' : 'border-gray-200 dark:border-gray-600 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:border-indigo-300 dark:hover:border-indigo-500 has-[:checked]:bg-indigo-50 dark:has-[:checked]:bg-indigo-900/30 has-[:checked]:border-indigo-500 dark:has-[:checked]:border-indigo-400' }}">
+                    <label class="flex items-center p-4 border-2 rounded-lg mb-2 transition-colors {{ $yaEnDocumento ? 'border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-800/50 cursor-not-allowed opacity-75' : 'border-gray-200 dark:border-gray-600 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:border-indigo-300 dark:hover:border-indigo-500 has-[:checked]:bg-indigo-50 dark:has-[:checked]:bg-indigo-900/30 has-[:checked]:border-indigo-500 dark:has-[:checked]:border-indigo-400' }}">
                         <input type="radio"
                                wire:model="selectedVariantId"
                                value="{{ $index }}"
-                               @disabled($yaEnCarrito)
-                               class="mr-3 text-indigo-600 focus:ring-indigo-500 {{ $yaEnCarrito ? 'cursor-not-allowed' : '' }}">
-                        <span class="text-base font-medium {{ $yaEnCarrito ? 'text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-gray-100' }}">
+                               @disabled($yaEnDocumento)
+                               class="mr-3 text-indigo-600 focus:ring-indigo-500 {{ $yaEnDocumento ? 'cursor-not-allowed' : '' }}">
+                        <span class="text-base font-medium {{ $yaEnDocumento ? 'text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-gray-100' }}">
                             {{ $variant['display_name'] }}
                             <span class="text-sm font-normal text-gray-600 dark:text-gray-400"> — {{ $variant['quantity'] ?? 0 }} uds</span>
-                            @if($yaEnCarrito)
-                                <span class="ml-2 text-xs font-medium text-amber-600 dark:text-amber-400">(Ya en carrito)</span>
+                            @if($yaEnDocumento)
+                                <span class="ml-2 text-xs font-medium text-amber-600 dark:text-amber-400">({{ $rowId === 'factura' ? 'Ya en factura' : 'Ya en carrito' }})</span>
                             @endif
                         </span>
                     </label>

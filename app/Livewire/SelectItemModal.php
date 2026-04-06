@@ -24,6 +24,9 @@ class SelectItemModal extends Component
     /** Solo contexto venta: product_ids en el carrito como simple, para invalidar en la vista (serializado no: se puede añadir otra unidad con otro serial) */
     public array $productIdsInCartSimple = [];
 
+    /** Contexto venta/factura: product_variant_id ya en documento (líneas batch), para invalidar filas del buscador. */
+    public array $productVariantIdsInDocument = [];
+
     public function mount(int $storeId, string $itemType = 'INVENTARIO', string $rowId = ''): void
     {
         $this->storeId = $storeId;
@@ -32,11 +35,12 @@ class SelectItemModal extends Component
     }
 
     #[On('open-select-item-for-row')]
-    public function openForRow(string $rowId = '', string $itemType = 'INVENTARIO', array $productIdsInCartSimple = []): void
+    public function openForRow(string $rowId = '', string $itemType = 'INVENTARIO', array $productIdsInCartSimple = [], array $productVariantIdsInDocument = []): void
     {
         $this->rowId = $rowId;
         $this->itemType = $itemType;
         $this->productIdsInCartSimple = $productIdsInCartSimple ?? [];
+        $this->productVariantIdsInDocument = array_values(array_unique(array_map('intval', $productVariantIdsInDocument ?? [])));
         $this->search = '';
         $this->dispatch('open-modal', 'select-item-compra');
     }
@@ -99,8 +103,25 @@ class SelectItemModal extends Component
     ): void
     {
         $productType = $productType ?? 'simple';
-        if ($type === 'INVENTARIO' && $this->rowId === 'venta' && $productType === 'simple' && in_array($id, $this->productIdsInCartSimple, true)) {
-            $this->addError('item', 'Este producto ya está en el carrito.');
+        if ($type === 'INVENTARIO'
+            && in_array($this->rowId, ['venta', 'factura'], true)
+            && $productType === 'simple'
+            && in_array($id, $this->productIdsInCartSimple, true)) {
+            $this->addError('item', $this->rowId === 'factura'
+                ? 'Este producto ya está en la factura.'
+                : 'Este producto ya está en el carrito.');
+
+            return;
+        }
+
+        if ($type === 'INVENTARIO'
+            && in_array($this->rowId, ['venta', 'factura'], true)
+            && $productType === 'batch'
+            && $productVariantId !== null
+            && in_array((int) $productVariantId, $this->productVariantIdsInDocument, true)) {
+            $this->addError('item', $this->rowId === 'factura'
+                ? 'Esta variante ya está en la factura.'
+                : 'Esta variante ya está en el carrito.');
 
             return;
         }

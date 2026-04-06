@@ -44,19 +44,28 @@
                             @php
                                 $isInventario = ($item['type'] ?? '') === 'INVENTARIO';
                                 $productType = $item['product_type'] ?? 'simple';
-                                // Solo simple se invalida por producto; serializado puede añadir otra unidad (otro serial) desde el modal de unidades
-                                $yaEnCarrito = $rowId === 'venta' && $isInventario && $productType === 'simple' && in_array($item['id'], $productIdsInCartSimple ?? [], true);
+                                $variantId = isset($item['variant_id']) ? (int) $item['variant_id'] : 0;
+                                // Simple: una línea por producto. Batch: una fila por variante (variant_id). Serializado: otra unidad con otro serial.
+                                $yaEnDocumentoSimple = in_array($rowId, ['venta', 'factura'], true) && $isInventario && $productType === 'simple' && in_array($item['id'], $productIdsInCartSimple ?? [], true);
+                                $yaEnDocumentoBatch = in_array($rowId, ['venta', 'factura'], true) && $isInventario && $productType === 'batch' && $variantId > 0 && in_array($variantId, $productVariantIdsInDocument ?? [], true);
+                                $yaEnDocumento = $yaEnDocumentoSimple || $yaEnDocumentoBatch;
                             @endphp
-                            <tr class="{{ $yaEnCarrito ? 'bg-gray-100 dark:bg-gray-800/70' : 'hover:bg-gray-50 dark:hover:bg-gray-700' }}">
-                                <td class="px-4 py-2 text-sm {{ $yaEnCarrito ? 'text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-gray-100' }}">
+                            <tr class="{{ $yaEnDocumento ? 'bg-gray-100 dark:bg-gray-800/70' : 'hover:bg-gray-50 dark:hover:bg-gray-700' }}">
+                                <td class="px-4 py-2 text-sm {{ $yaEnDocumento ? 'text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-gray-100' }}">
                                     {{ $item['display_name'] ?? $item['name'] }}
-                                    @if($yaEnCarrito)
-                                        <span class="ml-2 text-xs font-medium text-amber-600 dark:text-amber-400">(Ya en carrito)</span>
+                                    @if($yaEnDocumento)
+                                        <span class="ml-2 text-xs font-medium text-amber-600 dark:text-amber-400">
+                                            @if($productType === 'batch')
+                                                ({{ $rowId === 'factura' ? 'Variante ya en factura' : 'Variante ya en carrito' }})
+                                            @else
+                                                ({{ $rowId === 'factura' ? 'Ya en factura' : 'Ya en carrito' }})
+                                            @endif
+                                        </span>
                                     @endif
                                 </td>
                                 <td class="px-4 py-2 text-sm text-gray-500 dark:text-gray-400 font-mono">{{ $item['code'] ?? '—' }}</td>
                                 <td class="px-4 py-2 text-right">
-                                    @if($yaEnCarrito)
+                                    @if($yaEnDocumento)
                                         <span class="text-sm text-gray-400 dark:text-gray-500 cursor-not-allowed">Seleccionar</span>
                                     @else
                                         <button type="button"

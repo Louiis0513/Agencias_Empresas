@@ -245,6 +245,18 @@ class CreateInvoiceModal extends Component
         $this->inicializarPagosSiPagada();
     }
 
+    /**
+     * Factura nueva en blanco (Facturas, Membresías, etc.).
+     * El evento de navegador open-modal ya no debe llamar resetFormulario, para no borrar ítems
+     * cargados desde cotización o carrito (load-items-from-cart).
+     */
+    #[On('open-create-invoice-fresh')]
+    public function openCreateInvoiceFresh(): void
+    {
+        $this->resetFormulario();
+        $this->dispatch('open-modal', 'create-invoice');
+    }
+
     public function updatedStatus(): void
     {
         if ($this->status === 'PENDING') {
@@ -377,7 +389,47 @@ class CreateInvoiceModal extends Component
     public function abrirSelectorProducto(): void
     {
         $this->errorStock = null;
-        $this->dispatch('open-select-item-for-row', rowId: 'factura', itemType: 'INVENTARIO', productIdsInCartSimple: []);
+        $this->dispatch(
+            'open-select-item-for-row',
+            rowId: 'factura',
+            itemType: 'INVENTARIO',
+            productIdsInCartSimple: $this->getProductIdsSimpleEnFactura(),
+            productVariantIdsInDocument: $this->getProductVariantIdsBatchEnFactura(),
+        );
+    }
+
+    /** IDs de productos simples ya en la factura (no duplicar línea; mismo criterio que carrito POS). */
+    protected function getProductIdsSimpleEnFactura(): array
+    {
+        $ids = [];
+        foreach ($this->productosSeleccionados as $item) {
+            if (($item['type'] ?? '') !== 'simple') {
+                continue;
+            }
+            $id = (int) ($item['product_id'] ?? 0);
+            if ($id > 0) {
+                $ids[] = $id;
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    /** IDs de variantes (product_variants) ya en la factura como líneas batch, para el selector de productos. */
+    protected function getProductVariantIdsBatchEnFactura(): array
+    {
+        $ids = [];
+        foreach ($this->productosSeleccionados as $item) {
+            if (($item['type'] ?? '') !== 'batch') {
+                continue;
+            }
+            $vid = (int) ($item['product_variant_id'] ?? 0);
+            if ($vid > 0) {
+                $ids[] = $vid;
+            }
+        }
+
+        return array_values(array_unique($ids));
     }
 
     /**
@@ -416,6 +468,11 @@ class CreateInvoiceModal extends Component
             if ($productVariantId) {
                 $producto = Product::where('id', $id)->where('store_id', $store->id)->first();
                 if (! $producto) {
+                    return;
+                }
+                if ($this->batchVarianteYaEnFactura((int) $id, (int) $productVariantId, [])) {
+                    $this->errorStock = 'Esta variante ya está en la factura. Elimínela para volver a agregarla o elija otra variante.';
+
                     return;
                 }
                 $ventaService = app(VentaService::class);
@@ -461,6 +518,12 @@ class CreateInvoiceModal extends Component
             return;
         }
         $variantFeatures = is_array($variantFeatures) ? $variantFeatures : [];
+        $pvId = $productVariantId ? (int) $productVariantId : null;
+        if ($this->batchVarianteYaEnFactura((int) $productId, $pvId, $variantFeatures)) {
+            $this->errorStock = 'Esta variante ya está en la factura. Elimínela para volver a agregarla o elija otra variante.';
+
+            return;
+        }
         $ventaService = app(VentaService::class);
         $stock = (int) $totalStock;
         if ($stock < 1 && $productVariantId) {
@@ -490,12 +553,44 @@ class CreateInvoiceModal extends Component
             if ((int) ($item['product_id'] ?? 0) !== $productId) {
                 continue;
             }
-            if (empty($item['variant_features']) || ! is_array($item['variant_features'])) {
+            if (($item['type'] ?? '') !== 'batch') {
                 continue;
             }
-            $keys[] = InventarioService::detectorDeVariantesEnLotes($item['variant_features']);
+            $key = InventarioService::normalizedVariantKeyForBatchLine($item);
+            if ($key !== '') {
+                $keys[] = $key;
+            }
         }
+
         return array_values(array_unique($keys));
+    }
+
+    /** True si la misma variante (clave normalizada) ya está en la factura para ese producto. */
+    protected function batchVarianteYaEnFactura(int $productId, ?int $productVariantId, array $variantFeatures = []): bool
+    {
+        $prospect = [
+            'type' => 'batch',
+            'product_id' => $productId,
+            'product_variant_id' => $productVariantId,
+            'variant_features' => $variantFeatures,
+        ];
+        $newKey = InventarioService::normalizedVariantKeyForBatchLine($prospect);
+        if ($newKey === '') {
+            return false;
+        }
+        foreach ($this->productosSeleccionados as $item) {
+            if ((int) ($item['product_id'] ?? 0) !== $productId) {
+                continue;
+            }
+            if (($item['type'] ?? '') !== 'batch') {
+                continue;
+            }
+            if (InventarioService::normalizedVariantKeyForBatchLine($item) === $newKey) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function cancelarPendienteSimple(): void
@@ -573,12 +668,18 @@ class CreateInvoiceModal extends Component
         }
         $productId = (int) $this->pendienteBatch['product_id'];
         $variantFeatures = $this->pendienteBatch['variant_features'] ?? [];
+        $pvIdRaw = $this->pendienteBatch['product_variant_id'] ?? null;
+        $pvId = $pvIdRaw !== null && (int) $pvIdRaw > 0 ? (int) $pvIdRaw : null;
+        if ($this->batchVarianteYaEnFactura($productId, $pvId, is_array($variantFeatures) ? $variantFeatures : [])) {
+            $this->errorStock = 'Esta variante ya está en la factura. Elimínela para volver a agregarla o elija otra variante.';
+
+            return;
+        }
         $stockVariante = (int) $this->pendienteBatch['stock'];
         if ($quantity > $stockVariante) {
             $this->errorStock = "Stock insuficiente en esta variante. Disponible: {$stockVariante}, solicitado: {$quantity}.";
             return;
         }
-        $pvId = $this->pendienteBatch['product_variant_id'] ?? null;
         $productosSimulado = $this->productosSeleccionados;
         $productosSimulado[] = [
             'product_id' => $productId,

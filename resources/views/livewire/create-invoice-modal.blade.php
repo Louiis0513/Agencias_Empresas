@@ -1,4 +1,4 @@
-<div x-on:open-modal.window="if ($event.detail === 'create-invoice') { $wire.resetFormulario(); }">
+<div>
     <x-modal name="create-invoice" focusable maxWidth="4xl" contentClass="bg-slate-900 border border-slate-700 shadow-2xl">
         <form wire:submit.prevent="save" class="p-8 text-slate-200">
             {{-- Título con borde inferior para separar --}}

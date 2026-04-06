@@ -129,7 +129,7 @@
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Producto</label>
                     <div class="flex gap-1 items-center">
                         <span class="min-w-[160px] px-3 py-2 rounded-md border border-white/10 bg-white/5 text-gray-100 text-sm" x-text="productDisplay || productName || 'Todos'"></span>
-                        <button type="button" @click="Livewire.dispatch('open-select-item-for-row', { rowId: 'inventario-filtro', itemType: 'INVENTARIO', productIdsInCartSimple: [] })" class="px-3 py-2 rounded-md border border-white/10 bg-white/5 text-gray-300 hover:bg-white/10 text-sm">
+                        <button type="button" @click="Livewire.dispatch('open-select-item-for-row', { rowId: 'inventario-filtro', itemType: 'INVENTARIO', productIdsInCartSimple: [], productVariantIdsInDocument: [] })" class="px-3 py-2 rounded-md border border-white/10 bg-white/5 text-gray-300 hover:bg-white/10 text-sm">
                             Seleccionar
                         </button>
                         <button type="button" x-show="productId" @click="productId = ''; productName = ''; productDisplay = ''; productVariantId = ''; productItemId = ''" class="px-3 py-2 rounded-md border border-white/10 bg-white/5 text-gray-400 hover:bg-white/10 text-sm">Limpiar</button>

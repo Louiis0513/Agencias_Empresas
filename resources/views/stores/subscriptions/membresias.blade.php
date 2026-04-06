@@ -102,7 +102,7 @@
                         </form>
 
                         <div class="flex justify-end">
-                            <button type="button" x-on:click="$dispatch('open-modal', 'create-invoice')"
+                            <button type="button" x-on:click="Livewire.dispatch('open-create-invoice-fresh')"
                                     class="inline-flex items-center px-4 py-2 bg-brand text-white font-semibold text-xs rounded-xl uppercase tracking-wider shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)]">
                                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                                 Suscribir cliente
@@ -265,7 +265,7 @@
                     @else
                         <p class="text-center text-gray-400 py-8">
                             No hay membresías registradas con los filtros actuales.
-                            <button type="button" x-on:click="$dispatch('open-modal', 'create-invoice')" class="text-indigo-400 hover:underline bg-transparent border-0 p-0 cursor-pointer font-inherit">
+                            <button type="button" x-on:click="Livewire.dispatch('open-create-invoice-fresh')" class="text-indigo-400 hover:underline bg-transparent border-0 p-0 cursor-pointer font-inherit">
                                 Suscribir a un cliente
                             </button>
                         </p>
@@ -273,6 +273,8 @@
                 </div>
             </div>
         </div>
+        @livewire('select-item-modal', ['storeId' => $store->id, 'itemType' => 'INVENTARIO', 'rowId' => 'factura'])
+        @livewire('select-batch-variant-modal', ['storeId' => $store->id])
         <livewire:create-invoice-modal :store-id="$store->id" />
     </div>
 </x-app-layout>

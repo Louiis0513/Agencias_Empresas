@@ -60,7 +60,13 @@ class VentasCarrito extends Component
     public function abrirSelectorProducto(): void
     {
         $this->errorStock = null;
-        $this->dispatch('open-select-item-for-row', rowId: 'venta', itemType: 'INVENTARIO', productIdsInCartSimple: $this->getProductIdsInCartSimple());
+        $this->dispatch(
+            'open-select-item-for-row',
+            rowId: 'venta',
+            itemType: 'INVENTARIO',
+            productIdsInCartSimple: $this->getProductIdsInCartSimple(),
+            productVariantIdsInDocument: $this->getProductVariantIdsBatchEnCarrito(),
+        );
     }
 
     /**
@@ -102,6 +108,11 @@ class VentasCarrito extends Component
                 }
                 $producto = Product::where('id', $id)->where('store_id', $store->id)->first();
                 if (! $producto) {
+                    return;
+                }
+                if ($this->batchVarianteYaEnCarrito((int) $id, (int) $productVariantId, [])) {
+                    $this->errorStock = 'Esta variante ya está en el carrito. Elimínela para volver a agregarla o elija otra variante.';
+
                     return;
                 }
                 $ventaService = app(VentaService::class);
@@ -150,6 +161,12 @@ class VentasCarrito extends Component
             return;
         }
         $variantFeatures = is_array($variantFeatures) ? $variantFeatures : [];
+        $pvId = $productVariantId ? (int) $productVariantId : null;
+        if ($this->batchVarianteYaEnCarrito((int) $productId, $pvId, $variantFeatures)) {
+            $this->errorStock = 'Esta variante ya está en el carrito. Elimínela para volver a agregarla o elija otra variante.';
+
+            return;
+        }
         $ventaService = app(VentaService::class);
         $stock = (int) $totalStock;
         if ($stock < 1 && $productVariantId) {
@@ -256,8 +273,25 @@ class VentasCarrito extends Component
         return array_values(array_unique($ids));
     }
 
+    /** IDs de variantes ya en el carrito como batch (para deshabilitar filas en el selector). */
+    protected function getProductVariantIdsBatchEnCarrito(): array
+    {
+        $ids = [];
+        foreach ($this->carrito as $item) {
+            if (($item['type'] ?? '') !== 'batch') {
+                continue;
+            }
+            $vid = (int) ($item['product_variant_id'] ?? 0);
+            if ($vid > 0) {
+                $ids[] = $vid;
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
+
     /**
-     * Claves de variante (detectorDeVariantesEnLotes) ya presentes en el carrito para un producto.
+     * Claves de variante normalizadas ya presentes en el carrito para un producto (líneas batch).
      * Se pasan al modal de variantes para invalidar/deshabilitar esas opciones en la vista.
      */
     protected function getVariantKeysInCartForProduct(int $productId): array
@@ -267,12 +301,44 @@ class VentasCarrito extends Component
             if ((int) ($item['product_id'] ?? 0) !== $productId) {
                 continue;
             }
-            if (empty($item['variant_features']) || ! is_array($item['variant_features'])) {
+            if (($item['type'] ?? '') !== 'batch') {
                 continue;
             }
-            $keys[] = InventarioService::detectorDeVariantesEnLotes($item['variant_features']);
+            $key = InventarioService::normalizedVariantKeyForBatchLine($item);
+            if ($key !== '') {
+                $keys[] = $key;
+            }
         }
+
         return array_values(array_unique($keys));
+    }
+
+    /** True si la misma variante (clave normalizada) ya está en el carrito para ese producto. */
+    protected function batchVarianteYaEnCarrito(int $productId, ?int $productVariantId, array $variantFeatures = []): bool
+    {
+        $prospect = [
+            'type' => 'batch',
+            'product_id' => $productId,
+            'product_variant_id' => $productVariantId,
+            'variant_features' => $variantFeatures,
+        ];
+        $newKey = InventarioService::normalizedVariantKeyForBatchLine($prospect);
+        if ($newKey === '') {
+            return false;
+        }
+        foreach ($this->carrito as $item) {
+            if ((int) ($item['product_id'] ?? 0) !== $productId) {
+                continue;
+            }
+            if (($item['type'] ?? '') !== 'batch') {
+                continue;
+            }
+            if (InventarioService::normalizedVariantKeyForBatchLine($item) === $newKey) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -562,7 +628,13 @@ class VentasCarrito extends Component
         }
         $productId = (int) $this->pendienteBatch['product_id'];
         $variantFeatures = $this->pendienteBatch['variant_features'] ?? [];
-        $pvId = $this->pendienteBatch['product_variant_id'] ?? null;
+        $pvIdRaw = $this->pendienteBatch['product_variant_id'] ?? null;
+        $pvId = $pvIdRaw !== null && (int) $pvIdRaw > 0 ? (int) $pvIdRaw : null;
+        if ($this->batchVarianteYaEnCarrito($productId, $pvId, is_array($variantFeatures) ? $variantFeatures : [])) {
+            $this->errorStock = 'Esta variante ya está en el carrito. Elimínela para volver a agregarla o elija otra variante.';
+
+            return;
+        }
         $stockVariante = (int) $this->pendienteBatch['stock'];
         if ($quantity > $stockVariante) {
             $this->errorStock = "Stock insuficiente en esta variante. Disponible: {$stockVariante}, solicitado: {$quantity}.";

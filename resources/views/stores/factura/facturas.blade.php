@@ -35,7 +35,7 @@
                     <div class="mb-6 flex justify-end">
                         <button type="button"
                                 x-data=""
-                                x-on:click="$dispatch('open-modal', 'create-invoice')"
+                                x-on:click="Livewire.dispatch('open-create-invoice-fresh')"
                                 class="inline-flex items-center px-4 py-2 bg-brand text-white font-semibold text-xs rounded-xl uppercase tracking-wider shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)] transition">
                             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
