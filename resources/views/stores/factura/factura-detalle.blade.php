@@ -127,6 +127,7 @@
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Producto</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Precio Unitario</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Cantidad</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Descuento</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Subtotal</th>
                                     </tr>
                                 </thead>
@@ -136,6 +137,16 @@
                                             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-100">{{ $detail->product_name }}</td>
                                             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-100">{{ money($detail->unit_price, $store->currency ?? 'COP') }}</td>
                                             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-100">{{ $detail->quantity }}</td>
+                                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-100">
+                                                @if((float) ($detail->discount_amount ?? 0) > 0)
+                                                    -{{ money($detail->discount_amount, $store->currency ?? 'COP') }}
+                                                    @if(($detail->discount_type ?? 'amount') === 'percent')
+                                                        <span class="text-xs text-gray-400">({{ rtrim(rtrim(number_format((float) ($detail->discount_value ?? 0), 2, '.', ''), '0'), '.') }}%)</span>
+                                                    @endif
+                                                @else
+                                                    —
+                                                @endif
+                                            </td>
                                             <td class="px-4 py-4 whitespace-nowrap text-sm font-semibold text-gray-100">{{ money($detail->subtotal, $store->currency ?? 'COP') }}</td>
                                         </tr>
                                     @endforeach

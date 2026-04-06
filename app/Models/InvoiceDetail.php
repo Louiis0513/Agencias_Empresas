@@ -16,6 +16,10 @@ class InvoiceDetail extends Model
         'receipt_description', // Descripción simplificada para recibo: "Producto Val1 Val2 SN"
         'unit_price',   // Snapshot del precio unitario
         'quantity',
+        'discount_type',
+        'discount_value',
+        'discount_amount',
+        'subtotal_before_discount',
         'subtotal',
         'store_plan_id',
         'subscription_starts_at',
@@ -24,6 +28,9 @@ class InvoiceDetail extends Model
     protected $casts = [
         'unit_price' => 'decimal:2',
         'quantity' => 'integer',
+        'discount_value' => 'decimal:2',
+        'discount_amount' => 'decimal:2',
+        'subtotal_before_discount' => 'decimal:2',
         'subtotal' => 'decimal:2',
         'subscription_starts_at' => 'date',
     ];

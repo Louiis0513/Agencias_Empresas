@@ -50,10 +50,6 @@ class CreateInvoiceModal extends Component
     public int $unidadesDisponiblesTotal = 0;
     public int $unidadesDisponiblesPerPage = 15;
 
-    // Descuentos
-    public string $discountType = 'amount'; // 'amount' o 'percent'
-    public string $discountValue = '0';
-
     // Totales
     public float $subtotal = 0;
     public float $discount = 0;
@@ -226,8 +222,6 @@ class CreateInvoiceModal extends Component
         $this->cantidadBatch = 1;
         $this->errorStock = null;
         $this->cerrarModalUnidadesFactura();
-        $this->discountType = 'amount';
-        $this->discountValue = '0';
         $this->subtotal = 0;
         $this->discount = 0;
         $this->total = 0;
@@ -549,6 +543,10 @@ class CreateInvoiceModal extends Component
             'name' => $this->pendienteSimple['name'],
             'price' => $precio,
             'quantity' => $quantity,
+            'subtotal_before_discount' => $precio * $quantity,
+            'discount_type' => 'amount',
+            'discount_value' => '0',
+            'discount_amount' => 0,
             'subtotal' => $precio * $quantity,
             'type' => 'simple',
         ];
@@ -601,6 +599,10 @@ class CreateInvoiceModal extends Component
             'name' => $this->pendienteBatch['name'],
             'price' => $precio,
             'quantity' => $quantity,
+            'subtotal_before_discount' => $precio * $quantity,
+            'discount_type' => 'amount',
+            'discount_value' => '0',
+            'discount_amount' => 0,
             'subtotal' => $precio * $quantity,
             'type' => 'batch',
             'product_variant_id' => $pvId,
@@ -771,6 +773,10 @@ class CreateInvoiceModal extends Component
                 'name' => $producto->name,
                 'price' => (float) $precio,
                 'quantity' => 1,
+                'subtotal_before_discount' => (float) $precio,
+                'discount_type' => 'amount',
+                'discount_value' => '0',
+                'discount_amount' => 0,
                 'subtotal' => (float) $precio,
                 'type' => 'serialized',
                 'serial_numbers' => [$serial],
@@ -796,14 +802,48 @@ class CreateInvoiceModal extends Component
         }
     }
 
-    public function updatedDiscountValue()
+    public function updatedProductosSeleccionados(): void
     {
         $this->calcularTotales();
     }
 
-    public function updatedDiscountType()
+    public function actualizarTipoDescuentoItem(int $index, string $type): void
     {
+        if (! isset($this->productosSeleccionados[$index])) {
+            return;
+        }
+        $this->productosSeleccionados[$index]['discount_type'] = $type === 'percent' ? 'percent' : 'amount';
         $this->calcularTotales();
+    }
+
+    protected function validarDescuentosPorItem(): bool
+    {
+        foreach ($this->productosSeleccionados as $index => $item) {
+            $qty = max(1, (int) ($item['quantity'] ?? 1));
+            $unitPrice = max(0, (float) ($item['price'] ?? 0));
+            $lineBase = $unitPrice * $qty;
+            $discountType = ($item['discount_type'] ?? 'amount') === 'percent' ? 'percent' : 'amount';
+
+            if ($discountType === 'percent') {
+                $value = (float) ($item['discount_value'] ?? 0);
+                if ($value < 0 || $value > 100) {
+                    $this->addError("productosSeleccionados.{$index}.discount_value", 'El porcentaje de descuento debe estar entre 0 y 100.');
+                    return false;
+                }
+            } else {
+                $value = $this->parseMonto($item['discount_value'] ?? 0);
+                if ($value < 0) {
+                    $this->addError("productosSeleccionados.{$index}.discount_value", 'El descuento no puede ser negativo.');
+                    return false;
+                }
+                if ($value > $lineBase) {
+                    $this->addError("productosSeleccionados.{$index}.discount_value", 'El descuento no puede superar el subtotal de la línea.');
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     public function calcularTotales()
@@ -811,44 +851,53 @@ class CreateInvoiceModal extends Component
         $currencyService = app(CurrencyFormatService::class);
         $currency = $this->getStoreProperty()?->currency ?? 'COP';
 
-        // Preparar detalles para el cálculo
-        $details = array_map(function($item) {
-            return [
-                'quantity' => $item['quantity'],
-                'unit_price' => $item['price'],
-            ];
-        }, $this->productosSeleccionados);
+        $subtotalBruto = 0.0;
+        $discountTotal = 0.0;
+        $totalNeto = 0.0;
 
-        // Calcular subtotal sumando todos los detalles
-        $subtotal = 0;
-        foreach ($details as $detail) {
-            $subtotal += ($detail['unit_price'] * $detail['quantity']);
-        }
+        foreach ($this->productosSeleccionados as $i => $item) {
+            $qty = max(1, (int) ($item['quantity'] ?? 1));
+            $unitPrice = max(0, (float) ($item['price'] ?? 0));
+            $lineBase = $unitPrice * $qty;
 
-        // Aplicar descuentos
-        $discount = 0;
+            $discountType = ($item['discount_type'] ?? 'amount') === 'percent' ? 'percent' : 'amount';
+            $rawDiscountValue = $item['discount_value'] ?? '0';
 
-        if ($this->discountType === 'percent') {
-            $discountPercent = (float) ($this->discountValue ?: 0);
-            if ($discountPercent > 0) {
-                $discount = $subtotal * ($discountPercent / 100);
+            if ($discountType === 'percent') {
+                $discountPercent = max(0.0, min(100.0, (float) $rawDiscountValue));
+                $discountAmount = $lineBase * ($discountPercent / 100);
+                $this->productosSeleccionados[$i]['discount_value'] = (string) $discountPercent;
+            } else {
+                $discountAmount = max(0.0, $this->parseMonto($rawDiscountValue));
+                $this->productosSeleccionados[$i]['discount_value'] = (string) $rawDiscountValue;
             }
-        } else {
-            $discount = $this->parseMonto($this->discountValue ?: 0);
+
+            if ($discountAmount > $lineBase) {
+                $discountAmount = $lineBase;
+            }
+
+            $lineBaseRounded = $currencyService->roundForCurrency($lineBase, $currency);
+            $discountAmountRounded = $currencyService->roundForCurrency($discountAmount, $currency);
+            $lineNet = $lineBaseRounded - $discountAmountRounded;
+            if ($lineNet < 0) {
+                $lineNet = 0;
+            }
+            $lineNetRounded = $currencyService->roundForCurrency($lineNet, $currency);
+
+            $this->productosSeleccionados[$i]['quantity'] = $qty;
+            $this->productosSeleccionados[$i]['subtotal_before_discount'] = $lineBaseRounded;
+            $this->productosSeleccionados[$i]['discount_type'] = $discountType;
+            $this->productosSeleccionados[$i]['discount_amount'] = $discountAmountRounded;
+            $this->productosSeleccionados[$i]['subtotal'] = $lineNetRounded;
+
+            $subtotalBruto += $lineBaseRounded;
+            $discountTotal += $discountAmountRounded;
+            $totalNeto += $lineNetRounded;
         }
 
-        // El total es subtotal menos descuentos
-        $total = $subtotal - $discount;
-
-        // Asegurar que el total no sea negativo
-        if ($total < 0) {
-            $total = 0;
-            $discount = $subtotal; // Ajustar el descuento para que no exceda el subtotal
-        }
-
-        $this->subtotal = $currencyService->roundForCurrency($subtotal, $currency);
-        $this->discount = $currencyService->roundForCurrency($discount, $currency);
-        $this->total = $currencyService->roundForCurrency($total, $currency);
+        $this->subtotal = $currencyService->roundForCurrency($subtotalBruto, $currency);
+        $this->discount = $currencyService->roundForCurrency($discountTotal, $currency);
+        $this->total = $currencyService->roundForCurrency($totalNeto, $currency);
 
         // Si el total cambió (productos/descuentos), asegurar que los montos de pago no se pasen.
         $this->ajustarMontosPagos();
@@ -910,6 +959,10 @@ class CreateInvoiceModal extends Component
             'name' => 'Suscripción: ' . $plan->name,
             'price' => $price,
             'quantity' => 1,
+            'subtotal_before_discount' => $price,
+            'discount_type' => 'amount',
+            'discount_value' => '0',
+            'discount_amount' => 0,
             'subtotal' => $price,
             'is_subscription' => true,
             'store_plan_id' => (int) $plan->id,
@@ -953,6 +1006,11 @@ class CreateInvoiceModal extends Component
 
         if (empty($this->productosSeleccionados)) {
             $this->addError('productosSeleccionados', 'Debes agregar al menos un producto o una suscripción.');
+            $this->saving = false;
+            return;
+        }
+
+        if (! $this->validarDescuentosPorItem()) {
             $this->saving = false;
             return;
         }
@@ -1032,6 +1090,10 @@ class CreateInvoiceModal extends Component
                         'product_name' => $item['name'],
                         'unit_price' => (float) $item['price'],
                         'quantity' => (int) ($item['quantity'] ?? 1),
+                    'discount_type' => $item['discount_type'] ?? 'amount',
+                    'discount_value' => (string) ($item['discount_value'] ?? '0'),
+                    'discount_amount' => (float) ($item['discount_amount'] ?? 0),
+                    'subtotal_before_discount' => (float) ($item['subtotal_before_discount'] ?? $item['subtotal']),
                         'subtotal' => (float) $item['subtotal'],
                         'store_plan_id' => (int) $item['store_plan_id'],
                         'subscription_starts_at' => $item['subscription_starts_at'] ?? now()->toDateString(),
@@ -1041,6 +1103,10 @@ class CreateInvoiceModal extends Component
                         'product_id' => $item['product_id'],
                         'unit_price' => $item['price'],
                         'quantity' => $item['quantity'],
+                        'discount_type' => $item['discount_type'] ?? 'amount',
+                        'discount_value' => (string) ($item['discount_value'] ?? '0'),
+                        'discount_amount' => (float) ($item['discount_amount'] ?? 0),
+                        'subtotal_before_discount' => (float) ($item['subtotal_before_discount'] ?? $item['subtotal']),
                         'subtotal' => $item['subtotal'],
                     ];
                     if (! empty($item['product_variant_id'])) {
@@ -1154,6 +1220,10 @@ class CreateInvoiceModal extends Component
                 'name' => $item['name'],
                 'price' => $price,
                 'quantity' => $qty,
+                'discount_type' => $item['discount_type'] ?? 'amount',
+                'discount_value' => (string) ($item['discount_value'] ?? '0'),
+                'discount_amount' => (float) ($item['discount_amount'] ?? 0),
+                'subtotal_before_discount' => $price * $qty,
                 'subtotal' => $price * $qty,
                 'type' => $item['type'] ?? 'simple',
                 'product_variant_id' => $item['product_variant_id'] ?? null,
@@ -1178,7 +1248,7 @@ class CreateInvoiceModal extends Component
         foreach ($this->productosSeleccionados as $i => $producto) {
             $cotizado = (float) ($producto['price_cotizado'] ?? $producto['price']);
             $this->productosSeleccionados[$i]['price'] = $cotizado;
-            $this->productosSeleccionados[$i]['subtotal'] = $cotizado * (int) ($producto['quantity'] ?? 1);
+            $this->productosSeleccionados[$i]['subtotal_before_discount'] = $cotizado * (int) ($producto['quantity'] ?? 1);
             $this->productosSeleccionados[$i]['precio_bloqueado'] = true;
         }
         $this->usarPrecio = 'cotizado';
@@ -1202,7 +1272,7 @@ class CreateInvoiceModal extends Component
             if (isset($precios[$i])) {
                 $p = $precios[$i];
                 $this->productosSeleccionados[$i]['price'] = $p;
-                $this->productosSeleccionados[$i]['subtotal'] = $p * (int) ($producto['quantity'] ?? 1);
+                $this->productosSeleccionados[$i]['subtotal_before_discount'] = $p * (int) ($producto['quantity'] ?? 1);
             }
             $this->productosSeleccionados[$i]['precio_bloqueado'] = false;
         }

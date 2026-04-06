@@ -71,6 +71,11 @@
                     <td class="col-precio">{{ money($detail->unit_price, $store->currency ?? 'COP', false) }}</td>
                     <td class="col-total">{{ money($detail->subtotal, $store->currency ?? 'COP', false) }}</td>
                 </tr>
+                @if((float) ($detail->discount_amount ?? 0) > 0)
+                <tr>
+                    <td class="col-desc" colspan="4">Desc. item: -{{ money($detail->discount_amount, $store->currency ?? 'COP', false) }}</td>
+                </tr>
+                @endif
                 @endforeach
             </tbody>
         </table>

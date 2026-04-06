@@ -350,7 +350,7 @@ class InvoiceService
     /**
      * Calcula los totales de una factura basándose en los detalles.
      *
-     * @param array $details Array de detalles con: quantity, unit_price, discount (opcional)
+     * @param array $details Array de detalles con: quantity, unit_price, discount_amount (opcional)
      * @param float $discountAmount Descuento total (monto fijo)
      * @param float $discountPercent Descuento total (porcentaje)
      * @param string|null $currency Moneda para redondeo (COP usa 0 decimales)
@@ -364,12 +364,12 @@ class InvoiceService
         // Calcular subtotal sumando todos los detalles
         $subtotal = 0;
         foreach ($details as $detail) {
-            $itemSubtotal = ($detail['unit_price'] * $detail['quantity']);
-            // Si el detalle tiene descuento individual, aplicarlo
-            if (isset($detail['discount'])) {
-                $itemSubtotal -= $detail['discount'];
+            $lineBase = (float) ($detail['unit_price'] ?? 0) * (int) ($detail['quantity'] ?? 0);
+            $lineDiscount = (float) ($detail['discount_amount'] ?? ($detail['discount'] ?? 0));
+            if ($lineDiscount > $lineBase) {
+                $lineDiscount = $lineBase;
             }
-            $subtotal += $itemSubtotal;
+            $subtotal += ($lineBase - $lineDiscount);
         }
 
         // Aplicar descuentos globales
@@ -461,6 +461,10 @@ class InvoiceService
             'product_name' => $productName,
             'unit_price'   => $item['unit_price'],
             'quantity'     => $qty,
+            'discount_type' => $item['discount_type'] ?? 'amount',
+            'discount_value' => $item['discount_value'] ?? 0,
+            'discount_amount' => $item['discount_amount'] ?? 0,
+            'subtotal_before_discount' => $item['subtotal_before_discount'] ?? $item['subtotal'],
             'subtotal'     => $item['subtotal'],
         ]);
     }
@@ -510,6 +514,10 @@ class InvoiceService
             'receipt_description' => $receiptDescription,
             'unit_price'          => $item['unit_price'],
             'quantity'            => $qty,
+            'discount_type'       => $item['discount_type'] ?? 'amount',
+            'discount_value'      => $item['discount_value'] ?? 0,
+            'discount_amount'     => $item['discount_amount'] ?? 0,
+            'subtotal_before_discount' => $item['subtotal_before_discount'] ?? $item['subtotal'],
             'subtotal'            => $item['subtotal'],
         ]);
     }
@@ -534,6 +542,10 @@ class InvoiceService
             'receipt_description'   => $productName,
             'unit_price'             => $item['unit_price'],
             'quantity'               => (int) ($item['quantity'] ?? 1),
+            'discount_type'          => $item['discount_type'] ?? 'amount',
+            'discount_value'         => $item['discount_value'] ?? 0,
+            'discount_amount'        => $item['discount_amount'] ?? 0,
+            'subtotal_before_discount' => $item['subtotal_before_discount'] ?? $item['subtotal'],
             'subtotal'               => $item['subtotal'],
             'store_plan_id'          => (int) $item['store_plan_id'],
             'subscription_starts_at' => $startsAt,
