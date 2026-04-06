@@ -259,6 +259,14 @@ class CreateInvoiceModal extends Component
 
     public function updatedStatus(): void
     {
+        if ($this->status === 'PENDING' && $this->esClienteConsumidorFinal()) {
+            $this->status = 'PAID';
+            $this->addError('status', 'Las facturas a consumidor final deben registrarse como pagadas; no aplican cuentas por cobrar.');
+            $this->inicializarPagosSiPagada();
+            $this->ajustarMontosPagos();
+
+            return;
+        }
         if ($this->status === 'PENDING') {
             $this->paymentParts = [];
         } else {
@@ -376,6 +384,11 @@ class CreateInvoiceModal extends Component
     {
         $this->customer_id = (int) $customer_id;
         $this->clienteSeleccionado = is_array($customer) ? $customer : null;
+        if ($this->status === 'PENDING' && $this->esClienteConsumidorFinal()) {
+            $this->status = 'PAID';
+            $this->inicializarPagosSiPagada();
+            $this->ajustarMontosPagos();
+        }
     }
 
     #[On('customer-cleared')]
@@ -383,6 +396,22 @@ class CreateInvoiceModal extends Component
     {
         $this->customer_id = null;
         $this->clienteSeleccionado = null;
+    }
+
+    protected function esClienteConsumidorFinal(): bool
+    {
+        if (! $this->customer_id) {
+            return false;
+        }
+        $store = $this->getStoreProperty();
+        if (! $store) {
+            return false;
+        }
+
+        return Customer::where('id', $this->customer_id)
+            ->where('store_id', $store->id)
+            ->where('document_number', Customer::CONSUMIDOR_FINAL_DOCUMENT)
+            ->exists();
     }
 
     /** Abre el modal de selección de producto (contexto factura). */
@@ -495,7 +524,11 @@ class CreateInvoiceModal extends Component
         } else {
             $this->pendienteSimple = null;
             $this->pendienteBatch = null;
-            $this->abrirModalUnidadesFactura((int) $id);
+            if ($productItemId) {
+                $this->agregarSerializadoDirectoPorItemId((int) $id, (int) $productItemId);
+            } else {
+                $this->abrirModalUnidadesFactura((int) $id);
+            }
         }
     }
 
@@ -749,6 +782,77 @@ class CreateInvoiceModal extends Component
             }
         }
         return $items;
+    }
+
+    /**
+     * Agrega directamente a la factura cuando el buscador ya devolvió productItemId (IMEI concreto),
+     * sin abrir el modal de unidades serializadas (mismo criterio que VentasCarrito).
+     */
+    protected function agregarSerializadoDirectoPorItemId(int $productId, int $productItemId): void
+    {
+        $this->errorStock = null;
+        $store = $this->getStoreProperty();
+        if (! $store || $productId < 1 || $productItemId < 1) {
+            return;
+        }
+
+        $producto = Product::where('id', $productId)
+            ->where('store_id', $store->id)
+            ->where('is_active', true)
+            ->first();
+        if (! $producto || ! $producto->isSerialized()) {
+            return;
+        }
+
+        $item = ProductItem::where('id', $productItemId)
+            ->where('store_id', $store->id)
+            ->where('product_id', $productId)
+            ->where('status', ProductItem::STATUS_AVAILABLE)
+            ->first();
+        if (! $item) {
+            $this->errorStock = 'La unidad serializada seleccionada no está disponible.';
+
+            return;
+        }
+
+        $serial = trim((string) $item->serial_number);
+        if ($serial === '') {
+            $this->errorStock = 'La unidad seleccionada no tiene serial válido.';
+
+            return;
+        }
+
+        if (in_array($serial, $this->getSerialesEnFacturaParaProducto($productId), true)) {
+            $this->errorStock = 'Ese serial ya está en la factura.';
+
+            return;
+        }
+
+        $ventaService = app(VentaService::class);
+        $items = [['product_id' => $productId, 'serial_numbers' => [$serial]]];
+        try {
+            $ventaService->validarGuardadoItemCarrito($store, $items);
+        } catch (Exception $e) {
+            $this->errorStock = $e->getMessage();
+
+            return;
+        }
+
+        $precio = $ventaService->verPrecio($store, $productId, 'serialized', null, [$serial]);
+        $this->productosSeleccionados[] = [
+            'product_id' => $productId,
+            'name' => $producto->name,
+            'price' => (float) $precio,
+            'quantity' => 1,
+            'subtotal_before_discount' => (float) $precio,
+            'discount_type' => 'amount',
+            'discount_value' => '0',
+            'discount_amount' => 0,
+            'subtotal' => (float) $precio,
+            'type' => 'serialized',
+            'serial_numbers' => [$serial],
+        ];
+        $this->calcularTotales();
     }
 
     /** Abre el modal de unidades disponibles para un producto serializado (solo status AVAILABLE). */
@@ -1129,6 +1233,13 @@ class CreateInvoiceModal extends Component
             return;
         }
 
+        if ($this->status === 'PENDING' && $this->esClienteConsumidorFinal()) {
+            $this->saving = false;
+            $this->addError('status', 'Las facturas a consumidor final deben registrarse como pagadas; no aplican cuentas por cobrar.');
+
+            return;
+        }
+
         if (empty($this->productosSeleccionados)) {
             $this->addError('productosSeleccionados', 'Debes agregar al menos un producto o una suscripción.');
             $this->saving = false;
@@ -1410,6 +1521,9 @@ class CreateInvoiceModal extends Component
     {
         $store = Store::find($this->storeId);
 
-        return view('livewire.create-invoice-modal', ['store' => $store]);
+        return view('livewire.create-invoice-modal', [
+            'store' => $store,
+            'esConsumidorFinalSeleccionado' => $this->esClienteConsumidorFinal(),
+        ]);
     }
 }

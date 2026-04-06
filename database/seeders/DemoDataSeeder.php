@@ -10,6 +10,7 @@ use App\Models\Role;
 use App\Models\Attribute;
 use App\Models\AttributeGroup;
 use App\Models\Category;
+use App\Models\Customer;
 use App\Models\Store;
 use App\Models\User;
 use App\Services\AttributeService;
@@ -102,6 +103,8 @@ class DemoDataSeeder extends Seeder
                 'updated_at' => $now,
             ]
         );
+
+        Customer::ensureConsumidorFinalForStore((int) $store->id);
 
         return $store;
     }

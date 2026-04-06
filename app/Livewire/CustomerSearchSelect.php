@@ -27,12 +27,20 @@ class CustomerSearchSelect extends Component
 
     public ?array $clienteSeleccionado = null;
 
-    public function mount(int $storeId, ?int $selectedCustomerId = null, string $emitEventName = 'customer-selected', string $emitClearEventName = 'customer-cleared'): void
-    {
+    public bool $showConsumidorFinalButton = false;
+
+    public function mount(
+        int $storeId,
+        ?int $selectedCustomerId = null,
+        string $emitEventName = 'customer-selected',
+        string $emitClearEventName = 'customer-cleared',
+        bool $showConsumidorFinalButton = false
+    ): void {
         $this->storeId = $storeId;
         $this->selectedCustomerId = $selectedCustomerId;
         $this->emitEventName = $emitEventName;
         $this->emitClearEventName = $emitClearEventName;
+        $this->showConsumidorFinalButton = $showConsumidorFinalButton;
 
         if ($selectedCustomerId) {
             $this->loadSelectedCustomer($selectedCustomerId);
@@ -119,6 +127,17 @@ class CustomerSearchSelect extends Component
                 'phone' => $customer->phone,
             ])
             ->toArray();
+    }
+
+    public function aplicarConsumidorFinal(): void
+    {
+        $cliente = Customer::where('store_id', $this->storeId)
+            ->where('document_number', Customer::CONSUMIDOR_FINAL_DOCUMENT)
+            ->first();
+        if (! $cliente) {
+            $cliente = Customer::ensureConsumidorFinalForStore($this->storeId);
+        }
+        $this->seleccionarCliente($cliente->id);
     }
 
     public function seleccionarCliente($clienteId): void

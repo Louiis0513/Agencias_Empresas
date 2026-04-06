@@ -12,7 +12,7 @@
             <div class="space-y-8">
                 {{-- Sección: Cliente (componente reutilizable CustomerSearchSelect) --}}
                 <div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
-                    <livewire:customer-search-select :store-id="$storeId" :selected-customer-id="$customer_id" emit-event-name="customer-selected" />
+                    <livewire:customer-search-select :store-id="$storeId" :selected-customer-id="$customer_id" :show-consumidor-final-button="true" emit-event-name="customer-selected" />
                     <x-input-error :messages="$errors->get('customer_id')" class="mt-2 text-red-400" />
 
                     @if($mostrarCheckVencida && $cotizacion_id)
@@ -260,14 +260,8 @@
                 </div>
 
                 {{-- Totales --}}
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start pt-6 border-t border-slate-700">
-                    <div class="grid grid-cols-1 gap-4 bg-slate-800/30 p-4 rounded-xl border border-slate-700">
-                        <div class="text-sm text-slate-300">
-                            El descuento se aplica por producto para mantener trazabilidad de utilidad.
-                        </div>
-                    </div>
-
-                    <div class="bg-indigo-900/20 p-6 rounded-xl border border-indigo-500/30">
+                <div class="flex flex-col lg:items-end pt-6 border-t border-slate-700">
+                    <div class="w-full lg:max-w-md bg-indigo-900/20 p-6 rounded-xl border border-indigo-500/30">
                         <div class="space-y-2">
                             <div class="flex justify-between text-slate-400 uppercase text-xs font-bold tracking-wider">
                                 <span>Subtotal</span>
@@ -294,8 +288,14 @@
                         <x-input-label for="status" value="Estado de la Factura" class="text-slate-300 font-semibold mb-2" />
                         <select wire:model.live="status" id="status" class="block w-full rounded-lg border-slate-600 bg-slate-800 text-white font-bold py-3">
                             <option value="PAID">✅ PAGADA (Registrar cobro)</option>
-                            <option value="PENDING">⏳ PENDIENTE (Cuenta por cobrar)</option>
+                            @if(empty($esConsumidorFinalSeleccionado))
+                                <option value="PENDING">⏳ PENDIENTE (Cuenta por cobrar)</option>
+                            @endif
                         </select>
+                        @if(!empty($esConsumidorFinalSeleccionado))
+                            <p class="text-xs text-slate-500 mt-1.5">Consumidor final: solo factura pagada (no cuenta por cobrar).</p>
+                        @endif
+                        <x-input-error :messages="$errors->get('status')" class="mt-2 text-red-400" />
                     </div>
 
                     @if($status === 'PAID')

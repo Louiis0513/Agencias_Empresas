@@ -20,10 +20,17 @@
             </div>
         </div>
     @else
-        <button type="button" wire:click="abrirModal" class="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg transition-all shadow-lg uppercase text-xs tracking-widest">
-            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
-            {{ __('Seleccionar cliente') }}
-        </button>
+        <div class="flex flex-col sm:flex-row flex-wrap gap-2">
+            <button type="button" wire:click="abrirModal" class="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg transition-all shadow-lg uppercase text-xs tracking-widest">
+                <svg class="w-5 h-5 mr-2 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                {{ __('Seleccionar cliente') }}
+            </button>
+            @if($showConsumidorFinalButton)
+                <button type="button" wire:click="aplicarConsumidorFinal" class="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3 bg-slate-600 hover:bg-slate-500 text-white font-bold rounded-lg transition-all shadow-lg uppercase text-xs tracking-widest border border-slate-500">
+                    {{ __('Consumidor final') }}
+                </button>
+            @endif
+        </div>
     @endif
 
     @if($mostrarModal)
