@@ -24,22 +24,22 @@
                     <x-input-error :messages="$errors->get('email')" class="mt-1" />
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="min-w-0">
                         <x-input-label for="phone" value="{{ __('Teléfono') }}" />
                         <p class="text-xs text-gray-400 mt-1">Indicativo (ej. 57) y número. Solo dígitos.</p>
-                        <div class="flex gap-2 mt-1">
-                            <span class="flex items-center text-white font-medium">+</span>
+                        <div class="mt-1 grid grid-cols-[auto,5rem,minmax(0,1fr)] items-center gap-2">
+                            <span class="text-white font-medium">+</span>
                             <input type="text" wire:model="phone_country_code" placeholder="57" maxlength="4" inputmode="numeric" pattern="[0-9]*"
-                                   class="w-20 rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand text-center">
-                            <x-text-input wire:model="phone" id="phone" class="flex-1" type="text" placeholder="3001234567" inputmode="numeric" required />
+                                   class="w-full rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand text-center">
+                            <x-text-input wire:model="phone" id="phone" class="block w-full min-w-0" type="text" placeholder="3001234567" inputmode="numeric" required />
                         </div>
                         <x-input-error :messages="$errors->get('phone')" class="mt-1" />
                         <x-input-error :messages="$errors->get('phone_country_code')" class="mt-1" />
                     </div>
-                    <div>
+                    <div class="min-w-0">
                         <x-input-label for="document_number" value="{{ __('Número de Documento') }}" />
-                        <x-text-input wire:model="document_number" id="document_number" class="block mt-1 w-full" type="text" placeholder="DNI, Cédula, Pasaporte" required />
+                        <x-text-input wire:model="document_number" id="document_number" class="block mt-1 w-full min-w-0" type="text" placeholder="DNI, Cédula, Pasaporte" required />
                         <x-input-error :messages="$errors->get('document_number')" class="mt-1" />
                     </div>
                 </div>

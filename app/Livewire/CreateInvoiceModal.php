@@ -782,17 +782,9 @@ class CreateInvoiceModal extends Component
 
     public function actualizarCantidad($index, $cantidad)
     {
-        if (! isset($this->productosSeleccionados[$index])) {
-            return;
-        }
-        if (($this->productosSeleccionados[$index]['type'] ?? 'simple') === 'serialized') {
-            return; // Cantidad fija 1 por serie
-        }
-        $cantidad = max(1, (int) $cantidad);
-        $this->productosSeleccionados[$index]['quantity'] = $cantidad;
-        $this->productosSeleccionados[$index]['subtotal'] =
-            $this->productosSeleccionados[$index]['price'] * $cantidad;
-        $this->calcularTotales();
+        // En factura, la cantidad de ítems ya agregados es solo lectura.
+        // Si se requiere un cambio, el flujo correcto es eliminar y volver a agregar.
+        return;
     }
 
     public function eliminarProducto($index)

@@ -189,8 +189,7 @@
                                                 @elseif(($producto['type'] ?? 'simple') === 'serialized')
                                                     <span class="px-3 py-1 bg-slate-700 rounded text-white font-bold text-sm">{{ $producto['quantity'] }}</span>
                                                 @else
-                                                    <input type="number" wire:change="actualizarCantidad({{ $index }}, $event.target.value)" value="{{ $producto['quantity'] }}" min="1"
-                                                        class="w-16 rounded bg-slate-800 border-slate-600 text-white focus:ring-indigo-500 focus:border-indigo-500 text-sm">
+                                                    <span class="px-3 py-1 bg-slate-700 rounded text-white font-bold text-sm">{{ $producto['quantity'] }}</span>
                                                 @endif
                                             </td>
                                             <td class="px-4 py-4 text-sm font-bold text-white">{{ money($producto['subtotal'], $store?->currency ?? 'COP') }}</td>
@@ -210,6 +209,11 @@
                          </div>
                     @endif
                     <x-input-error :messages="$errors->get('productosSeleccionados')" class="mt-2 text-red-400" />
+                    @if(count($productosSeleccionados) > 0)
+                        <p class="text-xs text-slate-500 mt-2">
+                            Para cambiar la cantidad de un producto, elimínalo y agrégalo de nuevo.
+                        </p>
+                    @endif
                 </div>
 
                 {{-- Totales y Descuento --}}
