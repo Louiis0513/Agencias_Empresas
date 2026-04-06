@@ -157,7 +157,7 @@
                                         <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-400">Producto</th>
                                         <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-400">Precio</th>
                                         <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-400">Cant.</th>
-                                        <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-400">Descuento</th>
+                                        <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-400 w-[1%] whitespace-nowrap">Dto.</th>
                                         <th class="px-4 py-3 text-left text-xs font-bold uppercase text-slate-400">Subtotal</th>
                                         <th class="px-4 py-3 text-center text-xs font-bold uppercase text-slate-400">—</th>
                                     </tr>
@@ -193,33 +193,45 @@
                                                     <span class="px-3 py-1 bg-slate-700 rounded text-white font-bold text-sm">{{ $producto['quantity'] }}</span>
                                                 @endif
                                             </td>
-                                            <td class="px-4 py-4">
-                                                <div class="flex flex-col gap-2 min-w-[180px]">
-                                                    <select wire:change="actualizarTipoDescuentoItem({{ $index }}, $event.target.value)"
-                                                            class="rounded bg-slate-800 border-slate-600 text-white text-xs focus:ring-indigo-500 focus:border-indigo-500">
-                                                        <option value="amount" @selected(($producto['discount_type'] ?? 'amount') === 'amount')>Monto</option>
-                                                        <option value="percent" @selected(($producto['discount_type'] ?? 'amount') === 'percent')>%</option>
-                                                    </select>
+                                            <td class="px-4 py-4 align-top">
+                                                <div class="max-w-[200px]">
+                                                    <div class="flex flex-wrap items-center gap-2">
+                                                        <button type="button"
+                                                                wire:click="toggleDiscountPanel({{ $index }})"
+                                                                aria-expanded="{{ ($discountPanelOpen[$index] ?? false) ? 'true' : 'false' }}"
+                                                                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wide border border-slate-600 bg-slate-800/80 text-slate-200 hover:bg-slate-700 hover:border-slate-500 transition-colors {{ ($discountPanelOpen[$index] ?? false) ? 'border-indigo-500/60 bg-indigo-950/40 text-indigo-200' : '' }}">
+                                                            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                                            Dto.
+                                                        </button>
+                                                        @if(($producto['discount_amount'] ?? 0) > 0)
+                                                            <span class="text-[11px] text-red-300 font-semibold tabular-nums">
+                                                                -{{ money($producto['discount_amount'], $store?->currency ?? 'COP') }}
+                                                            </span>
+                                                        @endif
+                                                    </div>
+                                                    @if($discountPanelOpen[$index] ?? false)
+                                                        <div class="mt-2 pt-2 border-t border-slate-600/50 space-y-2">
+                                                            <select wire:change="actualizarTipoDescuentoItem({{ $index }}, $event.target.value)"
+                                                                    class="w-full rounded bg-slate-800 border-slate-600 text-white text-xs focus:ring-indigo-500 focus:border-indigo-500">
+                                                                <option value="amount" @selected(($producto['discount_type'] ?? 'amount') === 'amount')>Monto</option>
+                                                                <option value="percent" @selected(($producto['discount_type'] ?? 'amount') === 'percent')>%</option>
+                                                            </select>
 
-                                                    @if(($producto['discount_type'] ?? 'amount') === 'percent')
-                                                        <input type="number"
-                                                               wire:model.live="productosSeleccionados.{{ $index }}.discount_value"
-                                                               min="0"
-                                                               max="100"
-                                                               step="0.01"
-                                                               class="rounded bg-slate-800 border-slate-600 text-white text-sm focus:ring-indigo-500 focus:border-indigo-500"
-                                                               placeholder="0">
-                                                    @else
-                                                        <x-money-input wire:model="productosSeleccionados.{{ $index }}.discount_value"
-                                                                       :currency="$store?->currency ?? 'COP'"
-                                                                       :value="$producto['discount_value'] ?? '0'"
-                                                                       class="rounded bg-slate-800 border-slate-600 text-white text-sm" />
-                                                    @endif
-
-                                                    @if(($producto['discount_amount'] ?? 0) > 0)
-                                                        <p class="text-[11px] text-red-300">
-                                                            -{{ money($producto['discount_amount'], $store?->currency ?? 'COP') }}
-                                                        </p>
+                                                            @if(($producto['discount_type'] ?? 'amount') === 'percent')
+                                                                <input type="number"
+                                                                       wire:model.live="productosSeleccionados.{{ $index }}.discount_value"
+                                                                       min="0"
+                                                                       max="100"
+                                                                       step="0.01"
+                                                                       class="w-full rounded bg-slate-800 border-slate-600 text-white text-sm focus:ring-indigo-500 focus:border-indigo-500"
+                                                                       placeholder="0">
+                                                            @else
+                                                                <x-money-input wire:model="productosSeleccionados.{{ $index }}.discount_value"
+                                                                               :currency="$store?->currency ?? 'COP'"
+                                                                               :value="$producto['discount_value'] ?? '0'"
+                                                                               class="w-full rounded bg-slate-800 border-slate-600 text-white text-sm" />
+                                                            @endif
+                                                        </div>
                                                     @endif
                                                 </div>
                                             </td>

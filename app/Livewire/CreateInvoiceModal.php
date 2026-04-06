@@ -33,6 +33,9 @@ class CreateInvoiceModal extends Component
     // Productos (cada ítem: product_id, name, price, quantity, subtotal; opcional: type, variant_display_name, variant_features, serial_numbers)
     public array $productosSeleccionados = [];
 
+    /** Panel de descuento abierto por índice de línea (UI; se reindexa al eliminar ítems). */
+    public array $discountPanelOpen = [];
+
     /** Pendiente: producto simple o variante a agregar (pedir cantidad, validar stock). */
     public ?array $pendienteSimple = null;
     public ?array $pendienteBatch = null;
@@ -216,6 +219,7 @@ class CreateInvoiceModal extends Component
         $this->customer_id = null;
         $this->clienteSeleccionado = null;
         $this->productosSeleccionados = [];
+        $this->discountPanelOpen = [];
         $this->pendienteSimple = null;
         $this->pendienteBatch = null;
         $this->cantidadSimple = 1;
@@ -798,8 +802,28 @@ class CreateInvoiceModal extends Component
         if (isset($this->productosSeleccionados[$index])) {
             unset($this->productosSeleccionados[$index]);
             $this->productosSeleccionados = array_values($this->productosSeleccionados); // Reindexar
+            $this->reindexDiscountPanelOpenAfterRemove((int) $index);
             $this->calcularTotales();
         }
+    }
+
+    public function toggleDiscountPanel(int $index): void
+    {
+        $current = $this->discountPanelOpen[$index] ?? false;
+        $this->discountPanelOpen[$index] = ! $current;
+    }
+
+    protected function reindexDiscountPanelOpenAfterRemove(int $removedIndex): void
+    {
+        $new = [];
+        foreach ($this->discountPanelOpen as $i => $open) {
+            $i = (int) $i;
+            if ($i === $removedIndex) {
+                continue;
+            }
+            $new[$i > $removedIndex ? $i - 1 : $i] = $open;
+        }
+        $this->discountPanelOpen = $new;
     }
 
     public function updatedProductosSeleccionados(): void
