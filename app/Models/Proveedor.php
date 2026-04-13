@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Builder;
 
 class Proveedor extends Model
 {
@@ -41,6 +41,11 @@ class Proveedor extends Model
     public function purchases()
     {
         return $this->hasMany(Purchase::class);
+    }
+
+    public function supportDocuments()
+    {
+        return $this->hasMany(SupportDocument::class);
     }
 
     public function scopeDeTienda(Builder $query, int $storeId): void

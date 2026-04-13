@@ -213,8 +213,11 @@ new class extends Component
                             </a>
                             @endstoreCan
                             @storeCan($store, 'product-purchases.view')
-                            <a href="{{ route('stores.product-purchases', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.product-purchases*') || (request()->routeIs('stores.purchases.show') && $isProductPurchase) ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
+                            <a href="{{ route('stores.product-purchases', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ (request()->routeIs('stores.product-purchases*') && ! request()->routeIs('stores.product-purchases.documento-soporte.*')) || (request()->routeIs('stores.purchases.show') && $isProductPurchase) ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
                                 {{ __('Compra de productos') }}
+                            </a>
+                            <a href="{{ route('stores.product-purchases.documento-soporte.create', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.product-purchases.documento-soporte.*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
+                                {{ __('Documento soporte') }}
                             </a>
                             @endstoreCan
                         @endif
@@ -350,8 +353,11 @@ new class extends Component
                 </x-responsive-nav-link>
                 @endstoreCan
                 @storeCan($store, 'product-purchases.view')
-                <x-responsive-nav-link :href="route('stores.product-purchases', $store)" :active="request()->routeIs('stores.product-purchases*')" wire:navigate>
+                <x-responsive-nav-link :href="route('stores.product-purchases', $store)" :active="request()->routeIs('stores.product-purchases*') && ! request()->routeIs('stores.product-purchases.documento-soporte.*')" wire:navigate>
                     {{ __('Compra de productos') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('stores.product-purchases.documento-soporte.create', $store)" :active="request()->routeIs('stores.product-purchases.documento-soporte.*')" wire:navigate>
+                    {{ __('Documento soporte') }}
                 </x-responsive-nav-link>
                 @endstoreCan
                 @endif

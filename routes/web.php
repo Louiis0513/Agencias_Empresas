@@ -93,6 +93,11 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     })->name('reports.products');
     Route::get('/productos/compras', [StoreController::class, 'productPurchases'])->name('product-purchases');
     Route::get('/productos/compras/crear', [StoreController::class, 'createProductPurchase'])->name('product-purchases.create');
+    Route::get('/productos/compras/documento-soporte/crear', [StoreController::class, 'createDocumentoSoportePurchase'])->name('product-purchases.documento-soporte.create');
+    Route::post('/productos/compras/documento-soporte', [StoreController::class, 'storeDocumentoSoportePurchase'])->name('product-purchases.documento-soporte.store');
+    Route::get('/productos/compras/documento-soporte/{supportDocument}/editar', [StoreController::class, 'editDocumentoSoportePurchase'])->name('product-purchases.documento-soporte.edit');
+    Route::put('/productos/compras/documento-soporte/{supportDocument}', [StoreController::class, 'updateDocumentoSoportePurchase'])->name('product-purchases.documento-soporte.update');
+    Route::post('/productos/compras/documento-soporte/{supportDocument}/anular', [StoreController::class, 'anularDocumentoSoportePurchase'])->name('product-purchases.documento-soporte.anular');
     Route::post('/productos/compras', [StoreController::class, 'storeProductPurchase'])->name('product-purchases.store');
     Route::get('/productos/compras/{purchase}/editar', [StoreController::class, 'editProductPurchase'])->name('product-purchases.edit');
     Route::put('/productos/compras/{purchase}', [StoreController::class, 'updateProductPurchase'])->name('product-purchases.update');

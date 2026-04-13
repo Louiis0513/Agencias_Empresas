@@ -21,8 +21,8 @@ class Store extends Model
     public function workers()
     {
         return $this->belongsToMany(User::class, 'store_user')
-                    ->withPivot('role_id')
-                    ->withTimestamps();
+            ->withPivot('role_id')
+            ->withTimestamps();
     }
 
     // Relación: Una tienda tiene muchos registros de trabajadores (tabla workers)
@@ -36,7 +36,7 @@ class Store extends Model
     {
         return $this->hasMany(Role::class);
     }
-    
+
     // Relación: Dueño propietario (quien paga)
     public function owner()
     {
@@ -91,6 +91,16 @@ class Store extends Model
     public function purchases()
     {
         return $this->hasMany(Purchase::class);
+    }
+
+    public function supportDocuments()
+    {
+        return $this->hasMany(SupportDocument::class);
+    }
+
+    public function supportDocumentSequences()
+    {
+        return $this->hasMany(SupportDocumentSequence::class);
     }
 
     public function accountsPayables()

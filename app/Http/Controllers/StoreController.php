@@ -5,12 +5,14 @@ namespace App\Http\Controllers;
 use App\Models\Category;
 use App\Models\Purchase;
 use App\Models\Store;
+use App\Models\SupportDocument;
 use App\Services\AttributeService;
 use App\Services\CategoryService;
 use App\Services\CotizacionService;
 use App\Services\ProductReportsService;
 use App\Services\PurchaseService;
 use App\Services\StorePermissionService;
+use App\Services\SupportDocumentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -358,6 +360,107 @@ class StoreController extends Controller
         $proveedores = $store->proveedores()->orderBy('nombre')->get();
 
         return view('stores.compras.compra-productos-crear', compact('store', 'proveedores'));
+    }
+
+    /**
+     * Documento soporte: pantalla de creación.
+     */
+    public function createDocumentoSoportePurchase(Store $store, StorePermissionService $permission)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        $permission->authorize($store, 'product-purchases.view');
+
+        session(['current_store_id' => $store->id]);
+
+        $proveedores = $store->proveedores()->orderBy('nombre')->get();
+
+        return view('stores.compras.compra-documento-soporte-crear', compact('store', 'proveedores'));
+    }
+
+    /**
+     * Documento soporte: edición de borrador.
+     */
+    public function editDocumentoSoportePurchase(Store $store, SupportDocument $supportDocument, StorePermissionService $permission)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        $permission->authorize($store, 'product-purchases.view');
+
+        if ($supportDocument->store_id !== $store->id) {
+            abort(404);
+        }
+
+        session(['current_store_id' => $store->id]);
+
+        $proveedores = $store->proveedores()->orderBy('nombre')->get();
+
+        return view('stores.compras.compra-documento-soporte-editar', compact('store', 'proveedores', 'supportDocument'));
+    }
+
+    public function storeDocumentoSoportePurchase(Store $store, Request $request, SupportDocumentService $supportDocumentService, StorePermissionService $permission)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        $permission->authorize($store, 'product-purchases.create');
+
+        try {
+            $supportDocumentService->crearBorrador($store, (int) Auth::id(), $request->all());
+
+            return redirect()->route('stores.product-purchases.documento-soporte.create', $store)
+                ->with('success', 'Documento soporte guardado en borrador.');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return redirect()->back()->withInput()->withErrors($e->errors());
+        } catch (\Exception $e) {
+            return redirect()->back()->withInput()->with('error', $e->getMessage());
+        }
+    }
+
+    public function updateDocumentoSoportePurchase(Store $store, SupportDocument $supportDocument, Request $request, SupportDocumentService $supportDocumentService, StorePermissionService $permission)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        $permission->authorize($store, 'product-purchases.create');
+
+        if ($supportDocument->store_id !== $store->id) {
+            abort(404);
+        }
+
+        try {
+            $supportDocumentService->actualizarBorrador($store, $supportDocument->id, $request->all());
+
+            return redirect()->route('stores.product-purchases.documento-soporte.edit', [$store, $supportDocument])
+                ->with('success', 'Documento soporte actualizado correctamente.');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return redirect()->back()->withInput()->withErrors($e->errors());
+        } catch (\Exception $e) {
+            return redirect()->back()->withInput()->with('error', $e->getMessage());
+        }
+    }
+
+    public function anularDocumentoSoportePurchase(Store $store, SupportDocument $supportDocument, SupportDocumentService $supportDocumentService, StorePermissionService $permission)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        $permission->authorize($store, 'product-purchases.create');
+
+        if ($supportDocument->store_id !== $store->id) {
+            abort(404);
+        }
+
+        try {
+            $supportDocumentService->anularBorrador($store, $supportDocument->id);
+
+            return redirect()->route('stores.product-purchases.documento-soporte.create', $store)
+                ->with('success', 'Documento soporte anulado correctamente.');
+        } catch (\Exception $e) {
+            return redirect()->back()->withInput()->with('error', $e->getMessage());
+        }
     }
 
     public function storeProductPurchase(Store $store, Request $request, PurchaseService $purchaseService, StorePermissionService $permission)

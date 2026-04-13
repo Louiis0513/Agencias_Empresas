@@ -103,7 +103,8 @@
                         <a href="{{ route('stores.proveedores', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.proveedores*') ? 'text-brand' : 'text-gray-400 hover:text-white' }}">Proveedores</a>
                         @endstoreCan
                         @storeCan($store, 'product-purchases.view')
-                        <a href="{{ route('stores.product-purchases', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.product-purchases*') || (request()->routeIs('stores.purchases.show') && $isProductPurchase) ? 'text-brand' : 'text-gray-400 hover:text-white' }}">Compra de productos</a>
+                        <a href="{{ route('stores.product-purchases', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ (request()->routeIs('stores.product-purchases*') && ! request()->routeIs('stores.product-purchases.documento-soporte.*')) || (request()->routeIs('stores.purchases.show') && $isProductPurchase) ? 'text-brand' : 'text-gray-400 hover:text-white' }}">Compra de productos</a>
+                        <a href="{{ route('stores.product-purchases.documento-soporte.create', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.product-purchases.documento-soporte.*') ? 'text-brand' : 'text-gray-400 hover:text-white' }}">Compra documento soporte</a>
                         @endstoreCan
                     </div>
                 </li>
