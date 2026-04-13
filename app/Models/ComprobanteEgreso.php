@@ -66,6 +66,11 @@ class ComprobanteEgreso extends Model
         return $this->hasMany(ComprobanteEgresoOrigen::class, 'comprobante_egreso_id');
     }
 
+    public function supportDocuments()
+    {
+        return $this->hasMany(SupportDocument::class, 'comprobante_egreso_id');
+    }
+
     public function scopeDeTienda(Builder $query, int $storeId): void
     {
         $query->where('store_id', $storeId);

@@ -2,6 +2,9 @@
 
 namespace App\Services;
 
+use App\Models\Bolsillo;
+use App\Models\ComprobanteEgreso;
+use App\Models\MovimientoInventario;
 use App\Models\Product;
 use App\Models\Proveedor;
 use App\Models\Store;
@@ -15,6 +18,11 @@ use Illuminate\Validation\ValidationException;
 
 class SupportDocumentService
 {
+    public function __construct(
+        protected InventarioService $inventarioService,
+        protected ComprobanteEgresoService $comprobanteEgresoService
+    ) {}
+
     public function crearBorrador(Store $store, int $userId, array $data): SupportDocument
     {
         return DB::transaction(function () use ($store, $userId, $data) {
@@ -101,6 +109,10 @@ class SupportDocumentService
         if (! empty($filtros['proveedor_id'])) {
             $query->where('proveedor_id', (int) $filtros['proveedor_id']);
         }
+        if (! empty(trim($filtros['proveedor_nombre'] ?? ''))) {
+            $term = trim((string) $filtros['proveedor_nombre']);
+            $query->whereHas('proveedor', fn ($q) => $q->where('nombre', 'like', '%'.$term.'%'));
+        }
         if (! empty($filtros['fecha_desde'])) {
             $query->whereDate('issue_date', '>=', $filtros['fecha_desde']);
         }
@@ -137,6 +149,40 @@ class SupportDocumentService
         $document->update(['status' => SupportDocument::STATUS_ANULADO]);
 
         return $document->fresh();
+    }
+
+    public function aprobarDocumento(Store $store, int $documentId, int $userId, array $paymentParts = []): SupportDocument
+    {
+        return DB::transaction(function () use ($store, $documentId, $userId, $paymentParts) {
+            /** @var SupportDocument $document */
+            $document = SupportDocument::where('id', $documentId)
+                ->where('store_id', $store->id)
+                ->with(['inventoryItems.product', 'serviceItems', 'proveedor'])
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $normalizedPaymentParts = $this->validarDocumentoParaAprobar($store, $document, $paymentParts);
+
+            $this->registrarEntradasInventarioPorAprobacion($store, $document, $userId);
+
+            $comprobante = null;
+            if ($document->payment_status === SupportDocument::PAYMENT_PAGADO) {
+                $comprobante = $this->crearComprobanteEgresoPorPagoContado($store, $document, $userId, $normalizedPaymentParts);
+            }
+
+            $document->update([
+                'status' => SupportDocument::STATUS_APROBADO,
+                'comprobante_egreso_id' => $comprobante?->id,
+            ]);
+
+            return $document->fresh()->load([
+                'inventoryItems.product',
+                'serviceItems',
+                'proveedor',
+                'user',
+                'comprobanteEgreso',
+            ]);
+        });
     }
 
     protected function validarYNormalizarPayload(Store $store, array $data): array
@@ -303,6 +349,138 @@ class SupportDocumentService
         foreach ($serviceItems as $item) {
             $document->serviceItems()->create($item);
         }
+    }
+
+    protected function validarDocumentoParaAprobar(Store $store, SupportDocument $document, array $paymentParts = []): array
+    {
+        if ($document->status !== SupportDocument::STATUS_BORRADOR) {
+            throw new Exception('Solo se pueden aprobar documentos soporte en estado BORRADOR.');
+        }
+
+        if ($document->inventoryItems->isEmpty() && $document->serviceItems->isEmpty()) {
+            throw new Exception('El documento soporte debe tener al menos una línea de inventario o servicio para aprobar.');
+        }
+
+        foreach ($document->inventoryItems as $index => $line) {
+            $product = $line->product;
+            if (! $product || (int) $product->store_id !== (int) $store->id) {
+                throw new Exception("La línea de inventario #".($index + 1)." tiene un producto inválido para esta tienda.");
+            }
+
+            if (! (bool) $product->is_active) {
+                throw new Exception("No puedes aprobar con productos inactivos: «{$product->name}».");
+            }
+
+            if ($line->quantity < 1) {
+                throw new Exception("La línea «{$product->name}» debe tener cantidad mayor a cero.");
+            }
+        }
+
+        if ($document->payment_status !== SupportDocument::PAYMENT_PAGADO) {
+            return [];
+        }
+
+        if (empty($paymentParts)) {
+            throw new Exception('Debes indicar al menos un origen de pago (bolsillo y monto) para aprobar un documento de contado.');
+        }
+
+        $normalized = [];
+        $totalParts = 0.0;
+        foreach ($paymentParts as $index => $part) {
+            $amount = round((float) ($part['amount'] ?? 0), 2);
+            if ($amount <= 0) {
+                continue;
+            }
+
+            $bolsilloId = (int) ($part['bolsillo_id'] ?? 0);
+            if ($bolsilloId < 1) {
+                throw new Exception('Cada origen de pago debe incluir un bolsillo válido.');
+            }
+
+            $bolsillo = Bolsillo::deTienda($store->id)
+                ->activos()
+                ->where('id', $bolsilloId)
+                ->first();
+            if (! $bolsillo) {
+                throw new Exception("El bolsillo indicado en la línea ".($index + 1)." no existe o no está activo.");
+            }
+
+            $totalParts += $amount;
+            $normalized[] = [
+                'bolsillo_id' => $bolsilloId,
+                'amount' => $amount,
+                'reference' => isset($part['reference']) ? trim((string) $part['reference']) : null,
+            ];
+        }
+
+        if (empty($normalized)) {
+            throw new Exception('Debes indicar al menos un origen de pago con monto mayor a cero.');
+        }
+
+        $documentTotal = round((float) $document->total, 2);
+        $totalParts = round($totalParts, 2);
+        if (abs($totalParts - $documentTotal) > 0.01) {
+            throw new Exception("La suma de orígenes de pago ({$totalParts}) debe coincidir con el total del documento ({$documentTotal}).");
+        }
+
+        return $normalized;
+    }
+
+    protected function registrarEntradasInventarioPorAprobacion(Store $store, SupportDocument $document, int $userId): void
+    {
+        $reference = "{$document->doc_prefix}-{$document->doc_number}";
+
+        foreach ($document->inventoryItems as $line) {
+            $product = $line->product;
+            if (! $product) {
+                continue;
+            }
+
+            if ($product->isSerialized() || $product->isBatch()) {
+                throw new Exception("El producto «{$product->name}» requiere detalle por seriales o variantes para registrar la entrada. Por ahora, aprobación soporta productos simples.");
+            }
+
+            $description = "Documento Soporte #{$reference} - {$line->description}";
+
+            $this->inventarioService->registrarMovimiento($store, $userId, [
+                'product_id' => $product->id,
+                'type' => MovimientoInventario::TYPE_ENTRADA,
+                'quantity' => (int) $line->quantity,
+                'unit_cost' => (float) $line->unit_cost,
+                'description' => $description,
+                'reference' => $reference,
+                'support_document_id' => $document->id,
+            ]);
+        }
+    }
+
+    protected function crearComprobanteEgresoPorPagoContado(Store $store, SupportDocument $document, int $userId, array $paymentParts): ComprobanteEgreso
+    {
+        $reference = "{$document->doc_prefix}-{$document->doc_number}";
+        $concepto = "Pago Documento Soporte #{$reference}";
+
+        $destinos = [[
+            'concepto' => $concepto,
+            'beneficiario' => $document->proveedor?->nombre ?? 'Proveedor',
+            'amount' => (float) $document->total,
+        ]];
+
+        $origenes = [];
+        foreach ($paymentParts as $part) {
+            $origenes[] = [
+                'bolsillo_id' => (int) $part['bolsillo_id'],
+                'amount' => (float) $part['amount'],
+                'reference' => $part['reference'] ?? null,
+            ];
+        }
+
+        return $this->comprobanteEgresoService->crearComprobante($store, $userId, [
+            'proveedor_id' => $document->proveedor_id,
+            'payment_date' => optional($document->issue_date)->toDateString() ?? now()->toDateString(),
+            'notes' => $concepto,
+            'destinos' => $destinos,
+            'origenes' => $origenes,
+        ]);
     }
 
     protected function asignarConsecutivo(Store $store, string $prefix = 'DSE'): array

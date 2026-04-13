@@ -10,6 +10,7 @@ use App\Services\AttributeService;
 use App\Services\CategoryService;
 use App\Services\CotizacionService;
 use App\Services\ProductReportsService;
+use App\Services\ProductPurchasesBandejaService;
 use App\Services\PurchaseService;
 use App\Services\StorePermissionService;
 use App\Services\SupportDocumentService;
@@ -326,7 +327,7 @@ class StoreController extends Controller
 
     // ==================== COMPRAS DE PRODUCTOS ====================
 
-    public function productPurchases(Store $store, Request $request, PurchaseService $purchaseService, StorePermissionService $permission)
+    public function productPurchases(Store $store, Request $request, ProductPurchasesBandejaService $bandeja, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
@@ -335,17 +336,28 @@ class StoreController extends Controller
 
         session(['current_store_id' => $store->id]);
 
-        $filtros = [
+        $docType = $request->get('doc_type');
+        if (! in_array($docType, [
+            ProductPurchasesBandejaService::DOC_TYPE_ALL,
+            ProductPurchasesBandejaService::DOC_TYPE_PURCHASES,
+            ProductPurchasesBandejaService::DOC_TYPE_SUPPORT_DOCUMENTS,
+        ], true)) {
+            $docType = ProductPurchasesBandejaService::DOC_TYPE_ALL;
+        }
+
+        $query = [
+            'doc_type' => $docType,
             'status' => $request->get('status'),
             'payment_status' => $request->get('payment_status'),
             'proveedor_nombre' => $request->get('proveedor_nombre'),
-            'purchase_type' => Purchase::TYPE_PRODUCTO,
+            'fecha_desde' => $request->get('fecha_desde'),
+            'fecha_hasta' => $request->get('fecha_hasta'),
             'per_page' => $request->get('per_page', 15),
         ];
 
-        $purchases = $purchaseService->listarCompras($store, $filtros);
+        $bandejaRows = $bandeja->listar($store, $query);
 
-        return view('stores.compras.compras-productos', compact('store', 'purchases'));
+        return view('stores.compras.compras-productos', compact('store', 'bandejaRows', 'docType'));
     }
 
     public function createProductPurchase(Store $store, StorePermissionService $permission)
@@ -375,8 +387,9 @@ class StoreController extends Controller
         session(['current_store_id' => $store->id]);
 
         $proveedores = $store->proveedores()->orderBy('nombre')->get();
+        $bolsillos = $store->bolsillos()->activos()->orderBy('name')->get();
 
-        return view('stores.compras.compra-documento-soporte-crear', compact('store', 'proveedores'));
+        return view('stores.compras.compra-documento-soporte-crear', compact('store', 'proveedores', 'bolsillos'));
     }
 
     /**
@@ -396,8 +409,9 @@ class StoreController extends Controller
         session(['current_store_id' => $store->id]);
 
         $proveedores = $store->proveedores()->orderBy('nombre')->get();
+        $bolsillos = $store->bolsillos()->activos()->orderBy('name')->get();
 
-        return view('stores.compras.compra-documento-soporte-editar', compact('store', 'proveedores', 'supportDocument'));
+        return view('stores.compras.compra-documento-soporte-editar', compact('store', 'proveedores', 'supportDocument', 'bolsillos'));
     }
 
     public function storeDocumentoSoportePurchase(Store $store, Request $request, SupportDocumentService $supportDocumentService, StorePermissionService $permission)
@@ -410,7 +424,7 @@ class StoreController extends Controller
         try {
             $supportDocumentService->crearBorrador($store, (int) Auth::id(), $request->all());
 
-            return redirect()->route('stores.product-purchases.documento-soporte.create', $store)
+            return redirect()->route('stores.product-purchases', $store)
                 ->with('success', 'Documento soporte guardado en borrador.');
         } catch (\Illuminate\Validation\ValidationException $e) {
             return redirect()->back()->withInput()->withErrors($e->errors());
@@ -433,7 +447,7 @@ class StoreController extends Controller
         try {
             $supportDocumentService->actualizarBorrador($store, $supportDocument->id, $request->all());
 
-            return redirect()->route('stores.product-purchases.documento-soporte.edit', [$store, $supportDocument])
+            return redirect()->route('stores.product-purchases', $store)
                 ->with('success', 'Documento soporte actualizado correctamente.');
         } catch (\Illuminate\Validation\ValidationException $e) {
             return redirect()->back()->withInput()->withErrors($e->errors());
@@ -456,8 +470,34 @@ class StoreController extends Controller
         try {
             $supportDocumentService->anularBorrador($store, $supportDocument->id);
 
-            return redirect()->route('stores.product-purchases.documento-soporte.create', $store)
+            return redirect()->route('stores.product-purchases', $store)
                 ->with('success', 'Documento soporte anulado correctamente.');
+        } catch (\Exception $e) {
+            return redirect()->back()->withInput()->with('error', $e->getMessage());
+        }
+    }
+
+    public function aprobarDocumentoSoportePurchase(Store $store, SupportDocument $supportDocument, Request $request, SupportDocumentService $supportDocumentService, StorePermissionService $permission)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        $permission->authorize($store, 'product-purchases.create');
+
+        if ($supportDocument->store_id !== $store->id) {
+            abort(404);
+        }
+
+        try {
+            $supportDocumentService->aprobarDocumento(
+                $store,
+                $supportDocument->id,
+                (int) Auth::id(),
+                $request->input('payment_parts', [])
+            );
+
+            return redirect()->route('stores.product-purchases', $store)
+                ->with('success', 'Documento soporte aprobado correctamente e inventario actualizado.');
         } catch (\Exception $e) {
             return redirect()->back()->withInput()->with('error', $e->getMessage());
         }

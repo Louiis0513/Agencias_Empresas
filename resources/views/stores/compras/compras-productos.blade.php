@@ -27,6 +27,11 @@
                 <div class="p-6">
                     <div class="mb-6 flex flex-col sm:flex-row sm:flex-nowrap gap-4">
                         <form method="GET" action="{{ route('stores.product-purchases', $store) }}" class="flex flex-1 flex-wrap gap-2 min-w-0">
+                            <select name="doc_type" class="rounded-md border-white/10 bg-white/5 text-gray-100 min-w-0">
+                                <option value="all" {{ ($docType ?? 'all') === 'all' ? 'selected' : '' }}>Todos</option>
+                                <option value="purchases" {{ ($docType ?? 'all') === 'purchases' ? 'selected' : '' }}>Factura compras</option>
+                                <option value="support_documents" {{ ($docType ?? 'all') === 'support_documents' ? 'selected' : '' }}>Documento soporte</option>
+                            </select>
                             <select name="status" class="rounded-md border-white/10 bg-white/5 text-gray-100 min-w-0">
                                 <option value="">Todos los estados</option>
                                 <option value="BORRADOR" {{ request('status') == 'BORRADOR' ? 'selected' : '' }}>Borrador</option>
@@ -62,12 +67,13 @@
                         </div>
                     </div>
 
-                    @if($purchases->count() > 0)
+                    @if($bandejaRows->count() > 0)
                         <div class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-white/5">
                                 <thead class="border-b border-white/5">
                                     <tr>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">#</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Tipo</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Fecha</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Proveedor</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Total</th>
@@ -77,34 +83,56 @@
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-white/5">
-                                    @foreach($purchases as $purchase)
+                                    @foreach($bandejaRows as $row)
                                         <tr>
-                                            <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-100">{{ $purchase->id }}</td>
-                                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-100">{{ $purchase->created_at->format('d/m/Y') }}</td>
-                                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-100">{{ $purchase->proveedor?->nombre ?? '-' }}</td>
-                                            <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-100">{{ money($purchase->total, $store->currency ?? 'COP') }}</td>
+                                            <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-100">
+                                                <span title="{{ $row->number_label }}">{{ $row->id }}</span>
+                                                <span class="block text-xs text-gray-500 font-normal">{{ $row->number_label }}</span>
+                                            </td>
                                             <td class="px-4 py-4 whitespace-nowrap text-sm">
-                                                @if($purchase->status == 'BORRADOR')
+                                                @if($row->source === 'purchase')
+                                                    <span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">Factura compras</span>
+                                                @else
+                                                    <span class="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">Documento soporte</span>
+                                                @endif
+                                            </td>
+                                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-100">{{ $row->created_at instanceof \DateTimeInterface ? $row->created_at->format('d/m/Y') : \Carbon\Carbon::parse($row->created_at)->format('d/m/Y') }}</td>
+                                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-100">{{ $row->proveedor_nombre ?? '-' }}</td>
+                                            <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-100">{{ money($row->total, $store->currency ?? 'COP') }}</td>
+                                            <td class="px-4 py-4 whitespace-nowrap text-sm">
+                                                @if($row->status == 'BORRADOR')
                                                     <span class="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">Borrador</span>
-                                                @elseif($purchase->status == 'APROBADO')
+                                                @elseif($row->status == 'APROBADO')
                                                     <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Aprobado</span>
                                                 @else
                                                     <span class="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">Anulado</span>
                                                 @endif
                                             </td>
                                             <td class="px-4 py-4 whitespace-nowrap text-sm">
-                                                @if($purchase->payment_type == 'CONTADO')
-                                                    <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Contado</span>
-                                                @elseif($purchase->payment_status == 'PAGADO')
-                                                    <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" title="Crédito pagado en abonos">Crédito (Pagado)</span>
+                                                @if($row->source === 'purchase')
+                                                    @if($row->payment_type == 'CONTADO')
+                                                        <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Contado</span>
+                                                    @elseif($row->payment_status == 'PAGADO')
+                                                        <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" title="Crédito pagado en abonos">Crédito (Pagado)</span>
+                                                    @else
+                                                        <span class="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">Crédito (Pendiente)</span>
+                                                    @endif
                                                 @else
-                                                    <span class="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">Crédito (Pendiente)</span>
+                                                    @if($row->payment_status == 'PENDIENTE')
+                                                        <span class="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">Pendiente</span>
+                                                    @elseif($row->payment_status == 'PAGADO' && $row->status == 'BORRADOR')
+                                                        <span class="px-2 py-1 text-xs font-medium rounded-full bg-sky-100 text-sky-800 dark:bg-sky-900 dark:text-sky-200" title="Se ejecutará al aprobar el documento">Contado</span>
+                                                    @elseif($row->payment_status == 'PAGADO' && $row->status == 'APROBADO')
+                                                        <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Pagado</span>
+                                                    @else
+                                                        <span class="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300">—</span>
+                                                    @endif
                                                 @endif
                                             </td>
                                             <td class="px-4 py-4 whitespace-nowrap text-sm font-medium">
-                                                <a href="{{ route('stores.purchases.show', [$store, $purchase]) }}" class="text-brand hover:text-white transition mr-3">Ver</a>
-                                                @if($purchase->isBorrador())
-                                                    <a href="{{ route('stores.product-purchases.edit', [$store, $purchase]) }}" class="text-brand hover:text-white transition mr-3">Editar</a>
+                                                <a href="{{ $row->show_url }}" class="text-brand hover:text-white transition mr-3">Ver</a>
+                                                @if(!empty($row->edit_url))
+                                                    <a href="{{ $row->edit_url }}" class="text-brand hover:text-white transition mr-3">Editar</a>
                                                 @endif
                                             </td>
                                         </tr>
@@ -112,9 +140,9 @@
                                 </tbody>
                             </table>
                         </div>
-                        <div class="mt-4">{{ $purchases->links() }}</div>
+                        <div class="mt-4">{{ $bandejaRows->links() }}</div>
                     @else
-                        <p class="text-gray-400 text-center py-8">No hay compras de productos registradas.</p>
+                        <p class="text-gray-400 text-center py-8">No hay registros para los filtros seleccionados.</p>
                     @endif
                 </div>
             </div>

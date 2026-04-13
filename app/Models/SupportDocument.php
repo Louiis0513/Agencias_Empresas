@@ -14,6 +14,7 @@ class SupportDocument extends Model
         'store_id',
         'user_id',
         'proveedor_id',
+        'comprobante_egreso_id',
         'status',
         'payment_status',
         'due_date',
@@ -59,6 +60,11 @@ class SupportDocument extends Model
         return $this->belongsTo(Proveedor::class);
     }
 
+    public function comprobanteEgreso()
+    {
+        return $this->belongsTo(ComprobanteEgreso::class);
+    }
+
     public function inventoryItems()
     {
         return $this->hasMany(SupportDocumentInventoryItem::class);
@@ -67,6 +73,11 @@ class SupportDocument extends Model
     public function serviceItems()
     {
         return $this->hasMany(SupportDocumentServiceItem::class);
+    }
+
+    public function movimientosInventario()
+    {
+        return $this->hasMany(MovimientoInventario::class);
     }
 
     public function scopeDeTienda(Builder $query, int $storeId): void
