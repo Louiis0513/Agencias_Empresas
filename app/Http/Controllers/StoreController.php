@@ -14,8 +14,10 @@ use App\Services\ProductPurchasesBandejaService;
 use App\Services\PurchaseService;
 use App\Services\StorePermissionService;
 use App\Services\SupportDocumentService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Picqer\Barcode\BarcodeGeneratorPNG;
 
 class StoreController extends Controller
 {
@@ -412,6 +414,71 @@ class StoreController extends Controller
         $bolsillos = $store->bolsillos()->activos()->orderBy('name')->get();
 
         return view('stores.compras.compra-documento-soporte-editar', compact('store', 'proveedores', 'supportDocument', 'bolsillos'));
+    }
+
+    /**
+     * PDF en formato tira térmica (misma idea que recibo de factura).
+     */
+    public function printDocumentoSoportePurchase(Store $store, SupportDocument $supportDocument, SupportDocumentService $supportDocumentService, StorePermissionService $permission)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        $permission->authorize($store, 'product-purchases.view');
+
+        if ($supportDocument->store_id !== $store->id) {
+            abort(404);
+        }
+
+        $document = $supportDocumentService->obtenerDocumento($store, $supportDocument->id);
+        $document->loadMissing(['comprobanteEgreso.origenes.bolsillo']);
+
+        $barcodeBase64 = null;
+        try {
+            $generator = new BarcodeGeneratorPNG();
+            $barcodePng = $generator->getBarcode((string) $document->id, $generator::TYPE_CODE_128, 2, 40);
+            $barcodeBase64 = 'data:image/png;base64,'.base64_encode($barcodePng);
+        } catch (\Throwable $e) {
+            // continuar sin código de barras
+        }
+
+        $pdf = Pdf::loadView('stores.compras.documento-soporte-receipt-tira', [
+            'document' => $document,
+            'store' => $store,
+            'barcodeBase64' => $barcodeBase64,
+        ]);
+
+        $baseHeightMm = 92;
+        $itemsHeightMm = 0;
+        $charsPerLine = 18;
+        foreach ($document->inventoryItems as $line) {
+            $desc = (string) ($line->description ?: ($line->product?->name ?? 'Ítem'));
+            $lines = max(1, (int) ceil(mb_strlen($desc) / $charsPerLine));
+            $itemsHeightMm += max(3, $lines * 3);
+        }
+        foreach ($document->serviceItems as $line) {
+            $desc = trim($line->service_name.($line->description ? ' '.$line->description : ''));
+            $lines = max(1, (int) ceil(mb_strlen($desc) / $charsPerLine));
+            $itemsHeightMm += max(3, $lines * 3);
+        }
+        if ($document->inventoryItems->isEmpty() && $document->serviceItems->isEmpty()) {
+            $itemsHeightMm = 6;
+        }
+        $notesExtraMm = 0;
+        if ($document->notes) {
+            $notesExtraMm = min(24, (int) ceil(mb_strlen((string) $document->notes) / 22) * 3);
+        }
+        $paymentExtraMm = 0;
+        if ($document->comprobanteEgreso && $document->comprobanteEgreso->origenes->isNotEmpty()) {
+            $paymentExtraMm = $document->comprobanteEgreso->origenes->count() * 4;
+        }
+        $totalHeightMm = $baseHeightMm + $itemsHeightMm + $notesExtraMm + $paymentExtraMm;
+        $heightPt = round($totalHeightMm * 2.83465, 1);
+        $pdf->setPaper([0, 0, 164.4, $heightPt], 'portrait');
+
+        $filename = 'documento-soporte-'.$document->doc_prefix.'-'.$document->doc_number.'.pdf';
+
+        return $pdf->stream($filename);
     }
 
     public function storeDocumentoSoportePurchase(Store $store, Request $request, SupportDocumentService $supportDocumentService, StorePermissionService $permission)

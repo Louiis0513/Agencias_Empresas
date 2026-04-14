@@ -17,9 +17,14 @@
             <h2 class="font-semibold text-xl text-white leading-tight">
                 Documento soporte #{{ $supportDocument->doc_prefix }}-{{ $supportDocument->doc_number }}
             </h2>
-            <a href="{{ route('stores.product-purchases.documento-soporte.create', $store) }}" class="text-sm text-gray-400 hover:text-brand transition">
-                ← Volver a nueva compra (documento soporte)
-            </a>
+            <div class="flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-4">
+                <a href="{{ route('stores.product-purchases.documento-soporte.print', [$store, $supportDocument]) }}" target="_blank" rel="noopener" class="text-sm text-brand hover:text-white transition">
+                    Imprimir tira (PDF)
+                </a>
+                <a href="{{ route('stores.product-purchases.documento-soporte.create', $store) }}" class="text-sm text-gray-400 hover:text-brand transition">
+                    ← Volver a nueva compra (documento soporte)
+                </a>
+            </div>
         </div>
     </x-slot>
 

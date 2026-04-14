@@ -95,6 +95,7 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::get('/productos/compras/crear', [StoreController::class, 'createProductPurchase'])->name('product-purchases.create');
     Route::get('/productos/compras/documento-soporte/crear', [StoreController::class, 'createDocumentoSoportePurchase'])->name('product-purchases.documento-soporte.create');
     Route::post('/productos/compras/documento-soporte', [StoreController::class, 'storeDocumentoSoportePurchase'])->name('product-purchases.documento-soporte.store');
+    Route::get('/productos/compras/documento-soporte/{supportDocument}/imprimir-tira', [StoreController::class, 'printDocumentoSoportePurchase'])->name('product-purchases.documento-soporte.print');
     Route::get('/productos/compras/documento-soporte/{supportDocument}/editar', [StoreController::class, 'editDocumentoSoportePurchase'])->name('product-purchases.documento-soporte.edit');
     Route::put('/productos/compras/documento-soporte/{supportDocument}', [StoreController::class, 'updateDocumentoSoportePurchase'])->name('product-purchases.documento-soporte.update');
     Route::post('/productos/compras/documento-soporte/{supportDocument}/aprobar', [StoreController::class, 'aprobarDocumentoSoportePurchase'])->name('product-purchases.documento-soporte.aprobar');

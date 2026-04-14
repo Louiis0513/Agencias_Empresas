@@ -131,6 +131,9 @@
                                             </td>
                                             <td class="px-4 py-4 whitespace-nowrap text-sm font-medium">
                                                 <a href="{{ $row->show_url }}" class="text-brand hover:text-white transition mr-3">Ver</a>
+                                                @if($row->source === 'support_document')
+                                                    <a href="{{ route('stores.product-purchases.documento-soporte.print', ['store' => $store, 'supportDocument' => $row->id]) }}" target="_blank" rel="noopener" class="text-brand hover:text-white transition mr-3">Imprimir</a>
+                                                @endif
                                                 @if(!empty($row->edit_url))
                                                     <a href="{{ $row->edit_url }}" class="text-brand hover:text-white transition mr-3">Editar</a>
                                                 @endif
