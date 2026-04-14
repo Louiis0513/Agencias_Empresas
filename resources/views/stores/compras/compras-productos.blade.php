@@ -59,6 +59,20 @@
                                 Nueva compra de productos
                             </a>
                             @storeCan($store, 'product-purchases.view')
+                            @php
+                                $exportDseParams = array_filter(
+                                    request()->only(['status', 'payment_status', 'proveedor_nombre', 'fecha_desde', 'fecha_hasta']),
+                                    fn ($v) => $v !== null && $v !== ''
+                                );
+                                $exportDseUrl = route('stores.product-purchases.support-documents.export-excel', $store);
+                                if ($exportDseParams !== []) {
+                                    $exportDseUrl .= '?'.http_build_query($exportDseParams);
+                                }
+                            @endphp
+                            <a href="{{ $exportDseUrl }}"
+                               class="inline-flex items-center justify-center px-4 py-2 border border-emerald-500/40 text-emerald-300 font-semibold text-xs rounded-xl uppercase tracking-wider hover:bg-emerald-500/10">
+                                Excel documentos soporte
+                            </a>
                             <a href="{{ route('stores.product-purchases.documento-soporte.create', $store) }}"
                                class="inline-flex items-center justify-center px-4 py-2 border border-white/20 text-gray-200 font-semibold text-xs rounded-xl uppercase tracking-wider hover:bg-white/5">
                                 Documento soporte

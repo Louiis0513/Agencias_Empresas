@@ -123,6 +123,47 @@ class SupportDocumentService
         return $query->paginate((int) ($filtros['per_page'] ?? 15));
     }
 
+    /**
+     * Misma lógica de filtros que {@see listarDocumentos}, sin paginación (exportación Excel).
+     *
+     * @param  array<string, mixed>  $filtros
+     * @return \Illuminate\Database\Eloquent\Collection<int, SupportDocument>
+     */
+    public function listarDocumentosParaExportacion(Store $store, array $filtros = []): \Illuminate\Database\Eloquent\Collection
+    {
+        $query = SupportDocument::deTienda($store->id)
+            ->with([
+                'proveedor',
+                'user',
+                'inventoryItems.product',
+                'serviceItems',
+                'comprobanteEgreso.origenes.bolsillo',
+            ])
+            ->orderByDesc('created_at');
+
+        if (! empty($filtros['status'])) {
+            $query->where('status', $filtros['status']);
+        }
+        if (! empty($filtros['payment_status'])) {
+            $query->where('payment_status', $filtros['payment_status']);
+        }
+        if (! empty($filtros['proveedor_id'])) {
+            $query->where('proveedor_id', (int) $filtros['proveedor_id']);
+        }
+        if (! empty(trim($filtros['proveedor_nombre'] ?? ''))) {
+            $term = trim((string) $filtros['proveedor_nombre']);
+            $query->whereHas('proveedor', fn ($q) => $q->where('nombre', 'like', '%'.$term.'%'));
+        }
+        if (! empty($filtros['fecha_desde'])) {
+            $query->whereDate('issue_date', '>=', $filtros['fecha_desde']);
+        }
+        if (! empty($filtros['fecha_hasta'])) {
+            $query->whereDate('issue_date', '<=', $filtros['fecha_hasta']);
+        }
+
+        return $query->get();
+    }
+
     public function obtenerDocumento(Store $store, int $documentId): SupportDocument
     {
         return SupportDocument::where('id', $documentId)

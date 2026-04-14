@@ -13,6 +13,7 @@ use App\Services\ProductReportsService;
 use App\Services\ProductPurchasesBandejaService;
 use App\Services\PurchaseService;
 use App\Services\StorePermissionService;
+use App\Services\SupportDocumentExcelExportService;
 use App\Services\SupportDocumentService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -479,6 +480,29 @@ class StoreController extends Controller
         $filename = 'documento-soporte-'.$document->doc_prefix.'-'.$document->doc_number.'.pdf';
 
         return $pdf->stream($filename);
+    }
+
+    /**
+     * Excel con todos los documentos soporte de la tienda (respeta filtros GET del listado).
+     */
+    public function exportSupportDocumentsListExcel(Store $store, Request $request, SupportDocumentService $supportDocumentService, SupportDocumentExcelExportService $excelExport, StorePermissionService $permission)
+    {
+        if (! Auth::user()->stores->contains($store->id)) {
+            abort(403, 'No tienes permiso para acceder a esta tienda.');
+        }
+        $permission->authorize($store, 'product-purchases.view');
+
+        $filtros = [
+            'status' => $request->get('status'),
+            'payment_status' => $request->get('payment_status'),
+            'proveedor_nombre' => $request->get('proveedor_nombre'),
+            'fecha_desde' => $request->get('fecha_desde'),
+            'fecha_hasta' => $request->get('fecha_hasta'),
+        ];
+
+        $documents = $supportDocumentService->listarDocumentosParaExportacion($store, $filtros);
+
+        return $excelExport->downloadList($store, $documents);
     }
 
     public function storeDocumentoSoportePurchase(Store $store, Request $request, SupportDocumentService $supportDocumentService, StorePermissionService $permission)
