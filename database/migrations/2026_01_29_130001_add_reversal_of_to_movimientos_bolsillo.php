@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -26,7 +27,9 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('movimientos_bolsillo', function (Blueprint $table) {
-            $table->dropForeign('mov_bolsillo_reversal_of_app_fk');
+            if (DB::getDriverName() !== 'sqlite') {
+                $table->dropForeign('mov_bolsillo_reversal_of_app_fk');
+            }
             $table->dropColumn('reversal_of_account_payable_payment_id');
         });
     }

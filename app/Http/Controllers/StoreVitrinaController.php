@@ -7,6 +7,7 @@ use App\Models\Store;
 use App\Models\StorePlan;
 use App\Models\VitrinaConfig;
 use App\Services\ConvertidorImgService;
+use App\Services\StorePermissionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -14,11 +15,12 @@ use Illuminate\Support\Facades\Storage;
 
 class StoreVitrinaController extends Controller
 {
-    public function edit(Store $store)
+    public function edit(Store $store, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'vitrina.view');
 
         $vitrinaConfig = VitrinaConfig::firstOrCreate(
             ['store_id' => $store->id],
@@ -38,11 +40,12 @@ class StoreVitrinaController extends Controller
         return view('stores.vitrina.edit', compact('store', 'vitrinaConfig', 'products', 'storePlans'));
     }
 
-    public function update(Request $request, Store $store, ConvertidorImgService $convertidorImgService)
+    public function update(Request $request, Store $store, ConvertidorImgService $convertidorImgService, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'vitrina.edit');
 
         $vitrinaConfig = VitrinaConfig::firstOrCreate(
             ['store_id' => $store->id],

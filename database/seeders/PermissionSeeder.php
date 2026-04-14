@@ -123,6 +123,37 @@ class PermissionSeeder extends Seeder
             // Ventas (carrito y cotizaciones)
             ['slug' => 'ventas.carrito.view', 'name' => 'Ver carrito de ventas', 'description' => 'Acceso al carrito de ventas'],
             ['slug' => 'cotizaciones.view', 'name' => 'Ver cotizaciones', 'description' => 'Ver las cotizaciones guardadas y eliminarlas'],
+            ['slug' => 'cotizaciones.destroy', 'name' => 'Eliminar cotizaciones', 'description' => 'Eliminar cotizaciones'],
+
+            // Dashboard y configuración de tienda
+            ['slug' => 'dashboard.view', 'name' => 'Ver panel principal', 'description' => 'Acceso al panel principal de la tienda'],
+            ['slug' => 'store-config.view', 'name' => 'Ver configuración de tienda', 'description' => 'Ver configuración general de la tienda'],
+            ['slug' => 'store-config.edit', 'name' => 'Editar configuración de tienda', 'description' => 'Editar configuración general de la tienda'],
+            ['slug' => 'vitrina.view', 'name' => 'Ver vitrina virtual', 'description' => 'Ver la configuración de vitrina virtual de la tienda'],
+            ['slug' => 'vitrina.edit', 'name' => 'Editar vitrina virtual', 'description' => 'Editar la configuración de vitrina virtual de la tienda'],
+            ['slug' => 'panel-suscripciones-config.view', 'name' => 'Ver configuración de panel de suscripciones', 'description' => 'Ver la configuración del panel de suscripciones de la tienda'],
+            ['slug' => 'panel-suscripciones-config.edit', 'name' => 'Editar configuración de panel de suscripciones', 'description' => 'Editar la configuración del panel de suscripciones de la tienda'],
+
+            // Informes
+            ['slug' => 'reports.products.view', 'name' => 'Ver informes de productos', 'description' => 'Ver informes del módulo de productos'],
+            ['slug' => 'reports.billing.view', 'name' => 'Ver informes de facturación', 'description' => 'Ver informes del módulo de facturación'],
+
+            // Asistencias
+            ['slug' => 'asistencias.view', 'name' => 'Ver asistencias', 'description' => 'Ver historial de asistencias'],
+            ['slug' => 'asistencias.create', 'name' => 'Registrar asistencias', 'description' => 'Registrar asistencias de clientes'],
+
+            // Documento soporte
+            ['slug' => 'support-documents.view', 'name' => 'Ver documentos soporte', 'description' => 'Ver listado y detalle de documentos soporte'],
+            ['slug' => 'support-documents.create', 'name' => 'Crear documentos soporte', 'description' => 'Crear documentos soporte en borrador'],
+            ['slug' => 'support-documents.edit', 'name' => 'Editar documentos soporte', 'description' => 'Editar documentos soporte en borrador'],
+            ['slug' => 'support-documents.approve', 'name' => 'Aprobar documentos soporte', 'description' => 'Aprobar documentos soporte para actualizar inventario'],
+            ['slug' => 'support-documents.void', 'name' => 'Anular documentos soporte', 'description' => 'Anular documentos soporte en borrador'],
+            ['slug' => 'support-documents.print', 'name' => 'Imprimir documentos soporte', 'description' => 'Imprimir tira de documentos soporte'],
+            ['slug' => 'support-documents.export', 'name' => 'Exportar documentos soporte', 'description' => 'Exportar listado de documentos soporte'],
+
+            // Movimientos manuales
+            ['slug' => 'inventario.movimientos.manual.create', 'name' => 'Registrar movimientos manuales de inventario', 'description' => 'Registrar entradas y salidas manuales de inventario'],
+            ['slug' => 'caja.movimientos.manual.create', 'name' => 'Registrar movimientos manuales de caja', 'description' => 'Registrar entradas y salidas manuales de caja'],
 
             // Suscripciones (planes, membresías)
             ['slug' => 'subscriptions.view', 'name' => 'Ver suscripciones', 'description' => 'Ver planes y suscripciones de la tienda'],

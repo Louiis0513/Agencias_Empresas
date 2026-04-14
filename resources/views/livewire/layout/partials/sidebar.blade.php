@@ -2,11 +2,11 @@
     $store = request()->route('store');
     $perm = app(\App\Services\StorePermissionService::class);
     $canPersonas = $store && ($perm->can($store, 'customers.view') || $perm->can($store, 'workers.view'));
-    $canProductos = $store && ($perm->can($store, 'products.view') || $perm->can($store, 'categories.view') || $perm->can($store, 'attribute-groups.view') || $perm->can($store, 'inventario.view') || $perm->can($store, 'proveedores.view') || $perm->can($store, 'product-purchases.view'));
+    $canProductos = $store && ($perm->can($store, 'products.view') || $perm->can($store, 'categories.view') || $perm->can($store, 'attribute-groups.view') || $perm->can($store, 'inventario.view') || $perm->can($store, 'proveedores.view') || $perm->can($store, 'product-purchases.view') || $perm->can($store, 'support-documents.view'));
     $canFinanciero = $store && ($perm->can($store, 'caja.view') || $perm->can($store, 'activos.view') || $perm->can($store, 'accounts-payables.view') || $perm->can($store, 'accounts-receivables.view') || $perm->can($store, 'comprobantes-egreso.view') || $perm->can($store, 'comprobantes-ingreso.view') || $perm->can($store, 'invoices.view') || $perm->can($store, 'purchases.view'));
-    $canVentas = $store && $perm->can($store, 'invoices.view');
-    $canSuscripciones = $store && $perm->can($store, 'subscriptions.view');
-    $canInformes = $store && ($perm->can($store, 'products.view') || $perm->can($store, 'invoices.view'));
+    $canVentas = $store && ($perm->can($store, 'ventas.carrito.view') || $perm->can($store, 'cotizaciones.view'));
+    $canSuscripciones = $store && ($perm->can($store, 'subscriptions.view') || $perm->can($store, 'asistencias.view'));
+    $canInformes = $store && ($perm->can($store, 'reports.products.view') || $perm->can($store, 'reports.billing.view'));
     $isProductPurchase = false;
     if ($store && request()->routeIs('stores.purchases.show')) {
         $p = request()->route('purchase');
@@ -40,26 +40,32 @@
         <ul class="mt-2 space-y-0.5 px-2">
             @if($store)
                 {{-- Resumen --}}
+                @storeCan($store, 'dashboard.view')
                 <li>
                     <a href="{{ route('stores.dashboard', $store) }}" wire:navigate class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-gray-300 transition {{ request()->routeIs('stores.dashboard') ? 'bg-brand/20 text-brand' : 'hover:bg-white/5 hover:text-white' }}">
                         <svg class="h-5 w-5 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" /></svg>
                         <span class="whitespace-nowrap">Resumen</span>
                     </a>
                 </li>
+                @endstoreCan
                 {{-- Vitrina virtual --}}
+                @storeCan($store, 'vitrina.view')
                 <li>
                     <a href="{{ route('stores.vitrina.edit', $store) }}" wire:navigate class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-gray-300 transition {{ request()->routeIs('stores.vitrina.*') ? 'bg-brand/20 text-brand' : 'hover:bg-white/5 hover:text-white' }}">
                         <svg class="h-5 w-5 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
                         <span class="whitespace-nowrap">Vitrina virtual</span>
                     </a>
                 </li>
+                @endstoreCan
                 {{-- Panel Suscripciones --}}
+                @storeCan($store, 'panel-suscripciones-config.view')
                 <li>
                     <a href="{{ route('stores.panel-suscripciones.edit', $store) }}" wire:navigate class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-gray-300 transition {{ request()->routeIs('stores.panel-suscripciones.*') ? 'bg-brand/20 text-brand' : 'hover:bg-white/5 hover:text-white' }}">
                         <svg class="h-5 w-5 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.856-.117-1.653-.124-2.653-.04-1.326.087-2.653.124-3.918.124-1.265 0-2.592-.037-3.918-.124-1-.084-1.797-.023-2.653.04a6 6 0 01-7.03-5.92 3 3 0 013-3m14.25 0a3 3 0 013 3m-3 0v1.875c0-1.036-.84-1.875-1.875-1.875H3.375C2.34 7.5 1.5 8.34 1.5 9.375V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0020.25 18V9.375c0-1.036-.84-1.875-1.875-1.875H18.75a3 3 0 01-3-3V5.25z" /></svg>
                         <span class="whitespace-nowrap">Panel Suscripciones</span>
                     </a>
                 </li>
+                @endstoreCan
                 {{-- Personas (dropdown) --}}
                 @if($canPersonas)
                 <li x-data="{ open: {{ $inPersonas ? 'true' : 'false' }} }">
@@ -104,6 +110,8 @@
                         @endstoreCan
                         @storeCan($store, 'product-purchases.view')
                         <a href="{{ route('stores.product-purchases', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ (request()->routeIs('stores.product-purchases*') && ! request()->routeIs('stores.product-purchases.documento-soporte.*')) || (request()->routeIs('stores.purchases.show') && $isProductPurchase) ? 'text-brand' : 'text-gray-400 hover:text-white' }}">Compra de productos</a>
+                        @endstoreCan
+                        @storeCan($store, 'support-documents.view')
                         <a href="{{ route('stores.product-purchases.documento-soporte.create', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.product-purchases.documento-soporte.*') ? 'text-brand' : 'text-gray-400 hover:text-white' }}">Compra documento soporte</a>
                         @endstoreCan
                     </div>
@@ -154,8 +162,12 @@
                         <svg :class="open && 'rotate-180'" class="h-4 w-4 shrink-0 transition-transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
                     </button>
                     <div x-show="open" x-transition class="ml-4 mt-0.5 space-y-0.5 border-l border-white/5 pl-2">
+                        @storeCan($store, 'ventas.carrito.view')
                         <a href="{{ route('stores.ventas.carrito', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.ventas.carrito*') ? 'text-brand' : 'text-gray-400 hover:text-white' }}">Carrito</a>
+                        @endstoreCan
+                        @storeCan($store, 'cotizaciones.view')
                         <a href="{{ route('stores.ventas.cotizaciones', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.ventas.cotizaciones*') ? 'text-brand' : 'text-gray-400 hover:text-white' }}">Cotizaciones</a>
+                        @endstoreCan
                     </div>
                 </li>
                 @endif
@@ -168,10 +180,10 @@
                         <svg :class="open && 'rotate-180'" class="h-4 w-4 shrink-0 transition-transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
                     </button>
                     <div x-show="open" x-transition class="ml-4 mt-0.5 space-y-0.5 border-l border-white/5 pl-2">
-                        @storeCan($store, 'products.view')
+                        @storeCan($store, 'reports.products.view')
                         <a href="{{ route('stores.reports.index', [$store, 'tab' => 'productos', 'ventas' => request()->query('ventas', \App\Services\ProductReportsService::VENTAS_7D)]) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.reports*') && request()->query('tab', 'productos') === 'productos' ? 'text-brand' : 'text-gray-400 hover:text-white' }}">Productos</a>
                         @endstoreCan
-                        @storeCan($store, 'invoices.view')
+                        @storeCan($store, 'reports.billing.view')
                         <a href="{{ route('stores.reports.index', [$store, 'tab' => 'facturacion']) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.reports*') && request()->query('tab') === 'facturacion' ? 'text-brand' : 'text-gray-400 hover:text-white' }}">Facturación</a>
                         @endstoreCan
                     </div>
@@ -186,9 +198,13 @@
                         <svg :class="open && 'rotate-180'" class="h-4 w-4 shrink-0 transition-transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
                     </button>
                     <div x-show="open" x-transition class="ml-4 mt-0.5 space-y-0.5 border-l border-white/5 pl-2">
+                        @storeCan($store, 'subscriptions.view')
                         <a href="{{ route('stores.subscriptions.memberships', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.subscriptions.memberships*') ? 'text-brand' : 'text-gray-400 hover:text-white' }}">Membresías</a>
                         <a href="{{ route('stores.subscriptions.plans', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.subscriptions.plans*') ? 'text-brand' : 'text-gray-400 hover:text-white' }}">Planes</a>
+                        @endstoreCan
+                        @storeCan($store, 'asistencias.view')
                         <a href="{{ route('stores.asistencias', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.asistencias*') ? 'text-brand' : 'text-gray-400 hover:text-white' }}">Asistencias</a>
+                        @endstoreCan
                     </div>
                 </li>
                 @endif

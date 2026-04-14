@@ -13,7 +13,7 @@ class StoreAsistenciaController extends Controller
 {
     public function index(Request $request, Store $store, StorePermissionService $permission, SubscriptionService $subscriptionService): View
     {
-        $permission->authorize($store, 'subscriptions.view');
+        $permission->authorize($store, 'asistencias.view');
 
         $from = $request->filled('from') ? Carbon::parse($request->input('from')) : null;
         $to = $request->filled('to') ? Carbon::parse($request->input('to')) : null;

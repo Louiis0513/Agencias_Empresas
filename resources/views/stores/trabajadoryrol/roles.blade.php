@@ -140,6 +140,13 @@
                         'comprobantes-egreso' => 'Comprobantes de egreso',
                         'roles' => 'Roles y permisos',
                         'workers' => 'Trabajadores',
+                        'dashboard' => 'Panel principal',
+                        'store-config' => 'Configuración de tienda',
+                        'vitrina' => 'Vitrina virtual',
+                        'panel-suscripciones-config' => 'Panel suscripciones (configuración)',
+                        'reports' => 'Informes',
+                        'asistencias' => 'Asistencias',
+                        'support-documents' => 'Documentos soporte',
                     ];
                     $permissionsByModule = $allPermissions->groupBy(fn ($p) => explode('.', $p->slug)[0]);
                 @endphp

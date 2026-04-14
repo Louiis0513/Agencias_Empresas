@@ -101,6 +101,15 @@ class StoreRoleController extends Controller
         $permissionIds = $request->input('permission_ids', []) ?: [];
         $role->permissions()->sync($permissionIds);
 
+        $userIds = DB::table('store_user')
+            ->where('store_id', $store->id)
+            ->where('role_id', $role->id)
+            ->pluck('user_id');
+
+        foreach ($userIds as $userId) {
+            $permission->clearPermissionCache((int) $userId, $store->id);
+        }
+
         return redirect()->route('stores.roles.permissions', [$store, $role])
             ->with('success', 'Permisos actualizados correctamente.');
     }

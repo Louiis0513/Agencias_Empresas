@@ -79,6 +79,7 @@ class EditRoleModal extends Component
         if (! $store || ! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para editar roles en esta tienda.');
         }
+        app(StorePermissionService::class)->authorize($store, 'roles.edit');
 
         if (! $this->roleId) {
             return;

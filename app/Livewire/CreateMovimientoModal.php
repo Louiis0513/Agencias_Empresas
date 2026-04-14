@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Models\Bolsillo;
 use App\Models\Store;
 use App\Services\CajaService;
+use App\Services\StorePermissionService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
@@ -75,6 +76,7 @@ class CreateMovimientoModal extends Component
         if (! $store || ! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para registrar movimientos en esta tienda.');
         }
+        app(StorePermissionService::class)->authorize($store, 'caja.movimientos.manual.create');
 
         $bolsillo = Bolsillo::deTienda($store->id)->where('id', $this->bolsillo_id)->firstOrFail();
 

@@ -22,13 +22,14 @@ use Picqer\Barcode\BarcodeGeneratorPNG;
 
 class StoreController extends Controller
 {
-    public function show(Store $store)
+    public function show(Store $store, StorePermissionService $permission)
     {
         // 1. SEGURIDAD: Verificar si el usuario autenticado pertenece a esta tienda
         // Si no está en la lista de trabajadores, lanzamos un error 403 (Prohibido)
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'dashboard.view');
 
         // 2. (Opcional) Guardamos en sesión en qué tienda estamos trabajando
         // Esto es útil para no tener que preguntar el ID a cada rato
@@ -216,8 +217,8 @@ class StoreController extends Controller
             $tab = 'productos';
         }
 
-        $canProductsReport = $permission->can($store, 'products.view');
-        $canBillingReport = $permission->can($store, 'invoices.view');
+        $canProductsReport = $permission->can($store, 'reports.products.view');
+        $canBillingReport = $permission->can($store, 'reports.billing.view');
 
         if (! $request->has('tab') && ! $canProductsReport && $canBillingReport) {
             return redirect()->route('stores.reports.index', ['store' => $store, 'tab' => 'facturacion']);
@@ -231,9 +232,9 @@ class StoreController extends Controller
         }
 
         if ($tab === 'productos') {
-            $permission->authorize($store, 'products.view');
+            $permission->authorize($store, 'reports.products.view');
         } else {
-            $permission->authorize($store, 'invoices.view');
+            $permission->authorize($store, 'reports.billing.view');
         }
 
         session(['current_store_id' => $store->id]);
@@ -276,7 +277,7 @@ class StoreController extends Controller
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
-        $permission->authorize($store, 'cotizaciones.view');
+        $permission->authorize($store, 'cotizaciones.destroy');
 
         session(['current_store_id' => $store->id]);
 
@@ -385,7 +386,7 @@ class StoreController extends Controller
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
-        $permission->authorize($store, 'product-purchases.view');
+        $permission->authorize($store, 'support-documents.view');
 
         session(['current_store_id' => $store->id]);
 
@@ -403,7 +404,7 @@ class StoreController extends Controller
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
-        $permission->authorize($store, 'product-purchases.view');
+        $permission->authorize($store, 'support-documents.edit');
 
         if ($supportDocument->store_id !== $store->id) {
             abort(404);
@@ -425,7 +426,7 @@ class StoreController extends Controller
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
-        $permission->authorize($store, 'product-purchases.view');
+        $permission->authorize($store, 'support-documents.print');
 
         if ($supportDocument->store_id !== $store->id) {
             abort(404);
@@ -490,7 +491,7 @@ class StoreController extends Controller
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
-        $permission->authorize($store, 'product-purchases.view');
+        $permission->authorize($store, 'support-documents.export');
 
         $filtros = [
             'status' => $request->get('status'),
@@ -510,7 +511,7 @@ class StoreController extends Controller
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
-        $permission->authorize($store, 'product-purchases.create');
+        $permission->authorize($store, 'support-documents.create');
 
         try {
             $supportDocumentService->crearBorrador($store, (int) Auth::id(), $request->all());
@@ -529,7 +530,7 @@ class StoreController extends Controller
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
-        $permission->authorize($store, 'product-purchases.create');
+        $permission->authorize($store, 'support-documents.edit');
 
         if ($supportDocument->store_id !== $store->id) {
             abort(404);
@@ -552,7 +553,7 @@ class StoreController extends Controller
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
-        $permission->authorize($store, 'product-purchases.create');
+        $permission->authorize($store, 'support-documents.void');
 
         if ($supportDocument->store_id !== $store->id) {
             abort(404);
@@ -573,7 +574,7 @@ class StoreController extends Controller
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
-        $permission->authorize($store, 'product-purchases.create');
+        $permission->authorize($store, 'support-documents.approve');
 
         if ($supportDocument->store_id !== $store->id) {
             abort(404);

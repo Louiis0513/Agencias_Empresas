@@ -13,6 +13,11 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // SQLite (tests): omitir este refactor complejo con SQL específico de MySQL.
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
+
         // 1. Drop template self-reference: get actual FK name (can vary) and drop it so we can drop columns/unique later
         $fkRow = DB::selectOne("
             SELECT CONSTRAINT_NAME as name FROM information_schema.KEY_COLUMN_USAGE
@@ -69,6 +74,10 @@ return new class extends Migration
 
     public function down(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
+
         Schema::table('activos', function (Blueprint $table) {
             $table->dropUnique('activos_store_serial_unique');
         });

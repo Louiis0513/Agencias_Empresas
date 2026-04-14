@@ -11,6 +11,7 @@ use App\Services\CajaService;
 use App\Services\CotizacionService;
 use App\Services\CurrencyFormatService;
 use App\Services\InventarioService;
+use App\Services\StorePermissionService;
 use App\Services\SubscriptionService;
 use App\Services\VentaService;
 use Exception;
@@ -1307,6 +1308,7 @@ class CreateInvoiceModal extends Component
             $this->saving = false;
             abort(403, 'No tienes permiso para crear facturas en esta tienda.');
         }
+        app(StorePermissionService::class)->authorize($store, 'invoices.create');
 
         if ($this->status === 'PAID') {
             $sesionAbierta = app(\App\Services\SesionCajaService::class)->obtenerSesionAbierta($store);

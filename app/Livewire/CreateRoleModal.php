@@ -47,6 +47,7 @@ class CreateRoleModal extends Component
         if (! $store || ! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para crear roles en esta tienda.');
         }
+        app(StorePermissionService::class)->authorize($store, 'roles.create');
 
         $role = Role::create([
             'store_id' => $store->id,

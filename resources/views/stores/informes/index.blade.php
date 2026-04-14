@@ -40,13 +40,13 @@
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
             {{-- Pestañas de tipo de informe: solo el panel activo se renderiza abajo --}}
             <div class="flex flex-wrap gap-2 border-b border-white/10 pb-4">
-                @storeCan($store, 'products.view')
+                @storeCan($store, 'reports.products.view')
                 <a href="{{ route('stores.reports.index', [$store, 'tab' => 'productos', 'ventas' => $ventasRange ?? \App\Services\ProductReportsService::VENTAS_7D]) }}" wire:navigate
                    class="px-4 py-2 rounded-lg text-sm font-medium transition {{ $isProductos ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 border border-transparent hover:bg-white/5 hover:text-white' }}">
                     Productos
                 </a>
                 @endstoreCan
-                @storeCan($store, 'invoices.view')
+                @storeCan($store, 'reports.billing.view')
                 <a href="{{ route('stores.reports.index', [$store, 'tab' => 'facturacion', 'ventas' => $ventasRange ?? \App\Services\ProductReportsService::VENTAS_7D]) }}" wire:navigate
                    class="px-4 py-2 rounded-lg text-sm font-medium transition {{ ! $isProductos ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 border border-transparent hover:bg-white/5 hover:text-white' }}">
                     Facturación

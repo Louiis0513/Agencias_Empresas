@@ -13,6 +13,7 @@
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            @storeCan($store, 'vitrina.view')
             <a href="{{ route('stores.vitrina.edit', $store) }}" wire:navigate class="block bg-dark-card border border-white/5 overflow-hidden sm:rounded-xl hover:border-brand/30 transition">
                 <div class="p-6 flex items-center gap-4">
                     <div class="shrink-0 w-12 h-12 rounded-xl bg-brand/20 flex items-center justify-center">
@@ -25,6 +26,8 @@
                     <span class="text-brand shrink-0">Ver vitrina virtual →</span>
                 </div>
             </a>
+            @endstoreCan
+            @storeCan($store, 'store-config.view')
             <a href="{{ route('stores.configuracion', $store) }}" wire:navigate class="block bg-dark-card border border-white/5 overflow-hidden sm:rounded-xl hover:border-brand/30 transition">
                 <div class="p-6 flex items-center gap-4">
                     <div class="shrink-0 w-12 h-12 rounded-xl bg-brand/20 flex items-center justify-center">
@@ -37,6 +40,7 @@
                     <span class="text-brand shrink-0">Configurar →</span>
                 </div>
             </a>
+            @endstoreCan
             </div>
             <div class="bg-dark-card border border-white/5 overflow-hidden sm:rounded-xl">
                 <div class="p-6 text-gray-100">

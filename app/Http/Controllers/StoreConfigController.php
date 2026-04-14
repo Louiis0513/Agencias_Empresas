@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Store;
 use App\Services\ConvertidorImgService;
+use App\Services\StorePermissionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -11,20 +12,22 @@ use Illuminate\Support\Facades\Storage;
 
 class StoreConfigController extends Controller
 {
-    public function edit(Store $store)
+    public function edit(Store $store, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'store-config.view');
 
         return view('stores.configuracion', compact('store'));
     }
 
-    public function update(Request $request, Store $store, ConvertidorImgService $convertidorImgService)
+    public function update(Request $request, Store $store, ConvertidorImgService $convertidorImgService, StorePermissionService $permission)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
+        $permission->authorize($store, 'store-config.edit');
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'min:3', 'max:50'],

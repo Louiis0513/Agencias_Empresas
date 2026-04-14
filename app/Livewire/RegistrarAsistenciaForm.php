@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\Store;
+use App\Services\StorePermissionService;
 use App\Services\SubscriptionService;
 use Carbon\Carbon;
 use Illuminate\Contracts\View\View;
@@ -62,6 +63,7 @@ class RegistrarAsistenciaForm extends Component
         ]);
 
         $store = Store::findOrFail($this->storeId);
+        app(StorePermissionService::class)->authorize($store, 'asistencias.create');
         $dateTime = Carbon::parse($this->fecha . ' ' . $this->hora);
 
         try {

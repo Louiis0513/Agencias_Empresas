@@ -9,6 +9,7 @@ use App\Models\ProductItem;
 use App\Models\ProductVariant;
 use App\Models\Store;
 use App\Services\InventarioService;
+use App\Services\StorePermissionService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\On;
@@ -537,6 +538,7 @@ class CreateMovimientoInventarioModal extends Component
         if (! $store || ! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para registrar movimientos en esta tienda.');
         }
+        app(StorePermissionService::class)->authorize($store, 'inventario.movimientos.manual.create');
 
         $product = Product::where('id', $this->product_id)
             ->where('store_id', $store->id)

@@ -18,12 +18,16 @@
                 Documento soporte #{{ $supportDocument->doc_prefix }}-{{ $supportDocument->doc_number }}
             </h2>
             <div class="flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-4">
+                @storeCan($store, 'support-documents.print')
                 <a href="{{ route('stores.product-purchases.documento-soporte.print', [$store, $supportDocument]) }}" target="_blank" rel="noopener" class="text-sm text-brand hover:text-white transition">
                     Imprimir tira (PDF)
                 </a>
+                @endstoreCan
+                @storeCan($store, 'support-documents.view')
                 <a href="{{ route('stores.product-purchases.documento-soporte.create', $store) }}" class="text-sm text-gray-400 hover:text-brand transition">
                     ← Volver a nueva compra (documento soporte)
                 </a>
+                @endstoreCan
             </div>
         </div>
     </x-slot>
@@ -230,12 +234,14 @@
             </form>
 
             @if($isBorrador)
+                @storeCan($store, 'support-documents.approve')
                 <form id="approve-dse-form" action="{{ route('stores.product-purchases.documento-soporte.aprobar', [$store, $supportDocument]) }}" method="post" class="mt-4 flex justify-end">
                     @csrf
                     <button type="submit" class="px-4 py-2 rounded-md text-white" :class="canApprove() ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-gray-600 cursor-not-allowed'" :disabled="!canApprove()">
                         Aprobar documento soporte
                     </button>
                 </form>
+                @endstoreCan
             @endif
         </div>
     </div>
