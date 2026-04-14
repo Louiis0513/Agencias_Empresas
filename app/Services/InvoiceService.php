@@ -10,8 +10,10 @@ use App\Models\ProductItem;
 use App\Models\ProductVariant;
 use App\Models\Store;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 use Exception;
 
 class InvoiceService
@@ -86,7 +88,35 @@ class InvoiceService
         $query = Invoice::deTienda($store->id)
             ->with(['user:id,name,email', 'customer:id,name,email', 'details']);
 
-        // Filtro por rango de fechas. fecha_hasta = fin del día para incluir facturas de hoy.
+        $this->aplicarFiltrosListadoFacturas($query, $filtros);
+
+        $perPage = $filtros['per_page'] ?? 10;
+
+        return $query->orderBy('created_at', 'desc')->paginate($perPage);
+    }
+
+    /**
+     * Misma lógica de filtros que {@see listarFacturas}, sin paginación (exportación Excel).
+     *
+     * @param  array<string, mixed>  $filtros
+     * @return Collection<int, Invoice>
+     */
+    public function listarFacturasParaExportacion(Store $store, array $filtros = []): Collection
+    {
+        $query = Invoice::deTienda($store->id)
+            ->with(['user:id,name,email', 'customer:id,name,email']);
+
+        $this->aplicarFiltrosListadoFacturas($query, $filtros);
+
+        return $query->orderByDesc('created_at')->get();
+    }
+
+    /**
+     * @param  Builder<Invoice>  $query
+     * @param  array<string, mixed>  $filtros
+     */
+    protected function aplicarFiltrosListadoFacturas(Builder $query, array $filtros): void
+    {
         if (isset($filtros['fecha_desde']) && isset($filtros['fecha_hasta'])) {
             $desde = Carbon::parse($filtros['fecha_desde'])->startOfDay();
             $hasta = Carbon::parse($filtros['fecha_hasta'])->endOfDay();
@@ -99,17 +129,14 @@ class InvoiceService
             ]);
         }
 
-        // Filtro por estado
-        if (isset($filtros['status']) && !empty($filtros['status'])) {
+        if (isset($filtros['status']) && ! empty($filtros['status'])) {
             $query->where('status', $filtros['status']);
         }
 
-        // Filtro por cliente
-        if (isset($filtros['customer_id']) && !empty($filtros['customer_id'])) {
+        if (isset($filtros['customer_id']) && ! empty($filtros['customer_id'])) {
             $query->where('customer_id', $filtros['customer_id']);
         }
 
-        // Filtro por método de pago (SIN_METODO o NULL = facturas sin método, p. ej. pendientes)
         if (isset($filtros['payment_method']) && $filtros['payment_method'] !== '') {
             if (in_array(strtoupper((string) $filtros['payment_method']), ['NULL', 'SIN_METODO'], true)) {
                 $query->whereNull('payment_method');
@@ -118,7 +145,6 @@ class InvoiceService
             }
         }
 
-        // Filtro por bolsillo (facturas que tengan algún pago/cobro en ese bolsillo)
         if (isset($filtros['bolsillo_id']) && (int) $filtros['bolsillo_id'] > 0) {
             $bolsilloId = (int) $filtros['bolsillo_id'];
             $query->where(function ($q) use ($bolsilloId) {
@@ -134,15 +160,9 @@ class InvoiceService
             });
         }
 
-        // Búsqueda (usa el scope del modelo)
-        if (isset($filtros['search']) && !empty($filtros['search'])) {
+        if (isset($filtros['search']) && ! empty($filtros['search'])) {
             $query->buscar($filtros['search']);
         }
-
-        // Paginación
-        $perPage = $filtros['per_page'] ?? 10;
-
-        return $query->orderBy('created_at', 'desc')->paginate($perPage);
     }
 
     /**

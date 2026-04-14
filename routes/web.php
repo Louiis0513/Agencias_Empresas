@@ -132,6 +132,7 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     // Facturas
     Route::get('/facturas', [StoreInvoiceController::class, 'index'])->name('invoices');
     Route::post('/facturas', [StoreInvoiceController::class, 'store'])->name('invoices.store');
+    Route::get('/facturas/exportar-excel', [StoreInvoiceController::class, 'exportExcel'])->name('invoices.export-excel');
     Route::get('/facturas/{invoice}', [StoreInvoiceController::class, 'show'])->name('invoices.show');
     Route::get('/facturas/{invoice}/imprimir-tira', [StoreInvoiceController::class, 'printReceipt'])->name('invoices.printReceipt');
     Route::post('/facturas/{invoice}/anular', [StoreInvoiceController::class, 'void'])->name('invoices.void');

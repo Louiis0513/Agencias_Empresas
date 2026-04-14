@@ -1,6 +1,9 @@
 @php
     $isProductos = ($tab ?? 'productos') === 'productos';
-    $canExportInventarioExcel = $isProductos && app(\App\Services\StorePermissionService::class)->can($store, 'inventario.view');
+    $perm = app(\App\Services\StorePermissionService::class);
+    $canExportInventarioExcel = $isProductos && $perm->can($store, 'inventario.view');
+    $canExportInvoicesExcel = ! $isProductos && $perm->can($store, 'invoices.view');
+    $canExportSupportDocsExcel = ! $isProductos && $perm->can($store, 'support-documents.export');
 @endphp
 <x-app-layout>
     <x-slot name="header">
@@ -13,7 +16,7 @@
                     {{ $isProductos ? 'Resumen visual de ventas, márgenes y stock (datos de demostración).' : 'Panel de facturación (contenido próximo).' }}
                 </p>
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex flex-wrap items-center justify-end gap-2">
                 @if($isProductos)
                     @if($canExportInventarioExcel)
                         <a href="{{ route('stores.inventario.export-excel', $store) }}" class="px-3 py-2 rounded-lg border border-brand/30 bg-brand/20 text-brand text-sm font-medium hover:bg-brand/30 transition">
@@ -25,9 +28,24 @@
                         </button>
                     @endif
                 @else
-                    <button type="button" disabled class="px-3 py-2 rounded-lg border border-white/10 text-gray-500 text-sm cursor-not-allowed">
-                        Exportar Excel
-                    </button>
+                    @if($canExportInvoicesExcel)
+                        <a href="{{ route('stores.invoices.export-excel', $store) }}" class="inline-flex items-center justify-center px-3 py-2 rounded-lg border border-brand/30 bg-brand/20 text-brand text-sm font-medium hover:bg-brand/30 transition">
+                            Exportar excel Facturas
+                        </a>
+                    @else
+                        <button type="button" disabled class="px-3 py-2 rounded-lg border border-white/10 text-gray-500 text-sm cursor-not-allowed" title="Requiere permiso de facturas">
+                            Exportar excel Facturas
+                        </button>
+                    @endif
+                    @if($canExportSupportDocsExcel)
+                        <a href="{{ route('stores.product-purchases.support-documents.export-excel', $store) }}" class="inline-flex items-center justify-center px-3 py-2 rounded-lg border border-emerald-500/35 bg-emerald-500/10 text-emerald-200 text-sm font-medium hover:bg-emerald-500/15 transition">
+                            Exportar excel Documentos Soporte
+                        </a>
+                    @else
+                        <button type="button" disabled class="px-3 py-2 rounded-lg border border-white/10 text-gray-500 text-sm cursor-not-allowed" title="Requiere permiso de exportar documentos soporte">
+                            Exportar excel Documentos Soporte
+                        </button>
+                    @endif
                 @endif
                 <button type="button" disabled class="px-3 py-2 rounded-lg border border-white/10 text-gray-500 text-sm cursor-not-allowed">
                     Exportar PDF
