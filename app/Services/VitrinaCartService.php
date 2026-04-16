@@ -6,6 +6,7 @@ use App\Models\Product;
 use App\Models\ProductItem;
 use App\Models\ProductVariant;
 use App\Models\Store;
+use App\Support\Quantity;
 use Illuminate\Support\Facades\Session;
 
 class VitrinaCartService
@@ -28,7 +29,7 @@ class VitrinaCartService
     /**
      * Devuelve todas las líneas del carrito para la tienda.
      *
-     * @return array<int, array{line_key: string, product_id: int, variant_id: int|null, product_item_id: int|null, name: string, price: float, quantity: int, image_path: string|null}>
+     * @return array<int, array{line_key: string, product_id: int, variant_id: int|null, product_item_id: int|null, name: string, price: float, quantity: float, image_path: string|null}>
      */
     public function getCartForStore(Store $store): array
     {
@@ -51,7 +52,7 @@ class VitrinaCartService
                 'product_item_id' => isset($row['product_item_id']) ? (int) $row['product_item_id'] : null,
                 'name' => (string) ($row['name'] ?? ''),
                 'price' => (float) ($row['price'] ?? 0),
-                'quantity' => max(1, (int) ($row['quantity'] ?? 1)),
+                'quantity' => max(0.01, Quantity::normalize($row['quantity'] ?? 1)),
                 'image_path' => isset($row['image_path']) ? (string) $row['image_path'] : null,
             ];
         }
@@ -63,21 +64,21 @@ class VitrinaCartService
      * Devuelve la cantidad en carrito para una línea concreta (producto/variante/ítem).
      * Usado para descontar del stock visible lo que ya está en el carrito.
      */
-    public function getQuantityInCart(Store $store, int $productId, ?int $variantId, ?int $productItemId): int
+    public function getQuantityInCart(Store $store, int $productId, ?int $variantId, ?int $productItemId): float
     {
         $lineKey = $this->lineKey($productId, $variantId, $productItemId);
         $key = $this->getSessionKey($store);
         $cart = Session::get($key, []);
         if (! is_array($cart) || ! isset($cart[$lineKey])) {
-            return 0;
+            return 0.0;
         }
-        return max(0, (int) ($cart[$lineKey]['quantity'] ?? 0));
+        return max(0, Quantity::normalize($cart[$lineKey]['quantity'] ?? 0));
     }
 
     /**
      * Resuelve nombre, precio e imagen para un producto/variante/ítem y lo añade al carrito.
      */
-    public function addItem(Store $store, int $productId, ?int $variantId, ?int $productItemId, int $quantity = 1): void
+    public function addItem(Store $store, int $productId, ?int $variantId, ?int $productItemId, float $quantity = 1): void
     {
         $resolved = $this->resolveItem($store, $productId, $variantId, $productItemId);
         if ($resolved === null) {
@@ -92,7 +93,7 @@ class VitrinaCartService
         }
 
         if (isset($cart[$lineKey])) {
-            $cart[$lineKey]['quantity'] = (int) $cart[$lineKey]['quantity'] + $quantity;
+            $cart[$lineKey]['quantity'] = Quantity::normalize((float) $cart[$lineKey]['quantity'] + $quantity);
         } else {
             $cart[$lineKey] = [
                 'product_id' => $productId,
@@ -100,7 +101,7 @@ class VitrinaCartService
                 'product_item_id' => $productItemId,
                 'name' => $resolved['name'],
                 'price' => $resolved['price'],
-                'quantity' => $quantity,
+                'quantity' => Quantity::normalize($quantity),
                 'image_path' => $resolved['image_path'],
             ];
         }
@@ -111,7 +112,7 @@ class VitrinaCartService
     /**
      * Actualiza la cantidad de una línea (delta: +1 o -1). Si la cantidad resulta <= 0, se elimina la línea.
      */
-    public function updateItemQuantity(Store $store, string $lineKey, int $delta): void
+    public function updateItemQuantity(Store $store, string $lineKey, float $delta): void
     {
         $key = $this->getSessionKey($store);
         $cart = Session::get($key, []);
@@ -119,7 +120,7 @@ class VitrinaCartService
             return;
         }
 
-        $newQty = (int) $cart[$lineKey]['quantity'] + $delta;
+        $newQty = Quantity::normalize((float) $cart[$lineKey]['quantity'] + $delta);
         if ($newQty <= 0) {
             unset($cart[$lineKey]);
         } else {
@@ -135,13 +136,13 @@ class VitrinaCartService
     }
 
     /**
-     * @return array{subtotal: float, total: float, count: int}
+     * @return array{subtotal: float, total: float, count: float}
      */
     public function getTotals(Store $store): array
     {
         $items = $this->getCartForStore($store);
         $subtotal = 0.0;
-        $count = 0;
+        $count = 0.0;
         foreach ($items as $item) {
             $subtotal += $item['price'] * $item['quantity'];
             $count += $item['quantity'];

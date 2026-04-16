@@ -54,7 +54,7 @@
                     </div>
                     <div>
                         <dt class="text-xs font-medium text-gray-400">Stock</dt>
-                        <dd class="mt-0.5 text-sm font-medium text-gray-100">{{ $product->stock }}</dd>
+                        <dd class="mt-0.5 text-sm font-medium text-gray-100">{{ \App\Support\Quantity::displayStockForProduct($product, $product->stock) }}</dd>
                     </div>
                     <div>
                         <dt class="text-xs font-medium text-gray-400">Ubicación</dt>

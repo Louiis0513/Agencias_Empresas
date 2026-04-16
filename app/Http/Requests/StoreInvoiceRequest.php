@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Product;
+use App\Support\Quantity;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -41,7 +43,7 @@ class StoreInvoiceRequest extends FormRequest
                 'required',
                 Rule::exists('products', 'id')->where('store_id', $store->id),
             ],
-            'details.*.quantity' => ['required', 'integer', 'min:1'],
+            'details.*.quantity' => ['required', 'numeric', 'min:0.01'],
             'details.*.unit_price' => ['required', 'numeric', 'min:0'],
             'details.*.discount_type' => ['sometimes', 'string', 'in:amount,percent'],
             'details.*.discount_value' => ['sometimes', 'numeric', 'min:0'],
@@ -78,8 +80,8 @@ class StoreInvoiceRequest extends FormRequest
             'details.*.product_id.required' => 'El producto es obligatorio para cada detalle.',
             'details.*.product_id.exists' => 'Uno de los productos especificados no existe en esta tienda.',
             'details.*.quantity.required' => 'La cantidad es obligatoria para cada detalle.',
-            'details.*.quantity.integer' => 'La cantidad debe ser un número entero.',
-            'details.*.quantity.min' => 'La cantidad debe ser al menos 1.',
+            'details.*.quantity.numeric' => 'La cantidad debe ser un número válido.',
+            'details.*.quantity.min' => 'La cantidad debe ser mayor que 0.',
             'details.*.unit_price.required' => 'El precio unitario es obligatorio para cada detalle.',
             'details.*.unit_price.numeric' => 'El precio unitario debe ser un número.',
             'details.*.unit_price.min' => 'El precio unitario no puede ser negativo.',
@@ -94,5 +96,42 @@ class StoreInvoiceRequest extends FormRequest
             'details.*.subtotal.numeric' => 'El subtotal debe ser un número.',
             'details.*.subtotal.min' => 'El subtotal no puede ser negativo.',
         ];
+    }
+
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            $store = $this->route('store');
+            $details = $this->input('details', []);
+            if (! $store || ! is_array($details) || empty($details)) {
+                return;
+            }
+
+            $productIds = collect($details)->pluck('product_id')->filter()->unique()->values()->all();
+            if (empty($productIds)) {
+                return;
+            }
+
+            $products = Product::where('store_id', $store->id)
+                ->whereIn('id', $productIds)
+                ->get()
+                ->keyBy('id');
+
+            foreach ($details as $index => $detail) {
+                $productId = (int) ($detail['product_id'] ?? 0);
+                $qty = $detail['quantity'] ?? null;
+                if ($productId < 1 || $qty === null || ! isset($products[$productId])) {
+                    continue;
+                }
+
+                $product = $products[$productId];
+                $mode = $product->isSerialized() ? Product::QUANTITY_MODE_UNIT : ($product->quantity_mode ?? Product::QUANTITY_MODE_UNIT);
+                if (! Quantity::isValidForMode($qty, $mode, false)) {
+                    $validator->errors()->add("details.{$index}.quantity", $mode === Product::QUANTITY_MODE_DECIMAL
+                        ? 'La cantidad debe ser decimal con máximo 2 decimales (mínimo 0.01).'
+                        : 'La cantidad debe ser un entero mayor o igual a 1 para este producto.');
+                }
+            }
+        });
     }
 }

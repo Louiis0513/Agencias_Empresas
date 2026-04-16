@@ -7,9 +7,11 @@ use App\Models\Product;
 use App\Models\Store;
 use App\Services\ConvertidorImgService;
 use App\Services\ProductService;
+use App\Support\Quantity;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -27,6 +29,8 @@ class EditProductModal extends Component
     public string $price = '0';
     public string $margin = '';
     public string $location = '';
+    public string $quantity_mode = Product::QUANTITY_MODE_UNIT;
+    public string $quantity_step = '1.00';
     public bool $is_active = true;
     public bool $in_showcase = false;
 
@@ -42,7 +46,7 @@ class EditProductModal extends Component
 
     protected function rules(): array
     {
-        return [
+        $rules = [
             'name' => ['required', 'string', 'min:1', 'max:255'],
             'price' => ['nullable', 'numeric', 'min:0'],
             'margin' => ['nullable', 'numeric'],
@@ -52,6 +56,13 @@ class EditProductModal extends Component
             'image' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120'],
             'remove_image' => ['boolean'],
         ];
+
+        if ($this->productType === 'simple') {
+            $rules['quantity_mode'] = ['required', 'string', Rule::in([Product::QUANTITY_MODE_UNIT, Product::QUANTITY_MODE_DECIMAL])];
+            $rules['quantity_step'] = Quantity::stepRulesForMode($this->quantity_mode);
+        }
+
+        return $rules;
     }
 
     public function getStoreProperty(): ?Store
@@ -91,6 +102,12 @@ class EditProductModal extends Component
             $this->price = (string) $product->price;
             $this->margin = '';
             $this->location = $product->location ?? '';
+            $this->quantity_mode = (string) ($product->quantity_mode ?? Product::QUANTITY_MODE_UNIT);
+            $this->quantity_step = number_format((float) ($product->quantity_step ?? 1), 2, '.', '');
+            if ($this->productType === 'serialized') {
+                $this->quantity_mode = Product::QUANTITY_MODE_UNIT;
+                $this->quantity_step = '1.00';
+            }
             $this->is_active = (bool) $product->is_active;
             $this->in_showcase = (bool) $product->in_showcase;
             $this->category_id = $product->category_id ? (string) $product->category_id : null;
@@ -186,6 +203,8 @@ class EditProductModal extends Component
             }
             $data['is_active'] = $this->is_active;
             $data['in_showcase'] = $this->in_showcase;
+            $data['quantity_mode'] = $this->quantity_mode;
+            $data['quantity_step'] = Quantity::normalize($this->quantity_step);
             $data['category_id'] = $this->category_id;
             $data['attribute_values'] = $normalized;
 
@@ -247,6 +266,8 @@ class EditProductModal extends Component
             'price',
             'margin',
             'location',
+            'quantity_mode',
+            'quantity_step',
             'is_active',
             'in_showcase',
             'category_id',
@@ -261,6 +282,17 @@ class EditProductModal extends Component
 
         return redirect()->route('stores.products', $store)
             ->with('success', 'Producto actualizado correctamente.');
+    }
+
+    public function updatedQuantityMode($value): void
+    {
+        if ($this->productType === 'serialized') {
+            $this->quantity_mode = Product::QUANTITY_MODE_UNIT;
+            $this->quantity_step = '1.00';
+            return;
+        }
+
+        $this->quantity_step = $value === Product::QUANTITY_MODE_DECIMAL ? '0.01' : '1.00';
     }
 
     public function getCategoryProperty()

@@ -17,7 +17,7 @@ class BatchItem extends Model
     ];
 
     protected $casts = [
-        'quantity' => 'integer',
+        'quantity' => 'decimal:2',
         'unit_cost' => 'decimal:2',
     ];
 

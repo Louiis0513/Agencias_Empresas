@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\ProductItem;
 use App\Models\ProductVariant;
 use App\Models\Store;
+use App\Support\Quantity;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -182,7 +183,7 @@ class VentaService
                         $factura->id
                     );
                 } else {
-                    $qty = (int) ($item['quantity'] ?? 0);
+                    $qty = Quantity::normalize($item['quantity'] ?? 0);
                     if ($qty < 1) {
                         continue;
                     }
@@ -280,7 +281,7 @@ class VentaService
                         $factura->id
                     );
                 } else {
-                    $qty = (int) ($item['quantity'] ?? 0);
+                    $qty = Quantity::normalize($item['quantity'] ?? 0);
                     if ($qty < 1) {
                         continue;
                     }

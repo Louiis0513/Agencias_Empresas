@@ -25,7 +25,7 @@ class CotizacionItem extends Model
     protected $casts = [
         'variant_features' => 'array',
         'serial_numbers' => 'array',
-        'quantity' => 'integer',
+        'quantity' => 'decimal:2',
         'unit_price' => 'float',
     ];
 

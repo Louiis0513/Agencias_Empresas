@@ -71,6 +71,34 @@
                     <p class="mt-0.5 text-xs text-gray-400">{{ __('Ingresa precio o margen, no ambos.') }}</p>
                     <x-input-error :messages="$errors->get('margin')" class="mt-1" />
                 </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <x-input-label for="edit_quantity_mode" value="{{ __('Modo de cantidad') }}" />
+                        <select wire:model.live="quantity_mode"
+                                id="edit_quantity_mode"
+                                class="block mt-1 w-full rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand">
+                            <option value="unit">Unidad (entero)</option>
+                            <option value="decimal">Peso/decimal</option>
+                        </select>
+                        <x-input-error :messages="$errors->get('quantity_mode')" class="mt-1" />
+                    </div>
+                    <div>
+                        <x-input-label for="edit_quantity_step" value="{{ __('Paso de cantidad') }}" />
+                        <x-text-input wire:model.live="quantity_step"
+                                      id="edit_quantity_step"
+                                      class="block mt-1 w-full"
+                                      type="number"
+                                      min="0.01"
+                                      step="0.01"
+                                      :readonly="$quantity_mode === 'unit'" />
+                        <x-input-error :messages="$errors->get('quantity_step')" class="mt-1" />
+                    </div>
+                </div>
+
+                <p class="text-xs text-gray-400 -mt-1">
+                    Cambiar entre decimal y unidad no altera el stock guardado; solo cambia cómo se captura y se muestra la cantidad.
+                </p>
                 @endif
 
                 <div>

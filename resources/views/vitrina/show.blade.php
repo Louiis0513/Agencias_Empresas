@@ -353,7 +353,9 @@
                                         data-product-id="{{ $item->product_id ?? 0 }}"
                                         data-variant-id="{{ $item->variant_id ?? 0 }}"
                                         data-product-item-id="{{ $item->product_item_id ?? 0 }}"
-                                        data-stock="{{ (int) ($item->stock ?? 0) }}"
+                                        data-stock="{{ number_format((float) ($item->stock ?? 0), 2, '.', '') }}"
+                                        data-quantity-mode="{{ $item->quantity_mode ?? 'unit' }}"
+                                        data-quantity-step="{{ number_format((float) ($item->quantity_step ?? 1), 2, '.', '') }}"
                                         data-unit-price="{{ (float) ($item->price ?? 0) }}"
                                         data-currency="{{ $store->currency ?? 'COP' }}">
                                     <div class="mb-3">
@@ -381,15 +383,18 @@
                                         <p class="text-sm text-gray-600 mt-1">{{ money($item->price, $store->currency ?? 'COP') }}</p>
                                         @if (isset($item->stock))
                                             <p class="js-stock-text text-xs mt-0.5 {{ ($item->stock ?? 0) > 0 ? 'text-gray-500' : 'text-red-600' }}">
-                                                {{ ($item->stock ?? 0) > 0 ? ($item->stock . ' disponible' . (($item->stock ?? 0) !== 1 ? 's' : '')) : 'No disponible' }}
+                                                {{ ($item->stock ?? 0) > 0 ? ((($item->quantity_mode ?? 'unit') === 'decimal' ? number_format((float) $item->stock, 2, '.', '') : (int) floor((float) $item->stock)) . ' disponible' . (((float) ($item->stock ?? 0)) !== 1.0 ? 's' : '')) : 'No disponible' }}
                                             </p>
                                         @endif
                                         @if (isset($item->product_id))
                                             @php
-                                                $stock = (int) ($item->stock ?? 0);
+                                                $stock = (float) ($item->stock ?? 0);
+                                                $isDecimalQty = (($item->quantity_mode ?? 'unit') === 'decimal');
+                                                $qtyStep = $isDecimalQty ? (float) ($item->quantity_step ?? 0.01) : 1.0;
+                                                $qtyDefault = $isDecimalQty ? max(0.01, $qtyStep) : 1.0;
                                                 $canAdd = $stock > 0;
                                                 $isSerialized = !empty($item->product_item_id);
-                                                $maxQty = $isSerialized ? 1 : max(1, $stock);
+                                                $maxQty = $isSerialized ? 1.0 : $stock;
                                                 $itemLineKey = $item->product_id . '_' . ($item->variant_id ?? 0) . '_' . ($item->product_item_id ?? 0);
                                                 $inCart = collect($cartItems ?? [])->contains(fn($r) => ($r['line_key'] ?? '') === $itemLineKey);
                                             @endphp
@@ -407,16 +412,16 @@
                                                 @if (!empty($item->product_item_id))
                                                     <input type="hidden" name="product_item_id" value="{{ $item->product_item_id }}">
                                                 @endif
-                                                @if (!$isSerialized && $maxQty > 1)
+                                                @if (!$isSerialized && $maxQty > 0)
                                                     <div class="js-qty-group inline-flex items-center max-w-[140px] rounded-lg border border-gray-300 overflow-hidden mb-2" role="group" aria-label="Cantidad">
                                                         <button type="button" class="js-qty-minus w-9 h-9 flex items-center justify-center bg-gray-100 text-gray-700 font-medium hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-500" aria-label="Disminuir">−</button>
                                                         <label for="qty-{{ $item->product_id }}-{{ $item->variant_id ?? 0 }}-{{ $item->product_item_id ?? 0 }}" class="sr-only">Cantidad</label>
-                                                        <input type="number" name="quantity" id="qty-{{ $item->product_id }}-{{ $item->variant_id ?? 0 }}-{{ $item->product_item_id ?? 0 }}" value="1" min="1" max="{{ $maxQty }}" class="js-qty-input w-12 h-9 text-center border-0 border-x border-gray-300 text-sm">
+                                                        <input type="number" name="quantity" id="qty-{{ $item->product_id }}-{{ $item->variant_id ?? 0 }}-{{ $item->product_item_id ?? 0 }}" value="{{ number_format($qtyDefault, 2, '.', '') }}" min="{{ number_format($qtyDefault, 2, '.', '') }}" max="{{ number_format($maxQty, 2, '.', '') }}" step="{{ number_format($qtyStep, 2, '.', '') }}" class="js-qty-input w-12 h-9 text-center border-0 border-x border-gray-300 text-sm">
                                                         <button type="button" class="js-qty-plus w-9 h-9 flex items-center justify-center bg-gray-100 text-gray-700 font-medium hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-500" aria-label="Aumentar">+</button>
                                                     </div>
                                                     <p class="text-sm text-gray-700 mb-2">Total: <span class="js-line-total font-medium">{{ money($item->price, $store->currency ?? 'COP', false) }}</span></p>
                                                 @else
-                                                    <input type="hidden" name="quantity" value="1">
+                                                    <input type="hidden" name="quantity" value="{{ number_format($qtyDefault, 2, '.', '') }}">
                                                 @endif
                                                 <button
                                                     type="submit"
@@ -811,7 +816,7 @@
             var totalEl = card ? card.querySelector('.js-line-total') : null;
             if (!totalEl) return;
             var input = card.querySelector('.js-qty-input');
-            var qty = input ? (parseInt(input.value, 10) || 1) : 1;
+            var qty = input ? (parseFloat(input.value) || 1) : 1;
             var unitPrice = parseFloat(card.getAttribute('data-unit-price')) || 0;
             var currency = card.getAttribute('data-currency') || 'COP';
             totalEl.textContent = formatLineTotal(unitPrice * qty, currency);
@@ -821,20 +826,26 @@
             var card = group.closest('.js-product-card');
             var input = group.querySelector('.js-qty-input');
             if (!input || !card) return;
-            var min = parseInt(input.getAttribute('min'), 10) || 1;
-            var max = parseInt(input.getAttribute('max'), 10) || 999;
+            var min = parseFloat(input.getAttribute('min')) || 1;
+            var max = parseFloat(input.getAttribute('max')) || 999;
+            var step = parseFloat(input.getAttribute('step')) || 1;
             function clamp(v) { return Math.max(min, Math.min(max, v)); }
+            function roundToStep(v) {
+                var decimals = (step.toString().split('.')[1] || '').length;
+                var adjusted = Math.round(v / step) * step;
+                return parseFloat(adjusted.toFixed(Math.max(decimals, 2)));
+            }
             function sync() {
-                var v = clamp(parseInt(input.value, 10) || min);
+                var v = clamp(roundToStep(parseFloat(input.value) || min));
                 input.value = v;
                 updateLineTotal(card);
             }
             group.querySelector('.js-qty-minus').addEventListener('click', function() {
-                input.value = clamp((parseInt(input.value, 10) || min) - 1);
+                input.value = clamp(roundToStep((parseFloat(input.value) || min) - step));
                 sync();
             });
             group.querySelector('.js-qty-plus').addEventListener('click', function() {
-                input.value = clamp((parseInt(input.value, 10) || min) + 1);
+                input.value = clamp(roundToStep((parseFloat(input.value) || min) + step));
                 sync();
             });
             input.addEventListener('change', sync);
@@ -912,15 +923,19 @@
                         showToast(result.data.message || 'Producto añadido al carrito.');
                         if (typeof result.data.cart_count !== 'undefined') updateCartCount(result.data.cart_count);
                         var qtyInput = form.querySelector('input[name="quantity"]');
-                        var qty = qtyInput ? (parseInt(qtyInput.value, 10) || 1) : 1;
+                        var qty = qtyInput ? (parseFloat(qtyInput.value) || 1) : 1;
                         var card = form.closest('.js-product-card');
                         if (card) {
-                            var current = parseInt(card.getAttribute('data-stock'), 10) || 0;
+                            var current = parseFloat(card.getAttribute('data-stock')) || 0;
                             var newStock = Math.max(0, current - qty);
                             card.setAttribute('data-stock', newStock);
+                            var quantityMode = card.getAttribute('data-quantity-mode') || 'unit';
                             var stockText = card.querySelector('.js-stock-text');
                             if (stockText) {
-                                stockText.textContent = newStock > 0 ? (newStock === 1 ? '1 disponible' : newStock + ' disponibles') : 'No disponible';
+                                var shownStock = quantityMode === 'decimal'
+                                    ? newStock.toFixed(2)
+                                    : String(Math.floor(newStock));
+                                stockText.textContent = newStock > 0 ? ((Math.abs(newStock - 1) < 0.0001 ? '1 disponible' : shownStock + ' disponibles')) : 'No disponible';
                                 stockText.classList.remove('text-gray-500', 'text-red-600');
                                 stockText.classList.add(newStock > 0 ? 'text-gray-500' : 'text-red-600');
                             }

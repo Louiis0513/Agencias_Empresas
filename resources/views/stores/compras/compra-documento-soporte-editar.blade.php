@@ -144,7 +144,7 @@
                                     <tr>
                                         <td class="px-3 py-3 text-sm text-gray-400" x-text="index + 1"></td>
                                         <td class="px-3 py-3 text-sm text-gray-200" x-text="line.description"></td>
-                                        <td class="px-3 py-3"><input type="number" min="1" class="w-24 rounded-md border-white/10 bg-white/5 text-gray-100 py-1 px-2 disabled:opacity-60" x-model.number="line.quantity" @input="recomputeLine(index)" :disabled="readonly"></td>
+                                        <td class="px-3 py-3"><input type="number" min="0.01" step="0.01" class="w-24 rounded-md border-white/10 bg-white/5 text-gray-100 py-1 px-2 disabled:opacity-60" x-model.number="line.quantity" @input="recomputeLine(index)" :disabled="readonly"></td>
                                         <td class="px-3 py-3"><input type="number" min="0" step="0.01" class="w-32 rounded-md border-white/10 bg-white/5 text-gray-100 py-1 px-2 disabled:opacity-60" x-model.number="line.unit_cost" @input="recomputeLine(index)" :disabled="readonly"></td>
                                         <td class="px-3 py-3"><input type="number" min="0" step="0.01" class="w-24 rounded-md border-white/10 bg-white/5 text-gray-100 py-1 px-2 disabled:opacity-60" x-model.number="line.tax_rate" @input="recomputeLine(index)" :disabled="readonly"></td>
                                         <td class="px-3 py-3 text-sm text-gray-200" x-text="formatMoney(line.line_total)"></td>
@@ -256,7 +256,7 @@
                 details: Array.isArray(config.initialDetails) ? config.initialDetails.map((line) => ({
                     product_id: Number(line.product_id || 0),
                     description: String(line.description || ''),
-                    quantity: Math.max(1, Number(line.quantity || 1)),
+                    quantity: Math.max(0.01, Number(line.quantity || 0.01)),
                     unit_cost: Math.max(0, Number(line.unit_cost || 0)),
                     tax_rate: Math.max(0, Number(line.tax_rate || 0)),
                     tax_amount: 0,
@@ -296,7 +296,7 @@
                 recomputeLine(index) {
                     const line = this.details[index];
                     if (!line) return;
-                    line.quantity = Math.max(1, parseInt(line.quantity || 1, 10));
+                    line.quantity = Math.round(Math.max(0.01, parseFloat(line.quantity || 0.01)) * 100) / 100;
                     line.unit_cost = Math.max(0, parseFloat(line.unit_cost || 0));
                     line.tax_rate = Math.max(0, parseFloat(line.tax_rate || 0));
                     const base = line.quantity * line.unit_cost;

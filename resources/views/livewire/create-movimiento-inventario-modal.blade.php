@@ -14,7 +14,7 @@
                     <div class="flex gap-2 items-center mt-1">
                         <span class="flex-1 px-3 py-2 rounded-md border border-white/10 bg-white/5 text-gray-100 text-sm min-h-[42px] flex items-center" wire:key="product-display">
                             @if($this->productoSeleccionado)
-                                {{ $this->productoSeleccionado->name }} {{ $this->productoSeleccionado->sku ? "({$this->productoSeleccionado->sku})" : '' }} — Stock: {{ $this->productoSeleccionado->stock }}
+                                {{ $this->productoSeleccionado->name }} {{ $this->productoSeleccionado->sku ? "({$this->productoSeleccionado->sku})" : '' }} — Stock: {{ \App\Support\Quantity::displayStockForProduct($this->productoSeleccionado, $this->productoSeleccionado->stock) }}
                             @else
                                 <span class="text-gray-500">Ningún producto seleccionado</span>
                             @endif
@@ -41,7 +41,7 @@
                                 @endif
                             </strong>
                         </div>
-                        <div>Stock actual: <strong>{{ $this->productoSeleccionado->stock }}</strong></div>
+                        <div>Stock actual: <strong>{{ \App\Support\Quantity::displayStockForProduct($this->productoSeleccionado, $this->productoSeleccionado->stock) }}</strong></div>
                     </div>
                 @endif
 

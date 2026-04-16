@@ -16,12 +16,17 @@
 
     {{-- Pendiente: cantidad para producto simple --}}
     @if($pendienteSimple)
+        @php
+            $simpleMode = (string) ($pendienteSimple['quantity_mode'] ?? 'unit');
+            $simpleMax = \App\Support\Quantity::displayStockByMode($simpleMode, $pendienteSimple['stock'] ?? 0);
+        @endphp
         <div class="mb-6 p-4 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-900/50">
-            <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Cantidad para <strong>{{ $pendienteSimple['name'] }}</strong> (máx. {{ $pendienteSimple['stock'] }})</p>
+            <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Cantidad para <strong>{{ $pendienteSimple['name'] }}</strong> (máx. {{ $simpleMax }})</p>
             <div class="flex flex-wrap items-center gap-2">
                 <input type="number"
                        wire:model="cantidadSimple"
-                       min="1"
+                       min="{{ ($pendienteSimple['quantity_mode'] ?? 'unit') === 'decimal' ? '0.01' : '1' }}"
+                       step="{{ ($pendienteSimple['quantity_mode'] ?? 'unit') === 'decimal' ? '0.01' : '1' }}"
                        placeholder="Cantidad"
                        class="w-24 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 text-sm">
                 <button type="button"
@@ -42,14 +47,19 @@
 
     {{-- Pendiente: cantidad para variante (lote) --}}
     @if($pendienteBatch)
+        @php
+            $batchMode = (string) ($pendienteBatch['quantity_mode'] ?? 'unit');
+            $batchMax = \App\Support\Quantity::displayStockByMode($batchMode, $pendienteBatch['stock'] ?? 0);
+        @endphp
         <div class="mb-6 p-4 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-900/50">
             <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Cantidad para <strong>{{ $pendienteBatch['name'] }}</strong> — {{ $pendienteBatch['variant_display_name'] }} (máx. {{ $pendienteBatch['stock'] }})
+                Cantidad para <strong>{{ $pendienteBatch['name'] }}</strong> — {{ $pendienteBatch['variant_display_name'] }} (máx. {{ $batchMax }})
             </p>
             <div class="flex flex-wrap items-center gap-2">
                 <input type="number"
                        wire:model="cantidadBatch"
-                       min="1"
+                       min="{{ ($pendienteBatch['quantity_mode'] ?? 'unit') === 'decimal' ? '0.01' : '1' }}"
+                       step="{{ ($pendienteBatch['quantity_mode'] ?? 'unit') === 'decimal' ? '0.01' : '1' }}"
                        placeholder="Cantidad"
                        class="w-24 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 text-sm">
                 <button type="button"
@@ -188,12 +198,13 @@
                     <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-600">
                         @foreach($carrito as $index => $item)
                             @php
-                                $qty = (int) ($item['quantity'] ?? 0);
+                                $mode = (string) ($item['quantity_mode'] ?? 'unit');
+                                $qty = (float) ($item['quantity'] ?? 0);
                                 $isSerialized = !empty($item['serial_numbers'] ?? []);
                                 $serialNumbers = $item['serial_numbers'] ?? [];
                                 $serialFeatures = $item['serial_features'] ?? [];
-                                $stock = (int) ($item['stock'] ?? 0);
-                                $maxQty = max(1, $stock);
+                                $stock = (float) ($item['stock'] ?? 0);
+                                $qtyLabel = \App\Support\Quantity::displayStockByMode($mode, $qty);
                                 $prices = $item['prices'] ?? [];
                                 $precioUnit = $isSerialized && !empty($prices) ? (float) $prices[0] : (float) ($item['price'] ?? 0);
                                 $subtotal = $precioUnit * $qty;
@@ -223,7 +234,7 @@
                                     @endif
                                 </td>
                                 <td class="px-4 py-2">
-                                    <span class="text-sm font-medium">{{ $qty }}</span>
+                                    <span class="text-sm font-medium">{{ $qtyLabel }}</span>
                                     @if(!$isSerialized)
                                         <span class="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">Para cambiar: quitar y agregar de nuevo</span>
                                     @endif

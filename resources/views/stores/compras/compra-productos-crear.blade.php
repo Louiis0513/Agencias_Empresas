@@ -155,7 +155,7 @@
                             <div x-show="lineForm.product_type !== 'serialized'" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div>
                                     <label class="block text-xs text-gray-400 mb-1">Cantidad</label>
-                                    <input type="number" min="1" class="w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" x-model.number="lineForm.quantity" @input="recomputeModalSubtotal()">
+                                    <input type="number" min="0.01" step="0.01" class="w-full rounded-md border-white/10 bg-white/5 text-gray-100 text-sm" x-model.number="lineForm.quantity" @input="recomputeModalSubtotal()">
                                 </div>
                                 <div>
                                     <label class="block text-xs text-gray-400 mb-1">Costo unitario ({{ currency_symbol($store->currency ?? 'COP') }})</label>
@@ -261,7 +261,7 @@
                         features: unit.features && typeof unit.features === 'object' ? unit.features : {}
                     };
                 });
-                const serializedQty = serialItems.length > 0 ? serialItems.length : Math.max(1, parseInt(d.quantity, 10) || 1);
+                const serializedQty = serialItems.length > 0 ? serialItems.length : Math.max(0.01, parseFloat(d.quantity) || 0.01);
                 const serializedTotal = serialItems.reduce((acc, u) => acc + (parseFloat(u.cost) || 0), 0);
                 return {
                     item_type: 'INVENTARIO',
@@ -271,7 +271,7 @@
                     product_variant_id: bi.product_variant_id ? Number(bi.product_variant_id) : null,
                     quantity: isSerialized
                         ? serializedQty
-                        : Math.max(1, parseInt(isBatch ? (bi.quantity ?? d.quantity) : d.quantity, 10) || 1),
+                        : Math.max(0.01, parseFloat(isBatch ? (bi.quantity ?? d.quantity) : d.quantity) || 0.01),
                     unit_cost: isSerialized
                         ? (serializedQty > 0 ? (serializedTotal / serializedQty) : 0)
                         : (parseFloat(isBatch ? (bi.unit_cost ?? d.unit_cost) : d.unit_cost) || 0),
@@ -326,7 +326,7 @@
                         this.lineForm.subtotal = total;
                         return;
                     }
-                    this.lineForm.quantity = Math.max(1, parseInt(this.lineForm.quantity, 10) || 1);
+                    this.lineForm.quantity = Math.max(0.01, parseFloat(this.lineForm.quantity) || 0.01);
                     this.lineForm.unit_cost = parseMoney(this.lineForm.unit_cost_display);
                     this.lineForm.subtotal = this.lineForm.quantity * this.lineForm.unit_cost;
                 },

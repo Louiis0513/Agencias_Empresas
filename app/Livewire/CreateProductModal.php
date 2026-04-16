@@ -4,7 +4,9 @@ namespace App\Livewire;
 
 use App\Models\Category;
 use App\Models\MovimientoInventario;
+use App\Models\Product;
 use App\Models\Store;
+use App\Support\Quantity;
 use App\Services\ConvertidorImgService;
 use App\Services\ProductService;
 use Illuminate\Support\Facades\Auth;
@@ -31,6 +33,8 @@ class CreateProductModal extends Component
     public string $price = '0';
     public string $cost = '0';
     public string $stock = '0';
+    public string $quantity_mode = Product::QUANTITY_MODE_UNIT;
+    public string $quantity_step = '1.00';
     public string $location = '';
     /** Tipo de producto: simple, batch o serialized */
     public string $type = 'simple';
@@ -89,6 +93,8 @@ class CreateProductModal extends Component
 
         $rules = [
             'type' => ['required', 'string', Rule::in(['simple', MovimientoInventario::PRODUCT_TYPE_BATCH, MovimientoInventario::PRODUCT_TYPE_SERIALIZED])],
+            'quantity_mode' => Quantity::quantityModeRules(),
+            'quantity_step' => Quantity::stepRulesForMode($this->quantity_mode),
             'name' => ['required', 'string', 'min:1', 'max:255'],
             'barcode' => ['nullable', 'string', 'max:255'],
             'sku' => ['nullable', 'string', 'max:255'],
@@ -103,7 +109,9 @@ class CreateProductModal extends Component
         if ($this->type === 'simple') {
             $rules['price'] = ['nullable', 'numeric', 'min:0'];
             $rules['cost'] = ['nullable', 'numeric', 'min:0'];
-            $rules['stock'] = ['nullable', 'integer', 'min:0'];
+            $rules['stock'] = $this->quantity_mode === Product::QUANTITY_MODE_DECIMAL
+                ? ['nullable', 'numeric', 'min:0', 'regex:/^\d+(\.\d{1,2})?$/']
+                : ['nullable', 'integer', 'min:0'];
             $rules['image'] = ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120'];
         }
 
@@ -113,7 +121,9 @@ class CreateProductModal extends Component
             $rules['variants.*.barcode'] = ['nullable', 'string', 'max:255'];
             $rules['variants.*.price'] = ['nullable', 'numeric', 'min:0'];
             $rules['variants.*.cost'] = ['nullable', 'numeric', 'min:0'];
-            $rules['variants.*.stock_initial'] = ['nullable', 'integer', 'min:0'];
+            $rules['variants.*.stock_initial'] = $this->quantity_mode === Product::QUANTITY_MODE_DECIMAL
+                ? ['nullable', 'numeric', 'min:0', 'regex:/^\d+(\.\d{1,2})?$/']
+                : ['nullable', 'integer', 'min:0'];
             $rules['variants.*.batch_number'] = ['nullable', 'string', 'max:255'];
             $rules['variants.*.expiration_date'] = ['nullable', 'date'];
         }
@@ -227,9 +237,21 @@ class CreateProductModal extends Component
         // Serializado: no se agrega unidad automáticamente; el usuario marca "Tiene stock inicial" y añade unidades si quiere
         if ($this->type === MovimientoInventario::PRODUCT_TYPE_SERIALIZED) {
             $this->has_initial_stock = false;
+            $this->quantity_mode = Product::QUANTITY_MODE_UNIT;
+            $this->quantity_step = '1.00';
         }
         
         $this->resetValidation();
+    }
+
+    public function updatedQuantityMode($value): void
+    {
+        if ($this->type === MovimientoInventario::PRODUCT_TYPE_SERIALIZED) {
+            $this->quantity_mode = Product::QUANTITY_MODE_UNIT;
+            $this->quantity_step = '1.00';
+        } else {
+            $this->quantity_step = $value === Product::QUANTITY_MODE_DECIMAL ? '0.01' : '1.00';
+        }
     }
 
     /**
@@ -346,13 +368,13 @@ class CreateProductModal extends Component
         $currency = $store->currency ?? 'COP';
         $price = 0;
         $cost = 0;
-        $stock = 0;
+        $stock = 0.0;
         $attributeValues = [];
 
         if ($this->type === 'simple') {
             $price = parse_money($this->price !== '' ? $this->price : 0, $currency);
             $cost = parse_money($this->cost !== '' ? $this->cost : 0, $currency);
-            $stock = (int) ($this->stock !== '' ? $this->stock : 0);
+            $stock = Quantity::normalize($this->stock !== '' ? $this->stock : 0);
             $attributeValues = $this->attribute_values;
         }
 
@@ -366,6 +388,8 @@ class CreateProductModal extends Component
                 'price' => $price,
                 'cost' => $cost,
                 'stock' => $stock,
+                'quantity_mode' => $this->quantity_mode,
+                'quantity_step' => Quantity::normalize($this->quantity_step),
                 'location' => $this->location ?: null,
                 'is_active' => $this->is_active,
                 'attribute_values' => $attributeValues,
@@ -381,6 +405,9 @@ class CreateProductModal extends Component
                 $productData['variants'] = array_map(function ($v) use ($currency) {
                     $v['price'] = isset($v['price']) && $v['price'] !== '' ? parse_money($v['price'], $currency) : 0;
                     $v['cost'] = isset($v['cost']) && $v['cost'] !== '' ? parse_money($v['cost'], $currency) : 0;
+                    if (isset($v['stock_initial']) && $v['stock_initial'] !== '') {
+                        $v['stock_initial'] = Quantity::normalize($v['stock_initial']);
+                    }
 
                     return $v;
                 }, $this->variants);
@@ -435,6 +462,7 @@ class CreateProductModal extends Component
             'name', 'barcode', 'sku', 'category_id', 'location',
             'type', 'is_active', 'attribute_values', 'compraRowId',
             'price', 'cost', 'stock', 'variants', 'serializedItems', 'has_initial_stock',
+            'quantity_mode', 'quantity_step',
             'image',
         ]);
         $this->price = '0';
@@ -443,6 +471,8 @@ class CreateProductModal extends Component
         $this->variants = [];
         $this->serializedItems = [];
         $this->has_initial_stock = false;
+        $this->quantity_mode = Product::QUANTITY_MODE_UNIT;
+        $this->quantity_step = '1.00';
         $this->resetValidation();
 
         if ($this->fromPurchase) {

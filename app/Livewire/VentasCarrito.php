@@ -6,6 +6,7 @@ use App\Models\Customer;
 use App\Models\Product;
 use App\Models\ProductItem;
 use App\Models\Store;
+use App\Support\Quantity;
 use App\Services\CotizacionService;
 use App\Services\InventarioService;
 use App\Services\VentaService;
@@ -28,8 +29,8 @@ class VentasCarrito extends Component
     public ?array $pendienteBatch = null;
 
     /** Cantidad a agregar (para formularios pendiente simple / batch) */
-    public int $cantidadSimple = 1;
-    public int $cantidadBatch = 1;
+    public string $cantidadSimple = '1';
+    public string $cantidadBatch = '1';
 
     /** Modal unidades disponibles (producto serializado) */
     public ?int $productoSerializadoId = null;
@@ -94,10 +95,11 @@ class VentasCarrito extends Component
                 'product_id' => $producto->id,
                 'name' => $producto->name,
                 'price' => $ventaService->verPrecio($store, (int) $producto->id, 'simple'),
-                'stock' => (int) $disponibilidad['cantidad'],
+                'stock' => (float) $disponibilidad['cantidad'],
+                'quantity_mode' => $producto->quantity_mode ?? Product::QUANTITY_MODE_UNIT,
             ];
             $this->pendienteBatch = null;
-            $this->cantidadSimple = 1;
+            $this->cantidadSimple = $this->defaultQuantityForMode((string) ($producto->quantity_mode ?? Product::QUANTITY_MODE_UNIT));
         } elseif ($productType === 'batch') {
             $this->pendienteSimple = null;
 
@@ -117,7 +119,7 @@ class VentasCarrito extends Component
                 }
                 $ventaService = app(VentaService::class);
                 $r = $ventaService->verificadorCarritoVariante($store, (int) $id, (int) $productVariantId);
-                $stock = (int) $r['cantidad'];
+                $stock = (float) $r['cantidad'];
 
                 $this->pendienteBatch = [
                     'product_id' => (int) $id,
@@ -127,8 +129,9 @@ class VentasCarrito extends Component
                     'variant_display_name' => $name,
                     'price' => $ventaService->verPrecio($store, (int) $id, 'batch', (int) $productVariantId),
                     'stock' => $stock,
+                    'quantity_mode' => $producto->quantity_mode ?? Product::QUANTITY_MODE_UNIT,
                 ];
-                $this->cantidadBatch = 1;
+                $this->cantidadBatch = $this->defaultQuantityForMode((string) ($producto->quantity_mode ?? Product::QUANTITY_MODE_UNIT));
             } else {
                 $this->dispatch('open-select-batch-variant', productId: $id, rowId: 'venta', productName: $name, variantKeysInCart: $this->getVariantKeysInCartForProduct((int) $id));
             }
@@ -168,10 +171,10 @@ class VentasCarrito extends Component
             return;
         }
         $ventaService = app(VentaService::class);
-        $stock = (int) $totalStock;
+        $stock = (float) $totalStock;
         if ($stock < 1 && $productVariantId) {
             $r = $ventaService->verificadorCarritoVariante($store, (int) $productId, (int) $productVariantId);
-            $stock = (int) $r['cantidad'];
+            $stock = (float) $r['cantidad'];
         }
         $this->pendienteBatch = [
             'product_id' => (int) $productId,
@@ -181,9 +184,10 @@ class VentasCarrito extends Component
             'variant_display_name' => $displayName,
             'price' => $price !== null ? (float) $price : ($productVariantId ? $ventaService->verPrecio($store, (int) $productId, 'batch', (int) $productVariantId) : 0),
             'stock' => $stock,
+            'quantity_mode' => $producto->quantity_mode ?? Product::QUANTITY_MODE_UNIT,
         ];
         $this->pendienteSimple = null;
-        $this->cantidadBatch = 1;
+        $this->cantidadBatch = $this->defaultQuantityForMode((string) ($producto->quantity_mode ?? Product::QUANTITY_MODE_UNIT));
     }
 
     public function cancelarPendienteSimple(): void
@@ -198,16 +202,31 @@ class VentasCarrito extends Component
 
     public function confirmarAgregarSimple(VentaService $ventaService): void
     {
-        $qty = max(1, (int) $this->cantidadSimple);
+        $qty = $this->parseRequestedQuantity($this->pendienteSimple, $this->cantidadSimple);
         $this->agregarSimpleAlCarrito($qty, $ventaService);
-        $this->cantidadSimple = 1;
+        $this->cantidadSimple = $this->defaultQuantityForMode((string) ($this->pendienteSimple['quantity_mode'] ?? Product::QUANTITY_MODE_UNIT));
     }
 
     public function confirmarAgregarVariante(VentaService $ventaService): void
     {
-        $qty = max(1, (int) $this->cantidadBatch);
+        $qty = $this->parseRequestedQuantity($this->pendienteBatch, $this->cantidadBatch);
         $this->agregarVarianteAlCarrito($qty, $ventaService);
-        $this->cantidadBatch = 1;
+        $this->cantidadBatch = $this->defaultQuantityForMode((string) ($this->pendienteBatch['quantity_mode'] ?? Product::QUANTITY_MODE_UNIT));
+    }
+
+    protected function defaultQuantityForMode(string $mode): string
+    {
+        return $mode === Product::QUANTITY_MODE_DECIMAL ? '0.01' : '1';
+    }
+
+    protected function parseRequestedQuantity(?array $pendiente, mixed $raw): float
+    {
+        $mode = (string) ($pendiente['quantity_mode'] ?? Product::QUANTITY_MODE_UNIT);
+        if ($mode === Product::QUANTITY_MODE_DECIMAL) {
+            return max(0.01, Quantity::normalize($raw ?? 0));
+        }
+
+        return (float) max(1, (int) $raw);
     }
 
     /**
@@ -457,7 +476,7 @@ class VentasCarrito extends Component
                 'product_id' => $productId,
                 'name' => $producto->name,
                 'quantity' => 1,
-                'stock' => (int) $producto->stock,
+                'stock' => Quantity::normalizeStockForProduct($producto, $producto->stock),
                 'price' => $precio,
                 'type' => 'serialized',
                 'serial_numbers' => [$serial],
@@ -481,7 +500,7 @@ class VentasCarrito extends Component
                 'product_id' => $productId,
                 'name' => $producto->name,
                 'quantity' => 1,
-                'stock' => (int) $producto->stock,
+                'stock' => Quantity::normalizeStockForProduct($producto, $producto->stock),
                 'price' => $precio,
                 'type' => 'serialized',
                 'serial_numbers' => [$serial],
@@ -554,7 +573,7 @@ class VentasCarrito extends Component
             'product_id' => $productId,
             'name' => $producto->name,
             'quantity' => 1,
-            'stock' => (int) $producto->stock,
+            'stock' => Quantity::normalizeStockForProduct($producto, $producto->stock),
             'price' => $precio,
             'type' => 'serialized',
             'serial_numbers' => [$serial],
@@ -566,20 +585,23 @@ class VentasCarrito extends Component
     /**
      * Agrega al carrito un producto simple (solo cantidad).
      */
-    public function agregarSimpleAlCarrito(int $quantity, VentaService $ventaService): void
+    public function agregarSimpleAlCarrito(float $quantity, VentaService $ventaService): void
     {
         $this->errorStock = null;
         if (! $this->pendienteSimple) {
             return;
         }
-        $quantity = max(1, $quantity);
+        $mode = (string) ($this->pendienteSimple['quantity_mode'] ?? Product::QUANTITY_MODE_UNIT);
+        $quantity = $mode === Product::QUANTITY_MODE_DECIMAL
+            ? max(0.01, Quantity::normalize($quantity))
+            : (float) max(1, (int) $quantity);
         $store = $this->getStoreProperty();
         if (! $store) {
             $this->pendienteSimple = null;
             return;
         }
         $productId = (int) $this->pendienteSimple['product_id'];
-        $stock = (int) $this->pendienteSimple['stock'];
+        $stock = (float) $this->pendienteSimple['stock'];
         if ($quantity > $stock) {
             $this->errorStock = "Stock insuficiente. Disponible: {$stock}, solicitado: {$quantity}.";
             return;
@@ -592,6 +614,7 @@ class VentasCarrito extends Component
             'stock' => $stock,
             'price' => (float) $this->pendienteSimple['price'],
             'type' => 'simple',
+            'quantity_mode' => $mode,
         ];
         $items = $this->carritoToItemsParaValidar($carritoSimulado);
         try {
@@ -607,6 +630,7 @@ class VentasCarrito extends Component
             'stock' => $stock,
             'price' => (float) $this->pendienteSimple['price'],
             'type' => 'simple',
+            'quantity_mode' => $mode,
         ];
         $this->pendienteSimple = null;
     }
@@ -614,13 +638,16 @@ class VentasCarrito extends Component
     /**
      * Agrega al carrito una variante de producto lote (por variante, stock total en todos los lotes).
      */
-    public function agregarVarianteAlCarrito(int $quantity, VentaService $ventaService): void
+    public function agregarVarianteAlCarrito(float $quantity, VentaService $ventaService): void
     {
         $this->errorStock = null;
         if (! $this->pendienteBatch) {
             return;
         }
-        $quantity = max(1, $quantity);
+        $mode = (string) ($this->pendienteBatch['quantity_mode'] ?? Product::QUANTITY_MODE_UNIT);
+        $quantity = $mode === Product::QUANTITY_MODE_DECIMAL
+            ? max(0.01, Quantity::normalize($quantity))
+            : (float) max(1, (int) $quantity);
         $store = $this->getStoreProperty();
         if (! $store) {
             $this->pendienteBatch = null;
@@ -635,7 +662,7 @@ class VentasCarrito extends Component
 
             return;
         }
-        $stockVariante = (int) $this->pendienteBatch['stock'];
+        $stockVariante = (float) $this->pendienteBatch['stock'];
         if ($quantity > $stockVariante) {
             $this->errorStock = "Stock insuficiente en esta variante. Disponible: {$stockVariante}, solicitado: {$quantity}.";
             return;
@@ -657,6 +684,7 @@ class VentasCarrito extends Component
             'stock' => $stockVariante,
             'price' => (float) $this->pendienteBatch['price'],
             'type' => 'batch',
+            'quantity_mode' => $mode,
         ];
         $this->pendienteBatch = null;
     }
@@ -675,12 +703,12 @@ class VentasCarrito extends Component
                 $items[] = [
                     'product_id' => (int) ($row['product_id'] ?? 0),
                     'product_variant_id' => (int) $row['product_variant_id'],
-                    'quantity' => (int) ($row['quantity'] ?? 0),
+                    'quantity' => (float) ($row['quantity'] ?? 0),
                 ];
             } else {
                 $pid = (int) ($row['product_id'] ?? 0);
                 if ($pid > 0) {
-                    $byProduct[$pid] = ($byProduct[$pid] ?? 0) + (int) ($row['quantity'] ?? 0);
+                    $byProduct[$pid] = ($byProduct[$pid] ?? 0) + (float) ($row['quantity'] ?? 0);
                 }
             }
         }
@@ -716,13 +744,16 @@ class VentasCarrito extends Component
     /**
      * Actualiza la cantidad de una línea del carrito por su índice. Valida stock (producto o variante).
      */
-    public function actualizarCantidadPorIndice(int $index, int $quantity): void
+    public function actualizarCantidadPorIndice(int $index, float $quantity): void
     {
         $this->errorStock = null;
         if (! isset($this->carrito[$index])) {
             return;
         }
-        $quantity = max(0, $quantity);
+        $mode = (string) (($this->carrito[$index]['quantity_mode'] ?? Product::QUANTITY_MODE_UNIT));
+        $quantity = $mode === Product::QUANTITY_MODE_DECIMAL
+            ? max(0, Quantity::normalize($quantity))
+            : (float) max(0, (int) $quantity);
         $item = &$this->carrito[$index];
         if (! empty($item['serial_numbers'] ?? [])) {
             return;
@@ -736,12 +767,12 @@ class VentasCarrito extends Component
         if (! $store) {
             return;
         }
-        $stockMax = (int) ($item['stock'] ?? 0);
+        $stockMax = (float) ($item['stock'] ?? 0);
         if ($quantity > $stockMax) {
             $this->errorStock = "Cantidad máxima disponible: {$stockMax}.";
             return;
         }
-        $cantidadAnterior = (int) $item['quantity'];
+        $cantidadAnterior = (float) $item['quantity'];
         $item['quantity'] = $quantity;
         $ventaService = app(VentaService::class);
         $productId = (int) $item['product_id'];
@@ -783,11 +814,12 @@ class VentasCarrito extends Component
     {
         $total = 0.0;
         foreach ($this->carrito as $item) {
-            $qty = (int) ($item['quantity'] ?? 0);
+            $qty = (float) ($item['quantity'] ?? 0);
             $isSerialized = ! empty($item['serial_numbers'] ?? []);
             $prices = $item['prices'] ?? [];
             $precioUnit = $isSerialized && ! empty($prices) ? (float) $prices[0] : (float) ($item['price'] ?? 0);
-            $total += $precioUnit * max(1, $qty);
+            $minQty = (($item['quantity_mode'] ?? Product::QUANTITY_MODE_UNIT) === Product::QUANTITY_MODE_DECIMAL) ? 0.01 : 1;
+            $total += $precioUnit * max($minQty, $qty);
         }
         $store = $this->getStoreProperty();
         $currency = $store?->currency ?? 'COP';

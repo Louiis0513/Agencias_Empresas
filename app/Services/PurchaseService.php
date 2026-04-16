@@ -9,6 +9,7 @@ use App\Models\ProductItem;
 use App\Models\Purchase;
 use App\Models\PurchaseDetail;
 use App\Models\Store;
+use App\Support\Quantity;
 use Exception;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
@@ -205,7 +206,7 @@ class PurchaseService
                     if (! empty($batchItems) && is_array($batchItems)) {
                         $items = [];
                         foreach ($batchItems as $bi) {
-                            $qty = (int) ($bi['quantity'] ?? 0);
+                            $qty = Quantity::normalize($bi['quantity'] ?? 0);
                             if ($qty < 1) {
                                 continue;
                             }
@@ -596,10 +597,10 @@ class PurchaseService
             $serialItems = $d['serial_items'] ?? null;
 
             if (! empty($batchItems) && is_array($batchItems)) {
-                $sumQty = 0;
+                $sumQty = 0.0;
                 $sumCost = 0.0;
                 foreach ($batchItems as $bi) {
-                    $q = (int) ($bi['quantity'] ?? 0);
+                    $q = Quantity::normalize($bi['quantity'] ?? 0);
                     $sumQty += $q;
                     $sumCost += $q * (float) ($bi['unit_cost'] ?? 0);
                 }
@@ -623,7 +624,7 @@ class PurchaseService
 
     protected function crearDetalle(Purchase $purchase, array $d): PurchaseDetail
     {
-        $quantity = (int) ($d['quantity'] ?? 0);
+        $quantity = Quantity::normalize($d['quantity'] ?? 0);
         $unitCost = (float) ($d['unit_cost'] ?? 0);
         $subtotal = $quantity * $unitCost;
 

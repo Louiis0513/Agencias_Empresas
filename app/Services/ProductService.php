@@ -11,6 +11,7 @@ use App\Models\ProductItem;
 use App\Models\ProductVariant;
 use App\Models\Store;
 use App\Services\CurrencyFormatService;
+use App\Support\Quantity;
 use Illuminate\Support\Facades\DB;
 use Exception;
 
@@ -106,7 +107,7 @@ class ProductService
             // Serializado: normalizar a array (vacío si no hay stock inicial)
             $serializedItems = isset($data['serializedItems']) && is_array($data['serializedItems']) ? $data['serializedItems'] : [];
             $hasInitialStock = $data['has_initial_stock'] ?? false;
-            $simpleInitialStockQty = 0;
+            $simpleInitialStockQty = 0.0;
             
             unset($data['attribute_values'], $data['proveedor_ids'], $data['variants'], $data['serializedItems'], $data['has_initial_stock']);
 
@@ -117,6 +118,17 @@ class ProductService
             $isSimpleProduct = ($productType === 'simple' || empty($productType));
             $isBatchProduct = ($productType === \App\Models\MovimientoInventario::PRODUCT_TYPE_BATCH);
             $isSerializedProduct = ($productType === \App\Models\MovimientoInventario::PRODUCT_TYPE_SERIALIZED);
+
+            if (! isset($data['quantity_mode'])) {
+                $data['quantity_mode'] = Product::QUANTITY_MODE_UNIT;
+            }
+            if (! isset($data['quantity_step'])) {
+                $data['quantity_step'] = $data['quantity_mode'] === Product::QUANTITY_MODE_DECIMAL ? 0.01 : 1.00;
+            }
+            if ($isSerializedProduct) {
+                $data['quantity_mode'] = Product::QUANTITY_MODE_UNIT;
+                $data['quantity_step'] = 1.00;
+            }
             
             if ($isSimpleProduct) {
                 $this->validateRequiredAttributes($category, $attributeValues);
@@ -132,7 +144,7 @@ class ProductService
             // Para productos simples con stock inicial
             $isSimpleProduct = (($data['type'] ?? null) === 'simple' || empty($data['type'] ?? null));
             if ($isSimpleProduct && $hasInitialStock) {
-                $simpleInitialStockQty = (int) ($data['stock'] ?? 0);
+                $simpleInitialStockQty = Quantity::normalize($data['stock'] ?? 0);
                 $data['stock'] = 0;
             }
             
@@ -274,6 +286,8 @@ class ProductService
      * Actualiza un producto existente en la tienda.
      * - Valida que el producto pertenezca a la tienda.
      * - Actualiza los valores de atributos del producto.
+     * - Si cambia quantity_mode entre decimal y unit, conserva products.stock real.
+     *   No modifica históricos (facturas/compras/movimientos ya registrados).
      */
     public function updateProduct(Store $store, int $productId, array $data): Product
     {
@@ -307,6 +321,22 @@ class ProductService
 
             $isSimpleProduct = ($product->type === 'simple' || empty($product->type));
             if ($isSimpleProduct) {
+                $currentQuantityMode = $product->isSerialized()
+                    ? Product::QUANTITY_MODE_UNIT
+                    : ($product->quantity_mode ?? Product::QUANTITY_MODE_UNIT);
+                $nextQuantityMode = $currentQuantityMode;
+                if (array_key_exists('quantity_mode', $data)) {
+                    $candidateMode = (string) $data['quantity_mode'];
+                    if (in_array($candidateMode, [Product::QUANTITY_MODE_UNIT, Product::QUANTITY_MODE_DECIMAL], true)) {
+                        $nextQuantityMode = $candidateMode;
+                    }
+                }
+
+                $data['quantity_mode'] = $nextQuantityMode;
+                $data['quantity_step'] = $nextQuantityMode === Product::QUANTITY_MODE_DECIMAL
+                    ? Quantity::normalize($data['quantity_step'] ?? $product->quantity_step ?? 0.01)
+                    : 1.00;
+
                 $hasPrice = array_key_exists('price', $data) && $data['price'] !== '' && $data['price'] !== null;
                 $hasMargin = array_key_exists('margin', $data) && $data['margin'] !== '' && $data['margin'] !== null;
                 $costForCalc = (float) ($data['cost'] ?? $product->cost ?? 0);
@@ -465,10 +495,10 @@ class ProductService
             }
 
             // Si tiene stock inicial, crear movimiento de entrada
-            $hasStock = ! empty($variant['has_stock']) && ! empty($variant['stock_initial']) && (int) $variant['stock_initial'] > 0;
+            $hasStock = ! empty($variant['has_stock']) && ! empty($variant['stock_initial']) && Quantity::normalize($variant['stock_initial']) > 0;
             if ($hasStock && $userId) {
                 $batchNumber = $variant['batch_number'] ?? 'L-' . date('Ymd');
-                $quantity = (int) $variant['stock_initial'];
+                $quantity = Quantity::normalize($variant['stock_initial']);
                 $expirationDate = isset($variant['expiration_date']) && trim((string) $variant['expiration_date']) !== ''
                     ? $variant['expiration_date']
                     : null;
@@ -857,10 +887,10 @@ class ProductService
             }
 
             // Si tiene stock inicial, crear movimiento de entrada
-            $hasStock = ! empty($variant['has_stock']) && ! empty($variant['stock_initial']) && (int) $variant['stock_initial'] > 0;
+            $hasStock = ! empty($variant['has_stock']) && ! empty($variant['stock_initial']) && Quantity::normalize($variant['stock_initial']) > 0;
             if ($hasStock) {
                 $batchNumber = $variant['batch_number'] ?? 'L-' . date('Ymd');
-                $quantity = (int) $variant['stock_initial'];
+                $quantity = Quantity::normalize($variant['stock_initial']);
 
                 $expirationDate = isset($variant['expiration_date']) && trim((string) $variant['expiration_date']) !== ''
                     ? $variant['expiration_date']

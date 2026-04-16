@@ -61,7 +61,7 @@ class StorePurchaseController extends Controller
             'details.*.product_id' => ['nullable'],
             'details.*.activo_id' => ['nullable'],
             'details.*.description' => ['nullable', 'string'],
-            'details.*.quantity' => ['required', 'integer', 'min:1'],
+            'details.*.quantity' => ['required', 'numeric', 'min:0.01', 'regex:/^\d+(\.\d{1,2})?$/'],
             'details.*.unit_cost' => ['required', 'numeric', 'min:0'],
         ]);
 
@@ -126,7 +126,7 @@ class StorePurchaseController extends Controller
             'details.*.product_id' => ['nullable'],
             'details.*.activo_id' => ['nullable'],
             'details.*.description' => ['nullable', 'string'],
-            'details.*.quantity' => ['required', 'integer', 'min:1'],
+            'details.*.quantity' => ['required', 'numeric', 'min:0.01', 'regex:/^\d+(\.\d{1,2})?$/'],
             'details.*.unit_cost' => ['required', 'numeric', 'min:0'],
         ]);
 

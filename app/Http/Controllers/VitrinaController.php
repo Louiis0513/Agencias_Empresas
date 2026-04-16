@@ -5,11 +5,13 @@ namespace App\Http\Controllers;
 use App\Models\Category;
 use App\Models\Cotizacion;
 use App\Models\Customer;
+use App\Models\Product;
 use App\Models\ProductItem;
 use App\Models\ProductVariant;
 use App\Models\Store;
 use App\Models\PanelSuscripcionesConfig;
 use App\Models\VitrinaConfig;
+use App\Support\Quantity;
 use App\Services\CotizacionService;
 use App\Services\InventarioService;
 use App\Services\VitrinaCartService;
@@ -124,7 +126,7 @@ class VitrinaController extends Controller
 
                     $stockResult = $inventarioService->stockDisponible($store, $product->id);
                     $inCart = $this->cartService->getQuantityInCart($store, $product->id, null, null);
-                    $stockVisible = max(0, (int) $stockResult['cantidad'] - $inCart);
+                    $stockVisible = max(0, (float) $stockResult['cantidad'] - $inCart);
                     $catalogItems->push((object) [
                         'display_name' => $displayName,
                         'price' => (float) ($product->price ?? 0),
@@ -135,6 +137,8 @@ class VitrinaController extends Controller
                         'variant_id' => null,
                         'product_item_id' => null,
                         'stock' => $stockVisible,
+                        'quantity_mode' => $product->quantity_mode ?? Product::QUANTITY_MODE_UNIT,
+                        'quantity_step' => (float) ($product->quantity_step ?? 1),
                     ]);
                 }
 
@@ -148,7 +152,7 @@ class VitrinaController extends Controller
                         $displayName = $product->name . ' (' . $variant->display_name . ')';
                         $stockResult = $inventarioService->stockDisponible($store, $product->id, null, null, $variant->id);
                         $inCart = $this->cartService->getQuantityInCart($store, $product->id, $variant->id, null);
-                        $stockVisible = max(0, (int) $stockResult['cantidad'] - $inCart);
+                        $stockVisible = max(0, (float) $stockResult['cantidad'] - $inCart);
 
                         $catalogItems->push((object) [
                             'display_name' => $displayName,
@@ -160,6 +164,8 @@ class VitrinaController extends Controller
                             'variant_id' => $variant->id,
                             'product_item_id' => null,
                             'stock' => $stockVisible,
+                            'quantity_mode' => $product->quantity_mode ?? Product::QUANTITY_MODE_UNIT,
+                            'quantity_step' => (float) ($product->quantity_step ?? 1),
                         ]);
                     }
                 }
@@ -197,6 +203,8 @@ class VitrinaController extends Controller
                             'variant_id' => null,
                             'product_item_id' => $item->id,
                             'stock' => $stockVisible,
+                            'quantity_mode' => Product::QUANTITY_MODE_UNIT,
+                            'quantity_step' => 1.0,
                         ]);
                     }
                 }
@@ -287,7 +295,15 @@ class VitrinaController extends Controller
         $productId = (int) $request->input('product_id');
         $variantId = $request->filled('variant_id') ? (int) $request->input('variant_id') : null;
         $productItemId = $request->filled('product_item_id') ? (int) $request->input('product_item_id') : null;
-        $quantity = max(1, (int) $request->input('quantity', 1));
+        $product = Product::where('store_id', $store->id)->where('id', $productId)->first();
+        if (! $product) {
+            $message = 'Producto no encontrado o no disponible.';
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => false, 'message' => $message], 422);
+            }
+            return redirect()->route('vitrina.show', ['slug' => $slug])->with('error', $message);
+        }
+        $quantity = $this->normalizeRequestedQuantity($product, $request->input('quantity', 1));
 
         $itemToValidate = $this->buildItemForStockValidation($store, $productId, $variantId, $productItemId, $quantity);
         if ($itemToValidate === null) {
@@ -329,7 +345,7 @@ class VitrinaController extends Controller
         $store = $config->store;
 
         $lineKey = (string) $request->input('line_key');
-        $delta = (int) $request->input('delta', 0);
+        $delta = (float) $request->input('delta', 0);
 
         if ($lineKey !== '' && $delta !== 0) {
             $cart = $this->cartService->getCartForStore($store);
@@ -341,9 +357,12 @@ class VitrinaController extends Controller
                 }
             }
             if ($line !== null && $delta > 0) {
-                $currentQty = (int) ($line['quantity'] ?? 0);
-                $newQty = $currentQty + $delta;
                 $productId = (int) ($line['product_id'] ?? 0);
+                $product = Product::where('store_id', $store->id)->where('id', $productId)->first();
+                $step = $product && $product->usesDecimalQuantity() ? (float) ($product->quantity_step ?? 0.01) : 1.0;
+                $delta = ($delta > 0 ? 1 : -1) * $step;
+                $currentQty = (float) ($line['quantity'] ?? 0);
+                $newQty = Quantity::normalize($currentQty + $delta);
                 $variantId = isset($line['variant_id']) ? (int) $line['variant_id'] : null;
                 $productItemId = isset($line['product_item_id']) ? (int) $line['product_item_id'] : null;
 
@@ -356,7 +375,7 @@ class VitrinaController extends Controller
                     $stockResult = $variantId !== null && $variantId > 0
                         ? $inventarioService->stockDisponible($store, $productId, null, null, $variantId)
                         : $inventarioService->stockDisponible($store, $productId);
-                    $maxStock = (int) $stockResult['cantidad'];
+                    $maxStock = (float) $stockResult['cantidad'];
                     if ($newQty > $maxStock) {
                         return redirect()->route('vitrina.show', ['slug' => $slug, 'view' => 'cart'])
                             ->with('error', "Stock insuficiente. Disponible: {$maxStock}, solicitado: {$newQty}.");
@@ -483,7 +502,7 @@ class VitrinaController extends Controller
 	 *
 	 * @return array{product_id: int, quantity?: int, product_variant_id?: int, serial_numbers?: array}|null
 	 */
-	private function buildItemForStockValidation(Store $store, int $productId, ?int $variantId, ?int $productItemId, int $quantity): ?array
+	private function buildItemForStockValidation(Store $store, int $productId, ?int $variantId, ?int $productItemId, float $quantity): ?array
 	{
 		if ($productItemId !== null && $productItemId > 0) {
 			$item = ProductItem::where('store_id', $store->id)
@@ -500,6 +519,19 @@ class VitrinaController extends Controller
 		}
 		return ['product_id' => $productId, 'quantity' => $quantity];
 	}
+
+    private function normalizeRequestedQuantity(Product $product, mixed $rawQuantity): float
+    {
+        if ($product->isSerialized()) {
+            return 1.0;
+        }
+
+        if ($product->usesDecimalQuantity()) {
+            return max(0.01, Quantity::normalize($rawQuantity));
+        }
+
+        return (float) max(1, (int) $rawQuantity);
+    }
 
 	/**
 	 * Búsqueda por "contiene": el texto del producto coincide si la búsqueda está contenida

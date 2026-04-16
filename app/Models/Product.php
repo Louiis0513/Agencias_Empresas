@@ -9,6 +9,9 @@ class Product extends Model
 {
     use HasFactory;
 
+    public const QUANTITY_MODE_UNIT = 'unit';
+    public const QUANTITY_MODE_DECIMAL = 'decimal';
+
     protected $fillable = [
         'store_id',
         'category_id',
@@ -20,6 +23,8 @@ class Product extends Model
         'cost',
         'margin',
         'stock',
+        'quantity_mode',
+        'quantity_step',
         'location',
         'type',
         'is_active',
@@ -30,7 +35,8 @@ class Product extends Model
         'price' => 'decimal:2',
         'cost' => 'decimal:2',
         'margin' => 'decimal:2',
-        'stock' => 'integer',
+        'stock' => 'decimal:2',
+        'quantity_step' => 'decimal:2',
         'is_active' => 'boolean',
         'in_showcase' => 'boolean',
     ];
@@ -110,5 +116,10 @@ class Product extends Model
     public function isBatch(): bool
     {
         return $this->type === MovimientoInventario::PRODUCT_TYPE_BATCH;
+    }
+
+    public function usesDecimalQuantity(): bool
+    {
+        return ($this->quantity_mode ?? self::QUANTITY_MODE_UNIT) === self::QUANTITY_MODE_DECIMAL;
     }
 }

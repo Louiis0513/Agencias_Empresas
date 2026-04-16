@@ -27,7 +27,7 @@ class InvoiceDetail extends Model
 
     protected $casts = [
         'unit_price' => 'decimal:2',
-        'quantity' => 'integer',
+        'quantity' => 'decimal:2',
         'discount_value' => 'decimal:2',
         'discount_amount' => 'decimal:2',
         'subtotal_before_discount' => 'decimal:2',

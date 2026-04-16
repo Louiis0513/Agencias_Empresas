@@ -25,6 +25,32 @@
                     <x-input-error :messages="$errors->get('type')" class="mt-1" />
                 </div>
 
+                @if($type !== 'serialized')
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <x-input-label for="quantity_mode" value="{{ __('Modo de cantidad') }}" />
+                            <select wire:model.live="quantity_mode"
+                                    id="quantity_mode"
+                                    class="block mt-1 w-full rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand">
+                                <option value="unit">Unidad (entero)</option>
+                                <option value="decimal">Peso/decimal</option>
+                            </select>
+                            <x-input-error :messages="$errors->get('quantity_mode')" class="mt-1" />
+                        </div>
+                        <div>
+                            <x-input-label for="quantity_step" value="{{ __('Paso de cantidad') }}" />
+                            <x-text-input wire:model.live="quantity_step"
+                                          id="quantity_step"
+                                          class="block mt-1 w-full"
+                                          type="number"
+                                          min="0.01"
+                                          step="0.01"
+                                          :readonly="$quantity_mode === 'unit'" />
+                            <x-input-error :messages="$errors->get('quantity_step')" class="mt-1" />
+                        </div>
+                    </div>
+                @endif
+
                 {{-- ========== FORMULARIO TIPO SIMPLE (por defecto) ========== --}}
                 @if($type === 'simple')
                     <div>
@@ -131,7 +157,7 @@
                         </div>
                         <div>
                             <x-input-label for="stock" value="{{ __('Stock inicial') }}" />
-                            <x-text-input wire:model="stock" id="stock" class="block mt-1 w-full" type="number" min="0" placeholder="0" />
+                            <x-text-input wire:model="stock" id="stock" class="block mt-1 w-full" type="number" min="0" :step="$quantity_mode === 'decimal' ? '0.01' : '1'" placeholder="0" />
                             <x-input-error :messages="$errors->get('stock')" class="mt-1" />
                         </div>
                     </div>
@@ -257,7 +283,7 @@
                                                 </div>
                                                 <div>
                                                     <x-input-label for="variant-{{ $index }}-stock" value="{{ __('Stock inicial') }}" />
-                                                    <x-text-input wire:model.live="variants.{{ $index }}.stock_initial" id="variant-{{ $index }}-stock" class="block mt-1 w-full" type="number" min="0" placeholder="0" />
+                                                    <x-text-input wire:model.live="variants.{{ $index }}.stock_initial" id="variant-{{ $index }}-stock" class="block mt-1 w-full" type="number" min="0" :step="$quantity_mode === 'decimal' ? '0.01' : '1'" placeholder="0" />
                                                 </div>
                                             </div>
 

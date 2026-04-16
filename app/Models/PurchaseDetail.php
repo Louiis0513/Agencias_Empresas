@@ -23,7 +23,7 @@ class PurchaseDetail extends Model
     ];
 
     protected $casts = [
-        'quantity' => 'integer',
+        'quantity' => 'decimal:2',
         'unit_cost' => 'decimal:2',
         'subtotal' => 'decimal:2',
         'serial_items' => 'array',

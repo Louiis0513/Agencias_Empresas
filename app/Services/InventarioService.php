@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\ProductItem;
 use App\Models\ProductVariant;
 use App\Models\Store;
+use App\Support\Quantity;
 use Exception;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
@@ -114,7 +115,7 @@ class InventarioService
     /**
      * Resuelve el costo unitario para el registro de MovimientoInventario.
      */
-    protected function resolveUnitCostForMovement(array $datos, string $type, int $quantity, bool $isBatch): ?float
+    protected function resolveUnitCostForMovement(array $datos, string $type, float $quantity, bool $isBatch): ?float
     {
         if (isset($datos['unit_cost']) && $datos['unit_cost'] !== '' && $datos['unit_cost'] !== null) {
             return (float) $datos['unit_cost'];
@@ -124,7 +125,7 @@ class InventarioService
             if ($isBatch && ! empty($datos['batch_data']['items'])) {
                 $totalCost = 0;
                 foreach ($datos['batch_data']['items'] as $item) {
-                    $qty = (int) ($item['quantity'] ?? 0);
+                    $qty = Quantity::normalize($item['quantity'] ?? 0);
                     $cost = (float) ($item['cost'] ?? $item['unit_cost'] ?? 0);
                     $totalCost += $qty * $cost;
                 }
@@ -148,18 +149,20 @@ class InventarioService
     /**
      * Actualiza el stock del producto según el tipo de movimiento.
      */
-    public function actualizarStock(Product $product, string $type, int $quantity): void
+    public function actualizarStock(Product $product, string $type, float $quantity): void
     {
+        $currentStock = (float) $product->stock;
         if ($type === MovimientoInventario::TYPE_SALIDA) {
-            if ($product->stock < $quantity) {
+            if ($currentStock < $quantity) {
                 throw new Exception(
                     "Stock insuficiente en «{$product->name}». Actual: {$product->stock}, solicitado: {$quantity}."
                 );
             }
-            $product->stock -= $quantity;
+            $currentStock -= $quantity;
         } else {
-            $product->stock += $quantity;
+            $currentStock += $quantity;
         }
+        $product->stock = Quantity::format($currentStock);
         $product->save();
     }
 
@@ -179,7 +182,7 @@ class InventarioService
             $newTotalQty = 0;
             $newTotalCost = 0.0;
             foreach ($entradaItems as $item) {
-                $itemQty = (int) ($item['quantity'] ?? 0);
+                $itemQty = Quantity::normalize($item['quantity'] ?? 0);
                 if ($itemQty <= 0) {
                     continue;
                 }
@@ -189,17 +192,17 @@ class InventarioService
             }
 
             if ($newTotalQty > 0) {
-                $currentStock = (int) $product->stock;
+                $currentStock = (float) $product->stock;
                 $oldStock = max($currentStock - $newTotalQty, 0);
                 $oldCost = (float) $product->cost;
                 if ($currentStock > 0) {
                     if ($oldStock > 0) {
-                        $product->cost = round((($oldStock * $oldCost) + $newTotalCost) / $currentStock, 2);
+                        $product->cost = Quantity::format((($oldStock * $oldCost) + $newTotalCost) / $currentStock);
                     } else {
-                        $product->cost = round($newTotalCost / $currentStock, 2);
+                        $product->cost = Quantity::format($newTotalCost / $currentStock);
                     }
                 } else {
-                    $product->cost = 0.0;
+                    $product->cost = Quantity::format(0);
                 }
                 $product->save();
                 $this->actualizarCostReferencePorVariantes($product, $entradaItems);
@@ -217,7 +220,7 @@ class InventarioService
             return;
         }
 
-        $product->cost = $qty > 0 ? (float) round($total / $qty, 2) : 0.0;
+        $product->cost = $qty > 0 ? Quantity::format($total / $qty) : Quantity::format(0);
         $product->save();
         app(ProductService::class)->recalculateProductMargin($product);
 
@@ -235,7 +238,7 @@ class InventarioService
             $variantsToUpdate = [];
             foreach ($entradaItems as $item) {
                 $variantId = (int) ($item['product_variant_id'] ?? 0);
-                $qty = (int) ($item['quantity'] ?? 0);
+                $qty = Quantity::normalize($item['quantity'] ?? 0);
                 if ($variantId < 1 || $qty <= 0) {
                     continue;
                 }
@@ -325,9 +328,9 @@ class InventarioService
             $resolvedEntradaItems = null;
 
             $type = $datos['type'];
-            $quantity = (int) $datos['quantity'];
-            if ($quantity < 1) {
-                throw new Exception('La cantidad debe ser al menos 1.');
+            $quantity = Quantity::normalize($datos['quantity'] ?? 0);
+            if ($quantity < 0.01) {
+                throw new Exception('La cantidad debe ser mayor a 0.');
             }
 
             // Salida: validar stock disponible
@@ -541,8 +544,8 @@ class InventarioService
                     $existingItems = $batch->batchItems()->get()->keyBy('product_variant_id');
 
                     foreach ($batchInfo['items'] as $itemData) {
-                        $qty = (int) ($itemData['quantity'] ?? 0);
-                        if ($qty < 1) {
+                        $qty = Quantity::normalize($itemData['quantity'] ?? 0);
+                        if ($qty < 0.01) {
                             continue;
                         }
                         $unitCost = (float) ($itemData['cost'] ?? $itemData['unit_cost'] ?? $datos['unit_cost'] ?? 0);
@@ -620,9 +623,9 @@ class InventarioService
     /**
      * Salida FIFO sin variante específica (productos simples o lote general).
      */
-    public function registrarSalidaPorCantidadFIFO(Store $store, int $userId, int $productId, int $quantity, ?string $description = null, ?int $invoiceId = null): void
+    public function registrarSalidaPorCantidadFIFO(Store $store, int $userId, int $productId, float $quantity, ?string $description = null, ?int $invoiceId = null): void
     {
-        if ($quantity < 1) {
+        if ($quantity < 0.01) {
             return;
         }
 
@@ -751,9 +754,9 @@ class InventarioService
      * @param  int  $productVariantId  ID de la variante en product_variants
      * @throws Exception Si no hay stock suficiente
      */
-    public function registrarSalidaPorVarianteFIFO(Store $store, int $userId, int $productId, int $productVariantId, int $quantity, ?string $description = null, ?int $invoiceId = null): void
+    public function registrarSalidaPorVarianteFIFO(Store $store, int $userId, int $productId, int $productVariantId, float $quantity, ?string $description = null, ?int $invoiceId = null): void
     {
-        if ($quantity < 1) {
+        if ($quantity < 0.01) {
             return;
         }
 
@@ -779,7 +782,7 @@ class InventarioService
             if ($remaining <= 0) {
                 break;
             }
-            $take = min((int) $batchItem->quantity, $remaining);
+            $take = min((float) $batchItem->quantity, $remaining);
             $this->registrarMovimiento($store, $userId, [
                 'product_id'    => $productId,
                 'type'          => MovimientoInventario::TYPE_SALIDA,
@@ -838,7 +841,7 @@ class InventarioService
 
     protected function consultarStockSimple(Product $product): array
     {
-        $cantidad = (int) $product->stock;
+        $cantidad = Quantity::normalizeStockForProduct($product, $product->stock);
         return [
             'disponible' => $cantidad > 0,
             'cantidad'   => $cantidad,
@@ -893,7 +896,7 @@ class InventarioService
                 return ['disponible' => false, 'cantidad' => 0, 'status' => null];
             }
 
-            $cantidad = (int) $batchItem->quantity;
+            $cantidad = (float) $batchItem->quantity;
             return [
                 'disponible' => $cantidad > 0,
                 'cantidad'   => $cantidad,
@@ -910,7 +913,7 @@ class InventarioService
 
             return [
                 'disponible' => $cantidad > 0,
-                'cantidad'   => (int) $cantidad,
+                'cantidad'   => Quantity::normalize($cantidad),
                 'status'     => null,
             ];
         }
@@ -922,7 +925,7 @@ class InventarioService
 
         return [
             'disponible' => $cantidadTotal > 0,
-            'cantidad'   => (int) $cantidadTotal,
+            'cantidad'   => Quantity::normalize($cantidadTotal),
             'status'     => null,
         ];
     }
@@ -1008,8 +1011,8 @@ class InventarioService
                     }
                 }
             } else {
-                $quantity = (int) ($item['quantity'] ?? 0);
-                if ($quantity < 1) {
+                $quantity = Quantity::normalize($item['quantity'] ?? 0);
+                if ($quantity < 0.01) {
                     continue;
                 }
                 $productVariantId = $item['product_variant_id'] ?? null;
@@ -1033,7 +1036,7 @@ class InventarioService
      * Valida stock disponible y devuelve los fallos sin lanzar excepción.
      * Resultado keyed by product_id para facilitar mapeo en Livewire (ej. mensaje por fila).
      *
-     * @return \Illuminate\Support\Collection<int, array{product_id: int, product_name: string, solicitado: int, actual: int, message: string}>
+     * @return \Illuminate\Support\Collection<int, array{product_id: int, product_name: string, solicitado: float|int, actual: float|int, message: string}>
      */
     public function validarStockDisponibleResult(Store $store, array $items): \Illuminate\Support\Collection
     {
@@ -1053,7 +1056,7 @@ class InventarioService
                 $fallos[$productId] = [
                     'product_id' => $productId,
                     'product_name' => 'Producto #' . $productId,
-                    'solicitado' => (int) ($item['quantity'] ?? 0),
+                    'solicitado' => Quantity::normalize($item['quantity'] ?? 0),
                     'actual' => 0,
                     'message' => "El producto #{$productId} no existe o no pertenece a esta tienda.",
                 ];
@@ -1087,8 +1090,8 @@ class InventarioService
                     }
                 }
             } else {
-                $quantity = (int) ($item['quantity'] ?? 0);
-                if ($quantity < 1) {
+                $quantity = Quantity::normalize($item['quantity'] ?? 0);
+                if ($quantity < 0.01) {
                     continue;
                 }
                 $productVariantId = $item['product_variant_id'] ?? null;

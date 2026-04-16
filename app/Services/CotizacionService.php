@@ -7,6 +7,7 @@ use App\Models\Invoice;
 use App\Models\ProductItem;
 use App\Models\ProductVariant;
 use App\Models\Store;
+use App\Support\Quantity;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -53,7 +54,7 @@ class CotizacionService
 
                 $type = $item['type'] ?? 'simple';
                 $name = $item['name'] ?? null;
-                $quantity = (int) ($item['quantity'] ?? 0);
+                $quantity = Quantity::normalize($item['quantity'] ?? 0);
 
                 $unitPrice = $this->ventaService->verPrecio(
                     $store,
@@ -68,7 +69,7 @@ class CotizacionService
                 $cotizacion->items()->create([
                     'product_id' => $productId,
                     'type' => $type,
-                    'quantity' => max(1, $quantity),
+                    'quantity' => max(0.01, $quantity),
                     'unit_price' => $currencyService->roundForCurrency($unitPrice, $currency),
                     'product_variant_id' => $item['product_variant_id'] ?? null,
                     'variant_features' => $item['variant_features'] ?? null,
@@ -86,7 +87,7 @@ class CotizacionService
      * Convierte líneas del carrito de vitrina al formato que espera crearDesdeCarrito.
      *
      * @param  array  $vitrinaLines  Líneas de VitrinaCartService::getCartForStore: product_id, variant_id?, product_item_id?, name, quantity
-     * @return array<int, array{product_id: int, type: string, quantity: int, name: string|null, product_variant_id: int|null, variant_features: array|null, serial_numbers: array|null, variant_display_name: string|null}>
+     * @return array<int, array{product_id: int, type: string, quantity: float, name: string|null, product_variant_id: int|null, variant_features: array|null, serial_numbers: array|null, variant_display_name: string|null}>
      */
     public function carritoVitrinaToCarritoCotizacion(Store $store, array $vitrinaLines): array
     {
@@ -99,7 +100,7 @@ class CotizacionService
             $variantId = isset($row['variant_id']) ? (int) $row['variant_id'] : null;
             $productItemId = isset($row['product_item_id']) ? (int) $row['product_item_id'] : null;
             $name = (string) ($row['name'] ?? '');
-            $quantity = max(1, (int) ($row['quantity'] ?? 1));
+            $quantity = max(0.01, Quantity::normalize($row['quantity'] ?? 1));
 
             if ($productItemId !== null && $productItemId > 0) {
                 $item = ProductItem::where('store_id', $store->id)
@@ -194,7 +195,7 @@ class CotizacionService
                 $item->product_variant_id ?? null,
                 $item->serial_numbers
             );
-            $quantity = (int) $item->quantity;
+            $quantity = Quantity::normalize($item->quantity);
             $currency = $store->currency ?? 'COP';
             $currencyService = app(\App\Services\CurrencyFormatService::class);
             $subtotal = $currencyService->roundForCurrency($unitPrice * $quantity, $currency);
@@ -224,7 +225,7 @@ class CotizacionService
         $totalCotizado = 0.0;
         $totalActual = 0.0;
         foreach ($cotizacion->items as $i => $item) {
-            $qty = (int) $item->quantity;
+            $qty = Quantity::normalize($item->quantity);
             $precioCotizado = $item->unit_price !== null && $item->unit_price !== ''
                 ? (float) $item->unit_price
                 : ($preciosActuales[$i] ?? 0);

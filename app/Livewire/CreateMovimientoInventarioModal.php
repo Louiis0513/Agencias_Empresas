@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\ProductItem;
 use App\Models\ProductVariant;
 use App\Models\Store;
+use App\Support\Quantity;
 use App\Services\InventarioService;
 use App\Services\StorePermissionService;
 use Illuminate\Support\Facades\Auth;
@@ -63,10 +64,15 @@ class CreateMovimientoInventarioModal extends Component
 
     protected function rules(): array
     {
+        $product = $this->productoSeleccionado;
+        $quantityMode = $product && ! $product->isSerialized()
+            ? ($product->quantity_mode ?? Product::QUANTITY_MODE_UNIT)
+            : Product::QUANTITY_MODE_UNIT;
+
         return [
             'product_id'  => ['required', 'exists:products,id'],
             'type'        => ['required', 'in:ENTRADA,SALIDA'],
-            'quantity'    => ['nullable', 'integer', 'min:1'],
+            'quantity'    => Quantity::validationRulesForMode($quantityMode, false),
             'description' => ['nullable', 'string', 'max:500'],
             'unit_cost'   => ['nullable', 'numeric', 'min:0'],
         ];
@@ -77,7 +83,9 @@ class CreateMovimientoInventarioModal extends Component
         return [
             'product_id.required' => 'Debes seleccionar un producto.',
             'quantity.required'   => 'La cantidad es obligatoria.',
-            'quantity.min'        => 'La cantidad debe ser al menos 1.',
+            'quantity.min'        => 'La cantidad debe ser mayor a 0.',
+            'quantity.integer'    => 'La cantidad debe ser un número entero para este producto.',
+            'quantity.regex'      => 'La cantidad solo permite hasta 2 decimales.',
         ];
     }
 

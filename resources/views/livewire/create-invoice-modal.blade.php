@@ -97,12 +97,17 @@
 
                     {{-- Pendiente: cantidad para producto simple --}}
                     @if($pendienteSimple)
+                        @php
+                            $simpleMode = (string) ($pendienteSimple['quantity_mode'] ?? 'unit');
+                            $simpleMax = \App\Support\Quantity::displayStockByMode($simpleMode, $pendienteSimple['stock'] ?? 0);
+                        @endphp
                         <div class="p-4 rounded-xl border border-slate-600 bg-slate-800/50">
-                            <p class="text-sm font-medium text-slate-300 mb-2">Cantidad para <strong class="text-white">{{ $pendienteSimple['name'] }}</strong> (máx. {{ $pendienteSimple['stock'] }})</p>
+                            <p class="text-sm font-medium text-slate-300 mb-2">Cantidad para <strong class="text-white">{{ $pendienteSimple['name'] }}</strong> (máx. {{ $simpleMax }})</p>
                             <div class="flex flex-wrap items-center gap-2">
                                 <input type="number"
                                        wire:model="cantidadSimple"
-                                       min="1"
+                                       min="{{ ($pendienteSimple['quantity_mode'] ?? 'unit') === 'decimal' ? '0.01' : '1' }}"
+                                       step="{{ ($pendienteSimple['quantity_mode'] ?? 'unit') === 'decimal' ? '0.01' : '1' }}"
                                        placeholder="Cantidad"
                                        class="w-24 rounded-md border-slate-600 bg-slate-900 text-white text-sm focus:ring-indigo-500 focus:border-indigo-500">
                                 <button type="button"
@@ -123,14 +128,19 @@
 
                     {{-- Pendiente: cantidad para variante (lote) --}}
                     @if($pendienteBatch)
+                        @php
+                            $batchMode = (string) ($pendienteBatch['quantity_mode'] ?? 'unit');
+                            $batchMax = \App\Support\Quantity::displayStockByMode($batchMode, $pendienteBatch['stock'] ?? 0);
+                        @endphp
                         <div class="p-4 rounded-xl border border-slate-600 bg-slate-800/50">
                             <p class="text-sm font-medium text-slate-300 mb-2">
-                                Cantidad para <strong class="text-white">{{ $pendienteBatch['name'] }}</strong> — {{ $pendienteBatch['variant_display_name'] }} (máx. {{ $pendienteBatch['stock'] }})
+                                Cantidad para <strong class="text-white">{{ $pendienteBatch['name'] }}</strong> — {{ $pendienteBatch['variant_display_name'] }} (máx. {{ $batchMax }})
                             </p>
                             <div class="flex flex-wrap items-center gap-2">
                                 <input type="number"
                                        wire:model="cantidadBatch"
-                                       min="1"
+                                       min="{{ ($pendienteBatch['quantity_mode'] ?? 'unit') === 'decimal' ? '0.01' : '1' }}"
+                                       step="{{ ($pendienteBatch['quantity_mode'] ?? 'unit') === 'decimal' ? '0.01' : '1' }}"
                                        placeholder="Cantidad"
                                        class="w-24 rounded-md border-slate-600 bg-slate-900 text-white text-sm focus:ring-indigo-500 focus:border-indigo-500">
                                 <button type="button"

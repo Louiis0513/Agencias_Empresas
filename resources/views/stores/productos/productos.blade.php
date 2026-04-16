@@ -94,7 +94,7 @@
                                                 <div class="text-sm text-gray-400">{{ $product->category?->name ?? '—' }}</div>
                                             </td>
                                             <td class="px-4 py-3 whitespace-nowrap">
-                                                <span class="text-sm font-medium text-gray-100">{{ $product->stock }}</span>
+                                                <span class="text-sm font-medium text-gray-100">{{ \App\Support\Quantity::displayStockForProduct($product, $product->stock) }}</span>
                                             </td>
                                             <td class="px-4 py-3 whitespace-nowrap">
                                                 <div class="text-sm text-gray-400 max-w-[10rem] truncate" title="{{ $product->location }}">{{ $product->location ?? '—' }}</div>

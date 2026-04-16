@@ -7,6 +7,7 @@ use App\Models\Store;
 use App\Models\Product;
 use App\Models\Customer;
 use App\Models\Cotizacion;
+use App\Support\Quantity;
 use App\Services\CajaService;
 use App\Services\CotizacionService;
 use App\Services\CurrencyFormatService;
@@ -40,8 +41,8 @@ class CreateInvoiceModal extends Component
     /** Pendiente: producto simple o variante a agregar (pedir cantidad, validar stock). */
     public ?array $pendienteSimple = null;
     public ?array $pendienteBatch = null;
-    public int $cantidadSimple = 1;
-    public int $cantidadBatch = 1;
+    public string $cantidadSimple = '1';
+    public string $cantidadBatch = '1';
     public ?string $errorStock = null;
 
     /** Modal unidades serializadas (solo status AVAILABLE) */
@@ -223,8 +224,8 @@ class CreateInvoiceModal extends Component
         $this->discountPanelOpen = [];
         $this->pendienteSimple = null;
         $this->pendienteBatch = null;
-        $this->cantidadSimple = 1;
-        $this->cantidadBatch = 1;
+        $this->cantidadSimple = '1';
+        $this->cantidadBatch = '1';
         $this->errorStock = null;
         $this->cerrarModalUnidadesFactura();
         $this->subtotal = 0;
@@ -488,10 +489,11 @@ class CreateInvoiceModal extends Component
                 'product_id' => $producto->id,
                 'name' => $producto->name,
                 'price' => $ventaService->verPrecio($store, (int) $producto->id, 'simple'),
-                'stock' => (int) $disponibilidad['cantidad'],
+                'stock' => (float) $disponibilidad['cantidad'],
+                'quantity_mode' => $producto->quantity_mode ?? Product::QUANTITY_MODE_UNIT,
             ];
             $this->pendienteBatch = null;
-            $this->cantidadSimple = 1;
+            $this->cantidadSimple = $this->defaultQuantityForMode((string) ($producto->quantity_mode ?? Product::QUANTITY_MODE_UNIT));
         } elseif ($productType === 'batch') {
             $this->pendienteSimple = null;
 
@@ -507,7 +509,7 @@ class CreateInvoiceModal extends Component
                 }
                 $ventaService = app(VentaService::class);
                 $r = $ventaService->verificadorCarritoVariante($store, (int) $id, (int) $productVariantId);
-                $stock = (int) $r['cantidad'];
+                $stock = (float) $r['cantidad'];
 
                 $this->pendienteBatch = [
                     'product_id' => (int) $id,
@@ -517,8 +519,9 @@ class CreateInvoiceModal extends Component
                     'variant_display_name' => $name,
                     'price' => $ventaService->verPrecio($store, (int) $id, 'batch', (int) $productVariantId),
                     'stock' => $stock,
+                    'quantity_mode' => $producto->quantity_mode ?? Product::QUANTITY_MODE_UNIT,
                 ];
-                $this->cantidadBatch = 1;
+                $this->cantidadBatch = $this->defaultQuantityForMode((string) ($producto->quantity_mode ?? Product::QUANTITY_MODE_UNIT));
             } else {
                 $this->dispatch('open-select-batch-variant', productId: $id, rowId: 'factura', productName: $name, variantKeysInCart: $this->getVariantKeysInFacturaParaProducto((int) $id));
             }
@@ -559,10 +562,10 @@ class CreateInvoiceModal extends Component
             return;
         }
         $ventaService = app(VentaService::class);
-        $stock = (int) $totalStock;
+        $stock = (float) $totalStock;
         if ($stock < 1 && $productVariantId) {
             $r = $ventaService->verificadorCarritoVariante($store, (int) $productId, (int) $productVariantId);
-            $stock = (int) $r['cantidad'];
+            $stock = (float) $r['cantidad'];
         }
         $this->pendienteBatch = [
             'product_id' => (int) $productId,
@@ -574,9 +577,10 @@ class CreateInvoiceModal extends Component
                 ? (float) $price
                 : ($productVariantId ? $ventaService->verPrecio($store, (int) $productId, 'batch', (int) $productVariantId) : 0),
             'stock' => $stock,
+            'quantity_mode' => $producto->quantity_mode ?? Product::QUANTITY_MODE_UNIT,
         ];
         $this->pendienteSimple = null;
-        $this->cantidadBatch = 1;
+        $this->cantidadBatch = $this->defaultQuantityForMode((string) ($producto->quantity_mode ?? Product::QUANTITY_MODE_UNIT));
     }
 
     /** Claves de variante ya en la factura para este producto (evitar duplicar en selector). */
@@ -637,20 +641,35 @@ class CreateInvoiceModal extends Component
         $this->pendienteBatch = null;
     }
 
+    protected function defaultQuantityForMode(string $mode): string
+    {
+        return $mode === Product::QUANTITY_MODE_DECIMAL ? '0.01' : '1';
+    }
+
+    protected function parseRequestedQuantity(?array $pendiente, mixed $raw): float
+    {
+        $mode = (string) ($pendiente['quantity_mode'] ?? Product::QUANTITY_MODE_UNIT);
+        if ($mode === Product::QUANTITY_MODE_DECIMAL) {
+            return max(0.01, Quantity::normalize($raw ?? 0));
+        }
+
+        return (float) max(1, (int) $raw);
+    }
+
     public function confirmarAgregarSimpleFactura(VentaService $ventaService): void
     {
         $this->errorStock = null;
         if (! $this->pendienteSimple) {
             return;
         }
-        $quantity = max(1, (int) $this->cantidadSimple);
+        $quantity = $this->parseRequestedQuantity($this->pendienteSimple, $this->cantidadSimple);
         $store = $this->getStoreProperty();
         if (! $store) {
             $this->pendienteSimple = null;
             return;
         }
         $productId = (int) $this->pendienteSimple['product_id'];
-        $stock = (int) $this->pendienteSimple['stock'];
+        $stock = (float) $this->pendienteSimple['stock'];
         if ($quantity > $stock) {
             $this->errorStock = "Stock insuficiente. Disponible: {$stock}, solicitado: {$quantity}.";
             return;
@@ -662,6 +681,7 @@ class CreateInvoiceModal extends Component
             'quantity' => $quantity,
             'price' => (float) $this->pendienteSimple['price'],
             'type' => 'simple',
+            'quantity_mode' => $this->pendienteSimple['quantity_mode'] ?? Product::QUANTITY_MODE_UNIT,
         ];
         $items = $this->productosFacturaToItemsParaValidar($productosSimulado);
         try {
@@ -682,9 +702,10 @@ class CreateInvoiceModal extends Component
             'discount_amount' => 0,
             'subtotal' => $precio * $quantity,
             'type' => 'simple',
+            'quantity_mode' => $this->pendienteSimple['quantity_mode'] ?? Product::QUANTITY_MODE_UNIT,
         ];
         $this->pendienteSimple = null;
-        $this->cantidadSimple = 1;
+        $this->cantidadSimple = '1';
         $this->calcularTotales();
     }
 
@@ -694,7 +715,7 @@ class CreateInvoiceModal extends Component
         if (! $this->pendienteBatch) {
             return;
         }
-        $quantity = max(1, (int) $this->cantidadBatch);
+        $quantity = $this->parseRequestedQuantity($this->pendienteBatch, $this->cantidadBatch);
         $store = $this->getStoreProperty();
         if (! $store) {
             $this->pendienteBatch = null;
@@ -709,7 +730,7 @@ class CreateInvoiceModal extends Component
 
             return;
         }
-        $stockVariante = (int) $this->pendienteBatch['stock'];
+        $stockVariante = (float) $this->pendienteBatch['stock'];
         if ($quantity > $stockVariante) {
             $this->errorStock = "Stock insuficiente en esta variante. Disponible: {$stockVariante}, solicitado: {$quantity}.";
             return;
@@ -724,6 +745,7 @@ class CreateInvoiceModal extends Component
             'quantity' => $quantity,
             'price' => (float) $this->pendienteBatch['price'],
             'type' => 'batch',
+            'quantity_mode' => $this->pendienteBatch['quantity_mode'] ?? Product::QUANTITY_MODE_UNIT,
         ];
         $items = $this->productosFacturaToItemsParaValidar($productosSimulado);
         try {
@@ -747,9 +769,10 @@ class CreateInvoiceModal extends Component
             'product_variant_id' => $pvId,
             'variant_features' => $variantFeatures,
             'variant_display_name' => $this->pendienteBatch['variant_display_name'] ?? '',
+            'quantity_mode' => $this->pendienteBatch['quantity_mode'] ?? Product::QUANTITY_MODE_UNIT,
         ];
         $this->pendienteBatch = null;
-        $this->cantidadBatch = 1;
+        $this->cantidadBatch = '1';
         $this->calcularTotales();
     }
 
@@ -768,12 +791,12 @@ class CreateInvoiceModal extends Component
                 $items[] = [
                     'product_id' => (int) ($row['product_id'] ?? 0),
                     'product_variant_id' => (int) $row['product_variant_id'],
-                    'quantity' => (int) ($row['quantity'] ?? 0),
+                    'quantity' => (float) ($row['quantity'] ?? 0),
                 ];
             } else {
                 $pid = (int) ($row['product_id'] ?? 0);
                 if ($pid > 0) {
-                    $byProduct[$pid] = ($byProduct[$pid] ?? 0) + (int) ($row['quantity'] ?? 0);
+                    $byProduct[$pid] = ($byProduct[$pid] ?? 0) + (float) ($row['quantity'] ?? 0);
                 }
             }
         }

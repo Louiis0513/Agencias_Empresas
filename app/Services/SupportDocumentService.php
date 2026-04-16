@@ -10,6 +10,7 @@ use App\Models\Proveedor;
 use App\Models\Store;
 use App\Models\SupportDocument;
 use App\Models\SupportDocumentSequence;
+use App\Support\Quantity;
 use Exception;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
@@ -238,13 +239,13 @@ class SupportDocumentService
             'inventory_items' => ['nullable', 'array'],
             'inventory_items.*.product_id' => ['required', 'integer'],
             'inventory_items.*.description' => ['nullable', 'string'],
-            'inventory_items.*.quantity' => ['required', 'integer', 'min:1'],
+            'inventory_items.*.quantity' => ['required', 'numeric', 'min:0.01', 'regex:/^\d+(\.\d{1,2})?$/'],
             'inventory_items.*.unit_cost' => ['required', 'numeric', 'min:0'],
             'inventory_items.*.tax_rate' => ['nullable', 'numeric', 'min:0'],
             'service_items' => ['nullable', 'array'],
             'service_items.*.service_name' => ['required', 'string', 'max:255'],
             'service_items.*.description' => ['nullable', 'string'],
-            'service_items.*.quantity' => ['required', 'integer', 'min:1'],
+            'service_items.*.quantity' => ['required', 'numeric', 'min:0.01', 'regex:/^\d+(\.\d{1,2})?$/'],
             'service_items.*.unit_cost' => ['required', 'numeric', 'min:0'],
             'service_items.*.tax_rate' => ['nullable', 'numeric', 'min:0'],
         ], [
@@ -280,6 +281,38 @@ class SupportDocumentService
             $serviceItems = $data['service_items'] ?? [];
             if (empty($inventoryItems) && empty($serviceItems)) {
                 $validator->errors()->add('items', 'Debes agregar al menos una línea (inventario o servicio).');
+            }
+
+            $inventoryProductIds = [];
+            foreach ($inventoryItems as $item) {
+                $productId = (int) ($item['product_id'] ?? 0);
+                if ($productId > 0) {
+                    $inventoryProductIds[] = $productId;
+                }
+            }
+
+            $productsById = Product::query()
+                ->where('store_id', $store->id)
+                ->whereIn('id', array_values(array_unique($inventoryProductIds)))
+                ->get()
+                ->keyBy('id');
+
+            foreach ($inventoryItems as $index => $item) {
+                $productId = (int) ($item['product_id'] ?? 0);
+                $product = $productsById->get($productId);
+                if (! $product) {
+                    continue;
+                }
+
+                $mode = (string) ($product->quantity_mode ?? Product::QUANTITY_MODE_UNIT);
+                if (! Quantity::isValidForMode($item['quantity'] ?? null, $mode)) {
+                    $validator->errors()->add(
+                        "inventory_items.{$index}.quantity",
+                        $mode === Product::QUANTITY_MODE_DECIMAL
+                            ? 'La cantidad del producto debe ser decimal válida (máximo 2 decimales, mínimo 0.01).'
+                            : 'La cantidad del producto debe ser un número entero mayor o igual a 1.'
+                    );
+                }
             }
         });
 
@@ -322,7 +355,11 @@ class SupportDocumentService
                 throw new ValidationException($validator);
             }
 
-            $quantity = (int) ($item['quantity'] ?? 0);
+            $mode = (string) ($product->quantity_mode ?? Product::QUANTITY_MODE_UNIT);
+            $rawQuantity = $item['quantity'] ?? 0;
+            $quantity = $mode === Product::QUANTITY_MODE_DECIMAL
+                ? Quantity::normalize($rawQuantity)
+                : (float) ((int) $rawQuantity);
             $unitCost = round((float) ($item['unit_cost'] ?? 0), 2);
             $taxRate = isset($item['tax_rate']) && $item['tax_rate'] !== '' ? (float) $item['tax_rate'] : null;
 
@@ -345,7 +382,7 @@ class SupportDocumentService
         }
 
         foreach ($serviceItems as $item) {
-            $quantity = (int) ($item['quantity'] ?? 0);
+            $quantity = Quantity::normalize($item['quantity'] ?? 0);
             $unitCost = round((float) ($item['unit_cost'] ?? 0), 2);
             $taxRate = isset($item['tax_rate']) && $item['tax_rate'] !== '' ? (float) $item['tax_rate'] : null;
 
@@ -412,7 +449,7 @@ class SupportDocumentService
                 throw new Exception("No puedes aprobar con productos inactivos: «{$product->name}».");
             }
 
-            if ($line->quantity < 1) {
+            if ((float) $line->quantity < 0.01) {
                 throw new Exception("La línea «{$product->name}» debe tener cantidad mayor a cero.");
             }
         }
@@ -482,11 +519,15 @@ class SupportDocumentService
             }
 
             $description = "Documento Soporte #{$reference} - {$line->description}";
+            $mode = (string) ($product->quantity_mode ?? Product::QUANTITY_MODE_UNIT);
+            $movementQty = $mode === Product::QUANTITY_MODE_DECIMAL
+                ? Quantity::normalize($line->quantity)
+                : (float) ((int) $line->quantity);
 
             $this->inventarioService->registrarMovimiento($store, $userId, [
                 'product_id' => $product->id,
                 'type' => MovimientoInventario::TYPE_ENTRADA,
-                'quantity' => (int) $line->quantity,
+                'quantity' => $movementQty,
                 'unit_cost' => (float) $line->unit_cost,
                 'description' => $description,
                 'reference' => $reference,

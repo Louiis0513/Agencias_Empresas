@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\ProductItem;
 use App\Models\ProductVariant;
 use App\Models\Store;
+use App\Support\Quantity;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -52,7 +53,7 @@ class InventoryExcelExportService
                 'sku' => $product->sku,
                 'barcode' => $product->barcode,
                 'serial' => null,
-                'stock' => (int) $product->stock,
+                'stock' => Quantity::normalizeStockByMode((string) ($product->quantity_mode ?? Product::QUANTITY_MODE_UNIT), $product->stock),
                 'precio' => $product->price !== null ? (float) $product->price : null,
                 'costo' => $product->cost !== null ? (float) $product->cost : null,
                 'margen' => $product->margin !== null ? (float) $product->margin : null,
@@ -83,7 +84,8 @@ class InventoryExcelExportService
                 $nombre .= ' ('.$variant->display_name.')';
             }
 
-            $stock = (int) ($variant->batch_items_sum_quantity ?? $variant->batchItems()->sum('quantity'));
+            $stockRaw = (float) ($variant->batch_items_sum_quantity ?? $variant->batchItems()->sum('quantity'));
+            $stock = $product->usesDecimalQuantity() ? Quantity::normalize($stockRaw) : (float) floor($stockRaw);
             $precio = $variant->selling_price;
             $costo = $variant->cost_reference !== null ? (float) $variant->cost_reference : null;
             $margen = $variant->margin !== null ? (float) $variant->margin : null;
