@@ -4,6 +4,7 @@
     $canExportInventarioExcel = $isProductos && $perm->can($store, 'inventario.view');
     $canExportInvoicesExcel = ! $isProductos && $perm->can($store, 'invoices.view');
     $canExportSupportDocsExcel = ! $isProductos && $perm->can($store, 'support-documents.export');
+    $canInvoiceAnalysis = ! $isProductos && $perm->can($store, 'reports.billing.view');
 @endphp
 <x-app-layout>
     <x-slot name="header">
@@ -44,6 +45,11 @@
                     @else
                         <button type="button" disabled class="px-3 py-2 rounded-lg border border-white/10 text-gray-500 text-sm cursor-not-allowed" title="Requiere permiso de exportar documentos soporte">
                             Exportar excel Documentos Soporte
+                        </button>
+                    @endif
+                    @if($canInvoiceAnalysis)
+                        <button type="button" onclick="window.dispatchEvent(new CustomEvent('open-invoice-analysis-modal'))" class="inline-flex items-center justify-center px-3 py-2 rounded-lg border border-teal-500/40 bg-teal-500/15 text-teal-200 text-sm font-medium hover:bg-teal-500/25 transition">
+                            Análisis de facturas
                         </button>
                     @endif
                 @endif
@@ -381,17 +387,234 @@
                     </div>
                 </div>
             @else
-                {{-- ========== INFORME FACTURACIÓN: solo placeholder (no carga el dashboard de productos) ========== --}}
+                {{-- ========== INFORME FACTURACIÓN ========== --}}
                 <div class="bg-dark-card border border-dashed border-white/15 rounded-xl p-10 text-center">
                     <svg class="mx-auto h-12 w-12 text-gray-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                     </svg>
                     <h3 class="text-lg font-semibold text-white">Informe de facturación</h3>
                     <p class="text-gray-400 text-sm mt-2 max-w-md mx-auto">
-                        Este panel se habilitará cuando definamos las métricas y permisos de facturación. No comparte contenido con el informe de productos.
+                        Métricas adicionales de facturación se irán sumando aquí. Puedes usar el conciliador de cartera desde el botón <span class="text-gray-300">Análisis de facturas</span> arriba.
                     </p>
                 </div>
+
+                @if($canInvoiceAnalysis)
+                    <div
+                        x-data="{ open: false }"
+                        @open-invoice-analysis-modal.window="open = true"
+                        @keydown.escape.window="open = false"
+                        x-show="open"
+                        x-cloak
+                        class="fixed inset-0 z-50 flex items-center justify-center p-4"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="invoice-analysis-title"
+                    >
+                        <div class="absolute inset-0 bg-black/60" @click="open = false"></div>
+                        <div class="relative z-10 w-full max-w-lg rounded-xl border border-white/10 bg-dark-card shadow-xl">
+                            <div class="flex items-start justify-between gap-3 border-b border-white/10 px-5 py-4">
+                                <div>
+                                    <h3 id="invoice-analysis-title" class="text-lg font-semibold text-white">Análisis de facturas</h3>
+                                    <p class="text-sm text-gray-400 mt-1">Analiza tus archivos con el conciliador de cartera. Sube un Excel y descarga el informe.</p>
+                                </div>
+                                <button type="button" class="rounded-lg p-1 text-gray-400 hover:bg-white/10 hover:text-white" @click="open = false" aria-label="Cerrar">
+                                    <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
+                            </div>
+                            <div class="px-5 py-4 space-y-4">
+                                @if(file_exists(public_path('plantilla-conciliacion.xlsx')))
+                                    <div class="text-center">
+                                        <a href="{{ asset('plantilla-conciliacion.xlsx') }}" download class="text-sm text-brand underline hover:text-brand/80">Plantilla de conciliación</a>
+                                    </div>
+                                @else
+                                    {{-- Coloca public/plantilla-conciliacion.xlsx para habilitar la descarga --}}
+                                    <p class="text-center text-xs text-gray-500">Plantilla de conciliación: añade el archivo <code class="text-gray-400">public/plantilla-conciliacion.xlsx</code> para ofrecer descarga.</p>
+                                @endif
+
+                                <form id="invoice-analysis-upload-form" action="{{ route('stores.reports.invoice-analysis.process', $store) }}" method="post" enctype="multipart/form-data" class="space-y-4">
+                                    @csrf
+                                    <div class="flex flex-wrap items-center justify-center gap-3">
+                                        <label for="invoice-analysis-excel-file" class="inline-block cursor-pointer rounded-lg bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow hover:bg-emerald-700 transition">
+                                            Seleccionar archivo Excel
+                                        </label>
+                                        <input type="file" id="invoice-analysis-excel-file" name="excel_file" accept=".xlsx,.xls" class="hidden" required>
+                                    </div>
+                                    <div id="invoice-analysis-drop-zone" class="cursor-pointer rounded-lg border-2 border-dashed border-white/20 bg-white/5 p-8 text-center transition hover:border-brand/50 hover:bg-white/[0.07]">
+                                        <svg class="mx-auto h-12 w-12 text-gray-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                        </svg>
+                                        <p class="text-gray-300 text-sm">o arrastra y suelta el archivo Excel aquí</p>
+                                        <p class="text-gray-500 text-xs mt-2">Formatos: .xlsx, .xls</p>
+                                        <p id="invoice-analysis-file-name" class="text-emerald-400 text-sm font-medium mt-3 hidden"></p>
+                                    </div>
+
+                                    <div id="invoice-analysis-loading" class="hidden">
+                                        <p class="text-center text-sm text-teal-300 font-medium mb-2" id="invoice-analysis-progress-text">Preparando archivo…</p>
+                                        <div class="h-2 w-full rounded-full bg-white/10 overflow-hidden">
+                                            <div id="invoice-analysis-progress-bar" class="h-full w-0 rounded-full bg-teal-500 transition-all duration-300"></div>
+                                        </div>
+                                        <p class="text-center text-xs text-gray-500 mt-2" id="invoice-analysis-progress-pct">0%</p>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                @endif
             @endif
         </div>
     </div>
+
+    @if($canInvoiceAnalysis ?? false)
+        @push('scripts')
+        <script>
+        (function () {
+            const processUrl = @json(route('stores.reports.invoice-analysis.process', $store));
+            const form = document.getElementById('invoice-analysis-upload-form');
+            const fileInput = document.getElementById('invoice-analysis-excel-file');
+            const dropZone = document.getElementById('invoice-analysis-drop-zone');
+            const loadingEl = document.getElementById('invoice-analysis-loading');
+            const fileNameEl = document.getElementById('invoice-analysis-file-name');
+            const progressBar = document.getElementById('invoice-analysis-progress-bar');
+            const progressText = document.getElementById('invoice-analysis-progress-text');
+            const progressPct = document.getElementById('invoice-analysis-progress-pct');
+            if (!form || !fileInput || !dropZone) return;
+
+            function setProgress(pct, label) {
+                if (progressBar) progressBar.style.width = Math.min(100, Math.max(0, pct)) + '%';
+                if (progressPct) progressPct.textContent = Math.round(pct) + '%';
+                if (progressText && label) progressText.textContent = label;
+            }
+
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(function (ev) {
+                dropZone.addEventListener(ev, function (e) { e.preventDefault(); e.stopPropagation(); });
+            });
+            dropZone.addEventListener('dragover', function () { dropZone.classList.add('border-brand/50', 'bg-white/[0.07]'); });
+            dropZone.addEventListener('dragleave', function () { dropZone.classList.remove('border-brand/50', 'bg-white/[0.07]'); });
+            dropZone.addEventListener('drop', function (e) {
+                dropZone.classList.remove('border-brand/50', 'bg-white/[0.07]');
+                const f = e.dataTransfer.files[0];
+                if (!f) return;
+                const dt = new DataTransfer();
+                dt.items.add(f);
+                fileInput.files = dt.files;
+                submitViaXhr();
+            });
+            dropZone.addEventListener('click', function () { fileInput.click(); });
+
+            fileInput.addEventListener('change', function () { submitViaXhr(); });
+
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+                submitViaXhr();
+            });
+
+            function readErrorMessage(xhr) {
+                return new Promise(function (resolve) {
+                    const blob = xhr.response;
+                    if (!blob || blob.size === 0) {
+                        resolve('Error al procesar (código ' + xhr.status + ')');
+                        return;
+                    }
+                    const reader = new FileReader();
+                    reader.onload = function () {
+                        var text = reader.result || '';
+                        try {
+                            var j = JSON.parse(text);
+                            if (j.message) return resolve(j.message);
+                            if (j.errors && j.errors.excel_file) return resolve(j.errors.excel_file[0]);
+                            if (j.errors) return resolve(Object.values(j.errors).flat().join(' '));
+                        } catch (err) {}
+                        resolve(text.slice(0, 400) || 'Error al procesar');
+                    };
+                    reader.readAsText(blob);
+                });
+            }
+
+            function submitViaXhr() {
+                if (!fileInput.files || !fileInput.files.length) return;
+                const file = fileInput.files[0];
+                const ext = '.' + file.name.split('.').pop().toLowerCase();
+                if (ext !== '.xlsx' && ext !== '.xls') {
+                    alert('Selecciona un archivo Excel (.xlsx o .xls)');
+                    fileInput.value = '';
+                    return;
+                }
+                if (fileNameEl) {
+                    fileNameEl.textContent = 'Archivo: ' + file.name;
+                    fileNameEl.classList.remove('hidden');
+                }
+                loadingEl.classList.remove('hidden');
+                setProgress(0, 'Subiendo archivo…');
+
+                const fd = new FormData(form);
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', processUrl);
+                xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+                var token = document.querySelector('meta[name="csrf-token"]');
+                if (token) xhr.setRequestHeader('X-CSRF-TOKEN', token.getAttribute('content'));
+                xhr.responseType = 'blob';
+
+                xhr.upload.addEventListener('progress', function (e) {
+                    if (e.lengthComputable) {
+                        var up = (e.loaded / e.total) * 30;
+                        setProgress(up, 'Subiendo archivo…');
+                    }
+                });
+
+                xhr.addEventListener('load', function () {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        var ct = xhr.getResponseHeader('Content-Type') || '';
+                        if (ct.indexOf('application/json') !== -1) {
+                            readErrorMessage(xhr).then(function (msg) { alert(msg); });
+                            loadingEl.classList.add('hidden');
+                            setProgress(0, '');
+                            return;
+                        }
+                        if (ct.indexOf('spreadsheetml') === -1 && ct.indexOf('octet-stream') === -1) {
+                            readErrorMessage(xhr).then(function (msg) { alert(msg || 'Respuesta inesperada del servidor'); });
+                            loadingEl.classList.add('hidden');
+                            setProgress(0, '');
+                            return;
+                        }
+                        var blob = xhr.response;
+                        if (!blob || blob.size === 0) {
+                            alert('El archivo generado está vacío.');
+                            loadingEl.classList.add('hidden');
+                            setProgress(0, '');
+                            return;
+                        }
+                        setProgress(100, 'Descargando…');
+                        var url = window.URL.createObjectURL(blob);
+                        var a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'InformeDeAnalizador.xlsx';
+                        document.body.appendChild(a);
+                        a.click();
+                        setTimeout(function () {
+                            document.body.removeChild(a);
+                            window.URL.revokeObjectURL(url);
+                        }, 100);
+                        loadingEl.classList.add('hidden');
+                        setProgress(0, 'Preparando archivo…');
+                        fileInput.value = '';
+                        if (fileNameEl) fileNameEl.classList.add('hidden');
+                        return;
+                    }
+                    readErrorMessage(xhr).then(function (msg) { alert(msg); });
+                    loadingEl.classList.add('hidden');
+                    setProgress(0, '');
+                });
+
+                xhr.addEventListener('error', function () {
+                    alert('Error de red. Intenta de nuevo.');
+                    loadingEl.classList.add('hidden');
+                    setProgress(0, '');
+                });
+
+                xhr.send(fd);
+            }
+        })();
+        </script>
+        @endpush
+    @endif
 </x-app-layout>

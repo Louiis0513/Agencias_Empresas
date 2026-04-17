@@ -12,6 +12,7 @@ use App\Http\Controllers\StoreConfigController;
 use App\Http\Controllers\StoreController;
 use App\Http\Controllers\StoreCustomerController;
 use App\Http\Controllers\StoreInventoryController;
+use App\Http\Controllers\StoreInvoiceAnalysisController;
 use App\Http\Controllers\StoreInvoiceController;
 use App\Http\Controllers\StorePanelSuscripcionesController;
 use App\Http\Controllers\StoreProductController;
@@ -88,6 +89,7 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
 
     Route::get('/productos', [StoreProductController::class, 'index'])->name('products');
     Route::get('/informes', [StoreController::class, 'reportsIndex'])->name('reports.index');
+    Route::post('/informes/analisis-facturas', [StoreInvoiceAnalysisController::class, 'process'])->name('reports.invoice-analysis.process');
     Route::get('/informes/productos', function (\App\Models\Store $store) {
         return redirect()->route('stores.reports.index', ['store' => $store, 'tab' => 'productos']);
     })->name('reports.products');

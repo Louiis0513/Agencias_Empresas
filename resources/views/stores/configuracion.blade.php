@@ -1,3 +1,6 @@
+@php
+    $openBasica = $errors->any() || session()->has('success') || session()->has('error');
+@endphp
 <x-app-layout>
     <x-slot name="header">
         <div class="flex justify-between items-center">
@@ -32,7 +35,51 @@
                 </div>
             @endif
 
-            <form action="{{ route('stores.configuracion.update', $store) }}" method="POST" enctype="multipart/form-data" class="space-y-8">
+            <div x-data="{ panel: @js($openBasica ? 'basica' : 'menu') }" class="space-y-8">
+                {{-- Índice: accesos a cada tipo de configuración --}}
+                <div x-show="panel === 'menu'" x-cloak class="space-y-4">
+                    <div>
+                        <h3 class="text-lg font-semibold text-white">Configuraciones</h3>
+                        <p class="text-sm text-gray-400 mt-1">Elige qué deseas configurar.</p>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        @storeCan($store, 'vitrina.view')
+                        <a href="{{ route('stores.vitrina.edit', $store) }}" wire:navigate
+                           class="flex w-full items-start gap-4 rounded-xl border border-white/10 bg-dark-card p-5 text-left text-white transition hover:border-brand/30 hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-brand/50">
+                            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-brand/20 text-brand">
+                                <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
+                            </span>
+                            <span class="min-w-0 flex-1">
+                                <span class="block font-medium text-white">Vitrina virtual</span>
+                                <span class="mt-1 block text-sm text-gray-400">Configura y comparte el enlace de tu catálogo para que tus clientes vean productos, planes y te contacten por WhatsApp o llamada.</span>
+                            </span>
+                        </a>
+                        @endstoreCan
+                        @storeCan($store, 'store-config.view')
+                        <button type="button" @click="panel = 'basica'"
+                                class="flex w-full items-start gap-4 rounded-xl border border-white/10 bg-dark-card p-5 text-left text-white transition hover:border-brand/30 hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-brand/50">
+                            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-brand/20 text-brand">
+                                <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                            </span>
+                            <span class="min-w-0 flex-1">
+                                <span class="block font-medium text-white">Configuración de la tienda</span>
+                                <span class="mt-1 block text-sm text-gray-400">Edita RUT/NIT, moneda, zona horaria, ubicación, logo y más.</span>
+                            </span>
+                        </button>
+                        @endstoreCan
+                    </div>
+                </div>
+
+                {{-- Formulario: configuración básica de la empresa --}}
+                <div x-show="panel === 'basica'" x-cloak class="space-y-8">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <button type="button" @click="panel = 'menu'"
+                                class="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm text-gray-300 transition hover:bg-white/5 hover:text-white focus:outline-none focus:ring-2 focus:ring-brand/50">
+                            <span aria-hidden="true">←</span> Volver a configuraciones
+                        </button>
+                    </div>
+
+                    <form action="{{ route('stores.configuracion.update', $store) }}" method="POST" enctype="multipart/form-data" class="space-y-8">
                 @csrf
                 @method('PUT')
 
@@ -176,12 +223,14 @@
                     <input type="file" name="logo" accept="image/*" class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-brand file:text-white file:font-medium hover:file:opacity-90">
                 </div>
 
-                <div class="flex justify-end">
-                    <button type="submit" class="px-6 py-2.5 bg-brand text-white font-medium rounded-xl hover:opacity-90 transition">
-                        Guardar configuración
-                    </button>
+                        <div class="flex justify-end">
+                            <button type="submit" class="px-6 py-2.5 bg-brand text-white font-medium rounded-xl hover:opacity-90 transition">
+                                Guardar configuración
+                            </button>
+                        </div>
+                    </form>
                 </div>
-            </form>
+            </div>
         </div>
     </div>
 </x-app-layout>

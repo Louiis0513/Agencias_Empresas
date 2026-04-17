@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+[x-cloak] {
+    display: none !important;
+}
+
 /* Legibilidad en opciones de selectores - texto oscuro sobre fondo claro */
 select option {
   background-color: #ffffff;
