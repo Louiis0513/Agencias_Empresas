@@ -6,9 +6,17 @@ use App\Http\Requests\StoreWorkerRequest;
 use App\Models\Role;
 use App\Models\Store;
 use App\Models\Worker;
+use App\Models\WorkerSchedule;
 use App\Services\StorePermissionService;
+use App\Services\StoreTimezoneService;
+use App\Services\WorkerScheduleClassificationExcelExportService;
+use App\Services\WorkerScheduleLiquidationService;
+use App\Services\WorkerScheduleService;
 use App\Services\WorkerService;
+use Carbon\Carbon;
 use Exception;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 
 class StoreWorkerController extends Controller
 {
@@ -23,7 +31,7 @@ class StoreWorkerController extends Controller
 
         if ($owner) {
             $workersList->push([
-                'id' => 'owner-' . $owner->id,
+                'id' => 'owner-'.$owner->id,
                 'worker_id' => null,
                 'name' => $owner->name,
                 'email' => $owner->email,
@@ -48,6 +56,243 @@ class StoreWorkerController extends Controller
         $rolesList = Role::where('store_id', $store->id)->orderBy('name')->get();
 
         return view('stores.trabajadoryrol.workers', compact('store', 'workersList', 'rolesList'));
+    }
+
+    public function timeAttendance(
+        Request $request,
+        Store $store,
+        StorePermissionService $permission,
+        WorkerScheduleService $scheduleService,
+        StoreTimezoneService $timezoneService,
+        WorkerScheduleLiquidationService $liquidationService
+    ) {
+        $permission->authorize($store, 'workers.schedules.view');
+
+        $tz = $timezoneService->getTimezoneForStore($store);
+        $workers = Worker::where('store_id', $store->id)->orderBy('name')->get();
+
+        $editing = null;
+        if ($request->filled('edit')) {
+            $editing = WorkerSchedule::query()
+                ->where('store_id', $store->id)
+                ->where('id', $request->query('edit'))
+                ->first();
+        }
+
+        $filterFrom = $request->query('from');
+        $filterTo = $request->query('to');
+        $filterWorkerId = $request->query('worker_id');
+
+        $schedules = collect();
+        $liquidacion = null;
+        $historialApplied = false;
+
+        $attemptedHistorial = $request->anyFilled(['from', 'to', 'worker_id']);
+
+        if ($attemptedHistorial) {
+            $validator = $this->makeHistorialRangeValidator($request, $store, $tz);
+
+            if ($validator->fails()) {
+                return view('stores.trabajadoryrol.worker-time-attendance', [
+                    'store' => $store,
+                    'workers' => $workers,
+                    'schedules' => $schedules,
+                    'editing' => $editing,
+                    'liquidacion' => null,
+                    'scheduleService' => $scheduleService,
+                    'historialApplied' => false,
+                    'historialFrom' => $filterFrom,
+                    'historialTo' => $filterTo,
+                    'historialWorkerId' => $filterWorkerId,
+                    'historialAttempted' => $attemptedHistorial,
+                ])->withErrors($validator);
+            }
+
+            $fromLocal = Carbon::parse($filterFrom, $tz)->startOfDay();
+            $toLocal = Carbon::parse($filterTo, $tz)->endOfDay();
+            $fromUtc = $fromLocal->copy()->utc();
+            $toUtc = $toLocal->copy()->utc();
+
+            $workerId = $filterWorkerId !== null && $filterWorkerId !== '' ? (int) $filterWorkerId : null;
+
+            $query = WorkerSchedule::query()
+                ->where('store_id', $store->id)
+                ->whereBetween('fecha_hora_entrada', [$fromUtc, $toUtc])
+                ->with(['worker.role'])
+                ->orderByDesc('fecha_hora_entrada');
+
+            if ($workerId !== null) {
+                $query->where('worker_id', $workerId);
+            }
+
+            $schedules = $query->get();
+            $historialApplied = true;
+
+            // #region agent log
+            $first = $schedules->first();
+            try {
+                $line = json_encode([
+                    'sessionId' => '0f8c29',
+                    'runId' => 'run-pre-fix-1',
+                    'hypothesisId' => 'H1',
+                    'location' => 'StoreWorkerController.php:timeAttendance',
+                    'message' => 'Loaded schedules for historial',
+                    'data' => [
+                        'store_id' => $store->id,
+                        'app_tz' => (string) config('app.timezone'),
+                        'store_tz' => $tz,
+                        'count' => $schedules->count(),
+                        'first_id' => $first?->id,
+                        'first_entrada_raw' => $first ? (string) $first->getRawOriginal('fecha_hora_entrada') : null,
+                        'first_entrada_cast' => $first?->fecha_hora_entrada?->format('Y-m-d H:i:s'),
+                        'first_entrada_as_store_tz' => $first?->fecha_hora_entrada?->copy()->timezone($tz)->format('Y-m-d H:i:s'),
+                    ],
+                    'timestamp' => (int) round(microtime(true) * 1000),
+                ], JSON_UNESCAPED_UNICODE).PHP_EOL;
+                $fh = fopen(base_path('debug-0f8c29.log'), 'ab');
+                if ($fh !== false) {
+                    fwrite($fh, $line);
+                    fclose($fh);
+                }
+            } catch (\Throwable) {
+                // noop: instrumentation must never break business flow
+            }
+            // #endregion
+
+            $completedForLiquidacion = $schedules->filter(fn (WorkerSchedule $s) => $s->fecha_hora_salida !== null);
+            $liquidacion = $completedForLiquidacion->isNotEmpty()
+                ? $liquidationService->calcularLiquidacion($completedForLiquidacion)
+                : null;
+        }
+
+        return view('stores.trabajadoryrol.worker-time-attendance', [
+            'store' => $store,
+            'workers' => $workers,
+            'schedules' => $schedules,
+            'editing' => $editing,
+            'liquidacion' => $liquidacion,
+            'scheduleService' => $scheduleService,
+            'historialApplied' => $historialApplied,
+            'historialFrom' => $filterFrom,
+            'historialTo' => $filterTo,
+            'historialWorkerId' => $filterWorkerId,
+            'historialAttempted' => $attemptedHistorial,
+        ]);
+    }
+
+    public function exportTimeAttendanceClassification(
+        Request $request,
+        Store $store,
+        StorePermissionService $permission,
+        StoreTimezoneService $timezoneService,
+        WorkerScheduleLiquidationService $liquidationService,
+        WorkerScheduleClassificationExcelExportService $excelExport
+    ) {
+        $permission->authorize($store, 'workers.schedules.view');
+
+        $tz = $timezoneService->getTimezoneForStore($store);
+        $validator = $this->makeHistorialRangeValidator($request, $store, $tz);
+
+        if ($validator->fails()) {
+            return redirect()
+                ->route('stores.workers.time-attendance', array_filter([
+                    'store' => $store,
+                    'edit' => $request->query('edit'),
+                    'from' => $request->query('from'),
+                    'to' => $request->query('to'),
+                    'worker_id' => $request->query('worker_id'),
+                ], fn ($v) => $v !== null && $v !== ''))
+                ->withErrors($validator);
+        }
+
+        $filterFrom = $request->query('from');
+        $filterTo = $request->query('to');
+        $filterWorkerId = $request->query('worker_id');
+
+        $fromLocal = Carbon::parse($filterFrom, $tz)->startOfDay();
+        $toLocal = Carbon::parse($filterTo, $tz)->endOfDay();
+        $fromUtc = $fromLocal->copy()->utc();
+        $toUtc = $toLocal->copy()->utc();
+
+        $workerId = $filterWorkerId !== null && $filterWorkerId !== '' ? (int) $filterWorkerId : null;
+
+        $query = WorkerSchedule::query()
+            ->where('store_id', $store->id)
+            ->whereBetween('fecha_hora_entrada', [$fromUtc, $toUtc])
+            ->with(['worker.role'])
+            ->orderByDesc('fecha_hora_entrada');
+
+        if ($workerId !== null) {
+            $query->where('worker_id', $workerId);
+        }
+
+        $schedules = $query->get();
+
+        $filteredWorker = null;
+        if ($workerId !== null) {
+            $filteredWorker = Worker::where('store_id', $store->id)->whereKey($workerId)->first();
+        }
+
+        return $excelExport->download(
+            $store,
+            $tz,
+            $fromLocal,
+            $toLocal,
+            $filteredWorker,
+            $schedules,
+            $liquidationService
+        );
+    }
+
+    /**
+     * Validación GET para historial y exportación Excel (máx. 60 días entre fechas en zona de la tienda).
+     */
+    private function makeHistorialRangeValidator(Request $request, Store $store, string $timezone): \Illuminate\Validation\Validator
+    {
+        $filterFrom = $request->query('from');
+        $filterTo = $request->query('to');
+        $filterWorkerId = $request->query('worker_id');
+
+        $validator = Validator::make(
+            [
+                'from' => $filterFrom,
+                'to' => $filterTo,
+                'worker_id' => $filterWorkerId,
+            ],
+            [
+                'from' => 'required|date',
+                'to' => 'required|date',
+                'worker_id' => 'nullable|integer',
+            ],
+            [
+                'from.required' => 'Indica la fecha de inicio del rango.',
+                'to.required' => 'Indica la fecha de fin del rango.',
+            ]
+        );
+
+        if ($validator->passes()) {
+            $fromLocal = Carbon::parse($filterFrom, $timezone)->startOfDay();
+            $toLocal = Carbon::parse($filterTo, $timezone)->endOfDay();
+
+            if ($toLocal->lt($fromLocal)) {
+                $validator->errors()->add('to', 'La fecha fin debe ser igual o posterior a la fecha inicio.');
+            } else {
+                $daySpan = $fromLocal->copy()->startOfDay()->diffInDays($toLocal->copy()->startOfDay());
+                if ($daySpan > 60) {
+                    $validator->errors()->add('to', 'El rango no puede superar 60 días.');
+                }
+            }
+
+            $workerId = $filterWorkerId !== null && $filterWorkerId !== '' ? (int) $filterWorkerId : null;
+            if ($workerId !== null) {
+                $belongs = Worker::where('store_id', $store->id)->whereKey($workerId)->exists();
+                if (! $belongs) {
+                    $validator->errors()->add('worker_id', 'Trabajador no válido para esta tienda.');
+                }
+            }
+        }
+
+        return $validator;
     }
 
     public function create(Store $store, StorePermissionService $permission)

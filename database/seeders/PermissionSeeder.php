@@ -119,6 +119,10 @@ class PermissionSeeder extends Seeder
             ['slug' => 'workers.edit', 'name' => 'Editar trabajadores', 'description' => 'Modificar datos y rol de trabajadores'],
             ['slug' => 'workers.destroy', 'name' => 'Eliminar trabajadores', 'description' => 'Quitar trabajadores de la tienda'],
             ['slug' => 'workers.assign-role', 'name' => 'Asignar roles a trabajadores', 'description' => 'Vincular trabajadores existentes a un rol específico'],
+            ['slug' => 'workers.schedules.view', 'name' => 'Ver registro de horarios', 'description' => 'Ver horarios de trabajadores'],
+            ['slug' => 'workers.schedules.create', 'name' => 'Registrar horarios', 'description' => 'Registrar entradas y salidas de trabajadores'],
+            ['slug' => 'workers.schedules.edit', 'name' => 'Editar horarios', 'description' => 'Modificar registros de horarios'],
+            ['slug' => 'workers.schedules.destroy', 'name' => 'Eliminar horarios', 'description' => 'Eliminar registros de horarios'],
 
             // Ventas (carrito y cotizaciones)
             ['slug' => 'ventas.carrito.view', 'name' => 'Ver carrito de ventas', 'description' => 'Acceso al carrito de ventas'],

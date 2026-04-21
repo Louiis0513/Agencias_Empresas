@@ -22,6 +22,7 @@ use App\Http\Controllers\StoreRoleController;
 use App\Http\Controllers\StoreSubscriptionController;
 use App\Http\Controllers\StoreVitrinaController;
 use App\Http\Controllers\StoreWorkerController;
+use App\Http\Controllers\StoreWorkerScheduleController;
 use App\Http\Controllers\VitrinaAuthController;
 use App\Http\Controllers\VitrinaController;
 use Illuminate\Support\Facades\Route;
@@ -75,6 +76,11 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
 
     Route::get('/trabajadores', [StoreWorkerController::class, 'index'])->name('workers');
     Route::get('/trabajadores/crear', [StoreWorkerController::class, 'create'])->name('workers.create');
+    Route::get('/trabajadores/registro-horarios', [StoreWorkerController::class, 'timeAttendance'])->name('workers.time-attendance');
+    Route::get('/trabajadores/registro-horarios/clasificacion-excel', [StoreWorkerController::class, 'exportTimeAttendanceClassification'])->name('workers.time-attendance.classification-excel');
+    Route::post('/trabajadores/registro-horarios', [StoreWorkerScheduleController::class, 'store'])->name('workers.schedules.store');
+    Route::put('/trabajadores/registro-horarios/{workerSchedule}', [StoreWorkerScheduleController::class, 'update'])->name('workers.schedules.update');
+    Route::delete('/trabajadores/registro-horarios/{workerSchedule}', [StoreWorkerScheduleController::class, 'destroy'])->name('workers.schedules.destroy');
     Route::post('/trabajadores', [StoreWorkerController::class, 'store'])->name('workers.store');
     Route::get('/trabajadores/{worker}/editar', [StoreWorkerController::class, 'edit'])->name('workers.edit');
     Route::put('/trabajadores/{worker}', [StoreWorkerController::class, 'update'])->name('workers.update');

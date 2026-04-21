@@ -1,7 +1,7 @@
 @php
     $store = request()->route('store');
     $perm = app(\App\Services\StorePermissionService::class);
-    $canPersonas = $store && ($perm->can($store, 'customers.view') || $perm->can($store, 'workers.view'));
+    $canPersonas = $store && ($perm->can($store, 'customers.view') || $perm->can($store, 'workers.view') || $perm->can($store, 'workers.schedules.view'));
     $canProductos = $store && ($perm->can($store, 'products.view') || $perm->can($store, 'categories.view') || $perm->can($store, 'attribute-groups.view') || $perm->can($store, 'inventario.view') || $perm->can($store, 'proveedores.view') || $perm->can($store, 'product-purchases.view') || $perm->can($store, 'support-documents.view'));
     $canFinanciero = $store && ($perm->can($store, 'caja.view') || $perm->can($store, 'activos.view') || $perm->can($store, 'accounts-payables.view') || $perm->can($store, 'accounts-receivables.view') || $perm->can($store, 'comprobantes-egreso.view') || $perm->can($store, 'comprobantes-ingreso.view') || $perm->can($store, 'invoices.view') || $perm->can($store, 'purchases.view'));
     $canVentas = $store && ($perm->can($store, 'ventas.carrito.view') || $perm->can($store, 'cotizaciones.view'));
@@ -88,7 +88,10 @@
                         <a href="{{ route('stores.customers', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.customers*') ? 'text-brand' : 'text-gray-400 hover:text-white' }}">Clientes</a>
                         @endstoreCan
                         @storeCan($store, 'workers.view')
-                        <a href="{{ route('stores.workers', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.workers*') ? 'text-brand' : 'text-gray-400 hover:text-white' }}">Trabajadores</a>
+                        <a href="{{ route('stores.workers', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.workers*') && !request()->routeIs('stores.workers.time-attendance') && !request()->routeIs('stores.workers.schedules*') ? 'text-brand' : 'text-gray-400 hover:text-white' }}">Trabajadores</a>
+                        @endstoreCan
+                        @storeCan($store, 'workers.schedules.view')
+                        <a href="{{ route('stores.workers.time-attendance', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.workers.time-attendance') || request()->routeIs('stores.workers.schedules*') ? 'text-brand' : 'text-gray-400 hover:text-white' }}">Registro de horarios</a>
                         @endstoreCan
                     </div>
                 </li>
