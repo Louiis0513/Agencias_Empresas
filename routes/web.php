@@ -22,6 +22,7 @@ use App\Http\Controllers\StoreRoleController;
 use App\Http\Controllers\StoreSubscriptionController;
 use App\Http\Controllers\StoreVitrinaController;
 use App\Http\Controllers\StoreWorkerController;
+use App\Http\Controllers\StoreWorkerHourRateTemplateController;
 use App\Http\Controllers\StoreWorkerScheduleController;
 use App\Http\Controllers\VitrinaAuthController;
 use App\Http\Controllers\VitrinaController;
@@ -81,6 +82,9 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::post('/trabajadores/registro-horarios', [StoreWorkerScheduleController::class, 'store'])->name('workers.schedules.store');
     Route::put('/trabajadores/registro-horarios/{workerSchedule}', [StoreWorkerScheduleController::class, 'update'])->name('workers.schedules.update');
     Route::delete('/trabajadores/registro-horarios/{workerSchedule}', [StoreWorkerScheduleController::class, 'destroy'])->name('workers.schedules.destroy');
+    Route::post('/trabajadores/registro-horarios/plantillas-valor-hora', [StoreWorkerHourRateTemplateController::class, 'store'])->name('workers.schedules.rate-templates.store');
+    Route::put('/trabajadores/registro-horarios/plantillas-valor-hora/{template}', [StoreWorkerHourRateTemplateController::class, 'update'])->name('workers.schedules.rate-templates.update');
+    Route::delete('/trabajadores/registro-horarios/plantillas-valor-hora/{template}', [StoreWorkerHourRateTemplateController::class, 'destroy'])->name('workers.schedules.rate-templates.destroy');
     Route::post('/trabajadores', [StoreWorkerController::class, 'store'])->name('workers.store');
     Route::get('/trabajadores/{worker}/editar', [StoreWorkerController::class, 'edit'])->name('workers.edit');
     Route::put('/trabajadores/{worker}', [StoreWorkerController::class, 'update'])->name('workers.update');

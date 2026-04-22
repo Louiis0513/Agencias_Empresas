@@ -117,6 +117,7 @@ class StoreWorkerScheduleController extends Controller
             'from' => $request->input('redirect_from'),
             'to' => $request->input('redirect_to'),
             'worker_id' => $request->input('redirect_worker_id'),
+            'template_id' => $request->input('redirect_template_id'),
         ], fn ($v) => $v !== null && $v !== '');
     }
 

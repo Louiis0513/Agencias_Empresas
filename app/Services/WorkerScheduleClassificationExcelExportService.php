@@ -50,7 +50,8 @@ class WorkerScheduleClassificationExcelExportService
         Carbon $toLocalEnd,
         ?Worker $filteredWorker,
         Collection $schedulesInRange,
-        WorkerScheduleLiquidationService $liquidationService
+        WorkerScheduleLiquidationService $liquidationService,
+        ?array $ratesOverride = null
     ): StreamedResponse {
         $completed = $schedulesInRange->filter(fn (WorkerSchedule $s) => $s->fecha_hora_salida !== null);
 
@@ -58,7 +59,9 @@ class WorkerScheduleClassificationExcelExportService
         $totalPorTipo = $liquidacion['totalHorasPorTipo'];
         $resultadosPorDia = $liquidacion['resultadosPorDia'];
 
-        $rates = config('worker_schedule_hour_rates', []);
+        $rates = is_array($ratesOverride) && $ratesOverride !== []
+            ? $ratesOverride
+            : (array) config('worker_schedule_hour_rates', []);
 
         $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();

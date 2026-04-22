@@ -132,4 +132,9 @@ class Store extends Model
     {
         return $this->hasMany(WorkerSchedule::class, 'store_id');
     }
+
+    public function hourRateTemplates()
+    {
+        return $this->hasMany(WorkerHourRateTemplate::class, 'store_id');
+    }
 }

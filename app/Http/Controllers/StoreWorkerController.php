@@ -6,9 +6,11 @@ use App\Http\Requests\StoreWorkerRequest;
 use App\Models\Role;
 use App\Models\Store;
 use App\Models\Worker;
+use App\Models\WorkerHourRateTemplate;
 use App\Models\WorkerSchedule;
 use App\Services\StorePermissionService;
 use App\Services\StoreTimezoneService;
+use App\Services\WorkerHourRateTemplateService;
 use App\Services\WorkerScheduleClassificationExcelExportService;
 use App\Services\WorkerScheduleLiquidationService;
 use App\Services\WorkerScheduleService;
@@ -64,12 +66,18 @@ class StoreWorkerController extends Controller
         StorePermissionService $permission,
         WorkerScheduleService $scheduleService,
         StoreTimezoneService $timezoneService,
-        WorkerScheduleLiquidationService $liquidationService
+        WorkerScheduleLiquidationService $liquidationService,
+        WorkerHourRateTemplateService $templateService
     ) {
         $permission->authorize($store, 'workers.schedules.view');
 
         $tz = $timezoneService->getTimezoneForStore($store);
         $workers = Worker::where('store_id', $store->id)->orderBy('name')->get();
+        $hourRateTemplates = WorkerHourRateTemplate::query()
+            ->where('store_id', $store->id)
+            ->orderByDesc('updated_at')
+            ->orderByDesc('id')
+            ->get();
 
         $editing = null;
         if ($request->filled('edit')) {
@@ -82,6 +90,14 @@ class StoreWorkerController extends Controller
         $filterFrom = $request->query('from');
         $filterTo = $request->query('to');
         $filterWorkerId = $request->query('worker_id');
+        $selectedTemplateId = $request->query('template_id');
+        $selectedTemplate = null;
+        if ($selectedTemplateId !== null && $selectedTemplateId !== '') {
+            $selectedTemplate = $hourRateTemplates->firstWhere('id', (int) $selectedTemplateId);
+            if (! $selectedTemplate) {
+                $selectedTemplateId = null;
+            }
+        }
 
         $schedules = collect();
         $liquidacion = null;
@@ -105,6 +121,10 @@ class StoreWorkerController extends Controller
                     'historialTo' => $filterTo,
                     'historialWorkerId' => $filterWorkerId,
                     'historialAttempted' => $attemptedHistorial,
+                    'hourRateTemplates' => $hourRateTemplates,
+                    'rateTemplateKeys' => $templateService->expectedRateKeys(),
+                    'selectedTemplateId' => $selectedTemplateId,
+                    'rateEditTemplate' => null,
                 ])->withErrors($validator);
             }
 
@@ -177,6 +197,12 @@ class StoreWorkerController extends Controller
             'historialTo' => $filterTo,
             'historialWorkerId' => $filterWorkerId,
             'historialAttempted' => $attemptedHistorial,
+            'hourRateTemplates' => $hourRateTemplates,
+            'rateTemplateKeys' => $templateService->expectedRateKeys(),
+            'selectedTemplateId' => $selectedTemplate?->id,
+            'rateEditTemplate' => $request->filled('rate_edit')
+                ? $hourRateTemplates->firstWhere('id', (int) $request->query('rate_edit'))
+                : null,
         ]);
     }
 
@@ -201,6 +227,7 @@ class StoreWorkerController extends Controller
                     'from' => $request->query('from'),
                     'to' => $request->query('to'),
                     'worker_id' => $request->query('worker_id'),
+                    'template_id' => $request->query('template_id'),
                 ], fn ($v) => $v !== null && $v !== ''))
                 ->withErrors($validator);
         }
@@ -208,6 +235,7 @@ class StoreWorkerController extends Controller
         $filterFrom = $request->query('from');
         $filterTo = $request->query('to');
         $filterWorkerId = $request->query('worker_id');
+        $templateId = $request->query('template_id');
 
         $fromLocal = Carbon::parse($filterFrom, $tz)->startOfDay();
         $toLocal = Carbon::parse($filterTo, $tz)->endOfDay();
@@ -233,6 +261,30 @@ class StoreWorkerController extends Controller
             $filteredWorker = Worker::where('store_id', $store->id)->whereKey($workerId)->first();
         }
 
+        $ratesOverride = null;
+        if ($templateId !== null && $templateId !== '') {
+            $template = WorkerHourRateTemplate::query()
+                ->where('store_id', $store->id)
+                ->whereKey((int) $templateId)
+                ->first();
+
+            if (! $template) {
+                return redirect()
+                    ->route('stores.workers.time-attendance', array_filter([
+                        'store' => $store,
+                        'edit' => $request->query('edit'),
+                        'from' => $request->query('from'),
+                        'to' => $request->query('to'),
+                        'worker_id' => $request->query('worker_id'),
+                        'template_id' => $templateId,
+                        'rate_modal' => 1,
+                    ], fn ($v) => $v !== null && $v !== ''))
+                    ->withErrors(['template_id' => 'La plantilla seleccionada no existe para esta tienda.']);
+            }
+
+            $ratesOverride = (array) $template->rates_json;
+        }
+
         return $excelExport->download(
             $store,
             $tz,
@@ -240,7 +292,8 @@ class StoreWorkerController extends Controller
             $toLocal,
             $filteredWorker,
             $schedules,
-            $liquidationService
+            $liquidationService,
+            $ratesOverride
         );
     }
 

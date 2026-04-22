@@ -8,10 +8,29 @@
     $historialFrom = $historialFrom ?? null;
     $historialTo = $historialTo ?? null;
     $historialWorkerId = $historialWorkerId ?? null;
+    $hourRateTemplates = $hourRateTemplates ?? collect();
+    $rateTemplateKeys = $rateTemplateKeys ?? array_keys((array) config('worker_schedule_hour_rates', []));
+    $selectedTemplateId = $selectedTemplateId ?? null;
+    $rateEditTemplate = $rateEditTemplate ?? null;
+    $rateErrors = $errors->getBag('hourRates');
+    $rateModalOpen = request()->boolean('rate_modal') || $rateErrors->any() || request()->filled('rate_edit');
+    $isEditingRateTemplate = $rateEditTemplate !== null;
+    $rateTypeLabels = [
+        'HorasOrdinarias' => 'Hora ordinaria (HO)',
+        'HorasExtrasDiurnas' => 'Hora extra diurna (HED)',
+        'HorasExtrasNocturnas' => 'Hora extra nocturna (HEN)',
+        'HorasRecargoNocturno' => 'Recargo nocturno (HRN)',
+        'HorasOrdinariasFestivas' => 'Ordinaria festiva (HROF)',
+        'HorasExtrasDiurnasFestivas' => 'Extra diurna festiva (HEDF)',
+        'HorasExtrasNocturnasFestivas' => 'Extra nocturna festiva (HENF)',
+        'HorasRecargoNocturnoFestivo' => 'Recargo nocturno festivo (HRNF)',
+        'HorasFestivasNoCompensa' => 'Festiva no compensa (HFNO)',
+    ];
     $historialQuery = array_filter([
         'from' => $historialFrom,
         'to' => $historialTo,
         'worker_id' => $historialWorkerId,
+        'template_id' => $selectedTemplateId,
     ], fn ($v) => $v !== null && $v !== '');
 @endphp
 <x-app-layout>
@@ -71,6 +90,9 @@
                         <input type="hidden" name="redirect_to" value="{{ $historialTo }}" />
                         @if($historialWorkerId !== null && $historialWorkerId !== '')
                             <input type="hidden" name="redirect_worker_id" value="{{ $historialWorkerId }}" />
+                        @endif
+                        @if($selectedTemplateId !== null && $selectedTemplateId !== '')
+                            <input type="hidden" name="redirect_template_id" value="{{ $selectedTemplateId }}" />
                         @endif
                     @endif
 
@@ -161,7 +183,7 @@
                 </div>
             @endif
 
-            <div class="rounded-2xl border border-white/10 bg-dark-card overflow-hidden">
+            <div class="rounded-2xl border border-white/10 bg-dark-card overflow-hidden" x-data="{ showRatesModal: @js($rateModalOpen) }">
                 <div class="border-b border-white/10 px-6 py-4 space-y-4">
                     <div>
                         <h3 class="font-semibold text-white">Historial</h3>
@@ -188,15 +210,145 @@
                                 @endforeach
                             </select>
                         </div>
+                        <div class="min-w-[14rem]">
+                            <label for="hist_template" class="block text-xs font-medium text-gray-400 mb-1">Plantilla valor hora</label>
+                            <select id="hist_template" name="template_id" class="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-gray-100">
+                                <option value="">Usar valores generales</option>
+                                @foreach($hourRateTemplates as $tpl)
+                                    <option value="{{ $tpl->id }}" @selected((string) old('template_id', $selectedTemplateId) === (string) $tpl->id)>{{ $tpl->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
                         <button type="submit" class="inline-flex items-center justify-center rounded-xl bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/15">Aplicar</button>
+                        @storeCan($store, 'workers.schedules.edit')
+                        <button type="button" @click="showRatesModal = true" class="inline-flex items-center justify-center rounded-xl border border-sky-500/40 bg-sky-500/10 px-4 py-2 text-sm font-medium text-sky-200 hover:bg-sky-500/20">Valor de las horas</button>
+                        @endstoreCan
                         @if($historialApplied)
-                            <a href="{{ route('stores.workers.time-attendance.classification-excel', array_merge(['store' => $store], $historialQuery, $editing ? ['edit' => $editing->id] : [])) }}" class="inline-flex items-center justify-center rounded-xl border border-emerald-500/40 bg-emerald-500/15 px-4 py-2 text-sm font-medium text-emerald-200 hover:bg-emerald-500/25">Descargar Excel (clasificación)</a>
+                            <button type="submit" formaction="{{ route('stores.workers.time-attendance.classification-excel', $store) }}" formmethod="get" class="inline-flex items-center justify-center rounded-xl border border-emerald-500/40 bg-emerald-500/15 px-4 py-2 text-sm font-medium text-emerald-200 hover:bg-emerald-500/25">Descargar Excel (clasificación)</button>
                         @endif
                     </form>
                     @error('from')<p class="text-xs text-red-400">{{ $message }}</p>@enderror
                     @error('to')<p class="text-xs text-red-400">{{ $message }}</p>@enderror
                     @error('worker_id')<p class="text-xs text-red-400">{{ $message }}</p>@enderror
+                    @error('template_id')<p class="text-xs text-red-400">{{ $message }}</p>@enderror
+                    @if($rateErrors->any())
+                        @foreach($rateErrors->all() as $message)
+                            <p class="text-xs text-red-400">{{ $message }}</p>
+                        @endforeach
+                    @endif
                 </div>
+                @storeCan($store, 'workers.schedules.edit')
+                <div x-show="showRatesModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" @keydown.escape.window="showRatesModal = false">
+                    <div class="w-full max-w-6xl rounded-2xl border border-white/10 bg-dark-card shadow-2xl">
+                        <div class="flex items-center justify-between border-b border-white/10 px-6 py-4">
+                            <div>
+                                <h4 class="text-base font-semibold text-white">Valor de las horas</h4>
+                                <p class="text-xs text-gray-400">Crea plantillas por tienda. Debes completar todos los tipos de hora.</p>
+                            </div>
+                            <button type="button" class="rounded-lg border border-white/10 px-3 py-1 text-xs text-gray-300 hover:bg-white/10" @click="showRatesModal = false">Cerrar</button>
+                        </div>
+                        <div class="grid gap-6 p-6 lg:grid-cols-2">
+                            <div class="space-y-4">
+                                <h5 class="text-sm font-semibold text-gray-200">Plantillas guardadas</h5>
+                                @if($hourRateTemplates->isEmpty())
+                                    <p class="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-gray-400">Aún no hay plantillas para esta tienda.</p>
+                                @else
+                                    <div class="max-h-[24rem] overflow-auto rounded-xl border border-white/10">
+                                        <table class="min-w-full divide-y divide-white/10 text-sm">
+                                            <thead class="bg-white/[0.02]">
+                                                <tr class="text-left text-xs uppercase tracking-wider text-gray-500">
+                                                    <th class="px-3 py-2">Nombre</th>
+                                                    <th class="px-3 py-2">Actualizada</th>
+                                                    <th class="px-3 py-2 text-right">Acciones</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-white/10">
+                                                @foreach($hourRateTemplates as $tpl)
+                                                    <tr>
+                                                        <td class="px-3 py-2 text-gray-200">{{ $tpl->name }}</td>
+                                                        <td class="px-3 py-2 text-gray-400">{{ $tpl->updated_at?->format('d/m/Y H:i') }}</td>
+                                                        <td class="px-3 py-2">
+                                                            <div class="flex justify-end gap-2">
+                                                                <a href="{{ route('stores.workers.time-attendance', array_merge(['store' => $store, 'rate_modal' => 1, 'rate_edit' => $tpl->id], $historialQuery, $editing ? ['edit' => $editing->id] : [])) }}" class="text-xs text-brand hover:underline">Editar</a>
+                                                                <form method="post" action="{{ route('stores.workers.schedules.rate-templates.destroy', [$store, $tpl]) }}" onsubmit="return confirm('¿Eliminar plantilla {{ $tpl->name }}?');">
+                                                                    @csrf
+                                                                    @method('DELETE')
+                                                                    @if($historialApplied)
+                                                                        <input type="hidden" name="redirect_from" value="{{ $historialFrom }}" />
+                                                                        <input type="hidden" name="redirect_to" value="{{ $historialTo }}" />
+                                                                        @if($historialWorkerId !== null && $historialWorkerId !== '')
+                                                                            <input type="hidden" name="redirect_worker_id" value="{{ $historialWorkerId }}" />
+                                                                        @endif
+                                                                    @endif
+                                                                    @if($selectedTemplateId !== null && $selectedTemplateId !== '')
+                                                                        <input type="hidden" name="redirect_template_id" value="{{ $selectedTemplateId }}" />
+                                                                    @endif
+                                                                    @if($editing)
+                                                                        <input type="hidden" name="redirect_edit" value="{{ $editing->id }}" />
+                                                                    @endif
+                                                                    <button type="submit" class="text-xs text-red-400 hover:underline">Eliminar</button>
+                                                                </form>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                @endif
+                            </div>
+                            <div>
+                                @php
+                                    $rateFormAction = $isEditingRateTemplate
+                                        ? route('stores.workers.schedules.rate-templates.update', [$store, $rateEditTemplate])
+                                        : route('stores.workers.schedules.rate-templates.store', $store);
+                                @endphp
+                                <h5 class="text-sm font-semibold text-gray-200">{{ $isEditingRateTemplate ? 'Editar plantilla' : 'Nueva plantilla' }}</h5>
+                                <form method="post" action="{{ $rateFormAction }}" class="mt-4 space-y-4">
+                                    @csrf
+                                    @if($isEditingRateTemplate)
+                                        @method('PUT')
+                                    @endif
+                                    @if($historialApplied)
+                                        <input type="hidden" name="redirect_from" value="{{ $historialFrom }}" />
+                                        <input type="hidden" name="redirect_to" value="{{ $historialTo }}" />
+                                        @if($historialWorkerId !== null && $historialWorkerId !== '')
+                                            <input type="hidden" name="redirect_worker_id" value="{{ $historialWorkerId }}" />
+                                        @endif
+                                    @endif
+                                    @if($selectedTemplateId !== null && $selectedTemplateId !== '')
+                                        <input type="hidden" name="redirect_template_id" value="{{ $selectedTemplateId }}" />
+                                    @endif
+                                    @if($editing)
+                                        <input type="hidden" name="redirect_edit" value="{{ $editing->id }}" />
+                                    @endif
+                                    <div>
+                                        <label class="mb-1 block text-xs font-medium text-gray-400">Nombre plantilla <span class="text-red-400">*</span></label>
+                                        <input type="text" name="name" value="{{ old('name', $rateEditTemplate?->name) }}" required class="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-gray-100" placeholder="Ej: Plantilla base 2026" />
+                                    </div>
+                                    <div class="grid gap-3 sm:grid-cols-2">
+                                        @foreach($rateTemplateKeys as $key)
+                                            @php
+                                                $rateDefault = $rateEditTemplate ? ($rateEditTemplate->rates_json[$key] ?? '') : '';
+                                            @endphp
+                                            <div>
+                                                <label class="mb-1 block text-xs font-medium text-gray-400">{{ $rateTypeLabels[$key] ?? $key }} <span class="text-red-400">*</span></label>
+                                                <input type="number" min="0" step="0.01" name="rates[{{ $key }}]" value="{{ old('rates.'.$key, $rateDefault) }}" required class="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-gray-100" />
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                    <div class="flex flex-wrap gap-2">
+                                        <button type="submit" class="inline-flex items-center justify-center rounded-xl bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand/90">{{ $isEditingRateTemplate ? 'Guardar cambios' : 'Guardar plantilla' }}</button>
+                                        @if($isEditingRateTemplate)
+                                            <a href="{{ route('stores.workers.time-attendance', array_merge(['store' => $store, 'rate_modal' => 1], $historialQuery, $editing ? ['edit' => $editing->id] : [])) }}" class="inline-flex items-center justify-center rounded-xl border border-white/20 px-4 py-2 text-sm text-gray-300 hover:bg-white/10">Cancelar edición</a>
+                                        @endif
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                @endstoreCan
                 <div class="overflow-x-auto">
                     @if(!$historialApplied)
                         <p class="px-6 py-10 text-center text-sm text-gray-500">
@@ -258,6 +410,9 @@
                                                         <input type="hidden" name="redirect_to" value="{{ $historialTo }}" />
                                                         @if($historialWorkerId !== null && $historialWorkerId !== '')
                                                             <input type="hidden" name="redirect_worker_id" value="{{ $historialWorkerId }}" />
+                                                        @endif
+                                                        @if($selectedTemplateId !== null && $selectedTemplateId !== '')
+                                                            <input type="hidden" name="redirect_template_id" value="{{ $selectedTemplateId }}" />
                                                         @endif
                                                     @endif
                                                     <button type="submit" class="text-sm text-red-400 hover:underline">Eliminar</button>
