@@ -23,7 +23,7 @@ class WorkerScheduleLiquidationService
      * Si la pausa entre salida y siguiente entrada es menor a este umbral,
      * ambos turnos hacen parte de la misma jornada continua.
      */
-    const MAX_PAUSA_CONTINUIDAD_MINUTOS = 240;
+    const MAX_PAUSA_CONTINUIDAD_MINUTOS = 241;
 
     /**
      * @return array{

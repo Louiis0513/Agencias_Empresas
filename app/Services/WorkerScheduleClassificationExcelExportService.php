@@ -241,8 +241,9 @@ class WorkerScheduleClassificationExcelExportService
         $sheet->getStyle('A3:P3')->getFont()->getColor()->setARGB('FFF9FAFB');
 
         $row = 4;
-        $currentDateGroup = null;
         $dateGroupIndex = -1;
+        $previousWorkerId = null;
+        $previousSalida = null;
         $completedSchedules = $schedulesInRange
             ->filter(fn (WorkerSchedule $s) => $s->fecha_hora_entrada !== null && $s->fecha_hora_salida !== null)
             ->values();
@@ -274,14 +275,21 @@ class WorkerScheduleClassificationExcelExportService
             $entrada = $schedule->fecha_hora_entrada?->copy()->timezone($storeTimezone);
             $salida = $schedule->fecha_hora_salida?->copy()->timezone($storeTimezone);
             $estado = $salida ? 'Completo' : 'Pendiente';
-            $fechaFila = $entrada?->format('Y-m-d');
 
             $hoursByType = array_fill_keys(array_column(self::TIPOS, 'key'), 0.0);
             if ($salida) {
-                $fechaBase = $entrada?->format('Y-m-d');
-                $bloquesDia = $fechaBase ? ($bloquesPorDia[$fechaBase] ?? []) : [];
+                $bloquesJornada = [];
+                $diaCursor = $entrada->copy()->startOfDay();
+                $ultimoDia = $salida->copy()->startOfDay();
+                while ($diaCursor->lte($ultimoDia)) {
+                    $fechaDia = $diaCursor->format('Y-m-d');
+                    foreach (($bloquesPorDia[$fechaDia] ?? []) as $bloqueDia) {
+                        $bloquesJornada[] = $bloqueDia;
+                    }
+                    $diaCursor->addDay();
+                }
 
-                foreach ($bloquesDia as $bloque) {
+                foreach ($bloquesJornada as $bloque) {
                     $inicioSolape = $bloque['inicio']->gt($entrada) ? $bloque['inicio'] : $entrada;
                     $finSolape = $bloque['fin']->lt($salida) ? $bloque['fin'] : $salida;
                     if ($finSolape->lte($inicioSolape)) {
@@ -318,8 +326,21 @@ class WorkerScheduleClassificationExcelExportService
 
             $sheet->setCellValue('P'.$row, (string) ($schedule->observaciones ?? ''));
 
-            if ($fechaFila !== $currentDateGroup) {
-                $currentDateGroup = $fechaFila;
+            $startsNewVisualGroup = false;
+            if ($dateGroupIndex < 0) {
+                $startsNewVisualGroup = true;
+            } elseif ($previousWorkerId !== $schedule->worker_id) {
+                $startsNewVisualGroup = true;
+            } elseif (! $previousSalida || ! $entrada) {
+                $startsNewVisualGroup = true;
+            } else {
+                $minutesBetweenSchedules = $previousSalida->diffInMinutes($entrada, false);
+                $isContinuous = $minutesBetweenSchedules >= 0
+                    && $minutesBetweenSchedules < WorkerScheduleLiquidationService::MAX_PAUSA_CONTINUIDAD_MINUTOS;
+                $startsNewVisualGroup = ! $isContinuous;
+            }
+
+            if ($startsNewVisualGroup) {
                 $dateGroupIndex++;
             }
             $zebra = $dateGroupIndex % 2 === 0 ? self::ZEBRA_WHITE : self::ZEBRA_AZUL;
@@ -327,6 +348,8 @@ class WorkerScheduleClassificationExcelExportService
                 ->setFillType(Fill::FILL_SOLID)
                 ->getStartColor()->setARGB($zebra);
 
+            $previousWorkerId = $schedule->worker_id;
+            $previousSalida = $salida;
             $row++;
         }
 
