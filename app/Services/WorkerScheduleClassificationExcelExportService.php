@@ -147,6 +147,16 @@ class WorkerScheduleClassificationExcelExportService
             $storeTimezone,
             $liquidationService
         );
+        $this->writePaymentDetailSheet(
+            $spreadsheet,
+            $filteredWorker,
+            $fromLocalStart,
+            $toLocalEnd,
+            $totalPorTipo,
+            (float) ($liquidacion['totalHorasTrabajadas'] ?? 0),
+            $rates,
+            $storeTimezone
+        );
 
         return response()->streamDownload(function () use ($spreadsheet) {
             $writer = new Xlsx($spreadsheet);
@@ -357,6 +367,151 @@ class WorkerScheduleClassificationExcelExportService
         }
 
         foreach (range(1, 16) as $colIndex) {
+            $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($colIndex))->setAutoSize(true);
+        }
+    }
+
+    /**
+     * Hoja 3: detalle de pago informativo.
+     *
+     * @param  array<string, float>  $totalPorTipo
+     * @param  array<string, float>  $rates
+     */
+    private function writePaymentDetailSheet(
+        Spreadsheet $spreadsheet,
+        ?Worker $filteredWorker,
+        Carbon $fromLocalStart,
+        Carbon $toLocalEnd,
+        array $totalPorTipo,
+        float $totalHorasTrabajadas,
+        array $rates,
+        string $storeTimezone
+    ): void {
+        $sheet = $spreadsheet->createSheet();
+        $sheet->setTitle('Detalle de pago');
+
+        $workerLabel = $filteredWorker?->name ?? 'Todos los trabajadores';
+        $periodoTxt = $fromLocalStart->format('d/m/Y').' - '.$toLocalEnd->format('d/m/Y');
+        $fechaCorteTxt = $toLocalEnd->copy()->timezone($storeTimezone)->format('d/m/Y');
+
+        $costByType = [];
+        foreach (self::TIPOS as $tipo) {
+            $key = $tipo['key'];
+            $hours = (float) ($totalPorTipo[$key] ?? 0);
+            $rate = (float) ($rates[$key] ?? 0);
+            $costByType[$key] = $hours * $rate;
+        }
+
+        $sumByKeys = function (array $source, array $keys): float {
+            $sum = 0.0;
+            foreach ($keys as $key) {
+                $sum += (float) ($source[$key] ?? 0);
+            }
+
+            return $sum;
+        };
+
+        $horasOrdinarias = (float) ($totalPorTipo['HorasOrdinarias'] ?? 0);
+        $valorOrdinarias = (float) ($costByType['HorasOrdinarias'] ?? 0);
+
+        $extrasKeys = [
+            'HorasExtrasDiurnas',
+            'HorasExtrasNocturnas',
+            'HorasExtrasDiurnasFestivas',
+            'HorasExtrasNocturnasFestivas',
+        ];
+        $recargosKeys = [
+            'HorasRecargoNocturno',
+            'HorasOrdinariasFestivas',
+            'HorasRecargoNocturnoFestivo',
+            'HorasFestivasNoCompensa',
+        ];
+
+        $horasExtras = $sumByKeys($totalPorTipo, $extrasKeys);
+        $valorExtras = $sumByKeys($costByType, $extrasKeys);
+        $horasRecargos = $sumByKeys($totalPorTipo, $recargosKeys);
+        $valorRecargos = $sumByKeys($costByType, $recargosKeys);
+        $totalPagar = array_sum($costByType);
+
+        $sheet->setCellValue('A1', 'Comprobante de pago de nomina (informativo)');
+        $sheet->mergeCells('A1:H1');
+        $sheet->getStyle('A1:H1')->getFont()->setBold(true)->setSize(14);
+        $sheet->getStyle('A1:H1')->getFill()
+            ->setFillType(Fill::FILL_SOLID)
+            ->getStartColor()->setARGB('FF1F4E78');
+        $sheet->getStyle('A1:H1')->getFont()->getColor()->setARGB('FFFFFFFF');
+        $sheet->getStyle('A1:H1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+        $sheet->setCellValue('A2', 'Documento informativo generado desde clasificacion de horarios.');
+        $sheet->mergeCells('A2:H2');
+        $sheet->getStyle('A2:H2')->getFont()->getColor()->setARGB('FF6B7280');
+
+        $sheet->setCellValue('A4', 'Trabajador');
+        $sheet->mergeCells('A4:C4');
+        $sheet->setCellValue('D4', $workerLabel);
+        $sheet->mergeCells('D4:H4');
+
+        $sheet->setCellValue('A5', 'Fecha de corte');
+        $sheet->mergeCells('A5:C5');
+        $sheet->setCellValue('D5', $fechaCorteTxt);
+        $sheet->mergeCells('D5:H5');
+
+        $sheet->setCellValue('A6', 'Periodo liquidado');
+        $sheet->mergeCells('A6:C6');
+        $sheet->setCellValue('D6', $periodoTxt);
+        $sheet->mergeCells('D6:H6');
+
+        $sheet->setCellValue('A7', 'Total de horas trabajadas');
+        $sheet->mergeCells('A7:C7');
+        $sheet->setCellValue('D7', $this->formatHoursPlain($totalHorasTrabajadas).'h');
+        $sheet->mergeCells('D7:H7');
+
+        $sheet->setCellValue('A8', 'Total a pagar');
+        $sheet->mergeCells('A8:C8');
+        $sheet->setCellValue('D8', $this->formatMoneyCOP($totalPagar));
+        $sheet->mergeCells('D8:H8');
+        $sheet->getStyle('A8:H8')->getFill()
+            ->setFillType(Fill::FILL_SOLID)
+            ->getStartColor()->setARGB('FFE2F0D9');
+        $sheet->getStyle('D8')->getFont()->setBold(true)->setSize(12);
+
+        $sheet->getStyle('A4:C8')->getFont()->setBold(true);
+        $sheet->getStyle('A4:H8')->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
+
+        $sheet->setCellValue('A10', 'Concepto');
+        $sheet->setCellValue('B10', 'Horas');
+        $sheet->setCellValue('C10', 'Valor');
+        $sheet->mergeCells('C10:H10');
+        $sheet->getStyle('A10:H10')->getFont()->setBold(true);
+        $sheet->getStyle('A10:H10')->getFill()
+            ->setFillType(Fill::FILL_SOLID)
+            ->getStartColor()->setARGB('FF374151');
+        $sheet->getStyle('A10:H10')->getFont()->getColor()->setARGB('FFF9FAFB');
+
+        $rows = [
+            ['concepto' => 'Horas Ordinarias', 'horas' => $horasOrdinarias, 'valor' => $valorOrdinarias],
+            ['concepto' => 'Horas Extras', 'horas' => $horasExtras, 'valor' => $valorExtras],
+            ['concepto' => 'Recargos (incluye Festivas No Compensa)', 'horas' => $horasRecargos, 'valor' => $valorRecargos],
+        ];
+
+        $row = 11;
+        foreach ($rows as $index => $item) {
+            $zebra = $index % 2 === 0 ? self::ZEBRA_WHITE : self::ZEBRA_AZUL;
+            $sheet->setCellValue('A'.$row, $item['concepto']);
+            $sheet->setCellValue('B'.$row, $this->formatHoursPlain((float) $item['horas']).'h');
+            $sheet->setCellValue('C'.$row, $this->formatMoneyCOP((float) $item['valor']));
+            $sheet->mergeCells('C'.$row.':H'.$row);
+            $sheet->getStyle('A'.$row.':H'.$row)->getFill()
+                ->setFillType(Fill::FILL_SOLID)
+                ->getStartColor()->setARGB($zebra);
+            $row++;
+        }
+
+        $sheet->setCellValue('A14', 'Nota: este reporte es informativo y no sustituye un comprobante legal de nomina.');
+        $sheet->mergeCells('A14:H14');
+        $sheet->getStyle('A14')->getFont()->getColor()->setARGB('FF6B7280');
+
+        foreach (range(1, 8) as $colIndex) {
             $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($colIndex))->setAutoSize(true);
         }
     }
