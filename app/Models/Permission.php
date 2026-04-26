@@ -17,4 +17,10 @@ class Permission extends Model
         return $this->belongsToMany(Role::class, 'role_permission')
             ->withTimestamps();
     }
+
+    public function planFeatures(): BelongsToMany
+    {
+        return $this->belongsToMany(PlanFeature::class, 'permission_plan_features')
+            ->withTimestamps();
+    }
 }

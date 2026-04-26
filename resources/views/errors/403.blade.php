@@ -11,29 +11,12 @@
                 <p class="text-gray-700 dark:text-gray-300">
                     {{ $exception->getMessage() ?: 'No tienes permiso para realizar esta acción en esta tienda.' }}
                 </p>
-                <p class="mt-3 text-sm text-gray-500 dark:text-gray-400">
-                    Serás redirigido hacia atrás en <span id="countdown">5</span> segundos…
-                </p>
+                <div class="mt-4">
+                    <a href="{{ route('dashboard') }}" class="inline-flex items-center px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition">
+                        Ir al dashboard
+                    </a>
+                </div>
             </div>
         </div>
     </div>
-
-    <script>
-        (function () {
-            var s = 5;
-            var el = document.getElementById('countdown');
-            var t = setInterval(function () {
-                s--;
-                if (el) el.textContent = s;
-                if (s <= 0) {
-                    clearInterval(t);
-                    if (window.history.length > 1) {
-                        window.history.back();
-                    } else {
-                        window.location.href = '{{ route("dashboard") }}';
-                    }
-                }
-            }, 1000);
-        })();
-    </script>
 </x-app-layout>

@@ -26,7 +26,10 @@
             <div class="bg-dark-card border border-white/5 overflow-hidden sm:rounded-xl">
                 <div class="p-6">
                     <div class="mb-6 flex flex-wrap justify-between items-center gap-4">
-                        <div></div>
+                        <a href="{{ route('stores.subscriptions.plans.designer', $store) }}"
+                           class="inline-flex items-center px-4 py-2 bg-white/10 text-white font-semibold text-xs rounded-xl uppercase tracking-wider hover:bg-white/20">
+                            Diseñador de planes
+                        </a>
                         <button type="button" x-on:click="$dispatch('open-modal', 'create-store-plan')"
                                 class="inline-flex items-center px-4 py-2 bg-brand text-white font-semibold text-xs rounded-xl uppercase tracking-wider shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)]">
                             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>

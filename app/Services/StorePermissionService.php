@@ -73,7 +73,11 @@ class StorePermissionService
             return false;
         }
 
-        return $this->userHasPermission($user, $store, $permissionSlug);
+        if (! $this->userHasPermission($user, $store, $permissionSlug)) {
+            return false;
+        }
+
+        return app(StoreFeatureAccessService::class)->canUsePermission($store, $permissionSlug, $user);
     }
 
     /**
@@ -81,8 +85,13 @@ class StorePermissionService
      */
     public function authorize(Store $store, string $permissionSlug): void
     {
-        if (! $this->can($store, $permissionSlug)) {
+        $user = Auth::user();
+        if (! $user || ! $this->userHasPermission($user, $store, $permissionSlug)) {
             abort(403, 'No tienes permiso para realizar esta acción en esta tienda.');
+        }
+
+        if (! app(StoreFeatureAccessService::class)->canUsePermission($store, $permissionSlug, $user)) {
+            abort(403, 'Esta función no está incluida en tu plan actual.');
         }
     }
 

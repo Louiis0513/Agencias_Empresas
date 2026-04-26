@@ -15,6 +15,7 @@ use App\Http\Controllers\StoreInventoryController;
 use App\Http\Controllers\StoreInvoiceAnalysisController;
 use App\Http\Controllers\StoreInvoiceController;
 use App\Http\Controllers\StorePanelSuscripcionesController;
+use App\Http\Controllers\StorePlanDesignerController;
 use App\Http\Controllers\StoreProductController;
 use App\Http\Controllers\StoreProveedorController;
 use App\Http\Controllers\StorePurchaseController;
@@ -158,6 +159,9 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     // Suscripciones (planes, membresías)
     Route::get('/suscripciones/membresias', [StoreSubscriptionController::class, 'memberships'])->name('subscriptions.memberships');
     Route::get('/suscripciones/planes', [StoreSubscriptionController::class, 'plans'])->name('subscriptions.plans');
+    Route::get('/suscripciones/planes/disenador', [StorePlanDesignerController::class, 'index'])->name('subscriptions.plans.designer');
+    Route::put('/suscripciones/planes/disenador/feature', [StorePlanDesignerController::class, 'updateFeature'])->name('subscriptions.plans.designer.feature');
+    Route::put('/suscripciones/planes/disenador/bulk', [StorePlanDesignerController::class, 'bulk'])->name('subscriptions.plans.designer.bulk');
     Route::put('/suscripciones/planes/visibility', [StoreSubscriptionController::class, 'updateVisibility'])->name('subscriptions.plans.visibility');
     Route::delete('/suscripciones/planes/{plan}', [StoreSubscriptionController::class, 'destroy'])->name('subscriptions.plans.destroy');
 

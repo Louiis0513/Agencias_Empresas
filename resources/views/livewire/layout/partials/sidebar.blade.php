@@ -7,6 +7,7 @@
     $canVentas = $store && ($perm->can($store, 'ventas.carrito.view') || $perm->can($store, 'cotizaciones.view'));
     $canSuscripciones = $store && ($perm->can($store, 'subscriptions.view') || $perm->can($store, 'asistencias.view'));
     $canInformes = $store && ($perm->can($store, 'reports.products.view') || $perm->can($store, 'reports.billing.view'));
+    $canPlanDesigner = $store && auth()->check() && (int) $store->user_id === (int) auth()->id();
     $isProductPurchase = false;
     if ($store && request()->routeIs('stores.purchases.show')) {
         $p = request()->route('purchase');
@@ -75,6 +76,14 @@
                     </a>
                 </li>
                 @endstoreCan
+                @if($canPlanDesigner)
+                <li>
+                    <a href="{{ route('stores.subscriptions.plans.designer', $store) }}" wire:navigate class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-gray-300 transition {{ request()->routeIs('stores.subscriptions.plans.designer*') ? 'bg-brand/20 text-brand' : 'hover:bg-white/5 hover:text-white' }}">
+                        <svg class="h-5 w-5 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.75h4.5m-7.5 3h10.5M5.25 21h13.5a1.5 1.5 0 001.5-1.5V8.25a1.5 1.5 0 00-1.5-1.5H5.25a1.5 1.5 0 00-1.5 1.5V19.5a1.5 1.5 0 001.5 1.5zM9 12h6m-6 3h3" /></svg>
+                        <span class="whitespace-nowrap">Diseñador de planes</span>
+                    </a>
+                </li>
+                @endif
                 {{-- Personas (dropdown) --}}
                 @if($canPersonas)
                 <li x-data="{ open: {{ $inPersonas ? 'true' : 'false' }} }">
