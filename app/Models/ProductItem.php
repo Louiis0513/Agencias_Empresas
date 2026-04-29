@@ -14,6 +14,9 @@ class ProductItem extends Model
     public const STATUS_RESERVED = 'RESERVED';
     public const STATUS_DEFECTIVE = 'DEFECTIVE';
 
+    /** Salida manual de inventario (no venta): merma, ajuste, retiro interno */
+    public const STATUS_WITHDRAWN = 'WITHDRAWN';
+
     protected $fillable = [
         'store_id',
         'product_id',
@@ -68,6 +71,11 @@ class ProductItem extends Model
         return $this->status === self::STATUS_DEFECTIVE;
     }
 
+    public function isWithdrawn(): bool
+    {
+        return $this->status === self::STATUS_WITHDRAWN;
+    }
+
     /** Opciones de estado para selects. */
     public static function estadosDisponibles(): array
     {
@@ -76,6 +84,7 @@ class ProductItem extends Model
             self::STATUS_SOLD => 'Vendido',
             self::STATUS_RESERVED => 'Reservado',
             self::STATUS_DEFECTIVE => 'Defectuoso',
+            self::STATUS_WITHDRAWN => 'Retirado',
         ];
     }
 }

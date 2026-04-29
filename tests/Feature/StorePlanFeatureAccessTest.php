@@ -41,11 +41,13 @@ class StorePlanFeatureAccessTest extends TestCase
             'name' => 'Ver suscripciones',
         ]);
 
-        $feature = PlanFeature::create([
-            'slug' => 'subscriptions.module',
-            'module' => 'subscriptions',
-            'name' => 'Modulo Suscripciones',
-        ]);
+        $feature = PlanFeature::firstOrCreate(
+            ['slug' => 'memberships.module'],
+            [
+                'module' => 'memberships',
+                'name' => 'Membresías, asistencias y panel',
+            ]
+        );
         $permission->planFeatures()->sync([$feature->id]);
 
         StorePlanFeatureOverride::create([
@@ -86,11 +88,13 @@ class StorePlanFeatureAccessTest extends TestCase
             'name' => 'Ver suscripciones',
         ]);
 
-        $feature = PlanFeature::create([
-            'slug' => 'subscriptions.module',
-            'module' => 'subscriptions',
-            'name' => 'Modulo Suscripciones',
-        ]);
+        $feature = PlanFeature::firstOrCreate(
+            ['slug' => 'memberships.module'],
+            [
+                'module' => 'memberships',
+                'name' => 'Membresías, asistencias y panel',
+            ]
+        );
         $permission->planFeatures()->sync([$feature->id]);
 
         StorePlanFeatureOverride::create([

@@ -1,17 +1,30 @@
 <x-app-layout>
     <x-slot name="header">
-        <div class="flex justify-between items-center">
+        <div class="flex flex-wrap justify-between items-center gap-3">
             <h2 class="font-semibold text-xl text-white leading-tight">
                 Productos - <span class="text-brand">{{ $store->name }}</span>
             </h2>
-            <a href="{{ route('stores.dashboard', $store) }}" class="text-sm text-gray-400 hover:text-brand transition" wire:navigate>
-                ← Volver al Resumen
-            </a>
+            <div class="flex flex-wrap items-center gap-3">
+                @storeCan($store, 'inventario.view')
+                    <a href="{{ route('stores.products.export-inventory-excel', $store) }}" class="text-sm px-3 py-2 rounded-lg bg-brand/20 text-brand border border-brand/30 hover:bg-brand/30 transition">
+                        Descargar Excel
+                    </a>
+                    <a href="{{ route('stores.products.export-inventory-movements-excel', ['store' => $store]) }}" class="text-sm px-3 py-2 rounded-lg bg-white/10 text-gray-200 border border-white/10 hover:bg-white/15 transition">
+                        Movimientos de inventario (Excel)
+                    </a>
+                @endstoreCan
+                <a href="{{ route('stores.dashboard', $store) }}" class="text-sm text-gray-400 hover:text-brand transition" wire:navigate>
+                    ← Volver al Resumen
+                </a>
+            </div>
         </div>
     </x-slot>
 
     <livewire:create-product-modal :store-id="$store->id" />
     <livewire:edit-product-modal :store-id="$store->id" />
+    @livewire('select-item-modal', ['storeId' => $store->id, 'itemType' => 'INVENTARIO', 'rowId' => 'movimiento-inventario'])
+    @livewire('select-batch-variant-modal', ['storeId' => $store->id])
+    <livewire:create-movimiento-inventario-modal :store-id="$store->id" />
 
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
@@ -61,14 +74,26 @@
                                 @endif
                             </div>
                         </form>
-                        <button type="button"
-                                x-on:click="$dispatch('open-modal', 'create-product')"
-                                class="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2.5 bg-brand text-white font-semibold text-xs rounded-xl uppercase tracking-wider shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)] transition shrink-0">
-                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                            </svg>
-                            Crear Producto
-                        </button>
+                        <div class="flex flex-col sm:flex-row w-full sm:w-auto gap-2 shrink-0">
+                            @storeCan($store, 'inventario.movimientos.manual.create')
+                                <button type="button"
+                                        x-on:click="$dispatch('open-modal', 'create-movimiento-inventario')"
+                                        class="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2.5 bg-white/10 text-gray-100 font-semibold text-xs rounded-xl uppercase tracking-wider border border-white/10 hover:bg-white/15 transition">
+                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                    </svg>
+                                    Registrar movimiento
+                                </button>
+                            @endstoreCan
+                            <button type="button"
+                                    x-on:click="$dispatch('open-modal', 'create-product')"
+                                    class="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2.5 bg-brand text-white font-semibold text-xs rounded-xl uppercase tracking-wider shadow-[0_0_15px_rgba(34,114,255,0.3)] hover:shadow-[0_0_20px_rgba(34,114,255,0.4)] transition">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                </svg>
+                                Crear Producto
+                            </button>
+                        </div>
                     </div>
 
                     @if($products->count() > 0)

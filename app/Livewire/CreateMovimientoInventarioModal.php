@@ -20,6 +20,9 @@ class CreateMovimientoInventarioModal extends Component
 {
     public int $storeId;
 
+    /** 1 = elegir ENTRADA/SALIDA; 2 = producto y detalles */
+    public int $wizardStep = 1;
+
     public int $product_id = 0;
     public string $type = 'ENTRADA';
     public string $quantity = '';
@@ -69,10 +72,15 @@ class CreateMovimientoInventarioModal extends Component
             ? ($product->quantity_mode ?? Product::QUANTITY_MODE_UNIT)
             : Product::QUANTITY_MODE_UNIT;
 
+        $quantityRules = Quantity::validationRulesForMode($quantityMode, false);
+        if ($product?->isSerialized()) {
+            $quantityRules = ['nullable'];
+        }
+
         return [
             'product_id'  => ['required', 'exists:products,id'],
             'type'        => ['required', 'in:ENTRADA,SALIDA'],
-            'quantity'    => Quantity::validationRulesForMode($quantityMode, false),
+            'quantity'    => $quantityRules,
             'description' => ['nullable', 'string', 'max:500'],
             'unit_cost'   => ['nullable', 'numeric', 'min:0'],
         ];
@@ -110,9 +118,46 @@ class CreateMovimientoInventarioModal extends Component
             ->first();
     }
 
+    /** RowId del selector de productos: ENTRADA usa catálogo tipo compra; SALIDA usa líneas con stock/seriales. */
+    protected function movimientoInventarioSelectRowId(): string
+    {
+        return 'movimiento-inventario-' . strtolower($this->type);
+    }
+
+    protected function isSelectRowForMovimientoInventario(mixed $rowId): bool
+    {
+        if ($rowId === null || (! is_string($rowId) && ! is_numeric($rowId))) {
+            return false;
+        }
+        $rowId = (string) $rowId;
+
+        return $rowId === 'movimiento-inventario' || str_starts_with($rowId, 'movimiento-inventario-');
+    }
+
+    public function wizardContinue(): void
+    {
+        $this->validate([
+            'type' => ['required', 'in:ENTRADA,SALIDA'],
+        ]);
+        $this->wizardStep = 2;
+        $this->resetValidation();
+    }
+
+    public function wizardBack(): void
+    {
+        $this->wizardStep = 1;
+        $this->product_id = 0;
+        $this->resetTypeSpecificFields();
+        $this->categoryAttributes = [];
+        $this->resetValidation();
+    }
+
     public function abrirSelectorProducto(): void
     {
-        $this->dispatch('open-select-item-for-row', rowId: 'movimiento-inventario', itemType: 'INVENTARIO');
+        if ($this->wizardStep !== 2) {
+            return;
+        }
+        $this->dispatch('open-select-item-for-row', rowId: $this->movimientoInventarioSelectRowId(), itemType: 'INVENTARIO');
     }
 
     public function abrirSelectorVarianteBatch(): void
@@ -133,7 +178,7 @@ class CreateMovimientoInventarioModal extends Component
     #[On('item-selected')]
     public function onItemSelected($rowId, $id, $name, $type, $productType = null, $productVariantId = null, $productItemId = null): void
     {
-        if ($rowId !== 'movimiento-inventario' || $type !== 'INVENTARIO') {
+        if (! $this->isSelectRowForMovimientoInventario($rowId) || $type !== 'INVENTARIO') {
             return;
         }
         $productType = $productType ?? 'simple';
@@ -153,6 +198,7 @@ class CreateMovimientoInventarioModal extends Component
                     $this->dispatch('open-select-batch-variant', productId: $id, rowId: 'movimiento-inventario', productName: $name, variantKeysInCart: []);
                 }
             } elseif ($productType === 'serialized' && $this->type === 'SALIDA') {
+                $this->updatedProductId($this->product_id);
                 if ($productItemId) {
                     $item = ProductItem::query()
                         ->where('id', (int) $productItemId)
@@ -161,13 +207,12 @@ class CreateMovimientoInventarioModal extends Component
                         ->where('status', ProductItem::STATUS_AVAILABLE)
                         ->first();
                     if ($item) {
-                        $this->updatedProductId($this->product_id);
                         $this->serials_selected = [$item->serial_number];
                     } else {
-                        $this->abrirModalSerialesMovimiento($id);
+                        $this->abrirModalSerialesMovimiento((int) $id);
                     }
                 } else {
-                    $this->abrirModalSerialesMovimiento($id);
+                    $this->abrirModalSerialesMovimiento((int) $id);
                 }
             } else {
                 $this->updatedProductId($this->product_id);
@@ -180,7 +225,7 @@ class CreateMovimientoInventarioModal extends Component
     #[On('batch-variant-selected')]
     public function onBatchVariantSelected($rowId, $productId, $productName, $variantFeatures, $displayName, $totalStock = 0, $price = null, $productVariantId = null): void
     {
-        if ($rowId !== 'movimiento-inventario') {
+        if (! $this->isSelectRowForMovimientoInventario($rowId)) {
             return;
         }
         $this->product_id = (int) $productId;
@@ -193,6 +238,7 @@ class CreateMovimientoInventarioModal extends Component
     public function resetForm(): void
     {
         $ref = 'INI-' . date('Y');
+        $this->wizardStep = 1;
         $this->product_id  = 0;
         $this->type        = 'ENTRADA';
         $this->quantity    = '';
@@ -470,7 +516,13 @@ class CreateMovimientoInventarioModal extends Component
                 'quantity' => (int) $totalStock,
                 'features' => $features,
             ];
-        })->filter(fn ($v) => $v['quantity'] > 0)->values()->toArray();
+        })->filter(function ($v) {
+            if ($this->type === MovimientoInventario::TYPE_SALIDA) {
+                return $v['quantity'] > 0;
+            }
+
+            return true;
+        })->values()->toArray();
 
         if ($this->product_variant_id) {
             $this->syncSelectedVariantFromAvailable((int) $this->product_variant_id);
@@ -540,6 +592,12 @@ class CreateMovimientoInventarioModal extends Component
 
     public function save(InventarioService $inventarioService)
     {
+        if ($this->wizardStep !== 2) {
+            throw ValidationException::withMessages([
+                'type' => 'Indica el tipo de movimiento y pulsa Continuar antes de registrar.',
+            ]);
+        }
+
         $this->validate();
 
         $store = $this->getStoreProperty();
@@ -559,7 +617,11 @@ class CreateMovimientoInventarioModal extends Component
             'description' => $this->description ?: null,
         ];
 
-        if ($this->unit_cost !== null && $this->unit_cost !== '') {
+        $applyGenericUnitCost = true;
+        if (! $product->isSerialized() && ! $product->isBatch() && $this->type === MovimientoInventario::TYPE_ENTRADA) {
+            $applyGenericUnitCost = false;
+        }
+        if ($applyGenericUnitCost && $this->unit_cost !== null && $this->unit_cost !== '') {
             $currency = $this->getStoreProperty()?->currency ?? 'COP';
             $payload['unit_cost'] = parse_money($this->unit_cost, $currency);
         }
@@ -573,22 +635,35 @@ class CreateMovimientoInventarioModal extends Component
             } else {
                 $serialNumbers = $this->prepareSerialsSalida();
                 $payload['quantity'] = count($serialNumbers);
+                $payload['inventory_manual_serial_salida'] = true;
             }
-        } else {
+        } elseif ($product->isBatch()) {
             if ($this->type === \App\Models\MovimientoInventario::TYPE_ENTRADA) {
                 $batchData = $this->prepareBatchEntradaPayload();
                 $payload['batch_data'] = $batchData;
-                $payload['quantity'] = array_sum(array_column($batchData['items'], 'quantity'));
+                $payload['quantity'] = Quantity::normalize(array_sum(array_column($batchData['items'], 'quantity')));
             } else {
                 $this->prepareBatchSalidaValidation();
-                // Usamos salida por variante FIFO en vez de batch_item_id directo
                 $payload['_use_variant_fifo'] = true;
                 $payload['product_variant_id'] = $this->product_variant_id;
-                $payload['quantity'] = (int) $this->quantity;
+                $payload['quantity'] = Quantity::normalize($this->quantity);
+            }
+        } else {
+            // Producto simple (sin variantes)
+            if ($this->type === \App\Models\MovimientoInventario::TYPE_ENTRADA) {
+                $simple = $this->prepareSimpleEntradaPayload();
+                $payload['reference'] = $simple['reference'];
+                $payload['quantity'] = $simple['quantity'];
+                $payload['unit_cost'] = $simple['unit_cost'];
+            } else {
+                $qty = $this->prepareSimpleSalidaValidation($product);
+                $payload['_use_simple_fifo'] = true;
+                $payload['quantity'] = $qty;
             }
         }
 
-        if (($payload['quantity'] ?? 0) < 1) {
+        $qCheck = (float) ($payload['quantity'] ?? 0);
+        if ($qCheck < 0.01) {
             throw ValidationException::withMessages([
                 'quantity' => 'La cantidad debe ser mayor a 0.',
             ]);
@@ -596,15 +671,24 @@ class CreateMovimientoInventarioModal extends Component
 
         try {
             $useVariantFifo = $payload['_use_variant_fifo'] ?? false;
-            unset($payload['_use_variant_fifo']);
+            $useSimpleFifo = $payload['_use_simple_fifo'] ?? false;
+            unset($payload['_use_variant_fifo'], $payload['_use_simple_fifo']);
 
-            if ($useVariantFifo && ! empty($payload['product_variant_id'])) {
+            if ($useSimpleFifo) {
+                $inventarioService->registrarSalidaPorCantidadFIFO(
+                    $store,
+                    Auth::id(),
+                    $product->id,
+                    $qCheck,
+                    $payload['description'] ?? null,
+                );
+            } elseif ($useVariantFifo && ! empty($payload['product_variant_id'])) {
                 $inventarioService->registrarSalidaPorVarianteFIFO(
                     $store,
                     Auth::id(),
                     $product->id,
                     (int) $payload['product_variant_id'],
-                    (int) $payload['quantity'],
+                    $qCheck,
                     $payload['description'] ?? null,
                 );
             } else {
@@ -618,7 +702,7 @@ class CreateMovimientoInventarioModal extends Component
 
             $this->resetForm();
 
-            return redirect()->route('stores.inventario', $store)
+            return redirect()->route('stores.products', $store)
                 ->with('success', 'Movimiento de inventario registrado correctamente.');
         } catch (\Exception $e) {
             throw ValidationException::withMessages([
@@ -750,6 +834,50 @@ class CreateMovimientoInventarioModal extends Component
                 'quantity' => "Solo hay {$selected['quantity']} unidades disponibles en esa variante.",
             ]);
         }
+    }
+
+    protected function prepareSimpleEntradaPayload(): array
+    {
+        if (trim($this->batch_reference) === '') {
+            throw ValidationException::withMessages([
+                'batch_reference' => 'Debes indicar la referencia de origen.',
+            ]);
+        }
+
+        $qty = Quantity::normalize($this->quantity);
+        if ($qty < 0.01) {
+            throw ValidationException::withMessages([
+                'quantity' => 'La cantidad debe ser mayor a 0.',
+            ]);
+        }
+
+        $currency = $this->getStoreProperty()?->currency ?? 'COP';
+        $unitCost = $this->unit_cost !== null && $this->unit_cost !== '' ? parse_money($this->unit_cost, $currency) : 0.0;
+
+        return [
+            'reference' => trim($this->batch_reference),
+            'quantity' => $qty,
+            'unit_cost' => $unitCost,
+        ];
+    }
+
+    protected function prepareSimpleSalidaValidation(Product $product): float
+    {
+        $qty = Quantity::normalize($this->quantity);
+        if ($qty < 0.01) {
+            throw ValidationException::withMessages([
+                'quantity' => 'La cantidad debe ser mayor a 0.',
+            ]);
+        }
+
+        $stock = Quantity::normalize($product->stock);
+        if ($qty > $stock) {
+            throw ValidationException::withMessages([
+                'quantity' => "Stock insuficiente. Disponible: {$stock}.",
+            ]);
+        }
+
+        return $qty;
     }
 
     public function render()

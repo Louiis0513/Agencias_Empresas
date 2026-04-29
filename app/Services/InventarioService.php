@@ -12,6 +12,7 @@ use App\Models\Store;
 use App\Support\Quantity;
 use Exception;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 class InventarioService
@@ -338,7 +339,7 @@ class InventarioService
                 $itemsToValidate = [];
                 if ($product->isSerialized()) {
                     $serials = array_values(array_filter(array_map('trim', $serialNumbers)));
-                    if (count($serials) !== $quantity) {
+                    if (abs(Quantity::normalize(count($serials)) - $quantity) > 0.0001) {
                         throw new Exception(
                             "Producto serializado: se intentan mover {$quantity} unidades pero se enviaron " . count($serials) . " número(s) de serie."
                         );
@@ -495,6 +496,9 @@ class InventarioService
                     }
                 } else {
                     $serials = array_values(array_filter(array_map('trim', $serialNumbers)));
+                    $serialSalidaStatus = ! empty($datos['inventory_manual_serial_salida'])
+                        ? ProductItem::STATUS_WITHDRAWN
+                        : ProductItem::STATUS_SOLD;
                     foreach ($serials as $serial) {
                         $item = ProductItem::where('store_id', $store->id)
                             ->where('product_id', $product->id)
@@ -503,7 +507,7 @@ class InventarioService
                         if ($productItemIdForMov === null) {
                             $productItemIdForMov = $item->id;
                         }
-                        $item->update(['status' => ProductItem::STATUS_SOLD]);
+                        $item->update(['status' => $serialSalidaStatus]);
                     }
                 }
             } elseif ($product->isBatch()) {
@@ -521,8 +525,11 @@ class InventarioService
                     if (empty($batchInfo['items']) || ! is_array($batchInfo['items'])) {
                         throw new Exception('El lote debe contener una lista de items.');
                     }
-                    $sumItems = array_sum(array_column($batchInfo['items'], 'quantity'));
-                    if ($sumItems !== $quantity) {
+                    $sumItems = Quantity::normalize(array_sum(array_map(
+                        fn ($row) => Quantity::normalize($row['quantity'] ?? 0),
+                        $batchInfo['items']
+                    )));
+                    if (abs($sumItems - $quantity) > 0.0001) {
                         throw new Exception("La suma de cantidades del lote ({$sumItems}) no coincide con la cantidad del movimiento ({$quantity}).");
                     }
 
@@ -1117,9 +1124,9 @@ class InventarioService
     }
 
     /**
-     * Lista movimientos de inventario con filtros.
+     * Query base de movimientos de inventario (mismos filtros que el listado y el export).
      */
-    public function listarMovimientos(Store $store, array $filtros = []): LengthAwarePaginator
+    public function movimientosQuery(Store $store, array $filtros = []): Builder
     {
         $query = MovimientoInventario::deTienda($store->id)
             ->with([
@@ -1128,8 +1135,7 @@ class InventarioService
                 'productItem',
                 'user:id,name',
                 'invoice:id,store_id',
-            ])
-            ->orderByDesc('created_at');
+            ]);
 
         if (! empty($filtros['product_id'])) {
             $query->porProducto((int) $filtros['product_id']);
@@ -1155,7 +1161,17 @@ class InventarioService
             $query->where('description', 'like', '%' . $search . '%');
         }
 
-        return $query->paginate($filtros['per_page'] ?? 15);
+        return $query;
+    }
+
+    /**
+     * Lista movimientos de inventario con filtros.
+     */
+    public function listarMovimientos(Store $store, array $filtros = []): LengthAwarePaginator
+    {
+        return $this->movimientosQuery($store, $filtros)
+            ->orderByDesc('created_at')
+            ->paginate($filtros['per_page'] ?? 15);
     }
 
     /**

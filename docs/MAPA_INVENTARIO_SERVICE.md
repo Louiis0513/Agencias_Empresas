@@ -6,7 +6,7 @@ Responsabilidad del servicio: **registrar movimientos de entrada y salida** y **
 
 ## 1. Índice completo de funciones de InventarioService
 
-En `InventarioService` existen **12 métodos** en total. Esta tabla los lista todos (públicos, estáticos y protegidos) y si tienen uso externo o solo interno.
+En `InventarioService` hay varios métodos públicos de primer nivel; esta tabla resume los más usados desde fuera del servicio y los puntos de entrada habituales (los números son solo referencia, no numeración rígida del archivo).
 
 | # | Método | Visibilidad | ¿Usado desde fuera del servicio? | Dónde se usa (resumen) |
 |---|--------|-------------|-----------------------------------|------------------------|
@@ -14,14 +14,16 @@ En `InventarioService` existen **12 métodos** en total. Esta tabla los lista to
 | 2 | **resolveUnitCostForMovement** | protected | No (solo interno) | Llamado por registrarMovimiento al crear el registro MovimientoInventario |
 | 3 | **actualizarStock** | public | No (solo interno) | Llamado por registrarMovimiento tras cada entrada/salida (actualiza products.stock) |
 | 4 | **actualizarCostoPonderado** | public | No (solo interno) | Llamado por registrarMovimiento tras cada entrada/salida (recalcula product.cost) |
-| 5 | **registrarMovimiento** | public | Sí | PurchaseService, ProductService, StoreController, CreateMovimientoInventarioModal |
-| 6 | **registrarSalidaPorCantidadFIFO** | public | Sí | InvoiceService, VentaService |
+| 5 | **registrarMovimiento** | public | Sí | PurchaseService, ProductService, CreateMovimientoInventarioModal |
+| 6 | **registrarSalidaPorCantidadFIFO** | public | Sí | InvoiceService, VentaService, CreateMovimientoInventarioModal (producto **simple**, SALIDA manual) |
 | 7 | **registrarSalidaPorSeriales** | public | Sí | VentaService |
 | 8 | **stockDisponible** | public | No (solo interno) | Llamado por validarStockDisponible para cada ítem |
 | 9 | **validarStockDisponible** | public | Sí | VentasCarrito (Livewire), VentaService |
-| 10 | **listarMovimientos** | public | Sí | StoreController::inventario |
-| 11 | **productosConInventario** | public | Sí | StoreController::inventario, CreateMovimientoInventarioModal |
-| 12 | **buscarProductosInventario** | public | Sí | StoreController::buscarProductosInventario, SelectItemModal |
+| 10 | **movimientosQuery** | public | Sí | InventarioService::listarMovimientos (wrapper), InventoryMovementsExcelExportService (export Excel) |
+| 11 | **listarMovimientos** | public | Sí | Paginador sobre `movimientosQuery`; uso interno / pantallas que paginan el mismo criterio que el export |
+| 12 | **productosConInventario** | public | Sí | Servicios o vistas que listan catálogo apto para inventario (evolucionar según necesidad) |
+| 13 | **buscarProductosInventario** | public | Sí | SelectItemModal, flujos que delegan en InventarioService para búsqueda |
+| — | **registrarSalidaPorVarianteFIFO** | public | Sí | CreateMovimientoInventarioModal (producto **por lotes**, SALIDA manual por variante) |
 
 ---
 
@@ -29,14 +31,15 @@ En `InventarioService` existen **12 métodos** en total. Esta tabla los lista to
 
 | Método | Dónde se llama | Flujo (vista / origen) |
 |--------|----------------|-------------------------|
-| **registrarMovimiento** | PurchaseService, ProductService, StoreController, CreateMovimientoInventarioModal | Ver sección 2 |
-| **registrarSalidaPorCantidadFIFO** | InvoiceService, VentaService | Factura (contado) y venta a crédito |
+| **registrarMovimiento** | PurchaseService, ProductService, CreateMovimientoInventarioModal | Ver sección 2 |
+| **registrarSalidaPorCantidadFIFO** | InvoiceService, VentaService, CreateMovimientoInventarioModal (simple manual) | Factura, venta a crédito, salida manual sin variante |
+| **registrarSalidaPorVarianteFIFO** | CreateMovimientoInventarioModal | Salida manual por variante (batch) |
 | **registrarSalidaPorSeriales** | VentaService | Venta a crédito (detalles con serial_numbers) |
 | **validarStockDisponible** | VentasCarrito (Livewire), VentaService | Carrito de ventas y al facturar a crédito |
 | **stockDisponible** | Solo internamente en validarStockDisponible | — |
-| **listarMovimientos** | StoreController::inventario | Vista Inventario |
-| **productosConInventario** | StoreController::inventario, CreateMovimientoInventarioModal | Vista Inventario y modal de movimiento |
-| **buscarProductosInventario** | StoreController::buscarProductosInventario, SelectItemModal | API búsqueda y selector de producto (compras/carrito) |
+| **movimientosQuery / listarMovimientos** | Export Excel movimientos, listados paginados que reutilicen el mismo filtro | Historial de movimientos (ya no hay vista dedicada `/inventario`; el listado masivo es en Excel desde productos) |
+| **productosConInventario** | Donde se necesite listar productos con inventario | Catálogo auxiliar |
+| **buscarProductosInventario** | SelectItemModal y patrones similares | Selector de producto en compras, movimientos, etc. |
 | **detectorDeVariantesEnLotes** (static) | ProductService, SelectBatchVariantModal, producto-detalle.blade.php, compilado de vistas | Comparar/detectar variantes en lotes (features normalizados) |
 | **actualizarStock** | Solo internamente en registrarMovimiento | — |
 | **actualizarCostoPonderado** | Solo internamente en registrarMovimiento | — |
@@ -93,11 +96,13 @@ Se usa en **cuatro** contextos: crear producto con stock inicial, compra aprobad
 
 ### 2.3 Movimiento manual de inventario (entrada/salida)
 
-- **Vista/origen:** Vista “Inventario” (`/inventario`) con formulario de movimiento O modal `CreateMovimientoInventarioModal`.
-- **Flujos:**
-  1. **StoreController::storeMovimientoInventario** (POST `/inventario/movimientos`): valida request y llama **InventarioService::registrarMovimiento** con product_id, type (ENTRADA/SALIDA), quantity, description, unit_cost (líneas ~1127-1135).
-  2. **CreateMovimientoInventarioModal::save()**: prepara payload (serial_items, batch_data o batch_item_id según tipo de producto y ENTRADA/SALIDA) y llama **InventarioService::registrarMovimiento** (líneas ~317-322).
-- **Tipo de movimiento:** **ENTRADA** o **SALIDA** según el usuario.
+- **Vista/origen:** Solo modal Livewire **`CreateMovimientoInventarioModal`** en la vista **Productos** (`productos.blade.php`). El usuario elige primero **Entrada o Salida** (paso 1 del asistente) y después producto y datos.
+- **Ya no aplica:** pantalla dedicada `/inventario` ni `StoreController::storeMovimientoInventario` para este flujo.
+- **Flujos en `save()` (resumen):**
+  - **Serializado:** `registrarMovimiento` con `serial_items` (ENTRADA) o seriales en SALIDA (vía payload + array de seriales).
+  - **Por lotes:** ENTRADA con `batch_data` → `registrarMovimiento`; SALIDA manual → **`registrarSalidaPorVarianteFIFO`** por variante elegida.
+  - **Simple:** ENTRADA con `reference`, `quantity`, `unit_cost` → **`registrarMovimiento`** (rama simple del servicio); SALIDA manual → **`registrarSalidaPorCantidadFIFO`** (FIFO sin elegir variante en UI).
+- La suma de ítems en `batch_data` (entrada por lote) se compara con la cantidad del movimiento usando valores normalizados (`Quantity::normalize`) para evitar fallos por tipo int/float.
 
 ### 2.4 Añadir variantes a producto por lote
 
@@ -109,11 +114,12 @@ Se usa en **cuatro** contextos: crear producto con stock inicial, compra aprobad
 
 ## 3. registrarSalidaPorCantidadFIFO — salida por cantidad (FIFO)
 
-- **Uso:** Cuando se descuenta inventario “por cantidad” sin indicar variante ni seriales; el sistema elige origen con política FIFO.
+- **Uso:** Cuando se descuenta inventario “por cantidad” sin indicar variante ni seriales; el sistema elige origen con política FIFO sobre los `batch_items` del producto (simple o batch internamente).
 - **Dónde se llama:**
   1. **InvoiceService::crearFactura()** (líneas ~167-173): tras crear la factura y sus detalles, por cada detalle con quantity se llama `registrarSalidaPorCantidadFIFO(store, userId, product_id, qty, 'Venta Factura #…')`.
   2. **VentaService::ventaACredito()** (líneas ~84-90): para detalles que **no** tienen `serial_numbers`, se llama `registrarSalidaPorCantidadFIFO` con product_id y quantity.
-- **Vista/origen:** Crear factura (contado) desde facturas; venta a crédito orquestada por VentaService (cuando se use).
+  3. **CreateMovimientoInventarioModal::save()**: salida manual de producto **simple** (tipo `simple`), después de validar cantidad frente a stock.
+- **Vista/origen:** Facturas, venta a crédito, modal “Registrar movimiento” en Productos (solo simple/SALIDA).
 
 ---
 
@@ -135,17 +141,18 @@ Se usa en **cuatro** contextos: crear producto con stock inicial, compra aprobad
 
 ---
 
-## 6. listarMovimientos y productosConInventario — consultas para la vista
+## 6. movimientosQuery, listarMovimientos y productosConInventario
 
-- **listarMovimientos:** `StoreController::inventario()` (línea ~1107). Pagina movimientos con filtros (product_id, type, fechas) para la vista de inventario.
-- **productosConInventario:** `StoreController::inventario()` (línea ~1108) y `CreateMovimientoInventarioModal::getProductosInventarioProperty()` (línea ~79). Lista productos de la tienda aptos para movimientos (simple, serialized, batch) para desplegables/filtros.
+- **movimientosQuery:** Query base de movimientos con filtros (producto, tipo, fechas, búsqueda). La usa **`InventoryMovementsExcelExportService`** para volcar filas al Excel de “Movimientos de inventario”.
+- **listarMovimientos:** Paginador (`LengthAwarePaginator`) sobre la misma query; útil si alguna pantalla lista movimientos con los mismos filtros que el export.
+- **productosConInventario:** Lista productos de la tienda aptos para inventario; no está acoplado de forma obligatoria al modal actual (el modal selecciona producto vía **SelectItemModal** / `VentaService::buscarProductos` para la fila `movimiento-inventario`).
 
 ---
 
 ## 7. buscarProductosInventario — búsqueda para selectores
 
-- **StoreController::buscarProductosInventario** (línea ~1316): Ruta API `/api/productos-inventario/buscar`; devuelve productos por término (nombre, SKU, barcode) para inventario.
-- **SelectItemModal (Livewire):** En la propiedad `getResultsProperty()` (línea ~47) para el modal de “Seleccionar producto” en compras y en carrito de ventas.
+- **SelectItemModal (Livewire):** Según `rowId` y contexto usa **`InventarioService::buscarProductosParaCompra`** o **`VentaService::buscarProductos`** (para carrito/factura/movimiento manual); las dos rutas convergen en datos compatibles con selectores de líneas de inventario.
+- Rutas API históricas citadas en revisiones antiguas pueden haber cambiado; la fuente de verdad es el modal Livewire que despacha `item-selected`.
 
 ---
 
@@ -163,13 +170,14 @@ Se usa en **cuatro** contextos: crear producto con stock inicial, compra aprobad
 |-------|----------------|---------------------|----------------------------------|
 | Crear producto (stock inicial) | CreateProductModal | ProductService | registrarMovimiento (ENTRADA) |
 | Aprobar compra | Detalle compra → Aprobar | PurchaseService | registrarMovimiento (ENTRADA) |
-| Movimiento manual | Inventario → formulario o CreateMovimientoInventarioModal | StoreController / Livewire | registrarMovimiento (ENTRADA/SALIDA) |
+| Movimiento manual | Productos → Registrar movimiento | CreateMovimientoInventarioModal | `registrarMovimiento`, `registrarSalidaPorCantidadFIFO` (simple SALIDA), `registrarSalidaPorVarianteFIFO` (batch SALIDA) |
+| Export movimientos Excel | Productos | InventoryMovementsExcelExportService | `movimientosQuery` |
+| Listado inventario (paginado) | (según pantalla que lo use) | — | `listarMovimientos` / `movimientosQuery` |
 | Añadir variantes (con stock) | Producto → Añadir variantes | ProductService | registrarMovimiento (ENTRADA) |
 | Factura al contado | Facturas → Crear factura | InvoiceService | registrarSalidaPorCantidadFIFO |
 | Venta a crédito | (flujo VentaService) | VentaService | validarStockDisponible, registrarSalidaPorSeriales o registrarSalidaPorCantidadFIFO |
 | Carrito de ventas | Ventas → Carrito | VentasCarrito (Livewire) | validarStockDisponible |
-| Listado inventario | Inventario | StoreController | listarMovimientos, productosConInventario |
-| Buscar producto (compras/carrito) | Selector producto | SelectItemModal / API | buscarProductosInventario |
+| Buscar producto (compras/carrito/movimiento) | Selector producto | SelectItemModal | buscarProductosInventario / buscarProductosParaCompra / VentaService |
 
 ---
 
@@ -178,7 +186,7 @@ Se usa en **cuatro** contextos: crear producto con stock inicial, compra aprobad
 - **Unificar entrada/salida:** Toda escritura de inventario pasa por `registrarMovimiento`; FIFO y salida por seriales son capas encima. Mantener esa frontera al optimizar.
 - **Consultas de stock:** `stockDisponible` ya centraliza la lógica por tipo (simple, lote, serializado); `validarStockDisponible` la usa. Cualquier nueva validación de stock debería apoyarse en `stockDisponible` para no duplicar reglas.
 - **Carrito → factura:** Hoy el carrito usa `validarStockDisponible`; al conectar con VentaService/InvoiceService habrá que transformar líneas del carrito (con batch_item_id o serial_numbers) al formato `details` que esperan InvoiceService y VentaService, y decidir si la salida sigue siendo solo por cantidad (FIFO) o también por variante/serial cuando venga del carrito.
-- **Movimientos manuales:** StoreController y CreateMovimientoInventarioModal preparan el payload y llaman a `registrarMovimiento`; si se cambia la firma o el formato de `registrarMovimiento`, hay que actualizar ambos y el modal (serial_items, batch_data, batch_item_id).
+- **Movimientos manuales:** Actualizado el modal **`CreateMovimientoInventarioModal`**: paso 1 tipo de movimiento, ramas por tipo de producto (simple / batch / serializado), y llamadas directas a **`registrarSalidaPorCantidadFIFO`** o **`registrarSalidaPorVarianteFIFO`** cuando aplica. Cambios en `registrarMovimiento` deben alinear modal y compras/productos.
 - **Compras:** PurchaseService ya adapta detalles de compra al formato que InventarioService espera; cualquier cambio en el contrato de `registrarMovimiento` (batch_data, serial_items, reference) debe reflejarse ahí.
 
 Con este mapa se puede mejorar InventarioService (rendimiento, claridad, nuevos casos) sin perder coherencia con las vistas y servicios que lo usan.
@@ -187,9 +195,4 @@ Con este mapa se puede mejorar InventarioService (rendimiento, claridad, nuevos 
 
 ## 11. Comprobación de cobertura
 
-El archivo `app/Services/InventarioService.php` contiene exactamente **12 métodos**:
-
-- **Públicos (11):** detectorDeVariantesEnLotes, actualizarStock, actualizarCostoPonderado, registrarMovimiento, registrarSalidaPorCantidadFIFO, registrarSalidaPorSeriales, stockDisponible, validarStockDisponible, listarMovimientos, productosConInventario, buscarProductosInventario.
-- **Protegidos (1):** resolveUnitCostForMovement.
-
-Todos están referenciados en este documento (tabla de índice en §1, uso externo en §1b, uso interno en §1c, y detalle por flujo en §2–8).
+El archivo `app/Services/InventarioService.php` define más de una docena de métodos públicos; los citados en las tablas anteriores son los más relevantes para flujos de negocio. Para un inventario exacto de métodos y firma, revisar el código fuente del servicio.

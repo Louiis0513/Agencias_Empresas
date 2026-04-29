@@ -58,9 +58,12 @@ class SelectItemModal extends Component
         }
 
         if ($this->itemType === 'INVENTARIO') {
-            // Vista de ventas (carrito), facturas, inventario y compras: búsqueda con tipo (simple/batch/serialized)
-            // La capa de servicio ya devuelve ítems lógicos (producto simple, variante de lote, ítem serializado).
-            $items = in_array($this->rowId, ['venta', 'factura', 'inventario-filtro', 'movimiento-inventario'], true)
+            // Ventas/facturas/listado: líneas por ítem (serial = una fila por unidad disponible).
+            // Movimiento manual SALIDA: igual — hay que elegir unidades concretas en stock.
+            // Movimiento manual ENTRADA: catálogo tipo compra (serializado = una fila por producto, sin serial previo).
+            // Compras y resto: buscarProductosParaCompra.
+            $rowIdsBuscarPorLineasStock = ['venta', 'factura', 'inventario-filtro', 'movimiento-inventario-salida'];
+            $items = in_array($this->rowId, $rowIdsBuscarPorLineasStock, true)
                 ? app(VentaService::class)->buscarProductos($store, $term, 25)
                 : app(InventarioService::class)->buscarProductosParaCompra($store, $term, 25);
 

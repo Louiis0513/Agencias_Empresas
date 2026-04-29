@@ -99,6 +99,8 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::delete('/roles/{role}', [StoreRoleController::class, 'destroy'])->name('roles.destroy');
 
     Route::get('/productos', [StoreProductController::class, 'index'])->name('products');
+    Route::get('/productos/exportar-excel-inventario', [StoreInventoryController::class, 'exportExcel'])->name('products.export-inventory-excel');
+    Route::get('/productos/exportar-excel-movimientos', [StoreInventoryController::class, 'exportMovementsExcel'])->name('products.export-inventory-movements-excel');
     Route::get('/informes', [StoreController::class, 'reportsIndex'])->name('reports.index');
     Route::post('/informes/analisis-facturas', [StoreInvoiceAnalysisController::class, 'process'])->name('reports.invoice-analysis.process');
     Route::get('/informes/productos', function (\App\Models\Store $store) {
@@ -200,12 +202,6 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::put('/comprobantes-egreso/{comprobanteEgreso}', [StoreCajaController::class, 'updateComprobanteEgreso'])->name('comprobantes-egreso.update');
     Route::post('/comprobantes-egreso/{comprobanteEgreso}/reversar', [StoreCajaController::class, 'reversarComprobanteEgreso'])->name('comprobantes-egreso.reversar');
     Route::post('/comprobantes-egreso/{comprobanteEgreso}/anular', [StoreCajaController::class, 'anularComprobanteEgreso'])->name('comprobantes-egreso.anular');
-
-    // Inventario
-    Route::controller(StoreInventoryController::class)->group(function () {
-        Route::get('/inventario', 'index')->name('inventario');
-        Route::get('/inventario/exportar-excel', 'exportExcel')->name('inventario.export-excel');
-    });
 
     // Activos Fijos
     Route::controller(StoreActivoController::class)->group(function () {

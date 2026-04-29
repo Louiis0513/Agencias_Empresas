@@ -20,7 +20,7 @@
             <div class="flex flex-wrap items-center justify-end gap-2">
                 @if($isProductos)
                     @if($canExportInventarioExcel)
-                        <a href="{{ route('stores.inventario.export-excel', $store) }}" class="px-3 py-2 rounded-lg border border-brand/30 bg-brand/20 text-brand text-sm font-medium hover:bg-brand/30 transition">
+                        <a href="{{ route('stores.products.export-inventory-excel', $store) }}" class="px-3 py-2 rounded-lg border border-brand/30 bg-brand/20 text-brand text-sm font-medium hover:bg-brand/30 transition">
                             Exportar inventario Excel
                         </a>
                     @else

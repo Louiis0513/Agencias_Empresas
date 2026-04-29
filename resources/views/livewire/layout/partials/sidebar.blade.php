@@ -17,7 +17,7 @@
             $isProductPurchase = true;
         }
     }
-    $inProductos = $store && (request()->routeIs('stores.products*') || request()->routeIs('stores.categories*') || request()->routeIs('stores.attribute-groups*') || request()->routeIs('stores.inventario*') || request()->routeIs('stores.proveedores*') || request()->routeIs('stores.product-purchases*') || (request()->routeIs('stores.purchases.show') && $isProductPurchase));
+    $inProductos = $store && (request()->routeIs('stores.products*') || request()->routeIs('stores.categories*') || request()->routeIs('stores.attribute-groups*') || request()->routeIs('stores.proveedores*') || request()->routeIs('stores.product-purchases*') || (request()->routeIs('stores.purchases.show') && $isProductPurchase));
     $inPersonas = $store && (request()->routeIs('stores.customers*') || request()->routeIs('stores.workers*'));
     $inFinanciero = $store && ((request()->routeIs('stores.cajas*') || request()->routeIs('stores.activos*') || request()->routeIs('stores.accounts-payables*') || request()->routeIs('stores.accounts-receivables*') || request()->routeIs('stores.comprobantes-egreso*') || request()->routeIs('stores.comprobantes-ingreso*') || request()->routeIs('stores.invoices*') || (request()->routeIs('stores.purchases*') && !$isProductPurchase)) && !request()->routeIs('stores.product-purchases*'));
     $inVentas = $store && request()->routeIs('stores.ventas*');
@@ -122,9 +122,6 @@
                         @endstoreCan
                         @storeCan($store, 'attribute-groups.view')
                         <a href="{{ route('stores.attribute-groups', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.attribute-groups*') ? 'text-brand' : 'text-gray-400 hover:text-white' }}">Atributos</a>
-                        @endstoreCan
-                        @storeCan($store, 'inventario.view')
-                        <a href="{{ route('stores.inventario', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.inventario*') ? 'text-brand' : 'text-gray-400 hover:text-white' }}">Inventario</a>
                         @endstoreCan
                         @storeCan($store, 'proveedores.view')
                         <a href="{{ route('stores.proveedores', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.proveedores*') ? 'text-brand' : 'text-gray-400 hover:text-white' }}">Proveedores</a>
