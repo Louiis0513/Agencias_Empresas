@@ -4,7 +4,7 @@
             <h2 class="font-semibold text-xl text-white leading-tight">
                 Cerrar caja — {{ $store->name }}
             </h2>
-            <a href="{{ route('stores.cajas', $store) }}" class="text-sm text-gray-400 hover:text-brand transition">← Volver a Caja</a>
+            <a href="{{ route('stores.cajas.movimientos', $store) }}" wire:navigate class="text-sm text-gray-400 hover:text-brand transition">← {{ __('Movimientos') }}</a>
         </div>
     </x-slot>
 

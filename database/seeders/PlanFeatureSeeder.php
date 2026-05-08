@@ -20,6 +20,16 @@ class PlanFeatureSeeder extends Seeder
         'panel-suscripciones-config',
     ];
 
+    /**
+     * Roles y trabajadores comparten un solo feature en el diseñador de planes.
+     *
+     * @var list<string>
+     */
+    private const TEAM_PERMISSION_PREFIXES = [
+        'roles',
+        'workers',
+    ];
+
     public function run(): void
     {
         $membershipFeature = PlanFeature::firstOrCreate(
@@ -31,6 +41,15 @@ class PlanFeatureSeeder extends Seeder
             ]
         );
 
+        $teamFeature = PlanFeature::firstOrCreate(
+            ['slug' => 'team.module'],
+            [
+                'module' => 'equipo',
+                'name' => 'Equipo: trabajadores y roles',
+                'description' => 'Gestión de trabajadores, asignación de roles y permisos por rol.',
+            ]
+        );
+
         $permissions = Permission::query()->get();
 
         foreach ($permissions as $permission) {
@@ -39,6 +58,12 @@ class PlanFeatureSeeder extends Seeder
 
             if (in_array($module, self::MEMBERSHIP_PERMISSION_PREFIXES, true)) {
                 $permission->planFeatures()->sync([$membershipFeature->id]);
+
+                continue;
+            }
+
+            if (in_array($module, self::TEAM_PERMISSION_PREFIXES, true)) {
+                $permission->planFeatures()->sync([$teamFeature->id]);
 
                 continue;
             }

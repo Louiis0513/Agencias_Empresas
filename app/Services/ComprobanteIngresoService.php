@@ -3,15 +3,16 @@
 namespace App\Services;
 
 use App\Models\AccountReceivable;
-use App\Models\AccountReceivableCuota;
 use App\Models\ComprobanteIngreso;
 use App\Models\ComprobanteIngresoAplicacion;
 use App\Models\ComprobanteIngresoDestino;
 use App\Models\Invoice;
 use App\Models\MovimientoBolsillo;
 use App\Models\Store;
+use Carbon\Carbon;
 use Exception;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 class ComprobanteIngresoService
@@ -26,7 +27,7 @@ class ComprobanteIngresoService
     {
         $count = ComprobanteIngreso::deTienda($store->id)->count();
 
-        return 'CI-' . str_pad((string) ($count + 1), 3, '0', STR_PAD_LEFT);
+        return 'CI-'.str_pad((string) ($count + 1), 3, '0', STR_PAD_LEFT);
     }
 
     /**
@@ -109,7 +110,7 @@ class ComprobanteIngresoService
                     'bolsillo_id' => $bolsilloId,
                     'type' => MovimientoBolsillo::TYPE_INCOME,
                     'amount' => $amount,
-                    'description' => 'Comprobante de ingreso ' . $comprobante->number,
+                    'description' => 'Comprobante de ingreso '.$comprobante->number,
                     'comprobante_ingreso_id' => $comprobante->id,
                 ]);
             }
@@ -138,6 +139,7 @@ class ComprobanteIngresoService
      * Crea un comprobante de ingreso por pago de factura (tipo PAGO_FACTURA).
      *
      * @deprecated Usar crearComprobante() con invoice_id, notes y destinos en $data.
+     *
      * @param  array  $payments  [ ['payment_method' => 'CASH'|'CARD'|'TRANSFER', 'amount' => float, 'bolsillo_id' => int ], ... ]
      */
     public function crearComprobantePorPagoFactura(Store $store, int $userId, Invoice $factura, array $payments): ComprobanteIngreso
@@ -161,7 +163,7 @@ class ComprobanteIngresoService
 
         return $this->crearComprobante($store, $userId, [
             'invoice_id' => $factura->id,
-            'notes' => 'Pago Factura #' . $factura->id,
+            'notes' => 'Pago Factura #'.$factura->id,
             'destinos' => $destinos,
         ]);
     }
@@ -238,6 +240,82 @@ class ComprobanteIngresoService
         }
 
         return $query->paginate($filtros['per_page'] ?? 15);
+    }
+
+    /**
+     * Líneas de ingreso a bolsillos para la vista Movimientos (una fila por destino).
+     * No altera listar(): lectura dedicada con filtros propios.
+     */
+    public function listarDestinosPaginadosParaMovimientos(Store $store, array $filtros = []): LengthAwarePaginator
+    {
+        $query = ComprobanteIngresoDestino::query()
+            ->select('comprobante_ingreso_destinos.*')
+            ->join('comprobantes_ingreso', 'comprobante_ingreso_destinos.comprobante_ingreso_id', '=', 'comprobantes_ingreso.id')
+            ->where('comprobantes_ingreso.store_id', $store->id)
+            ->whereNull('comprobantes_ingreso.reversed_at');
+
+        $this->applyDestinosMovimientosFiltros($query, $filtros);
+
+        $query->orderByDesc('comprobantes_ingreso.created_at')
+            ->orderByDesc('comprobante_ingreso_destinos.id');
+
+        return $query
+            ->with(['comprobanteIngreso', 'bolsillo'])
+            ->paginate($filtros['per_page'] ?? 15)
+            ->withQueryString();
+    }
+
+    /**
+     * Suma montos de destinos de ingreso con los mismos criterios que la tabla Movimientos (agregado en BD).
+     */
+    public function sumarMontosDestinosMovimientos(Store $store, array $filtros = []): float
+    {
+        $query = ComprobanteIngresoDestino::query()
+            ->join('comprobantes_ingreso', 'comprobante_ingreso_destinos.comprobante_ingreso_id', '=', 'comprobantes_ingreso.id')
+            ->where('comprobantes_ingreso.store_id', $store->id)
+            ->whereNull('comprobantes_ingreso.reversed_at');
+
+        $this->applyDestinosMovimientosFiltros($query, $filtros);
+
+        return (float) $query->sum('comprobante_ingreso_destinos.amount');
+    }
+
+    private function applyDestinosMovimientosFiltros(Builder $query, array $filtros): void
+    {
+        $tz = ! empty($filtros['timezone']) ? (string) $filtros['timezone'] : (string) config('app.timezone');
+
+        if (! empty($filtros['fecha_desde'])) {
+            $start = Carbon::parse($filtros['fecha_desde'], $tz)->startOfDay()->utc();
+            $query->where('comprobantes_ingreso.created_at', '>=', $start);
+        }
+        if (! empty($filtros['fecha_hasta'])) {
+            $end = Carbon::parse($filtros['fecha_hasta'], $tz)->endOfDay()->utc();
+            $query->where('comprobantes_ingreso.created_at', '<=', $end);
+        }
+
+        $search = isset($filtros['search']) ? trim((string) $filtros['search']) : '';
+        if ($search !== '') {
+            $term = '%'.$search.'%';
+            $query->where(function ($q) use ($term) {
+                $q->where('comprobante_ingreso_destinos.reference', 'like', $term)
+                    ->orWhere('comprobantes_ingreso.notes', 'like', $term)
+                    ->orWhere('comprobantes_ingreso.number', 'like', $term);
+            });
+        }
+
+        $bolsilloIds = array_values(array_unique(array_filter(array_map('intval', $filtros['bolsillo_ids'] ?? []))));
+        if ($bolsilloIds !== []) {
+            $query->whereIn('comprobante_ingreso_destinos.bolsillo_id', $bolsilloIds);
+        }
+
+        $userIds = array_values(array_unique(array_filter(array_map('intval', $filtros['empleado_user_ids'] ?? []))));
+        if ($userIds !== []) {
+            $query->whereIn('comprobantes_ingreso.user_id', $userIds);
+        }
+
+        if (! empty($filtros['customer_id'])) {
+            $query->where('comprobantes_ingreso.customer_id', (int) $filtros['customer_id']);
+        }
     }
 
     public function obtener(Store $store, int $id): ComprobanteIngreso

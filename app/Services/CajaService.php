@@ -5,8 +5,8 @@ namespace App\Services;
 use App\Models\Bolsillo;
 use App\Models\MovimientoBolsillo;
 use App\Models\Store;
-use Illuminate\Support\Facades\DB;
 use Exception;
+use Illuminate\Support\Facades\DB;
 
 class CajaService
 {
@@ -30,12 +30,12 @@ class CajaService
 
         return DB::transaction(function () use ($store, $datos) {
             return Bolsillo::create([
-                'store_id'         => $store->id,
-                'name'             => $datos['name'],
-                'detalles'         => $datos['detalles'] ?? null,
-                'saldo'            => 0,
-                'is_bank_account'  => (bool) ($datos['is_bank_account'] ?? false),
-                'is_active'        => (bool) ($datos['is_active'] ?? true),
+                'store_id' => $store->id,
+                'name' => $datos['name'],
+                'detalles' => $datos['detalles'] ?? null,
+                'saldo' => 0,
+                'is_bank_account' => (bool) ($datos['is_bank_account'] ?? false),
+                'is_active' => (bool) ($datos['is_active'] ?? true),
             ]);
         });
     }
@@ -47,11 +47,12 @@ class CajaService
         }
 
         $bolsillo->update([
-            'name'            => $datos['name'] ?? $bolsillo->name,
-            'detalles'        => $datos['detalles'] ?? $bolsillo->detalles,
+            'name' => $datos['name'] ?? $bolsillo->name,
+            'detalles' => $datos['detalles'] ?? $bolsillo->detalles,
             'is_bank_account' => $datos['is_bank_account'] ?? $bolsillo->is_bank_account,
-            'is_active'       => $datos['is_active'] ?? $bolsillo->is_active,
+            'is_active' => $datos['is_active'] ?? $bolsillo->is_active,
         ]);
+
         return $bolsillo;
     }
 
@@ -76,7 +77,7 @@ class CajaService
             throw new Exception('Cada movimiento de caja debe estar vinculado a un Comprobante de Ingreso o de Egreso. Cree el comprobante desde el módulo correspondiente.');
         }
 
-        return DB::transaction(function () use ($store, $userId, $datos, $sesion) {
+        return DB::transaction(function () use ($store, $datos, $sesion) {
             $bolsillo = Bolsillo::deTienda($store->id)
                 ->where('id', $datos['bolsillo_id'])
                 ->lockForUpdate()
@@ -87,14 +88,14 @@ class CajaService
             }
 
             $mov = MovimientoBolsillo::create([
-                'store_id'               => $store->id,
-                'bolsillo_id'            => $bolsillo->id,
-                'sesion_caja_id'         => $sesion->id,
-                'comprobante_egreso_id'   => $datos['comprobante_egreso_id'] ?? null,
-                'comprobante_ingreso_id'  => $datos['comprobante_ingreso_id'] ?? null,
-                'type'                   => $datos['type'],
-                'amount'                 => $datos['amount'],
-                'description'            => $datos['description'] ?? null,
+                'store_id' => $store->id,
+                'bolsillo_id' => $bolsillo->id,
+                'sesion_caja_id' => $sesion->id,
+                'comprobante_egreso_id' => $datos['comprobante_egreso_id'] ?? null,
+                'comprobante_ingreso_id' => $datos['comprobante_ingreso_id'] ?? null,
+                'type' => $datos['type'],
+                'amount' => $datos['amount'],
+                'description' => $datos['description'] ?? null,
             ]);
 
             if ($datos['type'] === MovimientoBolsillo::TYPE_INCOME) {
@@ -111,13 +112,18 @@ class CajaService
     public function listarBolsillos(Store $store, array $filtros = []): \Illuminate\Contracts\Pagination\LengthAwarePaginator
     {
         $query = Bolsillo::deTienda($store->id)->orderBy('name');
-        if (!empty($filtros['search'])) {
+        if (! empty($filtros['search'])) {
             $query->buscar($filtros['search']);
         }
         if (isset($filtros['is_active'])) {
             $query->where('is_active', (bool) $filtros['is_active']);
         }
-        return $query->paginate($filtros['per_page'] ?? 15);
+        $perPage = (int) ($filtros['per_page'] ?? 15);
+        $pageName = isset($filtros['page_name']) && is_string($filtros['page_name']) && $filtros['page_name'] !== ''
+            ? $filtros['page_name']
+            : 'page';
+
+        return $query->paginate($perPage, ['*'], $pageName);
     }
 
     public function listarMovimientos(Store $store, array $filtros = []): \Illuminate\Contracts\Pagination\LengthAwarePaginator
@@ -126,18 +132,19 @@ class CajaService
             ->with(['bolsillo:id,store_id,name,saldo,detalles', 'comprobanteIngreso:id,number,user_id', 'comprobanteIngreso.user:id,name', 'comprobanteEgreso:id,number,user_id', 'comprobanteEgreso.user:id,name'])
             ->orderByDesc('created_at');
 
-        if (!empty($filtros['bolsillo_id'])) {
+        if (! empty($filtros['bolsillo_id'])) {
             $query->porBolsillo((int) $filtros['bolsillo_id']);
         }
-        if (!empty($filtros['type'])) {
+        if (! empty($filtros['type'])) {
             $query->porTipo($filtros['type']);
         }
-        if (!empty($filtros['fecha_desde'])) {
+        if (! empty($filtros['fecha_desde'])) {
             $query->whereDate('created_at', '>=', $filtros['fecha_desde']);
         }
-        if (!empty($filtros['fecha_hasta'])) {
+        if (! empty($filtros['fecha_hasta'])) {
             $query->whereDate('created_at', '<=', $filtros['fecha_hasta']);
         }
+
         return $query->paginate($filtros['per_page'] ?? 15);
     }
 
@@ -158,6 +165,7 @@ class CajaService
         } else {
             $query->where('is_bank_account', true);
         }
+
         return $query->get();
     }
 

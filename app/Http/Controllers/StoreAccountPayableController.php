@@ -17,21 +17,6 @@ class StoreAccountPayableController extends Controller
         protected StorePermissionService $permissionService
     ) {}
 
-    public function index(Store $store, Request $request)
-    {
-        $this->permissionService->authorize($store, 'accounts-payables.view');
-
-        $filtros = [
-            'status' => $request->get('status'),
-            'per_page' => $request->get('per_page', 15),
-        ];
-
-        $accountsPayables = $this->accountPayableService->listarCuentasPorPagar($store, $filtros);
-        $deudaTotal = $this->accountPayableService->deudaTotal($store);
-
-        return view('stores.cuentasporcobrarypagar.cuentas-por-pagar', compact('store', 'accountsPayables', 'deudaTotal'));
-    }
-
     public function show(Store $store, AccountPayable $accountPayable)
     {
         $this->permissionService->authorize($store, 'accounts-payables.view');

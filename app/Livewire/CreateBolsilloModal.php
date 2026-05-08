@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Models\Store;
 use App\Services\CajaService;
 use App\Services\ComprobanteIngresoService;
+use App\Services\StorePermissionService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
@@ -13,9 +14,13 @@ class CreateBolsilloModal extends Component
     public int $storeId;
 
     public string $name = '';
+
     public ?string $detalles = null;
+
     public string $saldo = '0';
+
     public bool $is_bank_account = false;
+
     public bool $is_active = true;
 
     protected function rules(): array
@@ -47,13 +52,16 @@ class CreateBolsilloModal extends Component
         $this->resetValidation();
     }
 
-    public function save(CajaService $cajaService, ComprobanteIngresoService $comprobanteIngresoService)
+    public function save(CajaService $cajaService, ComprobanteIngresoService $comprobanteIngresoService, StorePermissionService $permissionService)
     {
         $this->validate();
 
         $store = $this->getStoreProperty();
         if (! $store || ! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para crear bolsillos en esta tienda.');
+        }
+        if (! $permissionService->can($store, 'caja.bolsillos.create')) {
+            abort(403, 'No tienes permiso para crear bolsillos.');
         }
 
         try {
@@ -69,7 +77,7 @@ class CreateBolsilloModal extends Component
             if ($saldoInicial > 0) {
                 $comprobanteIngresoService->crearComprobante($store, (int) Auth::id(), [
                     'date' => now()->toDateString(),
-                    'notes' => 'Saldo inicial desde creación del bolsillo "' . $bolsillo->name . '"',
+                    'notes' => 'Saldo inicial desde creación del bolsillo "'.$bolsillo->name.'"',
                     'destinos' => [
                         ['bolsillo_id' => $bolsillo->id, 'amount' => $saldoInicial],
                     ],
@@ -79,10 +87,14 @@ class CreateBolsilloModal extends Component
             $this->reset(['name', 'detalles', 'saldo', 'is_bank_account', 'is_active']);
             $this->resetValidation();
 
-            return redirect()->route('stores.cajas', $store)
-                ->with('success', $saldoInicial > 0
-                    ? 'Bolsillo creado correctamente. Se registró un comprobante de ingreso por el saldo inicial.'
-                    : 'Bolsillo creado correctamente.');
+            $msg = $saldoInicial > 0
+                ? 'Bolsillo creado correctamente. Se registró un comprobante de ingreso por el saldo inicial.'
+                : 'Bolsillo creado correctamente.';
+            if ($permissionService->can($store, 'store-config.view')) {
+                return redirect()->to(route('stores.configuracion', $store).'?panel=caja')->with('success', $msg);
+            }
+
+            return redirect()->route('stores.cajas.movimientos', $store)->with('success', $msg);
         } catch (\Exception $e) {
             $this->addError('name', $e->getMessage());
         }

@@ -1,5 +1,13 @@
 @php
-    $openBasica = $errors->any() || session()->has('success') || session()->has('error');
+    $panelQuery = request('panel');
+    $allowedPanels = ['menu', 'basica', 'caja'];
+    if (in_array($panelQuery, $allowedPanels, true)) {
+        $initialPanel = $panelQuery;
+    } elseif ($errors->any()) {
+        $initialPanel = 'basica';
+    } else {
+        $initialPanel = 'menu';
+    }
 @endphp
 <x-app-layout>
     <x-slot name="header">
@@ -35,7 +43,12 @@
                 </div>
             @endif
 
-            <div x-data="{ panel: @js($openBasica ? 'basica' : 'menu') }" class="space-y-8">
+            @if(! empty($canViewCajaBolsillos))
+                <livewire:create-bolsillo-modal :store-id="$store->id" />
+                <livewire:edit-bolsillo-modal :store-id="$store->id" />
+            @endif
+
+            <div x-data="{ panel: @js($initialPanel) }" class="space-y-8">
                 {{-- Índice: accesos a cada tipo de configuración --}}
                 <div x-show="panel === 'menu'" x-cloak class="space-y-4">
                     <div>
@@ -54,6 +67,18 @@
                                 <span class="mt-1 block text-sm text-gray-400">Configura y comparte el enlace de tu catálogo para que tus clientes vean productos, planes y te contacten por WhatsApp o llamada.</span>
                             </span>
                         </a>
+                        @endstoreCan
+                        @storeCan($store, 'caja.view')
+                        <button type="button" @click="panel = 'caja'"
+                                class="flex w-full items-start gap-4 rounded-xl border border-white/10 bg-dark-card p-5 text-left text-white transition hover:border-brand/30 hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-brand/50">
+                            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-brand/20 text-brand">
+                                <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m0 0H21" /></svg>
+                            </span>
+                            <span class="min-w-0 flex-1">
+                                <span class="block font-medium text-white">{{ __('Caja') }}</span>
+                                <span class="mt-1 block text-sm text-gray-400">{{ __('Medios de pago y bolsillos: efectivo, cuentas bancarias y saldos.') }}</span>
+                            </span>
+                        </button>
                         @endstoreCan
                         @storeCan($store, 'store-config.view')
                         <button type="button" @click="panel = 'basica'"
@@ -230,6 +255,21 @@
                         </div>
                     </form>
                 </div>
+
+                {{-- Panel: Caja / bolsillos --}}
+                @storeCan($store, 'caja.view')
+                <div x-show="panel === 'caja'" x-cloak class="space-y-8">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <button type="button" @click="panel = 'menu'"
+                                class="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm text-gray-300 transition hover:bg-white/5 hover:text-white focus:outline-none focus:ring-2 focus:ring-brand/50">
+                            <span aria-hidden="true">←</span> {{ __('Volver a configuraciones') }}
+                        </button>
+                    </div>
+                    @if(isset($bolsillosConfig))
+                        @include('stores.configuracion.partials.panel-caja-bolsillos', ['store' => $store, 'bolsillosConfig' => $bolsillosConfig])
+                    @endif
+                </div>
+                @endstoreCan
             </div>
         </div>
     </div>

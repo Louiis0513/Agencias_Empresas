@@ -10,8 +10,10 @@ use App\Models\MovimientoBolsillo;
 use App\Models\Purchase;
 use App\Models\SesionCaja;
 use App\Models\Store;
+use Carbon\Carbon;
 use Exception;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 class ComprobanteEgresoService
@@ -29,7 +31,7 @@ class ComprobanteEgresoService
     {
         $count = ComprobanteEgreso::deTienda($store->id)->count();
 
-        return 'CE-' . str_pad((string) ($count + 1), 3, '0', STR_PAD_LEFT);
+        return 'CE-'.str_pad((string) ($count + 1), 3, '0', STR_PAD_LEFT);
     }
 
     /**
@@ -267,6 +269,83 @@ class ComprobanteEgresoService
         return $query->paginate($filtros['per_page'] ?? 15);
     }
 
+    /**
+     * Líneas de egreso desde bolsillos para la vista Movimientos (una fila por origen).
+     * No altera listar(): solo lectura dedicada con filtros propios.
+     */
+    public function listarOrigenesPaginadosParaMovimientos(Store $store, array $filtros = []): LengthAwarePaginator
+    {
+        $query = ComprobanteEgresoOrigen::query()
+            ->select('comprobante_egreso_origenes.*')
+            ->join('comprobantes_egreso', 'comprobante_egreso_origenes.comprobante_egreso_id', '=', 'comprobantes_egreso.id')
+            ->where('comprobantes_egreso.store_id', $store->id)
+            ->whereNull('comprobantes_egreso.reversed_at');
+
+        $this->applyOrigenesMovimientosFiltros($query, $filtros);
+
+        $query->orderByDesc('comprobantes_egreso.created_at')
+            ->orderByDesc('comprobante_egreso_origenes.id');
+
+        return $query
+            ->with(['comprobanteEgreso', 'bolsillo'])
+            ->paginate($filtros['per_page'] ?? 15)
+            ->withQueryString();
+    }
+
+    /**
+     * Suma montos de orígenes de egreso con los mismos criterios que la tabla Movimientos (agregado en BD).
+     */
+    public function sumarMontosOrigenesMovimientos(Store $store, array $filtros = []): float
+    {
+        $query = ComprobanteEgresoOrigen::query()
+            ->join('comprobantes_egreso', 'comprobante_egreso_origenes.comprobante_egreso_id', '=', 'comprobantes_egreso.id')
+            ->where('comprobantes_egreso.store_id', $store->id)
+            ->whereNull('comprobantes_egreso.reversed_at');
+
+        $this->applyOrigenesMovimientosFiltros($query, $filtros);
+
+        return (float) $query->sum('comprobante_egreso_origenes.amount');
+    }
+
+    private function applyOrigenesMovimientosFiltros(Builder $query, array $filtros): void
+    {
+        $tz = ! empty($filtros['timezone']) ? (string) $filtros['timezone'] : (string) config('app.timezone');
+
+        if (! empty($filtros['fecha_desde'])) {
+            $start = Carbon::parse($filtros['fecha_desde'], $tz)->startOfDay()->utc();
+            $query->where('comprobantes_egreso.created_at', '>=', $start);
+        }
+        if (! empty($filtros['fecha_hasta'])) {
+            $end = Carbon::parse($filtros['fecha_hasta'], $tz)->endOfDay()->utc();
+            $query->where('comprobantes_egreso.created_at', '<=', $end);
+        }
+
+        $search = isset($filtros['search']) ? trim((string) $filtros['search']) : '';
+        if ($search !== '') {
+            $term = '%'.$search.'%';
+            $query->where(function ($q) use ($term) {
+                $q->where('comprobante_egreso_origenes.reference', 'like', $term)
+                    ->orWhere('comprobantes_egreso.notes', 'like', $term)
+                    ->orWhere('comprobantes_egreso.number', 'like', $term)
+                    ->orWhere('comprobantes_egreso.beneficiary_name', 'like', $term);
+            });
+        }
+
+        $bolsilloIds = array_values(array_unique(array_filter(array_map('intval', $filtros['bolsillo_ids'] ?? []))));
+        if ($bolsilloIds !== []) {
+            $query->whereIn('comprobante_egreso_origenes.bolsillo_id', $bolsilloIds);
+        }
+
+        $userIds = array_values(array_unique(array_filter(array_map('intval', $filtros['empleado_user_ids'] ?? []))));
+        if ($userIds !== []) {
+            $query->whereIn('comprobantes_egreso.user_id', $userIds);
+        }
+
+        if (! empty($filtros['proveedor_id'])) {
+            $query->where('comprobantes_egreso.proveedor_id', (int) $filtros['proveedor_id']);
+        }
+    }
+
     public function obtener(Store $store, int $comprobanteId): ComprobanteEgreso
     {
         return ComprobanteEgreso::where('id', $comprobanteId)
@@ -335,13 +414,13 @@ class ComprobanteEgresoService
                 $apId = (int) $d['account_payable_id'];
                 $ap = AccountPayable::with('purchase')->find($apId);
                 $compraId = $ap?->purchase?->id ?? $apId;
-                $partes[] = "Compra #{$compraId}: " . money($amount, $currency, false);
+                $partes[] = "Compra #{$compraId}: ".money($amount, $currency, false);
             } else {
-                $partes[] = ($d['concepto'] ?? 'Gasto') . ': ' . money($amount, $currency, false);
+                $partes[] = ($d['concepto'] ?? 'Gasto').': '.money($amount, $currency, false);
             }
         }
 
-        return 'Comprobante ' . $comprobante->number . ' - ' . implode(' | ', $partes);
+        return 'Comprobante '.$comprobante->number.' - '.implode(' | ', $partes);
     }
 
     private function aplicarPagoACuentaPorPagar(Store $store, int $accountPayableId, float $amount): void

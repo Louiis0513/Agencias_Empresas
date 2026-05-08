@@ -13,8 +13,11 @@ use Illuminate\Support\Facades\Auth;
 class StoreFeatureAccessService
 {
     public const STATUS_INCLUDED = 'included';
+
     public const STATUS_PREMIUM = 'premium';
+
     public const STATUS_ADDON = 'addon';
+
     public const STATUS_DISABLED = 'disabled';
 
     private const SCOPE_PUBLISHED = 'published';
@@ -53,16 +56,45 @@ class StoreFeatureAccessService
         }
 
         $parts = explode('.', $permission->slug);
-        $module = $parts[0] ?? 'general';
-        $featureSlug = $module.'.module';
-        $featureName = 'Modulo '.str_replace('-', ' ', $module);
+        $prefix = $parts[0] ?? 'general';
+
+        if (in_array($prefix, ['asistencias', 'subscriptions', 'panel-suscripciones-config'], true)) {
+            $feature = PlanFeature::firstOrCreate(
+                ['slug' => 'memberships.module'],
+                [
+                    'module' => 'memberships',
+                    'name' => 'Membresías, asistencias y panel',
+                    'description' => 'Planes de suscripción de clientes, registro de asistencias y configuración del panel público de suscripciones.',
+                ]
+            );
+            $permission->planFeatures()->syncWithoutDetaching([$feature->id]);
+
+            return $feature;
+        }
+
+        if (in_array($prefix, ['roles', 'workers'], true)) {
+            $feature = PlanFeature::firstOrCreate(
+                ['slug' => 'team.module'],
+                [
+                    'module' => 'equipo',
+                    'name' => 'Equipo: trabajadores y roles',
+                    'description' => 'Gestión de trabajadores, asignación de roles y permisos por rol.',
+                ]
+            );
+            $permission->planFeatures()->syncWithoutDetaching([$feature->id]);
+
+            return $feature;
+        }
+
+        $featureSlug = $prefix.'.module';
+        $featureName = 'Modulo '.str_replace('-', ' ', $prefix);
 
         $feature = PlanFeature::firstOrCreate(
             ['slug' => $featureSlug],
             [
-                'module' => $module,
+                'module' => $prefix,
                 'name' => ucfirst($featureName),
-                'description' => 'Habilita el modulo '.$module.' para la tienda.',
+                'description' => 'Habilita el modulo '.$prefix.' para la tienda.',
             ]
         );
 
@@ -184,4 +216,3 @@ class StoreFeatureAccessService
         }
     }
 }
-

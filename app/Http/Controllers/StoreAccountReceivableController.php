@@ -7,7 +7,6 @@ use App\Models\Bolsillo;
 use App\Models\Store;
 use App\Services\AccountReceivableService;
 use App\Services\ComprobanteIngresoService;
-use App\Services\CustomerService;
 use App\Services\StorePermissionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -17,26 +16,8 @@ class StoreAccountReceivableController extends Controller
     public function __construct(
         protected AccountReceivableService $accountReceivableService,
         protected ComprobanteIngresoService $comprobanteIngresoService,
-        protected CustomerService $customerService,
         protected StorePermissionService $permissionService
     ) {}
-
-    public function index(Store $store, Request $request)
-    {
-        $this->permissionService->authorize($store, 'accounts-receivables.view');
-
-        $filtros = [
-            'status' => $request->get('status'),
-            'customer_id' => $request->get('customer_id'),
-            'per_page' => $request->get('per_page', 15),
-        ];
-
-        $cuentas = $this->accountReceivableService->listar($store, $filtros);
-        $saldoPendiente = $this->accountReceivableService->saldoPendienteTotal($store);
-        $customers = $this->customerService->getAllStoreCustomers($store);
-
-        return view('stores.cuentasporcobrarypagar.cuentas-por-cobrar', compact('store', 'cuentas', 'saldoPendiente', 'customers'));
-    }
 
     public function show(Store $store, AccountReceivable $accountReceivable)
     {

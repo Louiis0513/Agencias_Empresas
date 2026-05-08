@@ -4,7 +4,7 @@
             <h2 class="font-semibold text-xl text-white leading-tight">
                 Abrir caja — {{ $store->name }}
             </h2>
-            <a href="{{ route('stores.cajas', $store) }}" class="text-sm text-gray-400 hover:text-brand transition">← Volver a Caja</a>
+                <a href="{{ route('stores.cajas.movimientos', $store) }}" wire:navigate class="text-sm text-gray-400 hover:text-brand transition">← {{ __('Movimientos') }}</a>
         </div>
     </x-slot>
 
@@ -18,8 +18,12 @@
 
             @if($bolsillos->isEmpty())
                 <div class="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
-                    <p class="text-sm text-amber-800 dark:text-amber-200">No hay bolsillos activos. Cree al menos un bolsillo desde la página de Caja antes de abrir.</p>
-                    <a href="{{ route('stores.cajas', $store) }}" class="inline-block mt-2 text-indigo-600 dark:text-indigo-400 hover:underline">Ir a Caja</a>
+                    @storeCan($store, 'store-config.view')
+                        <p class="text-sm text-amber-800 dark:text-amber-200">No hay bolsillos activos. Cree al menos un bolsillo en <a href="{{ route('stores.configuracion', $store) }}?panel=caja" wire:navigate class="underline font-medium text-amber-900 dark:text-amber-100">Configuración → Caja</a> antes de abrir.</p>
+                    @else
+                        <p class="text-sm text-amber-800 dark:text-amber-200">No hay bolsillos activos. Un usuario con permiso de configuración debe crear medios de pago en Configuración → Caja antes de abrir.</p>
+                    @endstoreCan
+                    <a href="{{ route('stores.cajas.movimientos', $store) }}" wire:navigate class="inline-block mt-2 text-indigo-600 dark:text-indigo-400 hover:underline">{{ __('Ir a Movimientos') }}</a>
                 </div>
             @else
             <p class="mb-6 text-sm text-gray-600 dark:text-gray-400">Ingrese el saldo físico contado en cada bolsillo. Si hay diferencia con el saldo esperado, se generará un ajuste automático.</p>
@@ -47,7 +51,7 @@
 
                     <div class="flex gap-2 pt-4">
                         <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 font-medium">Abrir sesión de caja</button>
-                        <a href="{{ route('stores.cajas', $store) }}" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600">Cancelar</a>
+                        <a href="{{ route('stores.cajas.movimientos', $store) }}" wire:navigate class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600">{{ __('Cancelar') }}</a>
                     </div>
                 </div>
             </form>

@@ -8,58 +8,313 @@ use App\Http\Requests\StoreComprobanteIngresoRequest;
 use App\Models\Bolsillo;
 use App\Models\ComprobanteEgreso;
 use App\Models\ComprobanteIngreso;
-use App\Models\Store;
+use App\Models\Customer;
+use App\Models\Proveedor;
 use App\Models\SesionCaja;
+use App\Models\Store;
+use App\Models\Worker;
 use App\Services\AccountPayableService;
+use App\Services\AccountReceivableService;
 use App\Services\CajaService;
 use App\Services\ComprobanteEgresoService;
 use App\Services\ComprobanteIngresoService;
+use App\Services\CustomerService;
 use App\Services\SesionCajaService;
 use App\Services\StorePermissionService;
+use App\Services\StoreTimezoneService;
+use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Validator;
 
 class StoreCajaController extends Controller
 {
+    /** Tamaño de página en listados de Movimientos; subir cuando definan producción. */
+    private const MOVIMIENTOS_LIST_PER_PAGE = 2;
+
     protected CajaService $cajaService;
+
     protected ComprobanteIngresoService $comprobanteIngresoService;
+
     protected ComprobanteEgresoService $comprobanteEgresoService;
+
     protected AccountPayableService $accountPayableService;
+
+    protected AccountReceivableService $accountReceivableService;
+
+    protected CustomerService $customerService;
+
     protected StorePermissionService $permissionService;
+
     protected SesionCajaService $sesionCajaService;
+
+    protected StoreTimezoneService $storeTimezoneService;
 
     public function __construct(
         CajaService $cajaService,
         ComprobanteIngresoService $comprobanteIngresoService,
         ComprobanteEgresoService $comprobanteEgresoService,
         AccountPayableService $accountPayableService,
+        AccountReceivableService $accountReceivableService,
+        CustomerService $customerService,
         StorePermissionService $permissionService,
-        SesionCajaService $sesionCajaService
+        SesionCajaService $sesionCajaService,
+        StoreTimezoneService $storeTimezoneService
     ) {
         $this->cajaService = $cajaService;
         $this->comprobanteIngresoService = $comprobanteIngresoService;
         $this->comprobanteEgresoService = $comprobanteEgresoService;
         $this->accountPayableService = $accountPayableService;
+        $this->accountReceivableService = $accountReceivableService;
+        $this->customerService = $customerService;
         $this->permissionService = $permissionService;
         $this->sesionCajaService = $sesionCajaService;
+        $this->storeTimezoneService = $storeTimezoneService;
     }
 
-    public function index(Store $store, Request $request)
+    public function index(Store $store)
     {
         $this->permissionService->authorize($store, 'caja.view');
 
-        $filtros = [
-            'search' => $request->get('search'),
-            'is_active' => $request->has('is_active') ? (bool) $request->get('is_active') : null,
-            'per_page' => $request->get('per_page', 15),
-        ];
-        $bolsillos = $this->cajaService->listarBolsillos($store, $filtros);
-        $totalCaja = $this->cajaService->totalCaja($store);
+        return redirect()->route('stores.cajas.movimientos', $store);
+    }
+
+    /**
+     * Vista Movimientos / transacciones (lectura). Ingresos: líneas por destino; egresos: por origen (bolsillo).
+     */
+    public function movimientos(Store $store, Request $request)
+    {
+        $this->permissionService->authorize($store, 'caja.view');
+
         $sesionAbierta = $this->sesionCajaService->obtenerSesionAbierta($store);
 
-        return view('stores.caja.caja', compact('store', 'bolsillos', 'totalCaja', 'sesionAbierta'));
+        $tab = $request->get('tab', 'ingresos');
+
+        $mf = $this->normalizeMovimientosFiltros($request, $store);
+
+        $movimientosBolsillos = Bolsillo::deTienda($store->id)->activos()->orderBy('name')->get(['id', 'name']);
+        $movimientosEmpleados = $this->movimientosEmpleadosOpciones($store);
+
+        $movCustomerLabel = null;
+        if ($mf['customer_id']) {
+            $movCustomerLabel = Customer::where('store_id', $store->id)->where('id', $mf['customer_id'])->value('name');
+        }
+        $movProveedorNombre = null;
+        if ($mf['proveedor_id']) {
+            $movProveedorNombre = Proveedor::where('store_id', $store->id)->where('id', $mf['proveedor_id'])->value('nombre');
+        }
+
+        $filtrosMovimientosBase = [
+            'fecha_desde' => $mf['fecha_desde'],
+            'fecha_hasta' => $mf['fecha_hasta'],
+            'search' => $mf['search'],
+            'bolsillo_ids' => $mf['bolsillo_ids'],
+            'empleado_user_ids' => $mf['empleado_user_ids'],
+            'timezone' => $this->storeTimezoneService->getTimezoneForStore($store),
+        ];
+
+        $totalIngresosMov = $this->comprobanteIngresoService->sumarMontosDestinosMovimientos($store, array_merge($filtrosMovimientosBase, [
+            'customer_id' => $mf['customer_id'],
+        ]));
+        $totalEgresosMov = $this->comprobanteEgresoService->sumarMontosOrigenesMovimientos($store, array_merge($filtrosMovimientosBase, [
+            'proveedor_id' => $mf['proveedor_id'],
+        ]));
+        $balanceMov = $totalIngresosMov - $totalEgresosMov;
+
+        $movimientosResumen = [
+            'ingresos' => $totalIngresosMov,
+            'egresos' => $totalEgresosMov,
+            'balance' => $balanceMov,
+        ];
+
+        if ($mf['fecha_dia']) {
+            $tz = $this->storeTimezoneService->getTimezoneForStore($store);
+            $fechaRef = Carbon::parse($mf['fecha_dia'], $tz)->startOfDay();
+            $movimientosResumenEtiqueta = __('Según filtros · :fecha', [
+                'fecha' => $this->storeTimezoneService->formatForStore($fechaRef, $store, false),
+            ]);
+        } else {
+            $movimientosResumenEtiqueta = __('Según filtros · sin día (todo el historial)');
+        }
+
+        $ingresosLineas = null;
+        if ($tab === 'ingresos') {
+            $ingresosLineas = $this->comprobanteIngresoService->listarDestinosPaginadosParaMovimientos($store, array_merge($filtrosMovimientosBase, [
+                'customer_id' => $mf['customer_id'],
+                'per_page' => self::MOVIMIENTOS_LIST_PER_PAGE,
+            ]))->withQueryString();
+        }
+
+        $egresosLineas = null;
+        if ($tab === 'egresos') {
+            $egresosLineas = $this->comprobanteEgresoService->listarOrigenesPaginadosParaMovimientos($store, array_merge($filtrosMovimientosBase, [
+                'proveedor_id' => $mf['proveedor_id'],
+                'per_page' => self::MOVIMIENTOS_LIST_PER_PAGE,
+            ]))->withQueryString();
+        }
+
+        $cuentasPorCobrar = null;
+        $saldoPendienteCobrar = null;
+        $customersParaCobrar = null;
+        if ($tab === 'por-cobrar') {
+            $this->permissionService->authorize($store, 'accounts-receivables.view');
+            $cuentasPorCobrar = $this->accountReceivableService->listar($store, [
+                'status' => $request->get('pc_status'),
+                'customer_id' => $mf['customer_id'],
+                'invoice_user_ids' => $mf['empleado_user_ids'],
+                'per_page' => self::MOVIMIENTOS_LIST_PER_PAGE,
+            ])->withQueryString();
+            $saldoPendienteCobrar = $this->accountReceivableService->saldoPendienteTotal($store);
+            $customersParaCobrar = $this->customerService->getAllStoreCustomers($store);
+        }
+
+        $cuentasPorPagar = null;
+        $deudaTotalPagar = null;
+        if ($tab === 'por-pagar') {
+            $this->permissionService->authorize($store, 'accounts-payables.view');
+            $cuentasPorPagarFiltros = [
+                'status' => $request->get('pp_status'),
+                'per_page' => self::MOVIMIENTOS_LIST_PER_PAGE,
+            ];
+            if ($mf['proveedor_id']) {
+                $cuentasPorPagarFiltros['proveedor_id'] = $mf['proveedor_id'];
+            }
+            $cuentasPorPagar = $this->accountPayableService->listarCuentasPorPagar($store, $cuentasPorPagarFiltros)->withQueryString();
+            $deudaTotalPagar = $this->accountPayableService->deudaTotal($store);
+        }
+
+        $filtrosBolsillosListado = [
+            'search' => $request->get('bolsillo_search'),
+            'is_active' => $request->has('bolsillo_is_active') ? (bool) $request->get('bolsillo_is_active') : null,
+            'per_page' => $request->get('bolsillo_per_page', 15),
+            'page_name' => 'bolsillo_page',
+        ];
+        $bolsillosListado = $this->cajaService->listarBolsillos($store, $filtrosBolsillosListado)->withQueryString();
+        $totalCaja = $this->cajaService->totalCaja($store);
+        $canAccessStoreConfig = $this->permissionService->can($store, 'store-config.view');
+
+        return view('stores.caja.movimientos', compact(
+            'store',
+            'tab',
+            'mf',
+            'movimientosBolsillos',
+            'movimientosEmpleados',
+            'movCustomerLabel',
+            'movProveedorNombre',
+            'movimientosResumen',
+            'movimientosResumenEtiqueta',
+            'ingresosLineas',
+            'egresosLineas',
+            'cuentasPorCobrar',
+            'saldoPendienteCobrar',
+            'customersParaCobrar',
+            'cuentasPorPagar',
+            'deudaTotalPagar',
+            'sesionAbierta',
+            'bolsillosListado',
+            'totalCaja',
+            'canAccessStoreConfig'
+        ));
+    }
+
+    /**
+     * @return array{fecha_desde: ?string, fecha_hasta: ?string, fecha_dia: ?string, search: ?string, bolsillo_ids: array<int>, empleado_user_ids: array<int>, customer_id: ?int, proveedor_id: ?int}
+     */
+    protected function normalizeMovimientosFiltros(Request $request, Store $store): array
+    {
+        $fechaDesde = null;
+        $fechaHasta = null;
+        $fechaDia = null;
+
+        if ($request->query->has('mov_fecha')) {
+            $raw = $request->query('mov_fecha');
+            if ($raw === null || trim((string) $raw) === '') {
+                $fechaDesde = null;
+                $fechaHasta = null;
+                $fechaDia = null;
+            } else {
+                $d = trim((string) $raw);
+                $fechaDesde = $d;
+                $fechaHasta = $d;
+                $fechaDia = $d;
+            }
+        } else {
+            $fechaDesde = $request->get('mov_fecha_desde');
+            $fechaHasta = $request->get('mov_fecha_hasta');
+            if ($fechaDesde === null || $fechaDesde === '') {
+                $fechaDesde = $request->get('fecha_desde') ?: $request->get('egreso_fecha_desde');
+            }
+            if ($fechaHasta === null || $fechaHasta === '') {
+                $fechaHasta = $request->get('fecha_hasta') ?: $request->get('egreso_fecha_hasta');
+            }
+            $fechaDesde = $fechaDesde !== null && $fechaDesde !== '' ? (string) $fechaDesde : null;
+            $fechaHasta = $fechaHasta !== null && $fechaHasta !== '' ? (string) $fechaHasta : null;
+            if ($fechaDesde !== null && $fechaHasta !== null && $fechaDesde === $fechaHasta) {
+                $fechaDia = $fechaDesde;
+            }
+            if ($fechaDesde === null && $fechaHasta === null) {
+                $today = $this->storeTimezoneService->nowForStore($store)->toDateString();
+                $fechaDesde = $today;
+                $fechaHasta = $today;
+                $fechaDia = $today;
+            }
+        }
+
+        $search = $request->get('mov_search');
+        if ($search === null || $search === '') {
+            $search = $request->get('search') ?: $request->get('egreso_search');
+        }
+        $search = $search !== null && trim((string) $search) !== '' ? trim((string) $search) : null;
+
+        $bolsilloIds = array_values(array_unique(array_filter(array_map('intval', (array) $request->get('bolsillo_ids', [])))));
+        $empleadoUserIds = array_values(array_unique(array_filter(array_map('intval', (array) $request->get('empleado_user_ids', [])))));
+
+        $customerId = $request->get('mov_customer_id');
+        if ($customerId === null || $customerId === '') {
+            $customerId = $request->get('pc_customer_id');
+        }
+        $customerId = $customerId !== null && $customerId !== '' ? (int) $customerId : null;
+
+        $proveedorId = $request->get('mov_proveedor_id');
+        $proveedorId = $proveedorId !== null && $proveedorId !== '' ? (int) $proveedorId : null;
+
+        return [
+            'fecha_desde' => $fechaDesde,
+            'fecha_hasta' => $fechaHasta,
+            'fecha_dia' => $fechaDia,
+            'search' => $search,
+            'bolsillo_ids' => $bolsilloIds,
+            'empleado_user_ids' => $empleadoUserIds,
+            'customer_id' => $customerId,
+            'proveedor_id' => $proveedorId,
+        ];
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int, array{user_id: int, name: string, subtitle: string}>
+     */
+    protected function movimientosEmpleadosOpciones(Store $store): \Illuminate\Support\Collection
+    {
+        $rows = collect();
+        $owner = $store->owner;
+        if ($owner) {
+            $rows->push([
+                'user_id' => $owner->id,
+                'name' => $owner->name,
+                'subtitle' => __('Dueño'),
+            ]);
+        }
+        foreach (Worker::deTienda($store->id)->with('role')->orderBy('name')->get() as $w) {
+            if ($w->user_id) {
+                $rows->push([
+                    'user_id' => (int) $w->user_id,
+                    'name' => $w->name,
+                    'subtitle' => $w->role->name ?? __('Trabajador'),
+                ]);
+            }
+        }
+
+        return $rows->unique('user_id')->values();
     }
 
     public function aperturaCaja(Store $store)
@@ -67,7 +322,7 @@ class StoreCajaController extends Controller
         $this->permissionService->authorize($store, 'caja.sesiones.abrir');
 
         if ($this->sesionCajaService->obtenerSesionAbierta($store)) {
-            return redirect()->route('stores.cajas', $store)->with('error', 'Ya hay una sesión de caja abierta.');
+            return redirect()->route('stores.cajas.movimientos', $store)->with('error', 'Ya hay una sesión de caja abierta.');
         }
 
         $bolsillos = Bolsillo::deTienda($store->id)->activos()->orderBy('name')->get();
@@ -83,13 +338,13 @@ class StoreCajaController extends Controller
         $bolsillos = Bolsillo::deTienda($store->id)->activos()->orderBy('name')->get();
         $saldosFisicos = [];
         foreach ($bolsillos as $b) {
-            $saldosFisicos[$b->id] = (float) $request->input('saldo_fisico.' . $b->id, 0);
+            $saldosFisicos[$b->id] = (float) $request->input('saldo_fisico.'.$b->id, 0);
         }
 
         try {
             $this->sesionCajaService->abrirSesion($store, (int) Auth::id(), $saldosFisicos, $request->input('nota_apertura'));
 
-            return redirect()->route('stores.cajas', $store)->with('success', 'Sesión de caja abierta correctamente.');
+            return redirect()->route('stores.cajas.movimientos', $store)->with('success', 'Sesión de caja abierta correctamente.');
         } catch (Exception $e) {
             return redirect()->back()->withInput()->with('error', $e->getMessage());
         }
@@ -101,7 +356,7 @@ class StoreCajaController extends Controller
 
         $sesionAbierta = $this->sesionCajaService->obtenerSesionAbierta($store);
         if (! $sesionAbierta) {
-            return redirect()->route('stores.cajas', $store)->with('error', 'No hay una sesión de caja abierta para cerrar.');
+            return redirect()->route('stores.cajas.movimientos', $store)->with('error', 'No hay una sesión de caja abierta para cerrar.');
         }
 
         $bolsillos = Bolsillo::deTienda($store->id)->activos()->orderBy('name')->get();
@@ -127,7 +382,7 @@ class StoreCajaController extends Controller
         try {
             $this->sesionCajaService->cerrarSesion($store, (int) Auth::id(), $saldosFisicos, $request->input('nota_cierre'));
 
-            return redirect()->route('stores.cajas', $store)->with('success', 'Sesión de caja cerrada correctamente.');
+            return redirect()->route('stores.cajas.movimientos', $store)->with('success', 'Sesión de caja cerrada correctamente.');
         } catch (Exception $e) {
             return redirect()->back()->withInput()->with('error', $e->getMessage());
         }
@@ -175,13 +430,14 @@ class StoreCajaController extends Controller
         ];
         $movimientos = $this->cajaService->listarMovimientos($store, $filtros);
         $bolsillosActivos = Bolsillo::deTienda($store->id)->activos()->orderBy('name')->get();
+
         return view('stores.caja.bolsillo-detalle', compact('store', 'bolsillo', 'movimientos', 'bolsillosActivos'));
     }
 
     public function storeBolsillo(Store $store, StoreBolsilloRequest $request)
     {
         $this->permissionService->authorize($store, 'caja.bolsillos.create');
-        
+
         try {
             $bolsillo = $this->cajaService->crearBolsillo($store, [
                 'name' => $request->input('name'),
@@ -194,18 +450,18 @@ class StoreCajaController extends Controller
             if ($saldoInicial > 0) {
                 $this->comprobanteIngresoService->crearComprobante($store, Auth::id(), [
                     'date' => now()->toDateString(),
-                    'notes' => 'Saldo inicial desde creación del bolsillo "' . $bolsillo->name . '"',
+                    'notes' => 'Saldo inicial desde creación del bolsillo "'.$bolsillo->name.'"',
                     'destinos' => [
                         ['bolsillo_id' => $bolsillo->id, 'amount' => $saldoInicial],
                     ],
                 ]);
             }
 
-            return redirect()->route('stores.cajas', $store)->with('success', $saldoInicial > 0
+            return $this->redirectBolsilloListAfterMutation($store, 'success', $saldoInicial > 0
                 ? 'Bolsillo creado correctamente. Se registró un comprobante de ingreso por el saldo inicial.'
                 : 'Bolsillo creado correctamente.');
         } catch (Exception $e) {
-            return redirect()->route('stores.cajas', $store)->with('error', $e->getMessage());
+            return $this->redirectBolsilloListAfterMutation($store, 'error', $e->getMessage());
         }
     }
 
@@ -222,9 +478,10 @@ class StoreCajaController extends Controller
                 'is_bank_account' => (bool) $request->input('is_bank_account', false),
                 'is_active' => (bool) $request->input('is_active', true),
             ]);
-            return redirect()->route('stores.cajas.bolsillos.show', [$store, $bolsillo])->with('success', 'Bolsillo actualizado correctamente.');
+
+            return $this->redirectAfterBolsilloUpdated($store, $bolsillo, 'success', 'Bolsillo actualizado correctamente.');
         } catch (Exception $e) {
-            return redirect()->route('stores.cajas.bolsillos.show', [$store, $bolsillo])->with('error', $e->getMessage());
+            return $this->redirectAfterBolsilloUpdated($store, $bolsillo, 'error', $e->getMessage());
         }
     }
 
@@ -236,23 +493,11 @@ class StoreCajaController extends Controller
         }
         try {
             $this->cajaService->eliminarBolsillo($bolsillo);
-            return redirect()->route('stores.cajas', $store)->with('success', 'Bolsillo eliminado correctamente.');
+
+            return $this->redirectBolsilloListAfterMutation($store, 'success', 'Bolsillo eliminado correctamente.');
         } catch (Exception $e) {
-            return redirect()->route('stores.cajas', $store)->with('error', $e->getMessage());
+            return $this->redirectBolsilloListAfterMutation($store, 'error', $e->getMessage());
         }
-    }
-
-    public function comprobantesIngreso(Store $store, Request $request)
-    {
-        $this->permissionService->authorize($store, 'comprobantes-ingreso.view');
-
-        $filtros = [
-            'type' => $request->get('type'),
-            'customer_id' => $request->get('customer_id'),
-        ];
-        $comprobantes = $this->comprobanteIngresoService->listar($store, $filtros);
-
-        return view('stores.comprobantes.comprobantes-ingreso', compact('store', 'comprobantes'));
     }
 
     public function createComprobanteIngreso(Store $store)
@@ -260,7 +505,7 @@ class StoreCajaController extends Controller
         $this->permissionService->authorize($store, 'comprobantes-ingreso.create');
 
         if (! $this->sesionCajaService->obtenerSesionAbierta($store)) {
-            return redirect()->route('stores.cajas', $store)->with('error', 'No hay una sesión de caja abierta. Abra la caja para registrar comprobantes de ingreso.');
+            return redirect()->route('stores.cajas.movimientos', [$store, 'tab' => 'ingresos'])->with('error', 'No hay una sesión de caja abierta. Abra la caja para registrar comprobantes de ingreso.');
         }
 
         $bolsillos = Bolsillo::deTienda($store->id)->activos()->orderBy('name')->get();
@@ -271,7 +516,7 @@ class StoreCajaController extends Controller
     public function storeComprobanteIngreso(Store $store, StoreComprobanteIngresoRequest $request)
     {
         $this->permissionService->authorize($store, 'comprobantes-ingreso.create');
-        
+
         $data = [
             'date' => $request->date,
             'notes' => $request->notes,
@@ -280,6 +525,7 @@ class StoreCajaController extends Controller
 
         try {
             $comprobante = $this->comprobanteIngresoService->crearComprobante($store, Auth::id(), $data);
+
             return redirect()->route('stores.comprobantes-ingreso.show', [$store, $comprobante])->with('success', 'Comprobante de ingreso creado correctamente.');
         } catch (Exception $e) {
             return redirect()->back()->withInput()->with('error', $e->getMessage());
@@ -298,26 +544,12 @@ class StoreCajaController extends Controller
         return view('stores.comprobantes.comprobante-ingreso-detalle', compact('store', 'comprobanteIngreso'));
     }
 
-    public function comprobantesEgreso(Store $store, Request $request)
-    {
-        $this->permissionService->authorize($store, 'comprobantes-egreso.view');
-
-        $filtros = [
-            'type' => $request->get('type'),
-            'fecha_desde' => $request->get('fecha_desde'),
-            'fecha_hasta' => $request->get('fecha_hasta'),
-        ];
-        $comprobantes = $this->comprobanteEgresoService->listar($store, $filtros);
-
-        return view('stores.comprobantes.comprobantes-egreso', compact('store', 'comprobantes'));
-    }
-
     public function createComprobanteEgreso(Store $store)
     {
         $this->permissionService->authorize($store, 'comprobantes-egreso.create');
 
         if (! $this->sesionCajaService->obtenerSesionAbierta($store)) {
-            return redirect()->route('stores.cajas', $store)->with('error', 'No hay una sesión de caja abierta. Abra la caja para registrar comprobantes de egreso.');
+            return redirect()->route('stores.cajas.movimientos', [$store, 'tab' => 'egresos'])->with('error', 'No hay una sesión de caja abierta. Abra la caja para registrar comprobantes de egreso.');
         }
 
         $bolsillos = Bolsillo::deTienda($store->id)->activos()->orderBy('name')->get();
@@ -365,6 +597,7 @@ class StoreCajaController extends Controller
 
         try {
             $comprobante = $this->comprobanteEgresoService->crearComprobante($store, Auth::id(), $request->all());
+
             return redirect()->route('stores.comprobantes-egreso.show', [$store, $comprobante])->with('success', 'Comprobante de egreso registrado correctamente.');
         } catch (Exception $e) {
             return redirect()->back()->withInput()->with('error', $e->getMessage());
@@ -414,6 +647,7 @@ class StoreCajaController extends Controller
 
         try {
             $this->comprobanteEgresoService->actualizarComprobante($store, $comprobanteEgreso->id, $request->only(['payment_date', 'notes']));
+
             return redirect()->route('stores.comprobantes-egreso.show', [$store, $comprobanteEgreso])
                 ->with('success', 'Comprobante actualizado correctamente.');
         } catch (Exception $e) {
@@ -430,7 +664,8 @@ class StoreCajaController extends Controller
 
         try {
             $this->comprobanteEgresoService->reversar($store, $comprobanteEgreso->id, Auth::id());
-            return redirect()->route('stores.comprobantes-egreso.index', $store)->with('success', 'Comprobante revertido correctamente.');
+
+            return redirect()->route('stores.cajas.movimientos', [$store, 'tab' => 'egresos'])->with('success', 'Comprobante revertido correctamente.');
         } catch (Exception $e) {
             return redirect()->back()->with('error', $e->getMessage());
         }
@@ -456,10 +691,29 @@ class StoreCajaController extends Controller
 
         try {
             $this->comprobanteEgresoService->anularComprobante($store, $comprobanteEgreso->id, Auth::id(), $request->input('origenes'));
+
             return redirect()->route('stores.comprobantes-egreso.show', [$store, $comprobanteEgreso])
                 ->with('success', 'Comprobante anulado correctamente. El dinero fue devuelto a los bolsillos indicados y las cuentas por pagar fueron restauradas.');
         } catch (Exception $e) {
             return redirect()->back()->with('error', $e->getMessage());
         }
+    }
+
+    protected function redirectBolsilloListAfterMutation(Store $store, string $flashKey, string $message)
+    {
+        if ($this->permissionService->can($store, 'store-config.view')) {
+            return redirect()->to(route('stores.configuracion', $store).'?panel=caja')->with($flashKey, $message);
+        }
+
+        return redirect()->route('stores.cajas.movimientos', $store)->with($flashKey, $message);
+    }
+
+    protected function redirectAfterBolsilloUpdated(Store $store, Bolsillo $bolsillo, string $flashKey, string $message)
+    {
+        if ($this->permissionService->can($store, 'store-config.view')) {
+            return redirect()->to(route('stores.configuracion', $store).'?panel=caja')->with($flashKey, $message);
+        }
+
+        return redirect()->route('stores.cajas.bolsillos.show', [$store, $bolsillo])->with($flashKey, $message);
     }
 }

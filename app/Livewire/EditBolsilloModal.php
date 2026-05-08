@@ -5,17 +5,22 @@ namespace App\Livewire;
 use App\Models\Bolsillo;
 use App\Models\Store;
 use App\Services\CajaService;
+use App\Services\StorePermissionService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
 class EditBolsilloModal extends Component
 {
     public int $storeId;
+
     public ?int $bolsilloId = null;
 
     public string $name = '';
+
     public ?string $detalles = null;
+
     public bool $is_bank_account = false;
+
     public bool $is_active = true;
 
     public function mount(?int $bolsilloId = null): void
@@ -53,7 +58,7 @@ class EditBolsilloModal extends Component
         return Store::find($this->storeId);
     }
 
-    public function update(CajaService $cajaService)
+    public function update(CajaService $cajaService, StorePermissionService $permissionService)
     {
         $this->validate();
 
@@ -61,8 +66,12 @@ class EditBolsilloModal extends Component
         if (! $store || ! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para editar bolsillos.');
         }
+        if (! $permissionService->can($store, 'caja.bolsillos.edit')) {
+            abort(403, 'No tienes permiso para editar bolsillos.');
+        }
         if (! $this->bolsilloId) {
             $this->addError('name', 'Bolsillo no especificado.');
+
             return;
         }
 
@@ -77,6 +86,11 @@ class EditBolsilloModal extends Component
             ]);
 
             $this->resetValidation();
+
+            if ($permissionService->can($store, 'store-config.view')) {
+                return redirect()->to(route('stores.configuracion', $store).'?panel=caja')
+                    ->with('success', 'Bolsillo actualizado correctamente.');
+            }
 
             return redirect()->route('stores.cajas.bolsillos.show', [$store, $bolsillo])
                 ->with('success', 'Bolsillo actualizado correctamente.');

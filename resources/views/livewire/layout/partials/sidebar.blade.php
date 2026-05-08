@@ -145,22 +145,10 @@
                         <a href="{{ route('stores.purchases', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ (request()->routeIs('stores.purchases*') && !$isProductPurchase) ? 'text-brand' : 'text-gray-400 hover:text-white' }}">Compra de activos</a>
                         @endstoreCan
                         @storeCan($store, 'caja.view')
-                        <a href="{{ route('stores.cajas', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.cajas*') ? 'text-brand' : 'text-gray-400 hover:text-white' }}">Caja</a>
+                        <a href="{{ route('stores.cajas.movimientos', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.cajas*') ? 'text-brand' : 'text-gray-400 hover:text-white' }}">{{ __('Movimientos') }}</a>
                         @endstoreCan
                         @storeCan($store, 'activos.view')
                         <a href="{{ route('stores.activos', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.activos*') ? 'text-brand' : 'text-gray-400 hover:text-white' }}">Activos</a>
-                        @endstoreCan
-                        @storeCan($store, 'accounts-payables.view')
-                        <a href="{{ route('stores.accounts-payables', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.accounts-payables*') ? 'text-brand' : 'text-gray-400 hover:text-white' }}">Cuentas por pagar</a>
-                        @endstoreCan
-                        @storeCan($store, 'comprobantes-egreso.view')
-                        <a href="{{ route('stores.comprobantes-egreso.index', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.comprobantes-egreso*') ? 'text-brand' : 'text-gray-400 hover:text-white' }}">Comprobantes de egreso</a>
-                        @endstoreCan
-                        @storeCan($store, 'accounts-receivables.view')
-                        <a href="{{ route('stores.accounts-receivables', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.accounts-receivables*') ? 'text-brand' : 'text-gray-400 hover:text-white' }}">Cuentas por cobrar</a>
-                        @endstoreCan
-                        @storeCan($store, 'comprobantes-ingreso.view')
-                        <a href="{{ route('stores.comprobantes-ingreso.index', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.comprobantes-ingreso*') ? 'text-brand' : 'text-gray-400 hover:text-white' }}">Comprobantes de ingreso</a>
                         @endstoreCan
                         @storeCan($store, 'invoices.view')
                         <a href="{{ route('stores.invoices', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.invoices*') ? 'text-brand' : 'text-gray-400 hover:text-white' }}">Facturas</a>

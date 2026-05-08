@@ -16,8 +16,8 @@
                         Anular comprobante
                     </button>
                 @endif
-                <a href="{{ route('stores.comprobantes-egreso.index', $store) }}" class="text-sm text-gray-400 hover:text-brand transition">
-                    ← Volver a Comprobantes
+                <a href="{{ route('stores.cajas.movimientos', ['store' => $store, 'tab' => 'egresos']) }}" wire:navigate class="text-sm text-gray-400 hover:text-brand transition">
+                    ← {{ __('Movimientos') }}
                 </a>
             </div>
             @if(!$comprobante->isReversed())

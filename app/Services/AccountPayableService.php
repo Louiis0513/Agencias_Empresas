@@ -8,7 +8,6 @@ use App\Models\ComprobanteEgresoDestino;
 use App\Models\Store;
 use Exception;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Facades\DB;
 
 class AccountPayableService
 {
@@ -133,19 +132,21 @@ class AccountPayableService
                         $sub->where('invoice_number', 'like', "%{$term}%");
                     }
                 })
-                ->orWhereHas('purchase.proveedor', function ($sub) use ($term) {
-                    $sub->where('nombre', 'like', "%{$term}%")
-                        ->orWhere('nit', 'like', "%{$term}%");
-                });
+                    ->orWhereHas('purchase.proveedor', function ($sub) use ($term) {
+                        $sub->where('nombre', 'like', "%{$term}%")
+                            ->orWhere('nit', 'like', "%{$term}%");
+                    });
             });
         }
 
         $perPage = $filtros['per_page'] ?? 15;
         $page = $filtros['page'] ?? null;
 
-        return $page !== null
+        $paginator = $page !== null
             ? $query->paginate($perPage, ['*'], 'page', $page)
             : $query->paginate($perPage);
+
+        return $paginator->withQueryString();
     }
 
     public function obtenerCuentaPorPagar(Store $store, int $accountPayableId): AccountPayable

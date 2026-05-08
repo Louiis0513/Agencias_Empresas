@@ -95,7 +95,12 @@ class AccountReceivableService
             $query->where('customer_id', $filtros['customer_id']);
         }
 
-        return $query->paginate($filtros['per_page'] ?? 15);
+        $invoiceUserIds = array_values(array_unique(array_filter(array_map('intval', $filtros['invoice_user_ids'] ?? []))));
+        if ($invoiceUserIds !== []) {
+            $query->whereHas('invoice', fn ($q) => $q->whereIn('user_id', $invoiceUserIds));
+        }
+
+        return $query->paginate($filtros['per_page'] ?? 15)->withQueryString();
     }
 
     public function obtener(Store $store, int $id): AccountReceivable

@@ -4,8 +4,8 @@
             <h2 class="font-semibold text-xl text-white leading-tight">
                 Cuenta por Cobrar - Factura #{{ $accountReceivable->invoice->id }} - {{ $store->name }}
             </h2>
-            <a href="{{ route('stores.accounts-receivables', $store) }}" class="text-sm text-gray-400 hover:text-brand transition">
-                ← Volver a Cuentas por Cobrar
+            <a href="{{ route('stores.cajas.movimientos', ['store' => $store, 'tab' => 'por-cobrar']) }}" wire:navigate class="text-sm text-gray-400 hover:text-brand transition">
+                ← {{ __('Movimientos') }} · {{ __('Por cobrar') }}
             </a>
         </div>
     </x-slot>

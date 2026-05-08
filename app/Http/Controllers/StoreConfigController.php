@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Store;
+use App\Services\CajaService;
 use App\Services\ConvertidorImgService;
 use App\Services\StorePermissionService;
 use Illuminate\Http\Request;
@@ -12,14 +13,31 @@ use Illuminate\Support\Facades\Storage;
 
 class StoreConfigController extends Controller
 {
-    public function edit(Store $store, StorePermissionService $permission)
+    public function edit(Store $store, StorePermissionService $permission, CajaService $cajaService, Request $request)
     {
         if (! Auth::user()->stores->contains($store->id)) {
             abort(403, 'No tienes permiso para acceder a esta tienda.');
         }
         $permission->authorize($store, 'store-config.view');
 
-        return view('stores.configuracion', compact('store'));
+        if ($request->get('panel') === 'caja' && ! $permission->can($store, 'caja.view')) {
+            return redirect()->route('stores.configuracion', $store);
+        }
+
+        $canViewCajaBolsillos = $permission->can($store, 'caja.view');
+        $bolsillosConfig = null;
+        if ($canViewCajaBolsillos) {
+            $bolsillosConfig = $cajaService->listarBolsillos($store, [
+                'search' => $request->get('bolsillo_search'),
+                'per_page' => $request->get('bolsillo_per_page', 15),
+            ]);
+            $bolsillosConfig->appends(array_filter([
+                'panel' => 'caja',
+                'bolsillo_search' => $request->get('bolsillo_search'),
+            ]));
+        }
+
+        return view('stores.configuracion', compact('store', 'bolsillosConfig', 'canViewCajaBolsillos'));
     }
 
     public function update(Request $request, Store $store, ConvertidorImgService $convertidorImgService, StorePermissionService $permission)

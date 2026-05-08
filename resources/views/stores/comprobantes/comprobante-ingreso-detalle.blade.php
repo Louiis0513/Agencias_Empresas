@@ -4,7 +4,7 @@
             <h2 class="font-semibold text-xl text-white leading-tight">
                 Comprobante {{ $comprobanteIngreso->number }} - {{ $store->name }}
             </h2>
-            <a href="{{ route('stores.comprobantes-ingreso.index', $store) }}" class="text-sm text-gray-400 hover:text-brand transition">← Volver</a>
+            <a href="{{ route('stores.cajas.movimientos', ['store' => $store, 'tab' => 'ingresos']) }}" wire:navigate class="text-sm text-gray-400 hover:text-brand transition">← {{ __('Movimientos') }}</a>
         </div>
     </x-slot>
 

@@ -4,8 +4,8 @@
             <h2 class="font-semibold text-xl text-white leading-tight">
                 Cuenta por Pagar - Compra #{{ $accountPayable->purchase->id }} - {{ $store->name }}
             </h2>
-            <a href="{{ route('stores.accounts-payables', $store) }}" class="text-sm text-gray-400 hover:text-brand transition">
-                ← Volver a Cuentas por Pagar
+            <a href="{{ route('stores.cajas.movimientos', ['store' => $store, 'tab' => 'por-pagar']) }}" wire:navigate class="text-sm text-gray-400 hover:text-brand transition">
+                ← {{ __('Movimientos') }} · {{ __('Por pagar') }}
             </a>
         </div>
     </x-slot>

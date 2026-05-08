@@ -27,6 +27,7 @@ use App\Http\Controllers\StoreWorkerHourRateTemplateController;
 use App\Http\Controllers\StoreWorkerScheduleController;
 use App\Http\Controllers\VitrinaAuthController;
 use App\Http\Controllers\VitrinaController;
+use App\Models\Store;
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'marketing.centradia')->name('centradia.landing');
@@ -177,6 +178,7 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::delete('/clientes/{customer}', [StoreCustomerController::class, 'destroy'])->name('customers.destroy');
 
     Route::get('/caja', [StoreCajaController::class, 'index'])->name('cajas');
+    Route::get('/caja/movimientos', [StoreCajaController::class, 'movimientos'])->name('cajas.movimientos');
     Route::get('/caja/apertura', [StoreCajaController::class, 'aperturaCaja'])->name('cajas.apertura');
     Route::post('/caja/apertura', [StoreCajaController::class, 'storeAperturaCaja'])->name('cajas.apertura.store');
     Route::get('/caja/cerrar', [StoreCajaController::class, 'cerrarCaja'])->name('cajas.cerrar');
@@ -187,13 +189,17 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::get('/caja/bolsillos/{bolsillo}', [StoreCajaController::class, 'showBolsillo'])->name('cajas.bolsillos.show');
     Route::put('/caja/bolsillos/{bolsillo}', [StoreCajaController::class, 'updateBolsillo'])->name('cajas.bolsillos.update');
     Route::delete('/caja/bolsillos/{bolsillo}', [StoreCajaController::class, 'destroyBolsillo'])->name('cajas.bolsillos.destroy');
-    // Comprobantes de ingreso
-    Route::get('/comprobantes-ingreso', [StoreCajaController::class, 'comprobantesIngreso'])->name('comprobantes-ingreso.index');
+    // Comprobantes de ingreso (índice unificado en Movimientos → pestaña Ingresos)
+    Route::get('/comprobantes-ingreso', function (Store $store) {
+        return redirect()->route('stores.cajas.movimientos', ['store' => $store, 'tab' => 'ingresos']);
+    })->name('comprobantes-ingreso.index');
     Route::get('/comprobantes-ingreso/crear', [StoreCajaController::class, 'createComprobanteIngreso'])->name('comprobantes-ingreso.create');
     Route::post('/comprobantes-ingreso', [StoreCajaController::class, 'storeComprobanteIngreso'])->name('comprobantes-ingreso.store');
     Route::get('/comprobantes-ingreso/{comprobanteIngreso}', [StoreCajaController::class, 'showComprobanteIngreso'])->name('comprobantes-ingreso.show');
-    // Comprobantes de Egreso
-    Route::get('/comprobantes-egreso', [StoreCajaController::class, 'comprobantesEgreso'])->name('comprobantes-egreso.index');
+    // Comprobantes de egreso (índice unificado en Movimientos → pestaña Egresos)
+    Route::get('/comprobantes-egreso', function (Store $store) {
+        return redirect()->route('stores.cajas.movimientos', ['store' => $store, 'tab' => 'egresos']);
+    })->name('comprobantes-egreso.index');
     Route::get('/comprobantes-egreso/crear', [StoreCajaController::class, 'createComprobanteEgreso'])->name('comprobantes-egreso.create');
     Route::get('/comprobantes-egreso/cuentas-proveedor', [StoreCajaController::class, 'cuentasPorPagarProveedor'])->name('comprobantes-egreso.cuentas-proveedor');
     Route::post('/comprobantes-egreso', [StoreCajaController::class, 'storeComprobanteEgreso'])->name('comprobantes-egreso.store');
@@ -225,16 +231,20 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
         Route::post('/compras/{purchase}/anular', 'void')->name('purchases.void');
     });
 
-    // Cuentas por pagar
+    // Cuentas por pagar (índice unificado en Movimientos → pestaña Por pagar)
+    Route::get('/cuentas-por-pagar', function (Store $store) {
+        return redirect()->route('stores.cajas.movimientos', ['store' => $store, 'tab' => 'por-pagar']);
+    })->name('accounts-payables');
     Route::controller(StoreAccountPayableController::class)->group(function () {
-        Route::get('/cuentas-por-pagar', 'index')->name('accounts-payables');
         Route::get('/cuentas-por-pagar/{accountPayable}', 'show')->name('accounts-payables.show');
         Route::post('/cuentas-por-pagar/{accountPayable}/pagar', 'pay')->name('accounts-payables.pay');
     });
 
-    // Cuentas por cobrar
+    // Cuentas por cobrar (índice unificado en Movimientos → pestaña Por cobrar)
+    Route::get('/cuentas-por-cobrar', function (Store $store) {
+        return redirect()->route('stores.cajas.movimientos', ['store' => $store, 'tab' => 'por-cobrar']);
+    })->name('accounts-receivables');
     Route::controller(StoreAccountReceivableController::class)->group(function () {
-        Route::get('/cuentas-por-cobrar', 'index')->name('accounts-receivables');
         Route::get('/cuentas-por-cobrar/{accountReceivable}', 'show')->name('accounts-receivables.show');
         Route::post('/cuentas-por-cobrar/{accountReceivable}/cobrar', 'cobrar')->name('accounts-receivables.cobrar');
     });
