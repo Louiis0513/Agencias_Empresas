@@ -14,6 +14,7 @@ use Carbon\Carbon;
 use Exception;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Facades\DB;
 
 class ComprobanteEgresoService
@@ -290,6 +291,56 @@ class ComprobanteEgresoService
             ->with(['comprobanteEgreso', 'bolsillo'])
             ->paginate($filtros['per_page'] ?? 15)
             ->withQueryString();
+    }
+
+    /**
+     * Orígenes de egreso sin paginar (exportación Excel). Mismos filtros que {@see listarOrigenesPaginadosParaMovimientos}.
+     *
+     * @return EloquentCollection<int, ComprobanteEgresoOrigen>
+     */
+    public function coleccionOrigenesParaExportacionMovimientos(Store $store, array $filtros = []): EloquentCollection
+    {
+        $query = ComprobanteEgresoOrigen::query()
+            ->select('comprobante_egreso_origenes.*')
+            ->join('comprobantes_egreso', 'comprobante_egreso_origenes.comprobante_egreso_id', '=', 'comprobantes_egreso.id')
+            ->where('comprobantes_egreso.store_id', $store->id)
+            ->whereNull('comprobantes_egreso.reversed_at');
+
+        $this->applyOrigenesMovimientosFiltros($query, $filtros);
+
+        $query->orderByDesc('comprobantes_egreso.created_at')
+            ->orderByDesc('comprobante_egreso_origenes.id');
+
+        return $query
+            ->with(['comprobanteEgreso.user', 'comprobanteEgreso.proveedor', 'bolsillo'])
+            ->get();
+    }
+
+    /**
+     * Suma de egresos por bolsillo en el período/filtros de Movimientos.
+     *
+     * @return \Illuminate\Support\Collection<int, object{bolsillo_name: string, total: float}>
+     */
+    public function totalesEgresosPorBolsilloMovimientos(Store $store, array $filtros = []): \Illuminate\Support\Collection
+    {
+        $query = ComprobanteEgresoOrigen::query()
+            ->join('comprobantes_egreso', 'comprobante_egreso_origenes.comprobante_egreso_id', '=', 'comprobantes_egreso.id')
+            ->join('bolsillos', 'comprobante_egreso_origenes.bolsillo_id', '=', 'bolsillos.id')
+            ->where('comprobantes_egreso.store_id', $store->id)
+            ->where('bolsillos.store_id', $store->id)
+            ->whereNull('comprobantes_egreso.reversed_at');
+
+        $this->applyOrigenesMovimientosFiltros($query, $filtros);
+
+        return $query
+            ->selectRaw('bolsillos.name as bolsillo_name, SUM(comprobante_egreso_origenes.amount) as total')
+            ->groupBy('bolsillos.id', 'bolsillos.name')
+            ->orderBy('bolsillos.name')
+            ->get()
+            ->map(fn ($row) => (object) [
+                'bolsillo_name' => (string) $row->bolsillo_name,
+                'total' => (float) $row->total,
+            ]);
     }
 
     /**

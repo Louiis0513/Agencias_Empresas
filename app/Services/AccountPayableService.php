@@ -6,8 +6,10 @@ use App\Models\AccountPayable;
 use App\Models\ComprobanteEgreso;
 use App\Models\ComprobanteEgresoDestino;
 use App\Models\Store;
+use Carbon\Carbon;
 use Exception;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 
 class AccountPayableService
 {
@@ -147,6 +149,77 @@ class AccountPayableService
             : $query->paginate($perPage);
 
         return $paginator->withQueryString();
+    }
+
+    /**
+     * Sin paginar para exportación Excel (filtros alineados con {@see listarCuentasPorPagar} + período por vencimiento o alta).
+     *
+     * @param  array{status?: string, proveedor_id?: int|string|null, search?: string, fecha_desde?: string, fecha_hasta?: string, timezone?: string, fecha_vencimiento_desde?: string, fecha_vencimiento_hasta?: string}  $filtros
+     * @return EloquentCollection<int, AccountPayable>
+     */
+    public function coleccionParaExportacionCuentasPorPagar(Store $store, array $filtros = []): EloquentCollection
+    {
+        $query = AccountPayable::deTienda($store->id)
+            ->with(['purchase.proveedor', 'purchase.user'])
+            ->orderBy('due_date');
+
+        if (isset($filtros['status']) && $filtros['status'] !== '') {
+            if ($filtros['status'] === 'pendientes') {
+                $query->pendientes();
+            } else {
+                $query->where('status', $filtros['status']);
+            }
+        }
+
+        if (array_key_exists('proveedor_id', $filtros)) {
+            if ($filtros['proveedor_id'] === null || $filtros['proveedor_id'] === '') {
+                $query->whereHas('purchase', fn ($q) => $q->whereNull('proveedor_id'));
+            } else {
+                $query->whereHas('purchase', fn ($q) => $q->where('proveedor_id', $filtros['proveedor_id']));
+            }
+        }
+
+        if (! empty($filtros['fecha_desde']) && ! empty($filtros['fecha_hasta'])) {
+            $tz = ! empty($filtros['timezone']) ? (string) $filtros['timezone'] : (string) config('app.timezone');
+            $desde = (string) $filtros['fecha_desde'];
+            $hasta = (string) $filtros['fecha_hasta'];
+            $startUtc = Carbon::parse($desde, $tz)->startOfDay()->utc();
+            $endUtc = Carbon::parse($hasta, $tz)->endOfDay()->utc();
+
+            $query->where(function ($q) use ($desde, $hasta, $startUtc, $endUtc) {
+                $q->whereBetween('due_date', [$desde, $hasta])
+                    ->orWhere(function ($q2) use ($startUtc, $endUtc) {
+                        $q2->whereNull('due_date')
+                            ->whereBetween('created_at', [$startUtc, $endUtc]);
+                    });
+            });
+        } elseif (! empty($filtros['fecha_vencimiento_desde'])) {
+            $query->whereDate('due_date', '>=', $filtros['fecha_vencimiento_desde']);
+        }
+
+        if (! empty($filtros['fecha_vencimiento_hasta'])) {
+            $query->whereDate('due_date', '<=', $filtros['fecha_vencimiento_hasta']);
+        }
+
+        if (! empty($filtros['search'])) {
+            $term = trim((string) $filtros['search']);
+            $query->where(function ($q) use ($term) {
+                $q->whereHas('purchase', function ($sub) use ($term) {
+                    if (is_numeric($term)) {
+                        $sub->where('id', (int) $term)
+                            ->orWhere('invoice_number', 'like', "%{$term}%");
+                    } else {
+                        $sub->where('invoice_number', 'like', "%{$term}%");
+                    }
+                })
+                    ->orWhereHas('purchase.proveedor', function ($sub) use ($term) {
+                        $sub->where('nombre', 'like', "%{$term}%")
+                            ->orWhere('nit', 'like', "%{$term}%");
+                    });
+            });
+        }
+
+        return $query->get();
     }
 
     public function obtenerCuentaPorPagar(Store $store, int $accountPayableId): AccountPayable

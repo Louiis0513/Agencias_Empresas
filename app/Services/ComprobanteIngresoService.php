@@ -13,6 +13,7 @@ use Carbon\Carbon;
 use Exception;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Facades\DB;
 
 class ComprobanteIngresoService
@@ -263,6 +264,56 @@ class ComprobanteIngresoService
             ->with(['comprobanteIngreso', 'bolsillo'])
             ->paginate($filtros['per_page'] ?? 15)
             ->withQueryString();
+    }
+
+    /**
+     * Destinos de ingreso sin paginar (exportación Excel). Mismos filtros que {@see listarDestinosPaginadosParaMovimientos}.
+     *
+     * @return EloquentCollection<int, ComprobanteIngresoDestino>
+     */
+    public function coleccionDestinosParaExportacionMovimientos(Store $store, array $filtros = []): EloquentCollection
+    {
+        $query = ComprobanteIngresoDestino::query()
+            ->select('comprobante_ingreso_destinos.*')
+            ->join('comprobantes_ingreso', 'comprobante_ingreso_destinos.comprobante_ingreso_id', '=', 'comprobantes_ingreso.id')
+            ->where('comprobantes_ingreso.store_id', $store->id)
+            ->whereNull('comprobantes_ingreso.reversed_at');
+
+        $this->applyDestinosMovimientosFiltros($query, $filtros);
+
+        $query->orderByDesc('comprobantes_ingreso.created_at')
+            ->orderByDesc('comprobante_ingreso_destinos.id');
+
+        return $query
+            ->with(['comprobanteIngreso.customer', 'comprobanteIngreso.user', 'bolsillo'])
+            ->get();
+    }
+
+    /**
+     * Suma de ingresos por bolsillo en el período/filtros de Movimientos.
+     *
+     * @return \Illuminate\Support\Collection<int, object{bolsillo_name: string, total: float}>
+     */
+    public function totalesIngresosPorBolsilloMovimientos(Store $store, array $filtros = []): \Illuminate\Support\Collection
+    {
+        $query = ComprobanteIngresoDestino::query()
+            ->join('comprobantes_ingreso', 'comprobante_ingreso_destinos.comprobante_ingreso_id', '=', 'comprobantes_ingreso.id')
+            ->join('bolsillos', 'comprobante_ingreso_destinos.bolsillo_id', '=', 'bolsillos.id')
+            ->where('comprobantes_ingreso.store_id', $store->id)
+            ->where('bolsillos.store_id', $store->id)
+            ->whereNull('comprobantes_ingreso.reversed_at');
+
+        $this->applyDestinosMovimientosFiltros($query, $filtros);
+
+        return $query
+            ->selectRaw('bolsillos.name as bolsillo_name, SUM(comprobante_ingreso_destinos.amount) as total')
+            ->groupBy('bolsillos.id', 'bolsillos.name')
+            ->orderBy('bolsillos.name')
+            ->get()
+            ->map(fn ($row) => (object) [
+                'bolsillo_name' => (string) $row->bolsillo_name,
+                'total' => (float) $row->total,
+            ]);
     }
 
     /**

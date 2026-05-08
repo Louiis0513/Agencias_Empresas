@@ -1,6 +1,27 @@
 <x-app-layout>
     <x-slot name="header">
-        <div class="flex flex-wrap justify-between items-center gap-3">
+        <div class="flex flex-wrap justify-between items-center gap-3"
+             x-data="{
+                 exportModalOpen: false,
+                 exportMes: {{ json_encode($movExportMesDefault ?? now()->format('Y-m')) }},
+                 exportRoute: {{ json_encode(route('stores.cajas.movimientos.export-excel', $store)) }},
+                 exportBaseParams: {{ json_encode(request()->except(['page', 'bolsillo_page'])) }},
+                 exportHref() {
+                     const p = new URLSearchParams();
+                     Object.entries(this.exportBaseParams).forEach(([k, v]) => {
+                         if (v === null || v === undefined || v === '') return;
+                         if (Array.isArray(v)) {
+                             v.forEach(item => p.append(k + '[]', item));
+                         } else if (typeof v === 'boolean') {
+                             p.append(k, v ? '1' : '0');
+                         } else {
+                             p.append(k, String(v));
+                         }
+                     });
+                     p.set('export_mes', this.exportMes);
+                     return this.exportRoute + '?' + p.toString();
+                 }
+             }">
             <h2 class="font-semibold text-xl text-white leading-tight">
                 {{ __('Movimientos') }}
             </h2>
@@ -32,10 +53,38 @@
                     @endstoreCan
                 @endif
                 <button type="button"
-                        disabled
-                        class="inline-flex items-center px-4 py-2 rounded-xl text-sm font-semibold border border-white/10 bg-white/5 text-gray-400 cursor-not-allowed">
+                        @click="exportModalOpen = true"
+                        class="inline-flex items-center px-4 py-2 rounded-xl text-sm font-semibold border border-white/20 bg-white/10 text-gray-100 hover:bg-white/15 hover:border-brand/40 transition">
                     {{ __('Descargar reporte') }}
                 </button>
+
+                <div x-show="exportModalOpen"
+                     x-transition.opacity
+                     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
+                     style="display: none;"
+                     @click.self="exportModalOpen = false"
+                     @keydown.escape.window="exportModalOpen = false">
+                    <div class="bg-dark-card border border-white/10 rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4"
+                         @click.stop>
+                        <h3 class="text-lg font-semibold text-white">{{ __('Exportar informe Excel') }}</h3>
+                        <p class="text-sm text-gray-400">{{ __('Selecciona el mes calendario para ingresos, egresos y cuentas (vencimiento o alta en ese mes). Se mantienen los demás filtros de la página.') }}</p>
+                        <div>
+                            <label for="export_mes_input" class="block text-xs font-medium text-gray-500 mb-1">{{ __('Mes') }}</label>
+                            <input id="export_mes_input" type="month" x-model="exportMes"
+                                   class="w-full rounded-lg border border-white/10 bg-white/5 text-gray-100 text-sm px-3 py-2">
+                        </div>
+                        <div class="flex flex-wrap justify-end gap-2 pt-2">
+                            <button type="button" @click="exportModalOpen = false"
+                                    class="px-4 py-2 rounded-xl text-sm font-medium text-gray-400 hover:text-white border border-white/10">
+                                {{ __('Cancelar') }}
+                            </button>
+                            <a :href="exportHref()" @click="exportModalOpen = false"
+                               class="inline-flex items-center px-4 py-2 rounded-xl text-sm font-semibold bg-brand text-white hover:opacity-95 transition">
+                                {{ __('Descargar') }}
+                            </a>
+                        </div>
+                    </div>
+                </div>
                 <a href="{{ route('stores.dashboard', $store) }}" wire:navigate class="text-sm text-gray-400 hover:text-brand transition">
                     ← {{ __('Resumen') }}
                 </a>
@@ -400,10 +449,6 @@
             </div>
 
             @include('stores.caja.partials.caja-bolsillos-panel')
-
-            <p class="text-xs text-gray-500 text-center mt-8">
-                {{ __('El reporte descargable estará disponible próximamente.') }}
-            </p>
         </div>
     </div>
 </x-app-layout>

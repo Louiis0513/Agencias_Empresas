@@ -6,8 +6,10 @@ use App\Models\AccountReceivable;
 use App\Models\AccountReceivableCuota;
 use App\Models\Invoice;
 use App\Models\Store;
+use Carbon\Carbon;
 use Exception;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Facades\DB;
 
 class AccountReceivableService
@@ -101,6 +103,50 @@ class AccountReceivableService
         }
 
         return $query->paginate($filtros['per_page'] ?? 15)->withQueryString();
+    }
+
+    /**
+     * Listado sin paginar para exportación (mismos filtros que {@see listar}, más acote opcional por período).
+     * Período: vencimiento ({@see AccountReceivable::$due_date}) dentro del rango, o sin vencimiento y creada en el rango.
+     *
+     * @param  array{status?: string, customer_id?: int, invoice_user_ids?: array<int>, fecha_desde?: string, fecha_hasta?: string, timezone?: string}  $filtros
+     * @return EloquentCollection<int, AccountReceivable>
+     */
+    public function coleccionParaExportacion(Store $store, array $filtros = []): EloquentCollection
+    {
+        $query = AccountReceivable::deTienda($store->id)
+            ->with(['invoice', 'customer', 'cuotas'])
+            ->orderByDesc('created_at');
+
+        if (! empty($filtros['status'])) {
+            $query->where('status', $filtros['status']);
+        }
+        if (! empty($filtros['customer_id'])) {
+            $query->where('customer_id', $filtros['customer_id']);
+        }
+
+        $invoiceUserIds = array_values(array_unique(array_filter(array_map('intval', $filtros['invoice_user_ids'] ?? []))));
+        if ($invoiceUserIds !== []) {
+            $query->whereHas('invoice', fn ($q) => $q->whereIn('user_id', $invoiceUserIds));
+        }
+
+        if (! empty($filtros['fecha_desde']) && ! empty($filtros['fecha_hasta'])) {
+            $tz = ! empty($filtros['timezone']) ? (string) $filtros['timezone'] : (string) config('app.timezone');
+            $desde = (string) $filtros['fecha_desde'];
+            $hasta = (string) $filtros['fecha_hasta'];
+            $startUtc = Carbon::parse($desde, $tz)->startOfDay()->utc();
+            $endUtc = Carbon::parse($hasta, $tz)->endOfDay()->utc();
+
+            $query->where(function ($q) use ($desde, $hasta, $startUtc, $endUtc) {
+                $q->whereBetween('due_date', [$desde, $hasta])
+                    ->orWhere(function ($q2) use ($startUtc, $endUtc) {
+                        $q2->whereNull('due_date')
+                            ->whereBetween('created_at', [$startUtc, $endUtc]);
+                    });
+            });
+        }
+
+        return $query->get();
     }
 
     public function obtener(Store $store, int $id): AccountReceivable

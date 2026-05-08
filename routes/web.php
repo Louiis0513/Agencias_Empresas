@@ -178,6 +178,7 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::delete('/clientes/{customer}', [StoreCustomerController::class, 'destroy'])->name('customers.destroy');
 
     Route::get('/caja', [StoreCajaController::class, 'index'])->name('cajas');
+    Route::get('/caja/movimientos/exportar-excel', [StoreCajaController::class, 'exportMovimientosExcel'])->name('cajas.movimientos.export-excel');
     Route::get('/caja/movimientos', [StoreCajaController::class, 'movimientos'])->name('cajas.movimientos');
     Route::get('/caja/apertura', [StoreCajaController::class, 'aperturaCaja'])->name('cajas.apertura');
     Route::post('/caja/apertura', [StoreCajaController::class, 'storeAperturaCaja'])->name('cajas.apertura.store');

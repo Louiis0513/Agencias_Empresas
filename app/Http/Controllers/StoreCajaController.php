@@ -19,6 +19,7 @@ use App\Services\CajaService;
 use App\Services\ComprobanteEgresoService;
 use App\Services\ComprobanteIngresoService;
 use App\Services\CustomerService;
+use App\Services\MovimientosExcelExportService;
 use App\Services\SesionCajaService;
 use App\Services\StorePermissionService;
 use App\Services\StoreTimezoneService;
@@ -192,6 +193,7 @@ class StoreCajaController extends Controller
         $bolsillosListado = $this->cajaService->listarBolsillos($store, $filtrosBolsillosListado)->withQueryString();
         $totalCaja = $this->cajaService->totalCaja($store);
         $canAccessStoreConfig = $this->permissionService->can($store, 'store-config.view');
+        $movExportMesDefault = $this->storeTimezoneService->nowForStore($store)->format('Y-m');
 
         return view('stores.caja.movimientos', compact(
             'store',
@@ -213,8 +215,97 @@ class StoreCajaController extends Controller
             'sesionAbierta',
             'bolsillosListado',
             'totalCaja',
-            'canAccessStoreConfig'
+            'canAccessStoreConfig',
+            'movExportMesDefault'
         ));
+    }
+
+    /**
+     * Excel (Resumen, Ingresos, Egresos; opcional Por cobrar / Por pagar según permisos) con filtros GET de Movimientos y opcional export_mes (YYYY-MM).
+     */
+    public function exportMovimientosExcel(Store $store, Request $request, MovimientosExcelExportService $excelExport)
+    {
+        $this->permissionService->authorize($store, 'caja.view');
+
+        $mf = $this->normalizeMovimientosFiltros($request, $store);
+
+        $exportMesRaw = $request->query('export_mes');
+        if (is_string($exportMesRaw) && preg_match('/^\d{4}-\d{2}$/', trim($exportMesRaw))) {
+            $exportMes = trim($exportMesRaw);
+            $tz = $this->storeTimezoneService->getTimezoneForStore($store);
+            $startMonth = Carbon::parse($exportMes.'-01', $tz)->startOfMonth();
+            $endMonth = Carbon::parse($exportMes.'-01', $tz)->endOfMonth();
+            $mf['fecha_desde'] = $startMonth->toDateString();
+            $mf['fecha_hasta'] = $endMonth->toDateString();
+            $mf['fecha_dia'] = null;
+            $mf['export_mes'] = $exportMes;
+        }
+
+        $filtrosMovimientosBase = [
+            'fecha_desde' => $mf['fecha_desde'],
+            'fecha_hasta' => $mf['fecha_hasta'],
+            'search' => $mf['search'],
+            'bolsillo_ids' => $mf['bolsillo_ids'],
+            'empleado_user_ids' => $mf['empleado_user_ids'],
+            'timezone' => $this->storeTimezoneService->getTimezoneForStore($store),
+        ];
+
+        $tz = $this->storeTimezoneService->getTimezoneForStore($store);
+        if (! empty($mf['export_mes'])) {
+            $refMes = Carbon::parse($mf['export_mes'].'-01', $tz)->startOfMonth();
+            $movimientosResumenEtiqueta = __('Exportación por mes · :mes', [
+                'mes' => $refMes->locale(app()->getLocale())->translatedFormat('F Y'),
+            ]);
+        } elseif ($mf['fecha_dia']) {
+            $fechaRef = Carbon::parse($mf['fecha_dia'], $tz)->startOfDay();
+            $movimientosResumenEtiqueta = __('Según filtros · :fecha', [
+                'fecha' => $this->storeTimezoneService->formatForStore($fechaRef, $store, false),
+            ]);
+        } else {
+            $movimientosResumenEtiqueta = __('Según filtros · sin día (todo el historial)');
+        }
+
+        $cuentasPorCobrarExport = null;
+        $saldoPendienteCobrarExport = null;
+        if ($this->permissionService->can($store, 'accounts-receivables.view')) {
+            $cuentasPorCobrarExport = $this->accountReceivableService->coleccionParaExportacion($store, [
+                'status' => $request->get('pc_status'),
+                'customer_id' => $mf['customer_id'],
+                'invoice_user_ids' => $mf['empleado_user_ids'],
+                'fecha_desde' => $mf['fecha_desde'],
+                'fecha_hasta' => $mf['fecha_hasta'],
+                'timezone' => $filtrosMovimientosBase['timezone'],
+            ]);
+            $saldoPendienteCobrarExport = $this->accountReceivableService->saldoPendienteTotal($store);
+        }
+
+        $cuentasPorPagarExport = null;
+        $deudaTotalPagarExport = null;
+        if ($this->permissionService->can($store, 'accounts-payables.view')) {
+            $filtrosCxp = [
+                'status' => $request->get('pp_status'),
+                'fecha_desde' => $mf['fecha_desde'],
+                'fecha_hasta' => $mf['fecha_hasta'],
+                'timezone' => $filtrosMovimientosBase['timezone'],
+                'search' => $request->get('pp_search'),
+            ];
+            if ($mf['proveedor_id']) {
+                $filtrosCxp['proveedor_id'] = $mf['proveedor_id'];
+            }
+            $cuentasPorPagarExport = $this->accountPayableService->coleccionParaExportacionCuentasPorPagar($store, $filtrosCxp);
+            $deudaTotalPagarExport = $this->accountPayableService->deudaTotal($store);
+        }
+
+        return $excelExport->download(
+            $store,
+            $mf,
+            $filtrosMovimientosBase,
+            $movimientosResumenEtiqueta,
+            $cuentasPorCobrarExport,
+            $cuentasPorPagarExport,
+            $saldoPendienteCobrarExport,
+            $deudaTotalPagarExport,
+        );
     }
 
     /**
