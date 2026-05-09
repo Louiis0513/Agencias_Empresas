@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-white leading-tight">
-                Cuenta por Pagar - Compra #{{ $accountPayable->purchase->id }} - {{ $store->name }}
+                CxP - Compra #{{ $accountPayable->purchase->id }} - {{ $store->name }}
             </h2>
             <a href="{{ route('stores.cajas.movimientos', ['store' => $store, 'tab' => 'por-pagar']) }}" wire:navigate class="text-sm text-gray-400 hover:text-brand transition">
                 ← {{ __('Movimientos') }} · {{ __('Por pagar') }}

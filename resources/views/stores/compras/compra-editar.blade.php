@@ -173,7 +173,7 @@
 
                 <div class="mb-6 p-4 border-b border-white/5/50 rounded-lg border border-gray-200 dark:border-gray-700" x-show="paymentStatus === 'PENDIENTE'" x-transition>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Fecha de vencimiento de la factura</label>
-                    <input type="date" name="due_date" value="{{ old('due_date', $purchase->due_date?->format('Y-m-d')) }}" :required="paymentStatus === 'PENDIENTE'" :disabled="paymentStatus !== 'PENDIENTE'" class="w-full max-w-xs rounded-md border-white/10 bg-white/5 text-gray-100" placeholder="Cuando vence la cuenta por pagar">
+                    <input type="date" name="due_date" value="{{ old('due_date', $purchase->due_date?->format('Y-m-d')) }}" :required="paymentStatus === 'PENDIENTE'" :disabled="paymentStatus !== 'PENDIENTE'" class="w-full max-w-xs rounded-md border-white/10 bg-white/5 text-gray-100" placeholder="Vencimiento CxP">
                     <p class="mt-1 text-xs text-gray-400">Indica cuándo vence el pago según la factura real o acuerdos con el proveedor.</p>
                 </div>
 

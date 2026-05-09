@@ -83,7 +83,7 @@ class ComprobanteEgresoService
 
                 $accountPayableId = ! empty($d['account_payable_id']) ? (int) $d['account_payable_id'] : null;
 
-                // Si tiene account_payable_id = pago a cuenta por pagar (factura), aunque proveedor sea null
+                // Si tiene account_payable_id = pago a CxP (factura), aunque proveedor sea null
                 if ($accountPayableId) {
                     if ($proveedorId !== null) {
                         $this->validarCuentaPerteneceAProveedor($store, $accountPayableId, $proveedorId);
@@ -171,7 +171,7 @@ class ComprobanteEgresoService
     /**
      * Anula un comprobante de egreso.
      * - Registra INGRESOS en los bolsillos indicados (concepto: Reverso comprobante de egreso)
-     * - Restaura saldos de cuentas por pagar
+     * - Restaura saldos de CxP
      * - Marca el comprobante como revertido
      *
      * @param  array  $origenes  [['bolsillo_id' => int, 'amount' => float, 'reference' => ?string], ...]
@@ -406,6 +406,90 @@ class ComprobanteEgresoService
     }
 
     /**
+     * Variables compartidas entre la vista detalle y el PDF (el modelo debe venir de obtener()).
+     *
+     * @return array{
+     *     c: ComprobanteEgreso,
+     *     cur: string,
+     *     dirTel: string,
+     *     tituloDocumento: string,
+     *     tipoEtiqueta: string,
+     *     detalleSubtitulo: string,
+     *     valorEnLetras: string,
+     *     detalleLineasVista: list<array{descripcion: string, valor: float}>,
+     *     pagadoNombre: string,
+     *     pagadoNit: string,
+     *     pagadoDireccion: string,
+     *     pagadoCiudad: string
+     * }
+     */
+    public function datosVistaComprobanteEgreso(Store $store, ComprobanteEgreso $comprobante): array
+    {
+        $cur = $store->currency ?? 'COP';
+        $c = $comprobante;
+
+        $telText = '';
+        if ($store->phone) {
+            $telText = __('Tel.: :n', ['n' => $store->phone]);
+        } elseif ($store->mobile ?? null) {
+            $telText = __('Cel.: :n', ['n' => $store->mobile]);
+        }
+        $dirTel = trim(implode(' ', array_filter([$store->address ?? '', $telText])));
+
+        $tituloDocumento = match ($c->type) {
+            ComprobanteEgreso::TYPE_PAGO_CUENTA => __('Comprobante de abono a CxP'),
+            ComprobanteEgreso::TYPE_MIXTO => __('Comprobante de egreso (mixto)'),
+            default => __('Comprobante de egreso'),
+        };
+
+        $tipoEtiqueta = match ($c->type) {
+            ComprobanteEgreso::TYPE_PAGO_CUENTA => __('Pago a CxP'),
+            ComprobanteEgreso::TYPE_MIXTO => __('Operación mixta'),
+            default => __('Gasto directo'),
+        };
+
+        $detalleLineasVista = $c->destinos->map(function (ComprobanteEgresoDestino $d) {
+            if ($d->isCuentaPorPagar() && $d->accountPayable) {
+                $desc = $this->descripcionVistaCuentaPorPagar($d->accountPayable);
+
+                return ['descripcion' => $desc, 'valor' => (float) $d->amount];
+            }
+
+            $parts = array_filter([(string) ($d->concepto ?? ''), (string) ($d->beneficiario ?? '')]);
+            $desc = $parts !== [] ? implode(' — ', $parts) : __('Gasto');
+
+            return ['descripcion' => $desc, 'valor' => (float) $d->amount];
+        })->values()->all();
+
+        $detalleSubtitulo = filled($c->notes)
+            ? __('DETALLE: :texto', ['texto' => $c->notes])
+            : __('DETALLE: Egreso registrado');
+
+        $valorEnLetras = money_to_words_es((float) $c->total_amount, $cur);
+
+        $proveedor = $c->proveedor;
+        $pagadoNombre = $c->beneficiary_name ?? $proveedor?->nombre ?? '—';
+        $pagadoNit = $proveedor?->nit ?? '—';
+        $pagadoDireccion = $proveedor?->direccion ?? '—';
+        $pagadoCiudad = '—';
+
+        return [
+            'c' => $c,
+            'cur' => $cur,
+            'dirTel' => $dirTel,
+            'tituloDocumento' => $tituloDocumento,
+            'tipoEtiqueta' => $tipoEtiqueta,
+            'detalleSubtitulo' => $detalleSubtitulo,
+            'valorEnLetras' => $valorEnLetras,
+            'detalleLineasVista' => $detalleLineasVista,
+            'pagadoNombre' => $pagadoNombre,
+            'pagadoNit' => $pagadoNit,
+            'pagadoDireccion' => $pagadoDireccion,
+            'pagadoCiudad' => $pagadoCiudad,
+        ];
+    }
+
+    /**
      * Actualiza campos editables del comprobante (fecha, notas).
      * Los montos y destinos/orígenes no se pueden editar sin reversar.
      */
@@ -423,6 +507,31 @@ class ComprobanteEgresoService
         ]);
 
         return $comprobante->load(['user', 'proveedor', 'destinos.accountPayable.purchase.proveedor', 'origenes.bolsillo']);
+    }
+
+    private function descripcionVistaCuentaPorPagar(AccountPayable $ap): string
+    {
+        $purchase = $ap->purchase;
+        $proveedorNombre = $purchase?->proveedor?->nombre ?? __('Proveedor');
+        $purchaseId = $ap->purchase_id;
+
+        if ($purchase !== null) {
+            $doc = trim((string) ($purchase->invoice_number ?? ''));
+            if ($doc !== '') {
+                return __('Abono a :doc — Compra a :prov', ['doc' => $doc, 'prov' => $proveedorNombre]);
+            }
+        }
+
+        if ($purchaseId) {
+            return __('Abono a compra #:id · :prov', ['id' => $purchaseId, 'prov' => $proveedorNombre]);
+        }
+
+        $fechaCxP = $ap->due_date?->format('d/m/Y');
+        if ($fechaCxP) {
+            return __('Abono a CxP (:fecha) · :prov', ['fecha' => $fechaCxP, 'prov' => $proveedorNombre]);
+        }
+
+        return __('Abono a CxP · :prov', ['prov' => $proveedorNombre]);
     }
 
     private function calcularBeneficiaryName(Store $store, ?int $proveedorId, array $destinos, bool $tieneCuentasPorPagar = false): string
@@ -451,7 +560,7 @@ class ComprobanteEgresoService
             ->first();
 
         if (! $ap || $ap->purchase->proveedor_id != $proveedorId) {
-            throw new Exception("La cuenta por pagar #{$accountPayableId} no pertenece al proveedor seleccionado.");
+            throw new Exception("La CxP #{$accountPayableId} no pertenece al proveedor seleccionado.");
         }
     }
 
@@ -482,11 +591,11 @@ class ComprobanteEgresoService
             ->firstOrFail();
 
         if ($accountPayable->isPagado()) {
-            throw new Exception("La cuenta por pagar #{$accountPayableId} ya está pagada.");
+            throw new Exception("La CxP #{$accountPayableId} ya está pagada.");
         }
 
         if ($amount > $accountPayable->balance) {
-            throw new Exception("El monto ({$amount}) excede el saldo pendiente ({$accountPayable->balance}) de la cuenta por pagar.");
+            throw new Exception("El monto ({$amount}) excede el saldo pendiente ({$accountPayable->balance}) de la CxP.");
         }
 
         $nuevoBalance = $accountPayable->balance - $amount;

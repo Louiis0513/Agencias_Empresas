@@ -396,7 +396,7 @@ class MovimientosExcelExportService
 
         $r = $headerRow + 1;
         if ($cuentas->isEmpty()) {
-            $sheet->setCellValue('A'.$r, 'No hay cuentas por pagar en el período / filtros seleccionados.');
+            $sheet->setCellValue('A'.$r, 'No hay CxP en el período / filtros seleccionados.');
             $sheet->mergeCells('A'.$r.':I'.$r);
 
             return;
@@ -444,7 +444,7 @@ class MovimientosExcelExportService
     private function labelTipoEgreso(?string $type): string
     {
         return match ($type) {
-            ComprobanteEgreso::TYPE_PAGO_CUENTA => 'Pago cuenta por pagar',
+            ComprobanteEgreso::TYPE_PAGO_CUENTA => 'Pago CxP',
             ComprobanteEgreso::TYPE_GASTO_DIRECTO => 'Gasto directo',
             ComprobanteEgreso::TYPE_MIXTO => 'Mixto',
             default => $type ?? '',

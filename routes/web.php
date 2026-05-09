@@ -196,6 +196,7 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     })->name('comprobantes-ingreso.index');
     Route::get('/comprobantes-ingreso/crear', [StoreCajaController::class, 'createComprobanteIngreso'])->name('comprobantes-ingreso.create');
     Route::post('/comprobantes-ingreso', [StoreCajaController::class, 'storeComprobanteIngreso'])->name('comprobantes-ingreso.store');
+    Route::get('/comprobantes-ingreso/{comprobanteIngreso}/pdf', [StoreCajaController::class, 'pdfComprobanteIngreso'])->name('comprobantes-ingreso.pdf');
     Route::get('/comprobantes-ingreso/{comprobanteIngreso}', [StoreCajaController::class, 'showComprobanteIngreso'])->name('comprobantes-ingreso.show');
     // Comprobantes de egreso (índice unificado en Movimientos → pestaña Egresos)
     Route::get('/comprobantes-egreso', function (Store $store) {
@@ -204,6 +205,7 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::get('/comprobantes-egreso/crear', [StoreCajaController::class, 'createComprobanteEgreso'])->name('comprobantes-egreso.create');
     Route::get('/comprobantes-egreso/cuentas-proveedor', [StoreCajaController::class, 'cuentasPorPagarProveedor'])->name('comprobantes-egreso.cuentas-proveedor');
     Route::post('/comprobantes-egreso', [StoreCajaController::class, 'storeComprobanteEgreso'])->name('comprobantes-egreso.store');
+    Route::get('/comprobantes-egreso/{comprobanteEgreso}/pdf', [StoreCajaController::class, 'pdfComprobanteEgreso'])->name('comprobantes-egreso.pdf');
     Route::get('/comprobantes-egreso/{comprobanteEgreso}', [StoreCajaController::class, 'showComprobanteEgreso'])->name('comprobantes-egreso.show');
     Route::get('/comprobantes-egreso/{comprobanteEgreso}/editar', [StoreCajaController::class, 'editComprobanteEgreso'])->name('comprobantes-egreso.edit');
     Route::put('/comprobantes-egreso/{comprobanteEgreso}', [StoreCajaController::class, 'updateComprobanteEgreso'])->name('comprobantes-egreso.update');

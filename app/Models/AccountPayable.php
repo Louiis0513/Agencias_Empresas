@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Builder;
 
 class AccountPayable extends Model
 {
@@ -28,7 +28,9 @@ class AccountPayable extends Model
     ];
 
     public const STATUS_PENDIENTE = 'PENDIENTE';
+
     public const STATUS_PARCIAL = 'PARCIAL';
+
     public const STATUS_PAGADO = 'PAGADO';
 
     public function store()
@@ -47,7 +49,7 @@ class AccountPayable extends Model
     }
 
     /**
-     * Destinos de comprobantes de egreso que abonaron a esta cuenta por pagar.
+     * Destinos de comprobantes de egreso que abonaron a esta CxP.
      * Usar para historial de pagos (nueva estructura).
      */
     public function comprobanteDestinos()

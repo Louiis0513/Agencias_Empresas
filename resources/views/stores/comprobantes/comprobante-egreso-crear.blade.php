@@ -35,7 +35,7 @@
             {{-- Pagos a proveedor: pestaña Por pagar en Movimientos --}}
             <div class="mb-6 p-4 bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-700 rounded-lg">
                 <p class="text-sm text-sky-800 dark:text-sky-200 mb-2">
-                    ¿Necesita pagar o abonar una factura a un proveedor (cuenta por pagar)?
+                    ¿Necesita pagar o abonar una factura a un proveedor (CxP)?
                 </p>
                 <a href="{{ route('stores.cajas.movimientos', ['store' => $store, 'tab' => 'por-pagar']) }}" wire:navigate class="inline-flex items-center px-4 py-2 bg-sky-600 text-white rounded-md hover:bg-sky-700 text-sm font-medium">
                     {{ __('Ir a Movimientos (Por pagar)') }} →

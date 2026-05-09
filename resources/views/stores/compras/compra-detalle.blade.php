@@ -198,11 +198,11 @@
                     @if($purchase->accountPayable)
                         <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
                             @if($purchase->accountPayable->isPagado())
-                                <p class="text-sm text-gray-400 mb-2">Cuenta por pagar: Pagada</p>
-                                <a href="{{ route('stores.accounts-payables.show', [$store, $purchase->accountPayable]) }}" class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400">Ver historial de pagos en Cuentas por Pagar →</a>
+                                <p class="text-sm text-gray-400 mb-2">CxP: Pagada</p>
+                                <a href="{{ route('stores.accounts-payables.show', [$store, $purchase->accountPayable]) }}" class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400">Ver historial de pagos en CxP →</a>
                             @else
-                                <p class="text-sm text-gray-400 mb-2">Cuenta por pagar: Saldo pendiente {{ money($purchase->accountPayable->balance, $store->currency ?? 'COP', false) }}</p>
-                                <a href="{{ route('stores.accounts-payables.show', [$store, $purchase->accountPayable]) }}" class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400">Ir a Cuentas por Pagar →</a>
+                                <p class="text-sm text-gray-400 mb-2">CxP: Saldo pendiente {{ money($purchase->accountPayable->balance, $store->currency ?? 'COP', false) }}</p>
+                                <a href="{{ route('stores.accounts-payables.show', [$store, $purchase->accountPayable]) }}" class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400">Ir a CxP →</a>
                             @endif
                         </div>
                     @endif

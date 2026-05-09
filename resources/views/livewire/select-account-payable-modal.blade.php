@@ -2,7 +2,7 @@
     <x-modal name="select-account-payable" focusable maxWidth="6xl">
         <div class="p-6">
             <h2 class="text-lg font-medium text-white">
-                Seleccionar cuenta por pagar
+                Seleccionar CxP
             </h2>
             <p class="mt-1 text-sm text-gray-400">
                 @if($forComprobante && count($excludeIds) > 0)
@@ -102,7 +102,7 @@
                         @empty
                             <tr>
                                 <td colspan="7" class="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
-                                    No hay cuentas por pagar con los filtros aplicados.
+                                    No hay CxP con los filtros aplicados.
                                 </td>
                             </tr>
                         @endforelse

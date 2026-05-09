@@ -28,7 +28,7 @@ class MovimientosPorPagarTabTest extends TestCase
 
         $response->assertOk();
         $response->assertSee(__('Deuda total pendiente'), false);
-        $response->assertSee(__('No hay cuentas por pagar.'), false);
+        $response->assertSee(__('No hay CxP.'), false);
     }
 
     public function test_indice_cuentas_por_pagar_redirige_a_movimientos_pestana_por_pagar(): void

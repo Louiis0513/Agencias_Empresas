@@ -19,7 +19,7 @@ class AccountPayableService
     ) {}
 
     /**
-     * Registra un abono a una cuenta por pagar.
+     * Registra un abono a una CxP.
      * Crea un ComprobanteEgreso internamente (adapter para compatibilidad con Compras).
      */
     public function registrarPago(Store $store, int $accountPayableId, int $userId, array $data): ComprobanteEgreso
@@ -30,7 +30,7 @@ class AccountPayableService
             ->firstOrFail();
 
         if ($accountPayable->isPagado()) {
-            throw new Exception('Esta cuenta por pagar ya está pagada.');
+            throw new Exception('Esta CxP ya está pagada.');
         }
 
         $parts = $data['parts'] ?? [];

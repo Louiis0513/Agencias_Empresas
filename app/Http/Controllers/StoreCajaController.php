@@ -23,6 +23,7 @@ use App\Services\MovimientosExcelExportService;
 use App\Services\SesionCajaService;
 use App\Services\StorePermissionService;
 use App\Services\StoreTimezoneService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
@@ -31,7 +32,7 @@ use Illuminate\Support\Facades\Auth;
 class StoreCajaController extends Controller
 {
     /** Tamaño de página en listados de Movimientos; subir cuando definan producción. */
-    private const MOVIMIENTOS_LIST_PER_PAGE = 2;
+    private const MOVIMIENTOS_LIST_PER_PAGE = 10;
 
     protected CajaService $cajaService;
 
@@ -631,8 +632,33 @@ class StoreCajaController extends Controller
         }
 
         $comprobanteIngreso = $this->comprobanteIngresoService->obtener($store, $comprobanteIngreso->id);
+        $ciVista = $this->comprobanteIngresoService->datosVistaComprobante($store, $comprobanteIngreso);
 
-        return view('stores.comprobantes.comprobante-ingreso-detalle', compact('store', 'comprobanteIngreso'));
+        return view('stores.comprobantes.comprobante-ingreso-detalle', array_merge(
+            compact('store', 'comprobanteIngreso'),
+            $ciVista
+        ));
+    }
+
+    public function pdfComprobanteIngreso(Store $store, ComprobanteIngreso $comprobanteIngreso)
+    {
+        $this->permissionService->authorize($store, 'comprobantes-ingreso.view');
+        if ($comprobanteIngreso->store_id !== $store->id) {
+            abort(404);
+        }
+
+        $comprobanteIngreso = $this->comprobanteIngresoService->obtener($store, $comprobanteIngreso->id);
+        $ciVista = $this->comprobanteIngresoService->datosVistaComprobante($store, $comprobanteIngreso);
+
+        $pdf = Pdf::loadView('stores.comprobantes.comprobante-ingreso-pdf', array_merge(
+            compact('store', 'comprobanteIngreso'),
+            $ciVista
+        ));
+        $pdf->setPaper('a4', 'portrait');
+
+        $safeNumber = preg_replace('/[^A-Za-z0-9._-]+/', '-', $comprobanteIngreso->number);
+
+        return $pdf->stream('comprobante-ingreso-'.$safeNumber.'.pdf');
     }
 
     public function createComprobanteEgreso(Store $store)
@@ -704,8 +730,33 @@ class StoreCajaController extends Controller
 
         $comprobante = $this->comprobanteEgresoService->obtener($store, $comprobanteEgreso->id);
         $bolsillos = Bolsillo::deTienda($store->id)->activos()->orderBy('name')->get();
+        $ceVista = $this->comprobanteEgresoService->datosVistaComprobanteEgreso($store, $comprobante);
 
-        return view('stores.comprobantes.comprobante-egreso-detalle', compact('store', 'comprobante', 'bolsillos'));
+        return view('stores.comprobantes.comprobante-egreso-detalle', array_merge(
+            compact('store', 'comprobante', 'bolsillos'),
+            $ceVista
+        ));
+    }
+
+    public function pdfComprobanteEgreso(Store $store, ComprobanteEgreso $comprobanteEgreso)
+    {
+        $this->permissionService->authorize($store, 'comprobantes-egreso.view');
+        if ($comprobanteEgreso->store_id !== $store->id) {
+            abort(404);
+        }
+
+        $comprobante = $this->comprobanteEgresoService->obtener($store, $comprobanteEgreso->id);
+        $ceVista = $this->comprobanteEgresoService->datosVistaComprobanteEgreso($store, $comprobante);
+
+        $pdf = Pdf::loadView('stores.comprobantes.comprobante-egreso-pdf', array_merge(
+            compact('store', 'comprobante'),
+            $ceVista
+        ));
+        $pdf->setPaper('a4', 'portrait');
+
+        $safeNumber = preg_replace('/[^A-Za-z0-9._-]+/', '-', $comprobante->number);
+
+        return $pdf->stream('comprobante-egreso-'.$safeNumber.'.pdf');
     }
 
     public function editComprobanteEgreso(Store $store, ComprobanteEgreso $comprobanteEgreso)
@@ -784,7 +835,7 @@ class StoreCajaController extends Controller
             $this->comprobanteEgresoService->anularComprobante($store, $comprobanteEgreso->id, Auth::id(), $request->input('origenes'));
 
             return redirect()->route('stores.comprobantes-egreso.show', [$store, $comprobanteEgreso])
-                ->with('success', 'Comprobante anulado correctamente. El dinero fue devuelto a los bolsillos indicados y las cuentas por pagar fueron restauradas.');
+                ->with('success', 'Comprobante anulado correctamente. El dinero fue devuelto a los bolsillos indicados y las CxP fueron restauradas.');
         } catch (Exception $e) {
             return redirect()->back()->with('error', $e->getMessage());
         }

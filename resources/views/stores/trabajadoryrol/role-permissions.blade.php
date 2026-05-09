@@ -107,7 +107,7 @@
                                 'inventario' => 'Inventario',
                                 'activos' => 'Activos',
                                 'purchases' => 'Compras',
-                                'accounts-payables' => 'Cuentas por pagar',
+                                'accounts-payables' => 'CxP',
                                 'accounts-receivables' => 'Cuentas por cobrar',
                                 'comprobantes-ingreso' => 'Comprobantes de ingreso',
                                 'comprobantes-egreso' => 'Comprobantes de egreso',

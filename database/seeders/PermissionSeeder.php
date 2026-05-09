@@ -87,9 +87,9 @@ class PermissionSeeder extends Seeder
             ['slug' => 'purchases.approve', 'name' => 'Aprobar compras', 'description' => 'Aprobar compras'],
             ['slug' => 'purchases.void', 'name' => 'Anular compras', 'description' => 'Anular compras'],
 
-            // Cuentas por pagar
-            ['slug' => 'accounts-payables.view', 'name' => 'Ver cuentas por pagar', 'description' => 'Ver listado y detalle de cuentas por pagar'],
-            ['slug' => 'accounts-payables.pay', 'name' => 'Registrar pagos (cuentas por pagar)', 'description' => 'Registrar pagos y reversar pagos'],
+            // CxP
+            ['slug' => 'accounts-payables.view', 'name' => 'Ver CxP', 'description' => 'Ver listado y detalle de CxP'],
+            ['slug' => 'accounts-payables.pay', 'name' => 'Registrar pagos (CxP)', 'description' => 'Registrar pagos y reversar pagos'],
 
             // Cuentas por cobrar
             ['slug' => 'accounts-receivables.view', 'name' => 'Ver cuentas por cobrar', 'description' => 'Ver listado y detalle de cuentas por cobrar'],

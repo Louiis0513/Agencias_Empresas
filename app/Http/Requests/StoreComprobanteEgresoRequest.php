@@ -37,7 +37,7 @@ class StoreComprobanteEgresoRequest extends FormRequest
                 $hasAccountPayable = ! empty($d['account_payable_id'] ?? null);
                 $hasConcepto = ! empty(trim($d['concepto'] ?? ''));
                 if (! $hasAccountPayable && ! $hasConcepto) {
-                    $validator->errors()->add("destinos.{$i}.concepto", 'El concepto es requerido cuando no hay cuenta por pagar.');
+                    $validator->errors()->add("destinos.{$i}.concepto", 'El concepto es requerido cuando no hay CxP.');
                 }
             }
 

@@ -94,3 +94,13 @@ if (! function_exists('format_product_name_for_receipt')) {
         return trim(implode(' ', $parts));
     }
 }
+
+if (! function_exists('money_to_words_es')) {
+    /**
+     * Monto en letras (español, mayúsculas), p. ej. comprobantes de ingreso.
+     */
+    function money_to_words_es(float $amount, ?string $currency = 'COP'): string
+    {
+        return \App\Support\MoneyToWordsEs::moneyToWords($amount, $currency ?? 'COP');
+    }
+}

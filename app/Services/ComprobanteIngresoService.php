@@ -7,6 +7,7 @@ use App\Models\ComprobanteIngreso;
 use App\Models\ComprobanteIngresoAplicacion;
 use App\Models\ComprobanteIngresoDestino;
 use App\Models\Invoice;
+use App\Models\InvoiceDetail;
 use App\Models\MovimientoBolsillo;
 use App\Models\Store;
 use Carbon\Carbon;
@@ -372,7 +373,109 @@ class ComprobanteIngresoService
     public function obtener(Store $store, int $id): ComprobanteIngreso
     {
         return ComprobanteIngreso::deTienda($store->id)
-            ->with(['customer', 'user', 'destinos.bolsillo', 'aplicaciones.accountReceivable.invoice'])
+            ->with([
+                'customer',
+                'user',
+                'destinos.bolsillo',
+                'aplicaciones.accountReceivable.invoice',
+                'invoice.details',
+            ])
             ->findOrFail($id);
+    }
+
+    /**
+     * Variables compartidas entre la vista detalle y el PDF (el modelo debe venir de obtener()).
+     *
+     * @return array{
+     *     cur: string,
+     *     c: ComprobanteIngreso,
+     *     customer: \App\Models\Customer|null,
+     *     dirTel: string,
+     *     detalleSubtitulo: string,
+     *     valorEnLetras: string,
+     *     tipoEtiqueta: string,
+     *     detalleLineasVista: list<array{descripcion: string, valor: float}>
+     * }
+     */
+    public function datosVistaComprobante(Store $store, ComprobanteIngreso $comprobanteIngreso): array
+    {
+        $cur = $store->currency ?? 'COP';
+        $c = $comprobanteIngreso;
+        $customer = $c->customer;
+
+        $telText = '';
+        if ($store->phone) {
+            $telText = __('Tel.: :n', ['n' => $store->phone]);
+        } elseif ($store->mobile ?? null) {
+            $telText = __('Cel.: :n', ['n' => $store->mobile]);
+        }
+        $dirTel = trim(implode(' ', array_filter([$store->address ?? '', $telText])));
+
+        $detalleLineas = collect();
+        if ($c->invoice_id && $c->invoice && $c->invoice->details->isNotEmpty()) {
+            $detalleLineas = $c->invoice->details;
+        } elseif ($c->destinos->pluck('reference')->filter(fn ($r) => filled($r))->isNotEmpty()) {
+            foreach ($c->destinos as $d) {
+                if (filled($d->reference)) {
+                    $detalleLineas->push((object) [
+                        'descripcion' => $d->reference,
+                        'valor' => $d->amount,
+                    ]);
+                }
+            }
+        }
+
+        if ($detalleLineas->isEmpty()) {
+            $desc = $c->notes;
+            if (! filled($desc)) {
+                $desc = match ($c->type) {
+                    ComprobanteIngreso::TYPE_PAGO_FACTURA => __('Pago asociado a factura #:id', ['id' => $c->invoice_id ?? '—']),
+                    ComprobanteIngreso::TYPE_COBRO_CUENTA => __('Cobro a cuentas por cobrar'),
+                    default => __('Ingreso registrado a bolsillos'),
+                };
+            }
+            $detalleLineas = collect([(object) ['descripcion' => $desc, 'valor' => $c->total_amount]]);
+        }
+
+        $detalleSubtitulo = filled($c->notes)
+            ? __('DETALLE: :texto', ['texto' => $c->notes])
+            : (
+                $c->invoice_id
+                    ? __('DETALLE: Factura #:id', ['id' => $c->invoice_id])
+                    : __('DETALLE: Ingreso')
+            );
+
+        $valorEnLetras = money_to_words_es((float) $c->total_amount, $cur);
+
+        $tipoEtiqueta = match ($c->type) {
+            ComprobanteIngreso::TYPE_COBRO_CUENTA => __('Cobro a cuenta por cobrar'),
+            ComprobanteIngreso::TYPE_PAGO_FACTURA => __('Pago de factura'),
+            default => __('Ingreso manual'),
+        };
+
+        $detalleLineasVista = $detalleLineas->map(function ($linea) {
+            if ($linea instanceof InvoiceDetail) {
+                return [
+                    'descripcion' => $linea->receipt_description ?? format_product_name_for_receipt($linea->product_name),
+                    'valor' => (float) $linea->subtotal,
+                ];
+            }
+
+            return [
+                'descripcion' => (string) ($linea->descripcion ?? ''),
+                'valor' => (float) ($linea->valor ?? 0),
+            ];
+        })->all();
+
+        return [
+            'cur' => $cur,
+            'c' => $c,
+            'customer' => $customer,
+            'dirTel' => $dirTel,
+            'detalleSubtitulo' => $detalleSubtitulo,
+            'valorEnLetras' => $valorEnLetras,
+            'tipoEtiqueta' => $tipoEtiqueta,
+            'detalleLineasVista' => $detalleLineasVista,
+        ];
     }
 }

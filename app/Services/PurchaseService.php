@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\AccountPayable;
 use App\Models\Activo;
-use App\Models\BatchItem;
 use App\Models\ProductItem;
 use App\Models\Purchase;
 use App\Models\PurchaseDetail;
@@ -25,7 +24,7 @@ class PurchaseService
 
     /**
      * Crea una compra en estado BORRADOR.
-     * La cuenta por pagar se crea solo al aprobar la compra (igual que los movimientos de stock).
+     * La CxP se crea solo al aprobar la compra (igual que los movimientos de stock).
      */
     public function crearCompra(Store $store, int $userId, array $data): Purchase
     {
@@ -124,8 +123,8 @@ class PurchaseService
     }
 
     /**
-     * Aprueba una compra: valida, marca como aprobada, registra movimientos de inventario/activos y crea cuenta por pagar.
-     * Orden: validar → estado APROBADO → movimientos → cuenta por pagar (y pago si contado).
+     * Aprueba una compra: valida, marca como aprobada, registra movimientos de inventario/activos y crea CxP.
+     * Orden: validar → estado APROBADO → movimientos → CxP (y pago si contado).
      *
      * @param  array<int, array<string>>|null  $serialsByDetailId  Para ACTIVO_FIJO serializado: [detailId => ['S/N1','S/N2']]
      */
@@ -372,6 +371,7 @@ class PurchaseService
                 }
             }
         }
+
         return empty($parts) ? '1 unidad (serializada)' : implode(', ', $parts);
     }
 
@@ -402,13 +402,14 @@ class PurchaseService
                     }
                 }
             }
-            $unitLabel = $sn !== '' ? "Serial: {$sn}" : 'Unidad ' . ($idx + 1);
+            $unitLabel = $sn !== '' ? "Serial: {$sn}" : 'Unidad '.($idx + 1);
             if (! empty($featParts)) {
-                $unitLabel .= ' (' . implode(', ', $featParts) . ')';
+                $unitLabel .= ' ('.implode(', ', $featParts).')';
             }
             $parts[] = $unitLabel;
         }
-        return $product->name . (empty($parts) ? '' : ' — ' . implode('; ', $parts));
+
+        return $product->name.(empty($parts) ? '' : ' — '.implode('; ', $parts));
     }
 
     /**
@@ -685,7 +686,7 @@ class PurchaseService
                 if ($variantId > 0) {
                     $variant = \App\Models\ProductVariant::where('id', $variantId)->where('product_id', $product->id)->first();
                     if ($variant) {
-                        $description = $product->name . ' — ' . $variant->display_name;
+                        $description = $product->name.' — '.$variant->display_name;
                     }
                 }
             }
@@ -718,5 +719,4 @@ class PurchaseService
             ]
         );
     }
-
 }
