@@ -21,7 +21,6 @@ class StoreComprobanteEgresoRequest extends FormRequest
             'destinos.*.amount' => ['required', 'numeric', 'min:0.01'],
             'destinos.*.account_payable_id' => ['nullable', 'exists:accounts_payables,id'],
             'destinos.*.concepto' => ['nullable', 'string', 'max:255'],
-            'destinos.*.beneficiario' => ['nullable', 'string', 'max:255'],
             'origenes' => ['required', 'array', 'min:1'],
             'origenes.*.bolsillo_id' => ['required', 'exists:bolsillos,id'],
             'origenes.*.amount' => ['required', 'numeric', 'min:0.01'],
@@ -37,7 +36,7 @@ class StoreComprobanteEgresoRequest extends FormRequest
                 $hasAccountPayable = ! empty($d['account_payable_id'] ?? null);
                 $hasConcepto = ! empty(trim($d['concepto'] ?? ''));
                 if (! $hasAccountPayable && ! $hasConcepto) {
-                    $validator->errors()->add("destinos.{$i}.concepto", 'El concepto es requerido cuando no hay CxP.');
+                    $validator->errors()->add("destinos.{$i}.concepto", 'La descripción es obligatoria cuando no hay CxP.');
                 }
             }
 

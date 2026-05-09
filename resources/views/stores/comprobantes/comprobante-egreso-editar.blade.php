@@ -44,7 +44,8 @@
                                        class="w-full rounded-md border-white/10 bg-white/5 text-gray-100" required>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notas</label>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre del gasto</label>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Aparece en el PDF como descripción general.</p>
                                 <input type="text" name="notes" value="{{ old('notes', $comprobante->notes) }}"
                                        class="w-full rounded-md border-white/10 bg-white/5 text-gray-100" placeholder="Opcional">
                             </div>
@@ -53,8 +54,12 @@
                         <div class="mb-6 p-4 border-b border-white/5 rounded-lg">
                             <p class="text-sm text-gray-400 mb-2">Información no editable:</p>
                             <p class="text-sm text-gray-700 dark:text-gray-300">
-                                Monto total: <strong>{{ money($comprobante->total_amount, $store->currency ?? 'COP', false) }}</strong> —
-                                A quién: <strong>{{ $comprobante->beneficiary_name ?? '—' }}</strong>
+                                Monto total: <strong>{{ money($comprobante->total_amount, $store->currency ?? 'COP', false) }}</strong>
+                                @if($comprobante->type === \App\Models\ComprobanteEgreso::TYPE_GASTO_DIRECTO && ! $comprobante->proveedor_id)
+                                    — <span class="text-gray-500">{{ __('Gasto directo (sin proveedor en «Pagado a»)') }}</span>
+                                @else
+                                    — {{ __('Pagado a') }}: <strong>{{ filled($comprobante->beneficiary_name) ? $comprobante->beneficiary_name : ($comprobante->proveedor?->nombre ?? '—') }}</strong>
+                                @endif
                             </p>
                         </div>
 

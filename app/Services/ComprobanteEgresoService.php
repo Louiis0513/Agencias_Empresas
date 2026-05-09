@@ -110,7 +110,7 @@ class ComprobanteEgresoService
                         'type' => ComprobanteEgresoDestino::TYPE_GASTO_DIRECTO,
                         'account_payable_id' => null,
                         'concepto' => $concepto,
-                        'beneficiario' => trim($d['beneficiario'] ?? ''),
+                        'beneficiario' => null,
                         'amount' => $amount,
                     ]);
                 }
@@ -455,10 +455,9 @@ class ComprobanteEgresoService
                 return ['descripcion' => $desc, 'valor' => (float) $d->amount];
             }
 
-            $parts = array_filter([(string) ($d->concepto ?? ''), (string) ($d->beneficiario ?? '')]);
-            $desc = $parts !== [] ? implode(' — ', $parts) : __('Gasto');
+            $desc = trim((string) ($d->concepto ?? ''));
 
-            return ['descripcion' => $desc, 'valor' => (float) $d->amount];
+            return ['descripcion' => $desc !== '' ? $desc : __('Gasto'), 'valor' => (float) $d->amount];
         })->values()->all();
 
         $detalleSubtitulo = filled($c->notes)
@@ -468,10 +467,19 @@ class ComprobanteEgresoService
         $valorEnLetras = money_to_words_es((float) $c->total_amount, $cur);
 
         $proveedor = $c->proveedor;
-        $pagadoNombre = $c->beneficiary_name ?? $proveedor?->nombre ?? '—';
-        $pagadoNit = $proveedor?->nit ?? '—';
-        $pagadoDireccion = $proveedor?->direccion ?? '—';
-        $pagadoCiudad = '—';
+        $esGastoDirectoSinProveedor = $c->type === ComprobanteEgreso::TYPE_GASTO_DIRECTO && ! $c->proveedor_id;
+
+        if ($esGastoDirectoSinProveedor) {
+            $pagadoNombre = '—';
+            $pagadoNit = '—';
+            $pagadoDireccion = '—';
+            $pagadoCiudad = '—';
+        } else {
+            $pagadoNombre = filled($c->beneficiary_name) ? $c->beneficiary_name : ($proveedor?->nombre ?? '—');
+            $pagadoNit = $proveedor?->nit ?? '—';
+            $pagadoDireccion = $proveedor?->direccion ?? '—';
+            $pagadoCiudad = '—';
+        }
 
         return [
             'c' => $c,
@@ -534,7 +542,7 @@ class ComprobanteEgresoService
         return __('Abono a CxP · :prov', ['prov' => $proveedorNombre]);
     }
 
-    private function calcularBeneficiaryName(Store $store, ?int $proveedorId, array $destinos, bool $tieneCuentasPorPagar = false): string
+    private function calcularBeneficiaryName(Store $store, ?int $proveedorId, array $destinos, bool $tieneCuentasPorPagar = false): ?string
     {
         if ($proveedorId) {
             $proveedor = \App\Models\Proveedor::find($proveedorId);
@@ -546,10 +554,8 @@ class ComprobanteEgresoService
             return 'Sin proveedor';
         }
 
-        $primerConcepto = collect($destinos)->firstWhere(fn ($d) => (float) ($d['amount'] ?? 0) > 0);
-        $concepto = $primerConcepto['concepto'] ?? $primerConcepto['beneficiario'] ?? null;
-
-        return $concepto ?: 'Gasto directo';
+        // Gasto directo: "Pagado a" no es una persona jurídica (el PDF muestra —).
+        return null;
     }
 
     private function validarCuentaPerteneceAProveedor(Store $store, int $accountPayableId, int $proveedorId): void

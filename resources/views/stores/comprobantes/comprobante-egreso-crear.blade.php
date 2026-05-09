@@ -13,7 +13,7 @@
     @php
         $oldDestinos = old('destinos', []);
         $itemsLibresInit = array_values(array_filter($oldDestinos, fn($d) => empty($d['account_payable_id'] ?? null)));
-        $itemsLibresInit = !empty($itemsLibresInit) ? $itemsLibresInit : [['concepto' => '', 'beneficiario' => '', 'amount' => '']];
+        $itemsLibresInit = !empty($itemsLibresInit) ? $itemsLibresInit : [['concepto' => '', 'amount' => '']];
     @endphp
     <div class="py-12" x-data="comprobanteEgresoFlow()">
         <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
@@ -55,31 +55,28 @@
                                        class="w-full rounded-md border-white/10 bg-white/5 text-gray-100" required>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notas</label>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">¿Quieres darle un nombre a este gasto?</label>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Opcional. Aparece en el PDF como descripción general del egreso.</p>
                                 <input type="text" name="notes" value="{{ old('notes') }}"
-                                       class="w-full rounded-md border-white/10 bg-white/5 text-gray-100" placeholder="Opcional">
+                                       class="w-full rounded-md border-white/10 bg-white/5 text-gray-100" placeholder="Ej. Suministros de mayo">
                             </div>
                         </div>
 
                         {{-- Gastos directos únicamente --}}
                         <div class="border-l-4 border-indigo-500 pl-4">
                             <h3 class="text-sm font-semibold text-gray-100 mb-2">Gastos directos</h3>
-                            <p class="text-xs text-gray-400 mb-1">Registre ítems como taxi, café, suministros, etc. Indique el concepto en cada ítem.</p>
+                            <p class="text-xs text-gray-400 mb-1">Registre cada ítem con su descripción y monto. «Pagado a» en el comprobante solo aplica cuando el egreso es a un proveedor (desde CxP).</p>
                             <div class="space-y-2 mt-3" x-ref="itemsLibresContainer">
                                 <div class="flex flex-wrap gap-2 px-3 pb-1 text-xs font-medium text-gray-400">
-                                    <span class="flex-1 min-w-[150px]">Concepto *</span>
-                                    <span class="w-32">Beneficiario</span>
+                                    <span class="flex-1 min-w-[200px]">Descripción *</span>
                                     <span class="w-28">Monto *</span>
                                     <span class="w-8"></span>
                                 </div>
                                 <template x-for="(item, i) in itemsLibres" :key="i">
                                     <div class="flex flex-wrap gap-2 p-3 border-b border-white/5 rounded-lg">
                                         <input type="text" x-model="item.concepto" placeholder="Ej: Taxi a la oficina"
-                                               class="flex-1 min-w-[150px] rounded-md border-white/10 bg-white/5 text-gray-100 text-sm"
+                                               class="flex-1 min-w-[200px] rounded-md border-white/10 bg-white/5 text-gray-100 text-sm"
                                                :name="'destinos[' + i + '][concepto]'">
-                                        <input type="text" x-model="item.beneficiario" placeholder="Beneficiario (opcional)"
-                                               class="w-32 rounded-md border-white/10 bg-white/5 text-gray-100 text-sm"
-                                               :name="'destinos[' + i + '][beneficiario]'">
                                         <input type="number" x-model="item.amount" step="0.01" min="0.01" placeholder="Monto"
                                                class="w-28 rounded-md border-white/10 bg-white/5 text-gray-100 text-sm"
                                                :name="'destinos[' + i + '][amount]'">
@@ -154,7 +151,7 @@
                 },
 
                 addItemLibre() {
-                    this.itemsLibres.push({ concepto: '', beneficiario: '', amount: '' });
+                    this.itemsLibres.push({ concepto: '', amount: '' });
                 },
                 removeItemLibre(i) {
                     if (this.itemsLibres.length > 1) this.itemsLibres.splice(i, 1);

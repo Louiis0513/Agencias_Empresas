@@ -45,6 +45,7 @@ class SesionCajaService
                 $result[$b->id] = (float) $b->saldo;
             }
         }
+
         return $result;
     }
 
@@ -101,7 +102,7 @@ class SesionCajaService
                         'notes' => 'Ajuste inicial por descuadre',
                         'payment_date' => $now->toDateString(),
                         'destinos' => [
-                            ['concepto' => 'Ajuste inicial por descuadre', 'beneficiario' => '', 'amount' => abs($diferencia)],
+                            ['concepto' => 'Ajuste inicial por descuadre', 'amount' => abs($diferencia)],
                         ],
                         'origenes' => [['bolsillo_id' => $b->id, 'amount' => abs($diferencia), 'reference' => null]],
                     ]);
@@ -168,16 +169,16 @@ class SesionCajaService
 
                 if ($diferencia > 0) {
                     $this->comprobanteIngresoService->crearComprobante($store, $userId, [
-                        'notes' => 'Descuadre de cierre de caja' . ($notaCierre ? ': ' . $notaCierre : ''),
+                        'notes' => 'Descuadre de cierre de caja'.($notaCierre ? ': '.$notaCierre : ''),
                         'date' => $now->toDateString(),
                         'destinos' => [['bolsillo_id' => $bolsilloId, 'amount' => $monto, 'reference' => null]],
                     ]);
                 } else {
                     $this->comprobanteEgresoService->crearComprobante($store, $userId, [
-                        'notes' => 'Descuadre de cierre de caja' . ($notaCierre ? ': ' . $notaCierre : ''),
+                        'notes' => 'Descuadre de cierre de caja'.($notaCierre ? ': '.$notaCierre : ''),
                         'payment_date' => $now->toDateString(),
                         'destinos' => [
-                            ['concepto' => 'Descuadre de cierre de caja', 'beneficiario' => '', 'amount' => $monto],
+                            ['concepto' => 'Descuadre de cierre de caja', 'amount' => $monto],
                         ],
                         'origenes' => [['bolsillo_id' => $bolsilloId, 'amount' => $monto, 'reference' => null]],
                     ]);
