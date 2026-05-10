@@ -89,6 +89,7 @@ class PermissionSeeder extends Seeder
 
             // CxP
             ['slug' => 'accounts-payables.view', 'name' => 'Ver CxP', 'description' => 'Ver listado y detalle de CxP'],
+            ['slug' => 'accounts-payables.create-manual', 'name' => 'Registrar CxP manual', 'description' => 'Crear cuentas por pagar sin compra (ej. cuenta de cobro)'],
             ['slug' => 'accounts-payables.pay', 'name' => 'Registrar pagos (CxP)', 'description' => 'Registrar pagos y reversar pagos'],
 
             // Cuentas por cobrar

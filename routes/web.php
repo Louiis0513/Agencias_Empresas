@@ -239,6 +239,8 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
         return redirect()->route('stores.cajas.movimientos', ['store' => $store, 'tab' => 'por-pagar']);
     })->name('accounts-payables');
     Route::controller(StoreAccountPayableController::class)->group(function () {
+        Route::get('/cuentas-por-pagar/registrar-manual', 'createManual')->name('accounts-payables.create-manual');
+        Route::post('/cuentas-por-pagar/registrar-manual', 'storeManual')->name('accounts-payables.store-manual');
         Route::get('/cuentas-por-pagar/{accountPayable}', 'show')->name('accounts-payables.show');
         Route::post('/cuentas-por-pagar/{accountPayable}/pagar', 'pay')->name('accounts-payables.pay');
     });

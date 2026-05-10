@@ -377,8 +377,8 @@ class MovimientosExcelExportService
     {
         $headers = [
             'ID cuenta',
-            'Proveedor',
-            'Compra',
+            'Proveedor / acreedor',
+            'Compra / referencia',
             'Total',
             'Saldo',
             'Medio de pago',
@@ -403,12 +403,16 @@ class MovimientosExcelExportService
         }
 
         foreach ($cuentas as $ap) {
+            $nombreProveedorOAcreedor = $ap->purchase?->proveedor?->nombre ?? $ap->creditor_name ?? '';
+            $refCompra = $ap->purchase_id ? (string) $ap->purchase_id : __('Manual').' #'.$ap->id;
+            $medioPago = $ap->isManual() ? __('CxP manual / cuenta de cobro') : __('Crédito proveedor');
+
             $sheet->setCellValue('A'.$r, $ap->id);
-            $sheet->setCellValue('B'.$r, $ap->purchase?->proveedor?->nombre ?? '');
-            $sheet->setCellValue('C'.$r, $ap->purchase_id ?? '');
+            $sheet->setCellValue('B'.$r, $nombreProveedorOAcreedor);
+            $sheet->setCellValue('C'.$r, $refCompra);
             $sheet->setCellValue('D'.$r, (float) $ap->total_amount);
             $sheet->setCellValue('E'.$r, (float) $ap->balance);
-            $sheet->setCellValue('F'.$r, 'Crédito proveedor');
+            $sheet->setCellValue('F'.$r, $medioPago);
             $sheet->setCellValue('G'.$r, $ap->due_date?->format('d/m/Y') ?? '');
             $sheet->setCellValue('H'.$r, $this->labelEstadoCxp($ap->status));
             $sheet->setCellValue('I'.$r, $ap->created_at

@@ -712,6 +712,7 @@ class PurchaseService
             ['purchase_id' => $purchase->id],
             [
                 'store_id' => $purchase->store_id,
+                'source' => AccountPayable::SOURCE_COMPRA,
                 'total_amount' => $purchase->total,
                 'balance' => $purchase->total,
                 'due_date' => $purchase->due_date ?? $purchase->invoice_date,

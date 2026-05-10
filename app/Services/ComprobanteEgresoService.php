@@ -427,6 +427,7 @@ class ComprobanteEgresoService
     {
         $cur = $store->currency ?? 'COP';
         $c = $comprobante;
+        $c->loadMissing('destinos.accountPayable');
 
         $telText = '';
         if ($store->phone) {
@@ -474,6 +475,20 @@ class ComprobanteEgresoService
             $pagadoNit = '—';
             $pagadoDireccion = '—';
             $pagadoCiudad = '—';
+        } elseif ($c->type === ComprobanteEgreso::TYPE_PAGO_CUENTA && ! $c->proveedor_id) {
+            $cxpManual = $c->destinos->first(fn ($d) => $d->accountPayable && $d->accountPayable->isManual());
+            if ($cxpManual && $cxpManual->accountPayable) {
+                $apCred = $cxpManual->accountPayable;
+                $pagadoNombre = filled($apCred->creditor_name) ? $apCred->creditor_name : (filled($c->beneficiary_name) ? $c->beneficiary_name : '—');
+                $pagadoNit = filled($apCred->creditor_document) ? $apCred->creditor_document : '—';
+                $pagadoDireccion = '—';
+                $pagadoCiudad = '—';
+            } else {
+                $pagadoNombre = filled($c->beneficiary_name) ? $c->beneficiary_name : '—';
+                $pagadoNit = '—';
+                $pagadoDireccion = '—';
+                $pagadoCiudad = '—';
+            }
         } else {
             $pagadoNombre = filled($c->beneficiary_name) ? $c->beneficiary_name : ($proveedor?->nombre ?? '—');
             $pagadoNit = $proveedor?->nit ?? '—';
@@ -519,6 +534,16 @@ class ComprobanteEgresoService
 
     private function descripcionVistaCuentaPorPagar(AccountPayable $ap): string
     {
+        if ($ap->isManual() || $ap->purchase_id === null) {
+            $parts = array_filter([
+                $ap->description ? (string) $ap->description : null,
+                filled($ap->document_reference) ? __('Ref. :r', ['r' => $ap->document_reference]) : null,
+                filled($ap->creditor_name) ? (string) $ap->creditor_name : null,
+            ]);
+
+            return $parts !== [] ? implode(' — ', $parts) : __('CxP manual #:id', ['id' => $ap->id]);
+        }
+
         $purchase = $ap->purchase;
         $proveedorNombre = $purchase?->proveedor?->nombre ?? __('Proveedor');
         $purchaseId = $ap->purchase_id;
@@ -551,6 +576,16 @@ class ComprobanteEgresoService
         }
 
         if ($tieneCuentasPorPagar) {
+            foreach ($destinos as $d) {
+                $apid = ! empty($d['account_payable_id']) ? (int) $d['account_payable_id'] : null;
+                if ($apid) {
+                    $ap = AccountPayable::where('store_id', $store->id)->find($apid);
+                    if ($ap && $ap->isManual() && filled($ap->creditor_name)) {
+                        return $ap->creditor_name;
+                    }
+                }
+            }
+
             return 'Sin proveedor';
         }
 
@@ -565,7 +600,15 @@ class ComprobanteEgresoService
             ->with('purchase')
             ->first();
 
-        if (! $ap || $ap->purchase->proveedor_id != $proveedorId) {
+        if (! $ap) {
+            throw new Exception("La CxP #{$accountPayableId} no existe en esta tienda.");
+        }
+
+        if (! $ap->purchase_id) {
+            throw new Exception("La CxP #{$accountPayableId} no está vinculada a una compra con proveedor.");
+        }
+
+        if ((int) $ap->purchase->proveedor_id !== $proveedorId) {
             throw new Exception("La CxP #{$accountPayableId} no pertenece al proveedor seleccionado.");
         }
     }
@@ -579,8 +622,12 @@ class ComprobanteEgresoService
             if ($d['account_payable_id'] ?? null) {
                 $apId = (int) $d['account_payable_id'];
                 $ap = AccountPayable::with('purchase')->find($apId);
-                $compraId = $ap?->purchase?->id ?? $apId;
-                $partes[] = "Compra #{$compraId}: ".money($amount, $currency, false);
+                if ($ap && ! $ap->purchase_id) {
+                    $partes[] = 'CxP #'.$apId.': '.money($amount, $currency, false);
+                } else {
+                    $compraId = $ap?->purchase?->id ?? $apId;
+                    $partes[] = "Compra #{$compraId}: ".money($amount, $currency, false);
+                }
             } else {
                 $partes[] = ($d['concepto'] ?? 'Gasto').': '.money($amount, $currency, false);
             }
@@ -614,7 +661,7 @@ class ComprobanteEgresoService
             'status' => $nuevoStatus,
         ]);
 
-        if ($nuevoStatus === AccountPayable::STATUS_PAGADO) {
+        if ($nuevoStatus === AccountPayable::STATUS_PAGADO && $accountPayable->purchase_id && $accountPayable->purchase) {
             $accountPayable->purchase->update(['payment_status' => Purchase::PAYMENT_PAGADO]);
         }
     }
@@ -635,7 +682,7 @@ class ComprobanteEgresoService
             'status' => $nuevoStatus,
         ]);
 
-        if ($eraPagado) {
+        if ($eraPagado && $accountPayable->purchase_id && $accountPayable->purchase) {
             $accountPayable->purchase->update(['payment_status' => Purchase::PAYMENT_PENDIENTE]);
         }
     }

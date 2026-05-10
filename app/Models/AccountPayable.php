@@ -10,11 +10,20 @@ class AccountPayable extends Model
 {
     use HasFactory;
 
+    public const SOURCE_COMPRA = 'COMPRA';
+
+    public const SOURCE_MANUAL = 'MANUAL';
+
     protected $table = 'accounts_payables';
 
     protected $fillable = [
         'store_id',
         'purchase_id',
+        'source',
+        'creditor_name',
+        'creditor_document',
+        'document_reference',
+        'description',
         'total_amount',
         'balance',
         'due_date',
@@ -71,5 +80,15 @@ class AccountPayable extends Model
     public function isPagado(): bool
     {
         return $this->status === self::STATUS_PAGADO;
+    }
+
+    public function isFromPurchase(): bool
+    {
+        return $this->purchase_id !== null;
+    }
+
+    public function isManual(): bool
+    {
+        return $this->source === self::SOURCE_MANUAL;
     }
 }

@@ -91,8 +91,10 @@ class SelectAccountPayableModal extends Component
             'fecha_vencimiento_desde' => $this->fechaVencimientoDesde,
             'fecha_vencimiento_hasta' => $this->fechaVencimientoHasta,
         ];
-        if (count($this->excludeIds) > 0) {
+        if ($this->forComprobante && count($this->excludeIds) > 0) {
             $filtros['proveedor_id'] = $this->proveedorId;
+        } elseif ($this->proveedorId !== null && $this->proveedorId !== '') {
+            $filtros['proveedor_id'] = (int) $this->proveedorId;
         }
 
         return app(AccountPayableService::class)->listarCuentasPorPagar($store, $filtros);
@@ -110,8 +112,16 @@ class SelectAccountPayableModal extends Component
             ->get(['id', 'nombre']);
     }
 
-    public function selectAccountPayable(int $id, int $purchaseId, ?int $proveedorId, string $proveedorNombre, float $total, float $balance, ?string $dueDate, string $status): void
-    {
+    public function selectAccountPayable(
+        int $id,
+        ?int $purchaseId,
+        ?int $proveedorId,
+        string $proveedorNombre,
+        float $total,
+        float $balance,
+        ?string $dueDate,
+        string $status
+    ): void {
         $payload = [
             'destinoRowIndex' => $this->destinoRowIndex,
             'id' => $id,

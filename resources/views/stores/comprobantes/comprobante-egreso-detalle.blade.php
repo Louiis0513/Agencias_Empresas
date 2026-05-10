@@ -159,7 +159,7 @@
                                         <tr>
                                             <td class="px-3 py-2.5 text-gray-800">
                                                 <span class="block">{{ $fila['descripcion'] }}</span>
-                                                @if($c->type !== \App\Models\ComprobanteEgreso::TYPE_PAGO_CUENTA && isset($c->destinos[$idx]) && $c->destinos[$idx]->isCuentaPorPagar() && $c->destinos[$idx]->accountPayable)
+                                                @if(isset($c->destinos[$idx]) && $c->destinos[$idx]->isCuentaPorPagar() && $c->destinos[$idx]->accountPayable)
                                                     <a href="{{ route('stores.accounts-payables.show', [$store, $c->destinos[$idx]->accountPayable]) }}" class="text-xs text-blue-700 hover:underline mt-1 inline-block">{{ __('Ver CxP') }}</a>
                                                 @endif
                                             </td>

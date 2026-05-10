@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreManualAccountPayableRequest;
 use App\Models\AccountPayable;
 use App\Models\Bolsillo;
 use App\Models\Store;
@@ -16,6 +17,27 @@ class StoreAccountPayableController extends Controller
         protected AccountPayableService $accountPayableService,
         protected StorePermissionService $permissionService
     ) {}
+
+    public function createManual(Store $store)
+    {
+        $this->permissionService->authorize($store, 'accounts-payables.create-manual');
+
+        return view('stores.cuentasporcobrarypagar.cuenta-por-pagar-crear-manual', compact('store'));
+    }
+
+    public function storeManual(Store $store, StoreManualAccountPayableRequest $request)
+    {
+        $this->permissionService->authorize($store, 'accounts-payables.create-manual');
+
+        try {
+            $ap = $this->accountPayableService->registrarCuentaPorPagarManual($store, $request->validated());
+
+            return redirect()->route('stores.accounts-payables.show', [$store, $ap])
+                ->with('success', __('CxP registrada. Puede registrar el pago cuando corresponda.'));
+        } catch (\Exception $e) {
+            return redirect()->back()->withInput()->with('error', $e->getMessage());
+        }
+    }
 
     public function show(Store $store, AccountPayable $accountPayable)
     {

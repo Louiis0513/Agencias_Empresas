@@ -375,11 +375,17 @@
                 @elseif(($tab ?? 'ingresos') === 'por-pagar' && isset($cuentasPorPagar))
                     @isset($deudaTotalPagar)
                         <div class="px-4 pt-4 pb-2 border-b border-white/5">
-                            <div class="rounded-lg border border-amber-500/25 bg-amber-500/10 px-4 py-3">
+                            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-lg border border-amber-500/25 bg-amber-500/10 px-4 py-3">
                                 <p class="text-sm font-semibold text-amber-200">
                                     {{ __('Deuda total pendiente') }}:
                                     {{ money($deudaTotalPagar, $store->currency ?? 'COP', false) }}
                                 </p>
+                                @storeCan($store, 'accounts-payables.create-manual')
+                                    <a href="{{ route('stores.accounts-payables.create-manual', $store) }}" wire:navigate
+                                       class="inline-flex shrink-0 items-center justify-center px-3 py-2 rounded-lg bg-brand text-white text-sm font-medium shadow-[0_0_12px_rgba(34,114,255,0.25)] hover:shadow-[0_0_18px_rgba(34,114,255,0.35)]">
+                                        {{ __('Registrar CxP manual') }}
+                                    </a>
+                                @endstoreCan
                             </div>
                         </div>
                     @endisset
@@ -399,24 +405,30 @@
                                 @forelse($cuentasPorPagar as $ap)
                                     <tr class="hover:bg-white/[0.02]">
                                         <td class="px-4 py-3 align-top">
-                                            @if($ap->purchase)
-                                                <a href="{{ route('stores.accounts-payables.show', [$store, $ap]) }}" wire:navigate
-                                                   class="inline-flex text-brand hover:text-white" title="{{ __('Ver CxP') }}">
-                                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                                                </a>
-                                            @endif
+                                            <a href="{{ route('stores.accounts-payables.show', [$store, $ap]) }}" wire:navigate
+                                               class="inline-flex text-brand hover:text-white" title="{{ __('Ver CxP') }}">
+                                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                                            </a>
                                         </td>
                                         <td class="px-4 py-3 text-sm text-gray-100">
-                                            <div class="font-medium">{{ $ap->purchase?->proveedor?->nombre ?? '—' }}</div>
+                                            <div class="font-medium">{{ $ap->purchase?->proveedor?->nombre ?? $ap->creditor_name ?? '—' }}</div>
                                             @if($ap->purchase)
                                                 <div class="text-xs text-gray-500 mt-0.5">{{ __('Compra') }} #{{ $ap->purchase->id }}</div>
+                                            @elseif($ap->isManual())
+                                                <div class="text-xs text-gray-500 mt-0.5">{{ __('CxP manual') }}@if(filled($ap->document_reference)) · {{ $ap->document_reference }} @endif</div>
                                             @endif
                                         </td>
                                         <td class="px-4 py-3 text-sm">
                                             <div class="font-semibold text-amber-200 whitespace-nowrap">{{ money($ap->balance, $store->currency ?? 'COP', false) }}</div>
                                             <div class="text-xs text-gray-500 mt-0.5 whitespace-nowrap">{{ __('Total') }} {{ money($ap->total_amount, $store->currency ?? 'COP', false) }}</div>
                                         </td>
-                                        <td class="px-4 py-3 text-sm text-gray-400">{{ __('Crédito proveedor') }}</td>
+                                        <td class="px-4 py-3 text-sm text-gray-400">
+                                            @if($ap->isManual())
+                                                {{ __('Cuenta de cobro / manual') }}
+                                            @else
+                                                {{ __('Crédito proveedor') }}
+                                            @endif
+                                        </td>
                                         <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-300">
                                             {{ $ap->due_date?->format('d/m/Y') ?? '—' }}
                                         </td>

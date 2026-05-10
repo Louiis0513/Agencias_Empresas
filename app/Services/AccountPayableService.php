@@ -10,6 +10,7 @@ use Carbon\Carbon;
 use Exception;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Support\Facades\DB;
 
 class AccountPayableService
 {
@@ -78,7 +79,7 @@ class AccountPayableService
         }
 
         $comprobanteData = [
-            'proveedor_id' => $accountPayable->purchase->proveedor_id,
+            'proveedor_id' => $accountPayable->purchase?->proveedor_id,
             'payment_date' => $data['payment_date'] ?? now()->toDateString(),
             'notes' => $data['notes'] ?? null,
             'destinos' => $destinos,
@@ -86,6 +87,35 @@ class AccountPayableService
         ];
 
         return $this->comprobanteEgresoService->crearComprobante($store, $userId, $comprobanteData);
+    }
+
+    /**
+     * CxP sin compra (ej. cuenta de cobro de trabajador / prestador).
+     */
+    public function registrarCuentaPorPagarManual(Store $store, array $data): AccountPayable
+    {
+        $currency = $store->currency ?? 'COP';
+
+        return DB::transaction(function () use ($store, $data, $currency) {
+            $total = parse_money($data['total_amount'] ?? 0, $currency);
+            if ($total <= 0) {
+                throw new Exception('El monto total debe ser mayor a cero.');
+            }
+
+            return AccountPayable::create([
+                'store_id' => $store->id,
+                'purchase_id' => null,
+                'source' => AccountPayable::SOURCE_MANUAL,
+                'creditor_name' => trim((string) $data['creditor_name']),
+                'creditor_document' => filled($data['creditor_document'] ?? null) ? trim((string) $data['creditor_document']) : null,
+                'document_reference' => filled($data['document_reference'] ?? null) ? trim((string) $data['document_reference']) : null,
+                'description' => filled($data['description'] ?? null) ? trim((string) $data['description']) : null,
+                'total_amount' => $total,
+                'balance' => $total,
+                'due_date' => filled($data['due_date'] ?? null) ? $data['due_date'] : null,
+                'status' => AccountPayable::STATUS_PENDIENTE,
+            ]);
+        });
     }
 
     public function listarCuentasPorPagar(Store $store, array $filtros = []): LengthAwarePaginator
@@ -104,7 +134,10 @@ class AccountPayableService
 
         if (array_key_exists('proveedor_id', $filtros)) {
             if ($filtros['proveedor_id'] === null || $filtros['proveedor_id'] === '') {
-                $query->whereHas('purchase', fn ($q) => $q->whereNull('proveedor_id'));
+                $query->where(function ($q) {
+                    $q->where('source', AccountPayable::SOURCE_MANUAL)
+                        ->orWhereHas('purchase', fn ($pq) => $pq->whereNull('proveedor_id'));
+                });
             } else {
                 $query->whereHas('purchase', fn ($q) => $q->where('proveedor_id', $filtros['proveedor_id']));
             }
@@ -137,6 +170,18 @@ class AccountPayableService
                     ->orWhereHas('purchase.proveedor', function ($sub) use ($term) {
                         $sub->where('nombre', 'like', "%{$term}%")
                             ->orWhere('nit', 'like', "%{$term}%");
+                    })
+                    ->orWhere(function ($q2) use ($term) {
+                        $q2->where('source', AccountPayable::SOURCE_MANUAL)
+                            ->where(function ($q3) use ($term) {
+                                $q3->where('creditor_name', 'like', "%{$term}%")
+                                    ->orWhere('creditor_document', 'like', "%{$term}%")
+                                    ->orWhere('document_reference', 'like', "%{$term}%")
+                                    ->orWhere('description', 'like', "%{$term}%");
+                                if (is_numeric($term)) {
+                                    $q3->orWhere('id', (int) $term);
+                                }
+                            });
                     });
             });
         }
@@ -173,7 +218,10 @@ class AccountPayableService
 
         if (array_key_exists('proveedor_id', $filtros)) {
             if ($filtros['proveedor_id'] === null || $filtros['proveedor_id'] === '') {
-                $query->whereHas('purchase', fn ($q) => $q->whereNull('proveedor_id'));
+                $query->where(function ($q) {
+                    $q->where('source', AccountPayable::SOURCE_MANUAL)
+                        ->orWhereHas('purchase', fn ($pq) => $pq->whereNull('proveedor_id'));
+                });
             } else {
                 $query->whereHas('purchase', fn ($q) => $q->where('proveedor_id', $filtros['proveedor_id']));
             }
@@ -215,6 +263,18 @@ class AccountPayableService
                     ->orWhereHas('purchase.proveedor', function ($sub) use ($term) {
                         $sub->where('nombre', 'like', "%{$term}%")
                             ->orWhere('nit', 'like', "%{$term}%");
+                    })
+                    ->orWhere(function ($q2) use ($term) {
+                        $q2->where('source', AccountPayable::SOURCE_MANUAL)
+                            ->where(function ($q3) use ($term) {
+                                $q3->where('creditor_name', 'like', "%{$term}%")
+                                    ->orWhere('creditor_document', 'like', "%{$term}%")
+                                    ->orWhere('document_reference', 'like', "%{$term}%")
+                                    ->orWhere('description', 'like', "%{$term}%");
+                                if (is_numeric($term)) {
+                                    $q3->orWhere('id', (int) $term);
+                                }
+                            });
                     });
             });
         }
