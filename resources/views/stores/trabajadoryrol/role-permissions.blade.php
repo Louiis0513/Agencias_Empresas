@@ -120,6 +120,7 @@
                                 'reports' => 'Informes',
                                 'asistencias' => 'Asistencias',
                                 'support-documents' => 'Documentos soporte',
+                                'contabilidad' => 'Contabilidad',
                             ];
                             $permissionsByModule = $allPermissions->groupBy(fn ($p) => explode('.', $p->slug)[0]);
                         @endphp

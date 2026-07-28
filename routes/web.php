@@ -12,6 +12,7 @@ use App\Http\Controllers\StoreConfigController;
 use App\Http\Controllers\StoreController;
 use App\Http\Controllers\StoreCuentaContableController;
 use App\Http\Controllers\StoreCategoriaContableController;
+use App\Http\Controllers\StoreTipoComprobanteController;
 use App\Http\Controllers\StoreCustomerController;
 use App\Http\Controllers\StoreInventoryController;
 use App\Http\Controllers\StoreInvoiceAnalysisController;
@@ -223,6 +224,10 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::get('/contabilidad/categorias', [StoreCategoriaContableController::class, 'index'])->name('contabilidad.categorias');
     Route::post('/contabilidad/categorias', [StoreCategoriaContableController::class, 'store'])->name('contabilidad.categorias.store');
     Route::put('/contabilidad/categorias/{categoriaContable}', [StoreCategoriaContableController::class, 'update'])->name('contabilidad.categorias.update');
+
+    Route::get('/contabilidad/tipos-comprobante', [StoreTipoComprobanteController::class, 'index'])->name('contabilidad.tipos');
+    Route::post('/contabilidad/tipos-comprobante', [StoreTipoComprobanteController::class, 'store'])->name('contabilidad.tipos.store');
+    Route::put('/contabilidad/tipos-comprobante/{tipoComprobante}', [StoreTipoComprobanteController::class, 'update'])->name('contabilidad.tipos.update');
 
     // Activos Fijos
     Route::controller(StoreActivoController::class)->group(function () {

@@ -74,19 +74,41 @@ Tabla `categorias_contables`: puente entre el catálogo y las cuentas auxiliares
 - Permisos: `contabilidad.categorias.view|create|edit`
 - Productos: `products.categoria_contable_id` **obligatoria**. Al crear se preselecciona «Productos»; si falta, `ProductService` la asigna automáticamente.
 
+## Tipos de comprobante
+
+Tabla `tipos_comprobante`: catálogo por tienda estilo Siigo (`familia` + `codigo` + consecutivo).
+
+| Familia | Nombre | Uso futuro en Centradia |
+|---|---|---|
+| `FV` | Factura de venta | `Invoice` |
+| `RC` | Recibo de caja | `ComprobanteIngreso` (hoy `CI-`) |
+| `FC` | Factura de compra | `Purchase` |
+| `RP` | Recibo de pago / egreso | `ComprobanteEgreso` (hoy `CE-`) |
+| `CC` | Comprobante contable | Ajustes / asientos manuales |
+
+Campos clave: `prefijo`, `numeracion_automatica`, `siguiente_numero`, `activo`, `maneja_centro_costos`, `libro_oficial` (`ventas`\|`compras`\|null). Unique `(store_id, familia, codigo)`.
+
+- UI: Financiero → **Tipos de comprobante**
+- Al abrir se aseguran por defecto (si faltan) FV/RC/FC/RP/CC con código `1`.
+- `TipoComprobanteService::tomarSiguienteNumero()` reserva el consecutivo con `lockForUpdate` (aún no enganchado a CI/CE).
+- Permisos: `contabilidad.tipos.view|create|edit`
+
 ## Cómo usar
 1. Entrar a la tienda → Financiero → **Plan de cuentas**.
 2. Pulsar **Importar PUC base**.
 3. Crear auxiliares con **+ Auxiliar** (el sistema sugiere categoría según el código).
 4. Ir a **Categorías contables** y crear p. ej. «Productos» con las 4 auxiliares.
 5. Al crear/editar un producto, la categoría contable es obligatoria (default «Productos»).
-6. Crear bolsillos desde Caja/Configuración, o auxiliares del 11 desde Plan de cuentas.
+6. Ir a **Tipos de comprobante** (se crean FV/RC/FC/RP/CC si faltan).
+7. Crear bolsillos desde Caja/Configuración, o auxiliares del 11 desde Plan de cuentas.
 
 ## Servicios
 - `ImportacionPucService` — lee Excel e importa.
 - `CuentaContableService` — listar, crear auxiliar (+ bolsillo si aplica), padres, reconstruir jerarquía, backfill.
 - `CategoriaContableService` — categorías producto/servicio y validación de cuentas por rol.
+- `TipoComprobanteService` — catálogo de tipos FV/RC/FC/RP/CC, defaults y consecutivos.
 - `CajaService` — crear/actualizar bolsillo con cuenta auxiliar.
 
 ## Siguiente (no implementado aún)
-Motor de asientos al vender/devolver/comprar usando `categoria_contable` + bolsillo de pago.
+1. Vincular documentos operativos al catálogo: `Invoice`→FV, `ComprobanteIngreso`→RC (reemplazar `CI-`), `Purchase`→FC, `ComprobanteEgreso`→RP.
+2. Motor de asientos al vender/devolver/comprar usando `categoria_contable` + bolsillo de pago + tipo de comprobante (incl. CC manual).
