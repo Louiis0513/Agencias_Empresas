@@ -11,6 +11,7 @@ use App\Http\Controllers\StoreCategoryController;
 use App\Http\Controllers\StoreConfigController;
 use App\Http\Controllers\StoreController;
 use App\Http\Controllers\StoreCuentaContableController;
+use App\Http\Controllers\StoreCategoriaContableController;
 use App\Http\Controllers\StoreCustomerController;
 use App\Http\Controllers\StoreInventoryController;
 use App\Http\Controllers\StoreInvoiceAnalysisController;
@@ -213,11 +214,15 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::post('/comprobantes-egreso/{comprobanteEgreso}/reversar', [StoreCajaController::class, 'reversarComprobanteEgreso'])->name('comprobantes-egreso.reversar');
     Route::post('/comprobantes-egreso/{comprobanteEgreso}/anular', [StoreCajaController::class, 'anularComprobanteEgreso'])->name('comprobantes-egreso.anular');
 
-    // Contabilidad — plan de cuentas
+    // Contabilidad — plan de cuentas y categorías de productos/servicios
     Route::get('/contabilidad/cuentas', [StoreCuentaContableController::class, 'index'])->name('contabilidad.cuentas');
     Route::post('/contabilidad/cuentas/importar-puc', [StoreCuentaContableController::class, 'importarPuc'])->name('contabilidad.cuentas.importar');
     Route::post('/contabilidad/cuentas/auxiliares', [StoreCuentaContableController::class, 'storeAuxiliar'])->name('contabilidad.cuentas.auxiliar');
     Route::put('/contabilidad/cuentas/{cuentaContable}', [StoreCuentaContableController::class, 'update'])->name('contabilidad.cuentas.update');
+
+    Route::get('/contabilidad/categorias', [StoreCategoriaContableController::class, 'index'])->name('contabilidad.categorias');
+    Route::post('/contabilidad/categorias', [StoreCategoriaContableController::class, 'store'])->name('contabilidad.categorias.store');
+    Route::put('/contabilidad/categorias/{categoriaContable}', [StoreCategoriaContableController::class, 'update'])->name('contabilidad.categorias.update');
 
     // Activos Fijos
     Route::controller(StoreActivoController::class)->group(function () {

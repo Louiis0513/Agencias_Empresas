@@ -41,11 +41,13 @@ class EditProductModal extends Component
 
     /** Solo para reenviar al guardar y no perder categoría/atributos. No se muestran en el formulario. */
     public ?string $category_id = null;
+    public ?string $categoria_contable_id = null;
     /** @var array<int, string> Valores de atributos actuales (solo para reenviar al guardar). */
     public array $attribute_values = [];
 
     protected function rules(): array
     {
+        $store = $this->getStoreProperty();
         $rules = [
             'name' => ['required', 'string', 'min:1', 'max:255'],
             'price' => ['nullable', 'numeric', 'min:0'],
@@ -55,6 +57,14 @@ class EditProductModal extends Component
             'in_showcase' => ['boolean'],
             'image' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120'],
             'remove_image' => ['boolean'],
+            'categoria_contable_id' => [
+                'nullable',
+                Rule::exists('categorias_contables', 'id')->where(function ($q) use ($store) {
+                    if ($store) {
+                        $q->where('store_id', $store->id)->where('activo', true);
+                    }
+                }),
+            ],
         ];
 
         if ($this->productType === 'simple') {
@@ -111,6 +121,7 @@ class EditProductModal extends Component
             $this->is_active = (bool) $product->is_active;
             $this->in_showcase = (bool) $product->in_showcase;
             $this->category_id = $product->category_id ? (string) $product->category_id : null;
+            $this->categoria_contable_id = $product->categoria_contable_id ? (string) $product->categoria_contable_id : null;
             $this->current_image_path = $product->image_path;
             $this->image = null;
             $this->remove_image = false;
@@ -154,6 +165,10 @@ class EditProductModal extends Component
             $this->validate([
                 'name' => ['required', 'string', 'min:1', 'max:255'],
                 'location' => ['nullable', 'string', 'max:255'],
+                'categoria_contable_id' => [
+                    'nullable',
+                    Rule::exists('categorias_contables', 'id')->where(fn ($q) => $q->where('store_id', $this->storeId)->where('activo', true)),
+                ],
             ]);
         }
 
@@ -191,6 +206,7 @@ class EditProductModal extends Component
         $data = [
             'name' => $this->name,
             'location' => $this->location ?: null,
+            'categoria_contable_id' => $this->categoria_contable_id ?: null,
         ];
 
         if ($isSimple) {
@@ -271,6 +287,7 @@ class EditProductModal extends Component
             'is_active',
             'in_showcase',
             'category_id',
+            'categoria_contable_id',
             'attribute_values',
             'productId',
             'productType',
@@ -312,9 +329,26 @@ class EditProductModal extends Component
             ->first();
     }
 
+    public function getCategoriasContablesProperty()
+    {
+        $store = $this->getStoreProperty();
+        if (! $store) {
+            return collect();
+        }
+
+        return \App\Models\CategoriaContable::query()
+            ->deStore($store)
+            ->activas()
+            ->orderByRaw('CAST(codigo AS UNSIGNED) asc')
+            ->orderBy('nombre')
+            ->get(['id', 'codigo', 'nombre', 'tipo']);
+    }
+
     public function render()
     {
         $category = $this->getCategoryProperty();
+        $this->categoriasContables;
+
         return view('livewire.edit-product-modal', [
             'category' => $category,
         ]);

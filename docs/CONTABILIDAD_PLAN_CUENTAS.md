@@ -57,16 +57,36 @@ php artisan contable:vincular-bolsillos {store_id|slug}
 
 Si falta una subcuenta padre (ej. `111010`), al crear el bolsillo se crea automáticamente bajo su cuenta de 4 dígitos (`1110`), siempre que exista el grupo `11`.
 
+## Categorías contables de productos/servicios
+
+Tabla `categorias_contables`: puente entre el catálogo y las cuentas auxiliares (estilo Siigo).
+
+| Campo | Producto | Servicio |
+|---|---|---|
+| Inventario | auxiliar `14…` (ej. mercancía) | auxiliar propia (ej. Inventario – servicios) |
+| Costo de ventas | auxiliar `61…`/`62…` | auxiliar propia (ej. Costo de ventas – servicios) |
+| Ingreso | auxiliar `4…` | auxiliar propia |
+| Devolución | auxiliar `4175…` | auxiliar propia |
+
+- UI: Financiero → **Categorías contables**
+- Al abrir la pantalla se aseguran por defecto (si faltan) **Productos** y **Servicios** con sus 4 auxiliares (estilo Siigo).
+- Si **Servicios** ya existía sin inventario/costo, se completan al recargar.
+- Permisos: `contabilidad.categorias.view|create|edit`
+- Productos: `products.categoria_contable_id` (opcional) en crear/editar producto
+
 ## Cómo usar
 1. Entrar a la tienda → Financiero → **Plan de cuentas**.
 2. Pulsar **Importar PUC base**.
 3. Crear auxiliares con **+ Auxiliar** (el sistema sugiere categoría según el código).
-4. Crear bolsillos desde Caja/Configuración, o auxiliares del 11 desde Plan de cuentas.
+4. Ir a **Categorías contables** y crear p. ej. «Productos» con las 4 auxiliares.
+5. Al crear/editar un producto, asignar la categoría contable (opcional por ahora).
+6. Crear bolsillos desde Caja/Configuración, o auxiliares del 11 desde Plan de cuentas.
 
 ## Servicios
 - `ImportacionPucService` — lee Excel e importa.
 - `CuentaContableService` — listar, crear auxiliar (+ bolsillo si aplica), padres, reconstruir jerarquía, backfill.
+- `CategoriaContableService` — categorías producto/servicio y validación de cuentas por rol.
 - `CajaService` — crear/actualizar bolsillo con cuenta auxiliar.
 
 ## Siguiente (no implementado aún)
-Categorías contables de productos/servicios (elegir cuentas por rol), motor de asientos, documentos contables.
+Motor de asientos al vender/devolver/comprar usando `categoria_contable` + bolsillo de pago.

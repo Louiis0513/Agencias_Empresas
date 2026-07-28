@@ -15,6 +15,7 @@ class Product extends Model
     protected $fillable = [
         'store_id',
         'category_id',
+        'categoria_contable_id',
         'name',
         'barcode',
         'sku',
@@ -49,6 +50,11 @@ class Product extends Model
     public function category()
     {
         return $this->belongsTo(Category::class);
+    }
+
+    public function categoriaContable()
+    {
+        return $this->belongsTo(CategoriaContable::class, 'categoria_contable_id');
     }
 
     public function attributeValues()

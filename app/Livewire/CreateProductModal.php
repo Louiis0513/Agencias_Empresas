@@ -30,6 +30,7 @@ class CreateProductModal extends Component
     public string $barcode = '';
     public string $sku = '';
     public ?string $category_id = null;
+    public ?string $categoria_contable_id = null;
     public string $price = '0';
     public string $cost = '0';
     public string $stock = '0';
@@ -101,6 +102,10 @@ class CreateProductModal extends Component
             'category_id' => [
                 'required',
                 Rule::in($categoryIds),
+            ],
+            'categoria_contable_id' => [
+                'nullable',
+                Rule::exists('categorias_contables', 'id')->where(fn ($q) => $q->where('store_id', $store->id)->where('activo', true)),
             ],
             'location' => ['nullable', 'string', 'max:255'],
             'is_active' => ['boolean'],
@@ -178,6 +183,22 @@ class CreateProductModal extends Component
     public function getCategoriesWithAttributesIds(): array
     {
         return $this->getCategoriesWithAttributesProperty()->pluck('id')->toArray();
+    }
+
+    /** Categorías contables activas (puente a cuentas PUC). */
+    public function getCategoriasContablesProperty()
+    {
+        $store = $this->getStoreProperty();
+        if (! $store) {
+            return collect();
+        }
+
+        return \App\Models\CategoriaContable::query()
+            ->deStore($store)
+            ->activas()
+            ->orderByRaw('CAST(codigo AS UNSIGNED) asc')
+            ->orderBy('nombre')
+            ->get(['id', 'codigo', 'nombre', 'tipo']);
     }
 
     /** Categoría seleccionada con sus atributos (para campos dinámicos). */
@@ -385,6 +406,7 @@ class CreateProductModal extends Component
                 'barcode' => $this->barcode ?: null,
                 'sku' => $this->sku ?: null,
                 'category_id' => $this->category_id,
+                'categoria_contable_id' => $this->categoria_contable_id ?: null,
                 'price' => $price,
                 'cost' => $cost,
                 'stock' => $stock,
@@ -459,7 +481,7 @@ class CreateProductModal extends Component
         $compraRowId = $this->compraRowId;
 
         $this->reset([
-            'name', 'barcode', 'sku', 'category_id', 'location',
+            'name', 'barcode', 'sku', 'category_id', 'categoria_contable_id', 'location',
             'type', 'is_active', 'attribute_values', 'compraRowId',
             'price', 'cost', 'stock', 'variants', 'serializedItems', 'has_initial_stock',
             'quantity_mode', 'quantity_step',
@@ -492,6 +514,7 @@ class CreateProductModal extends Component
     {
         // Asegurar que la propiedad se evalúe al renderizar
         $this->categoriesWithAttributes;
+        $this->categoriasContables;
         return view('livewire.create-product-modal');
     }
 }

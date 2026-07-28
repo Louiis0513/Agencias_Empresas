@@ -142,4 +142,9 @@ class Store extends Model
     {
         return $this->hasMany(CuentaContable::class);
     }
+
+    public function categoriasContables()
+    {
+        return $this->hasMany(CategoriaContable::class);
+    }
 }

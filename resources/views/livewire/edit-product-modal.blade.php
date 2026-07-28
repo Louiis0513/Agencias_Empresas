@@ -107,6 +107,20 @@
                     <x-input-error :messages="$errors->get('location')" class="mt-1" />
                 </div>
 
+                <div>
+                    <x-input-label for="edit_categoria_contable_id" value="{{ __('Categoría contable') }}" />
+                    <select wire:model="categoria_contable_id"
+                            id="edit_categoria_contable_id"
+                            class="block mt-1 w-full rounded-md border-white/10 bg-white/5 text-gray-100 focus:ring-brand focus:border-brand">
+                        <option value="">{{ __('Opcional — sin asignar') }}</option>
+                        @foreach($this->categoriasContables as $cc)
+                            <option value="{{ $cc->id }}">{{ $cc->codigo }} — {{ $cc->nombre }} ({{ $cc->tipo }})</option>
+                        @endforeach
+                    </select>
+                    <p class="mt-0.5 text-xs text-gray-400">{{ __('Cuentas PUC usadas al vender o devolver.') }}</p>
+                    <x-input-error :messages="$errors->get('categoria_contable_id')" class="mt-1" />
+                </div>
+
                 @if($productType === 'simple')
                 <div>
                     <label class="flex items-center gap-2">

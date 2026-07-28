@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Batch;
 use App\Models\BatchItem;
 use App\Models\Category;
+use App\Models\CategoriaContable;
 use App\Models\Product;
 use App\Models\ProductAttributeValue;
 use App\Models\ProductItem;
@@ -110,6 +111,10 @@ class ProductService
             $simpleInitialStockQty = 0.0;
             
             unset($data['attribute_values'], $data['proveedor_ids'], $data['variants'], $data['serializedItems'], $data['has_initial_stock']);
+
+            if (array_key_exists('categoria_contable_id', $data)) {
+                $data['categoria_contable_id'] = $this->resolverCategoriaContableId($store, $data['categoria_contable_id']);
+            }
 
             // Validar que los atributos requeridos estén llenos
             // Solo para productos simples: los atributos están a nivel de producto
@@ -312,6 +317,10 @@ class ProductService
             $attributeValues = $data['attribute_values'] ?? [];
             $proveedorIds = $data['proveedor_ids'] ?? null;
             unset($data['attribute_values'], $data['proveedor_ids']);
+
+            if (array_key_exists('categoria_contable_id', $data)) {
+                $data['categoria_contable_id'] = $this->resolverCategoriaContableId($store, $data['categoria_contable_id']);
+            }
 
             $currency = $store->currency ?? 'COP';
             $currencyService = app(CurrencyFormatService::class);
@@ -947,5 +956,25 @@ class ProductService
                 $item->price !== null ? (float) $item->price : null
             ),
         ]);
+    }
+
+    private function resolverCategoriaContableId(Store $store, mixed $categoriaContableId): ?int
+    {
+        if ($categoriaContableId === null || $categoriaContableId === '') {
+            return null;
+        }
+
+        $id = (int) $categoriaContableId;
+        $existe = CategoriaContable::query()
+            ->deStore($store)
+            ->activas()
+            ->whereKey($id)
+            ->exists();
+
+        if (! $existe) {
+            throw new Exception('La categoría contable seleccionada no existe o está inactiva en esta tienda.');
+        }
+
+        return $id;
     }
 }
