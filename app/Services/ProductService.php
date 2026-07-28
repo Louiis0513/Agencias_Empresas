@@ -112,9 +112,11 @@ class ProductService
             
             unset($data['attribute_values'], $data['proveedor_ids'], $data['variants'], $data['serializedItems'], $data['has_initial_stock']);
 
-            if (array_key_exists('categoria_contable_id', $data)) {
-                $data['categoria_contable_id'] = $this->resolverCategoriaContableId($store, $data['categoria_contable_id']);
-            }
+            $data['categoria_contable_id'] = $this->resolverCategoriaContableId(
+                $store,
+                $data['categoria_contable_id'] ?? null,
+                true
+            );
 
             // Validar que los atributos requeridos estén llenos
             // Solo para productos simples: los atributos están a nivel de producto
@@ -319,7 +321,11 @@ class ProductService
             unset($data['attribute_values'], $data['proveedor_ids']);
 
             if (array_key_exists('categoria_contable_id', $data)) {
-                $data['categoria_contable_id'] = $this->resolverCategoriaContableId($store, $data['categoria_contable_id']);
+                $data['categoria_contable_id'] = $this->resolverCategoriaContableId(
+                    $store,
+                    $data['categoria_contable_id'] ?? null,
+                    true
+                );
             }
 
             $currency = $store->currency ?? 'COP';
@@ -958,10 +964,27 @@ class ProductService
         ]);
     }
 
-    private function resolverCategoriaContableId(Store $store, mixed $categoriaContableId): ?int
+    /**
+     * @param  bool  $obligatoria  Si true y viene vacío, usa la categoría «Productos» por defecto.
+     */
+    private function resolverCategoriaContableId(Store $store, mixed $categoriaContableId, bool $obligatoria = false): ?int
     {
         if ($categoriaContableId === null || $categoriaContableId === '') {
-            return null;
+            if (! $obligatoria) {
+                return null;
+            }
+
+            $default = app(CategoriaContableService::class)
+                ->categoriaPorDefecto($store, CategoriaContable::TIPO_PRODUCTO);
+
+            if (! $default) {
+                throw new Exception(
+                    'No hay una categoría contable de productos activa. '
+                    .'Ve a Financiero → Categorías contables para crearla.'
+                );
+            }
+
+            return (int) $default->id;
         }
 
         $id = (int) $categoriaContableId;

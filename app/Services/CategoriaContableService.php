@@ -16,6 +16,26 @@ class CategoriaContableService
         protected CuentaContableService $cuentaContableService,
     ) {}
 
+    /**
+     * Categoría contable por defecto según tipo (producto|servicio).
+     */
+    public function categoriaPorDefecto(Store $store, string $tipo = CategoriaContable::TIPO_PRODUCTO): ?CategoriaContable
+    {
+        if (! in_array($tipo, CategoriaContable::TIPOS, true)) {
+            $tipo = CategoriaContable::TIPO_PRODUCTO;
+        }
+
+        $this->asegurarCategoriasPorDefecto($store);
+
+        return CategoriaContable::query()
+            ->deStore($store)
+            ->activas()
+            ->where('tipo', $tipo)
+            ->orderByRaw('CAST(codigo AS UNSIGNED) asc')
+            ->orderBy('id')
+            ->first();
+    }
+
     public function listar(Store $store, array $filtros = [], int $perPage = 30): LengthAwarePaginator
     {
         $q = CategoriaContable::query()

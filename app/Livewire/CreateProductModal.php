@@ -2,11 +2,13 @@
 
 namespace App\Livewire;
 
+use App\Models\CategoriaContable;
 use App\Models\Category;
 use App\Models\MovimientoInventario;
 use App\Models\Product;
 use App\Models\Store;
 use App\Support\Quantity;
+use App\Services\CategoriaContableService;
 use App\Services\ConvertidorImgService;
 use App\Services\ProductService;
 use Illuminate\Support\Facades\Auth;
@@ -70,6 +72,27 @@ class CreateProductModal extends Component
         if (empty($this->type)) {
             $this->type = 'simple';
         }
+        $this->aplicarCategoriaContablePorDefecto();
+    }
+
+    /** Asigna la categoría contable «Productos» si existe y aún no hay una elegida. */
+    protected function aplicarCategoriaContablePorDefecto(): void
+    {
+        if ($this->categoria_contable_id) {
+            return;
+        }
+
+        $store = $this->getStoreProperty();
+        if (! $store) {
+            return;
+        }
+
+        $default = app(CategoriaContableService::class)
+            ->categoriaPorDefecto($store, CategoriaContable::TIPO_PRODUCTO);
+
+        if ($default) {
+            $this->categoria_contable_id = (string) $default->id;
+        }
     }
 
     /** Opciones de tipo de producto para el select (valor => etiqueta). */
@@ -104,7 +127,7 @@ class CreateProductModal extends Component
                 Rule::in($categoryIds),
             ],
             'categoria_contable_id' => [
-                'nullable',
+                'required',
                 Rule::exists('categorias_contables', 'id')->where(fn ($q) => $q->where('store_id', $store->id)->where('activo', true)),
             ],
             'location' => ['nullable', 'string', 'max:255'],
@@ -153,6 +176,7 @@ class CreateProductModal extends Component
     {
         return [
             'category_id.required' => 'Debes seleccionar una categoría. Crea categorías y asígnales atributos antes de crear productos.',
+            'categoria_contable_id.required' => 'Debes seleccionar una categoría contable. Por defecto se usa «Productos».',
             'variants.required' => 'Debes agregar al menos una variante para productos tipo Lote.',
             'variants.min' => 'Debes agregar al menos una variante para productos tipo Lote.',
         ];
@@ -495,6 +519,9 @@ class CreateProductModal extends Component
         $this->has_initial_stock = false;
         $this->quantity_mode = Product::QUANTITY_MODE_UNIT;
         $this->quantity_step = '1.00';
+        $this->type = 'simple';
+        $this->is_active = true;
+        $this->aplicarCategoriaContablePorDefecto();
         $this->resetValidation();
 
         if ($this->fromPurchase) {

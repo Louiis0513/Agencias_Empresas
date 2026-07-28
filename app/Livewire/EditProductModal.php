@@ -2,9 +2,11 @@
 
 namespace App\Livewire;
 
+use App\Models\CategoriaContable;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\Store;
+use App\Services\CategoriaContableService;
 use App\Services\ConvertidorImgService;
 use App\Services\ProductService;
 use App\Support\Quantity;
@@ -58,7 +60,7 @@ class EditProductModal extends Component
             'image' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120'],
             'remove_image' => ['boolean'],
             'categoria_contable_id' => [
-                'nullable',
+                'required',
                 Rule::exists('categorias_contables', 'id')->where(function ($q) use ($store) {
                     if ($store) {
                         $q->where('store_id', $store->id)->where('activo', true);
@@ -122,6 +124,13 @@ class EditProductModal extends Component
             $this->in_showcase = (bool) $product->in_showcase;
             $this->category_id = $product->category_id ? (string) $product->category_id : null;
             $this->categoria_contable_id = $product->categoria_contable_id ? (string) $product->categoria_contable_id : null;
+            if (! $this->categoria_contable_id) {
+                $default = app(CategoriaContableService::class)
+                    ->categoriaPorDefecto($store, CategoriaContable::TIPO_PRODUCTO);
+                if ($default) {
+                    $this->categoria_contable_id = (string) $default->id;
+                }
+            }
             $this->current_image_path = $product->image_path;
             $this->image = null;
             $this->remove_image = false;
@@ -166,7 +175,7 @@ class EditProductModal extends Component
                 'name' => ['required', 'string', 'min:1', 'max:255'],
                 'location' => ['nullable', 'string', 'max:255'],
                 'categoria_contable_id' => [
-                    'nullable',
+                    'required',
                     Rule::exists('categorias_contables', 'id')->where(fn ($q) => $q->where('store_id', $this->storeId)->where('activo', true)),
                 ],
             ]);

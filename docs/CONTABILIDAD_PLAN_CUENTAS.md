@@ -72,14 +72,14 @@ Tabla `categorias_contables`: puente entre el catálogo y las cuentas auxiliares
 - Al abrir la pantalla se aseguran por defecto (si faltan) **Productos** y **Servicios** con sus 4 auxiliares (estilo Siigo).
 - Si **Servicios** ya existía sin inventario/costo, se completan al recargar.
 - Permisos: `contabilidad.categorias.view|create|edit`
-- Productos: `products.categoria_contable_id` (opcional) en crear/editar producto
+- Productos: `products.categoria_contable_id` **obligatoria**. Al crear se preselecciona «Productos»; si falta, `ProductService` la asigna automáticamente.
 
 ## Cómo usar
 1. Entrar a la tienda → Financiero → **Plan de cuentas**.
 2. Pulsar **Importar PUC base**.
 3. Crear auxiliares con **+ Auxiliar** (el sistema sugiere categoría según el código).
 4. Ir a **Categorías contables** y crear p. ej. «Productos» con las 4 auxiliares.
-5. Al crear/editar un producto, asignar la categoría contable (opcional por ahora).
+5. Al crear/editar un producto, la categoría contable es obligatoria (default «Productos»).
 6. Crear bolsillos desde Caja/Configuración, o auxiliares del 11 desde Plan de cuentas.
 
 ## Servicios
