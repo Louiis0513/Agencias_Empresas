@@ -30,7 +30,23 @@ Notas PUC:
 - **Desde Plan de cuentas** (Crear auxiliar): si el padre es `1105` / `1110` / `1120` y el nivel es `Transaccional`, también crea el bolsillo (visible según `activo`).
 - Visibilidad: `bolsillos.is_active` ↔ `cuentas_contables.activo`.
 
-### Artisan
+## Mercancía / ingresos / costo — reconocimiento por código
+
+Al crear un auxiliar con **+ Auxiliar**, el sistema infiere defaults según el código del padre:
+
+| Prefijo del padre | Categoría | Relacionado con | Clase |
+|---|---|---|---|
+| `11…` | Caja - Bancos | Formas de pago | Activo |
+| `14…` | Inventarios | Grupo de inventarios - Inventario | Activo |
+| `61…` / `62…` | Costo de ventas | Costo de ventas | Costos de venta |
+| `4175…` | Ingresos | Devoluciones en ventas | Ingresos |
+| resto de `4…` | Ingresos | Ingresos operacionales | Ingresos |
+
+Padres típicos de mercancía (revenda): `143501`, `613505`, `413501`, `417505`.
+
+**Maneja vencimientos** = detalle de cartera/proveedores. Inventario, ingreso y costo van en `No maneja vencimiento`.
+
+## Artisan
 ```bash
 php artisan contable:importar-puc {store_id|slug}
 php artisan contable:importar-puc {store} --con-auxiliares
@@ -44,7 +60,8 @@ Si falta una subcuenta padre (ej. `111010`), al crear el bolsillo se crea autom�
 ## Cómo usar
 1. Entrar a la tienda → Financiero → **Plan de cuentas**.
 2. Pulsar **Importar PUC base**.
-3. Crear bolsillos desde Caja/Configuración, o auxiliares del 11 desde Plan de cuentas.
+3. Crear auxiliares con **+ Auxiliar** (el sistema sugiere categoría según el código).
+4. Crear bolsillos desde Caja/Configuración, o auxiliares del 11 desde Plan de cuentas.
 
 ## Servicios
 - `ImportacionPucService` — lee Excel e importa.
@@ -52,4 +69,4 @@ Si falta una subcuenta padre (ej. `111010`), al crear el bolsillo se crea autom�
 - `CajaService` — crear/actualizar bolsillo con cuenta auxiliar.
 
 ## Siguiente (no implementado aún)
-Motor de asientos, mapeos producto→cuenta, documentos contables.
+Categorías contables de productos/servicios (elegir cuentas por rol), motor de asientos, documentos contables.

@@ -20,9 +20,31 @@ class CuentaContable extends Model
 
     public const CATEGORIA_CAJA_BANCOS = 'Caja - Bancos';
 
+    public const CATEGORIA_INVENTARIOS = 'Inventarios';
+
+    public const CATEGORIA_INGRESOS = 'Ingresos';
+
+    public const CATEGORIA_COSTO_VENTAS = 'Costo de ventas';
+
     public const RELACION_FORMAS_DE_PAGO = 'Formas de pago';
 
+    public const RELACION_INVENTARIO = 'Grupo de inventarios - Inventario';
+
+    public const RELACION_INGRESOS_OPERACIONALES = 'Ingresos operacionales';
+
+    public const RELACION_COSTO_VENTAS = 'Costo de ventas';
+
+    public const RELACION_DEVOLUCIONES_VENTAS = 'Devoluciones en ventas';
+
     public const MANEJA_VENCIMIENTOS_NO = 'No maneja vencimiento';
+
+    /** Categorías sugeridas al crear auxiliares (estilo Siigo). */
+    public const CATEGORIAS_SUGERIDAS = [
+        self::CATEGORIA_CAJA_BANCOS,
+        self::CATEGORIA_INVENTARIOS,
+        self::CATEGORIA_INGRESOS,
+        self::CATEGORIA_COSTO_VENTAS,
+    ];
 
     /** Padres de 6 dígitos usados al crear bolsillos desde Caja. */
     public const PADRE_EFECTIVO = '110505';
@@ -39,6 +61,15 @@ class CuentaContable extends Model
         'ahorro' => self::PADRE_BANCO_AHORRO,
         'divisas' => self::PADRE_BANCO_DIVISAS,
     ];
+
+    /** Padres de 6 dígitos típicos para mercancía (revenda). */
+    public const PADRE_INVENTARIO_MERCANCIA = '143501';
+
+    public const PADRE_INGRESO_COMERCIO = '413501';
+
+    public const PADRE_COSTO_COMERCIO = '613505';
+
+    public const PADRE_DEVOLUCION_VENTAS = '417505';
 
     public const CLASES_POR_DIGITO = [
         '1' => 'Activo',
@@ -179,5 +210,90 @@ class CuentaContable extends Model
         $digitos = preg_replace('/\D/', '', $codigo) ?? '';
 
         return str_starts_with($digitos, '11');
+    }
+
+    /**
+     * Perfil contable según el código padre (para defaults de auxiliar).
+     * disponible | inventario | costo | devolucion | ingreso | null
+     */
+    public static function perfilDesdeCodigo(string $codigo): ?string
+    {
+        $digitos = preg_replace('/\D/', '', $codigo) ?? '';
+
+        if ($digitos === '') {
+            return null;
+        }
+
+        if (str_starts_with($digitos, '11')) {
+            return 'disponible';
+        }
+
+        if (str_starts_with($digitos, '14')) {
+            return 'inventario';
+        }
+
+        if (str_starts_with($digitos, '61') || str_starts_with($digitos, '62')) {
+            return 'costo';
+        }
+
+        if (str_starts_with($digitos, '4175')) {
+            return 'devolucion';
+        }
+
+        if (str_starts_with($digitos, '4')) {
+            return 'ingreso';
+        }
+
+        return null;
+    }
+
+    /**
+     * Defaults de categoría / relación / vencimientos / clase al crear auxiliar.
+     *
+     * @return array{categoria: ?string, relacion_con: ?string, maneja_vencimientos: string, clase: ?string}
+     */
+    public static function defaultsParaCodigoPadre(string $codigoPadre): array
+    {
+        $clase = self::claseDesdeCodigo($codigoPadre);
+        $perfil = self::perfilDesdeCodigo($codigoPadre);
+
+        return match ($perfil) {
+            'disponible' => [
+                'categoria' => self::CATEGORIA_CAJA_BANCOS,
+                'relacion_con' => self::RELACION_FORMAS_DE_PAGO,
+                'maneja_vencimientos' => self::MANEJA_VENCIMIENTOS_NO,
+                'clase' => $clase ?? 'Activo',
+            ],
+            'inventario' => [
+                'categoria' => self::CATEGORIA_INVENTARIOS,
+                'relacion_con' => self::RELACION_INVENTARIO,
+                'maneja_vencimientos' => self::MANEJA_VENCIMIENTOS_NO,
+                'clase' => $clase ?? 'Activo',
+            ],
+            'costo' => [
+                'categoria' => self::CATEGORIA_COSTO_VENTAS,
+                'relacion_con' => self::RELACION_COSTO_VENTAS,
+                'maneja_vencimientos' => self::MANEJA_VENCIMIENTOS_NO,
+                'clase' => $clase ?? 'Costos de venta',
+            ],
+            'devolucion' => [
+                'categoria' => self::CATEGORIA_INGRESOS,
+                'relacion_con' => self::RELACION_DEVOLUCIONES_VENTAS,
+                'maneja_vencimientos' => self::MANEJA_VENCIMIENTOS_NO,
+                'clase' => $clase ?? 'Ingresos',
+            ],
+            'ingreso' => [
+                'categoria' => self::CATEGORIA_INGRESOS,
+                'relacion_con' => self::RELACION_INGRESOS_OPERACIONALES,
+                'maneja_vencimientos' => self::MANEJA_VENCIMIENTOS_NO,
+                'clase' => $clase ?? 'Ingresos',
+            ],
+            default => [
+                'categoria' => null,
+                'relacion_con' => null,
+                'maneja_vencimientos' => self::MANEJA_VENCIMIENTOS_NO,
+                'clase' => $clase,
+            ],
+        };
     }
 }

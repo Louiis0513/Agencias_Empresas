@@ -33,8 +33,16 @@ class StoreCuentaContableController extends Controller
         $stats = $this->cuentaContableService->contarPorStore($store);
         $padres = $this->cuentaContableService->padresParaAuxiliar($store);
         $clases = array_values(CuentaContable::CLASES_POR_DIGITO);
+        $categoriasSugeridas = CuentaContable::CATEGORIAS_SUGERIDAS;
 
-        return view('stores.contabilidad.cuentas', compact('store', 'cuentas', 'stats', 'padres', 'clases'));
+        return view('stores.contabilidad.cuentas', compact(
+            'store',
+            'cuentas',
+            'stats',
+            'padres',
+            'clases',
+            'categoriasSugeridas'
+        ));
     }
 
     public function importarPuc(Store $store)

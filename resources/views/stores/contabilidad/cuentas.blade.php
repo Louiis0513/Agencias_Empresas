@@ -22,26 +22,43 @@
         relacion: @js(old('relacion_con', '')),
         vencimientos: @js(old('maneja_vencimientos', 'No maneja vencimiento')),
         nivel: @js(old('nivel_agrupacion', 'Transaccional') ?? 'Transaccional'),
-        padres: @js($padres->map(fn ($p) => [
-            'id' => $p->id,
-            'codigo' => $p->codigo,
-            'nombre' => $p->nombre,
-            'disponible' => str_starts_with($p->codigo, '11'),
-            'operable' => str_starts_with($p->codigo, '1105') || str_starts_with($p->codigo, '1110') || str_starts_with($p->codigo, '1120'),
-        ])->values()),
+        padres: @js($padres->map(function ($p) {
+            $defaults = \App\Models\CuentaContable::defaultsParaCodigoPadre($p->codigo);
+            $perfil = \App\Models\CuentaContable::perfilDesdeCodigo($p->codigo);
+
+            return [
+                'id' => $p->id,
+                'codigo' => $p->codigo,
+                'nombre' => $p->nombre,
+                'perfil' => $perfil,
+                'disponible' => $perfil === 'disponible',
+                'operable' => str_starts_with($p->codigo, '1105') || str_starts_with($p->codigo, '1110') || str_starts_with($p->codigo, '1120'),
+                'defaults' => $defaults,
+            ];
+        })->values()),
         applyDefaults() {
             const p = this.padres.find(x => String(x.id) === String(this.padreId));
-            if (!p) return;
-            if (p.disponible) {
-                if (!this.categoria) this.categoria = 'Caja - Bancos';
-                if (!this.relacion) this.relacion = 'Formas de pago';
-                if (!this.vencimientos) this.vencimientos = 'No maneja vencimiento';
-                if (!this.clase) this.clase = 'Activo';
-            }
+            if (!p || !p.defaults) return;
+            this.categoria = p.defaults.categoria || '';
+            this.relacion = p.defaults.relacion_con || '';
+            this.vencimientos = p.defaults.maneja_vencimientos || 'No maneja vencimiento';
+            if (p.defaults.clase) this.clase = p.defaults.clase;
         },
         get padreOperable() {
             const p = this.padres.find(x => String(x.id) === String(this.padreId));
             return p && p.operable && this.nivel === 'Transaccional';
+        },
+        get padrePerfilHint() {
+            const p = this.padres.find(x => String(x.id) === String(this.padreId));
+            if (!p || !p.perfil) return '';
+            const labels = {
+                disponible: 'Caja / bancos: puede crear bolsillo si el nivel es Transaccional.',
+                inventario: 'Inventarios: cuenta para stock de mercancía.',
+                costo: 'Costo de ventas: se usa al vender productos.',
+                ingreso: 'Ingresos: se usa al registrar ventas.',
+                devolucion: 'Devoluciones en ventas.',
+            };
+            return labels[p.perfil] || '';
         }
     }">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
@@ -130,7 +147,8 @@
 
                     <p class="text-sm text-gray-400 mb-4">
                         La plantilla importa solo códigos de hasta 6 dígitos (clase → grupo → cuenta → subcuenta).
-                        Las auxiliares (ej. <span class="text-gray-200 font-mono">11050501</span>) las creas tú bajo cada subcuenta.
+                        Las auxiliares (ej. <span class="text-gray-200 font-mono">11050501</span>, <span class="text-gray-200 font-mono">14350101</span>) las creas tú bajo cada subcuenta.
+                        Al elegir el padre, el sistema sugiere categoría y relación según el código PUC.
                     </p>
 
                     @if($cuentas->count() > 0)
@@ -245,8 +263,13 @@
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm text-gray-400 mb-1">Categoría</label>
-                            <input type="text" name="categoria" x-model="categoria"
-                                   class="w-full rounded-md border-white/10 bg-white/5 text-gray-100">
+                            <select name="categoria" x-model="categoria"
+                                    class="w-full rounded-md border-white/10 bg-white/5 text-gray-100">
+                                <option value="">—</option>
+                                @foreach($categoriasSugeridas as $cat)
+                                    <option value="{{ $cat }}">{{ $cat }}</option>
+                                @endforeach
+                            </select>
                         </div>
                         <div>
                             <label class="block text-sm text-gray-400 mb-1">Clase</label>
@@ -264,8 +287,12 @@
                     </div>
                     <div>
                         <label class="block text-sm text-gray-400 mb-1">Maneja vencimientos</label>
-                        <input type="text" name="maneja_vencimientos" x-model="vencimientos"
-                               class="w-full rounded-md border-white/10 bg-white/5 text-gray-100">
+                        <select name="maneja_vencimientos" x-model="vencimientos"
+                                class="w-full rounded-md border-white/10 bg-white/5 text-gray-100">
+                            <option value="No maneja vencimiento">No maneja vencimiento</option>
+                            <option value="Con detalle de vencimientos">Con detalle de vencimientos</option>
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">Solo aplica a cartera/proveedores. Inventario, ingresos y costo van sin vencimiento.</p>
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
@@ -291,6 +318,7 @@
                     <p class="text-xs text-gray-400" x-show="padreOperable">
                         Si el padre es Caja / Bancos / Ahorros y el nivel es Transaccional, se creará un bolsillo en Caja.
                     </p>
+                    <p class="text-xs text-indigo-300" x-show="padrePerfilHint" x-text="padrePerfilHint"></p>
                     <div class="flex justify-end gap-2 pt-2">
                         <button type="button" @click="showAuxiliar = false" class="px-4 py-2 text-gray-300 hover:bg-white/5 rounded-lg">Cancelar</button>
                         <button type="submit" class="px-4 py-2 bg-brand text-white rounded-xl" @disabled($padres->isEmpty())>Crear</button>

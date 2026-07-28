@@ -120,8 +120,7 @@ class CuentaContableService
             throw new Exception('El nombre de la cuenta auxiliar es obligatorio.');
         }
 
-        $esDisponible = CuentaContable::esCodigoDisponible($padre->codigo);
-        $defaultsDisponible = $esDisponible;
+        $defaultsPadre = CuentaContable::defaultsParaCodigoPadre($padre->codigo);
 
         $nivelRaw = array_key_exists('nivel_agrupacion', $data)
             ? $data['nivel_agrupacion']
@@ -134,7 +133,8 @@ class CuentaContableService
 
         $clase = trim((string) ($data['clase'] ?? ''));
         if ($clase === '') {
-            $clase = CuentaContable::claseDesdeCodigo($codigo)
+            $clase = $defaultsPadre['clase']
+                ?? CuentaContable::claseDesdeCodigo($codigo)
                 ?? $padre->clase
                 ?? 'Activo';
         }
@@ -142,8 +142,8 @@ class CuentaContableService
         $categoria = array_key_exists('categoria', $data)
             ? $this->nullableTrim($data['categoria'])
             : null;
-        if ($categoria === null && $defaultsDisponible) {
-            $categoria = CuentaContable::CATEGORIA_CAJA_BANCOS;
+        if ($categoria === null && $defaultsPadre['categoria'] !== null) {
+            $categoria = $defaultsPadre['categoria'];
         } elseif ($categoria === null) {
             $categoria = $padre->categoria;
         }
@@ -151,8 +151,8 @@ class CuentaContableService
         $relacionCon = array_key_exists('relacion_con', $data)
             ? $this->nullableTrim($data['relacion_con'])
             : null;
-        if ($relacionCon === null && $defaultsDisponible) {
-            $relacionCon = CuentaContable::RELACION_FORMAS_DE_PAGO;
+        if ($relacionCon === null && $defaultsPadre['relacion_con'] !== null) {
+            $relacionCon = $defaultsPadre['relacion_con'];
         } elseif ($relacionCon === null) {
             $relacionCon = $padre->relacion_con;
         }
@@ -160,10 +160,10 @@ class CuentaContableService
         $manejaVencimientos = array_key_exists('maneja_vencimientos', $data)
             ? $this->nullableTrim($data['maneja_vencimientos'])
             : null;
-        if ($manejaVencimientos === null && $defaultsDisponible) {
-            $manejaVencimientos = CuentaContable::MANEJA_VENCIMIENTOS_NO;
-        } elseif ($manejaVencimientos === null) {
-            $manejaVencimientos = $padre->maneja_vencimientos;
+        if ($manejaVencimientos === null) {
+            $manejaVencimientos = $defaultsPadre['maneja_vencimientos']
+                ?? $padre->maneja_vencimientos
+                ?? CuentaContable::MANEJA_VENCIMIENTOS_NO;
         }
 
         $activo = array_key_exists('activo', $data) ? (bool) $data['activo'] : true;
