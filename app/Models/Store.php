@@ -137,4 +137,9 @@ class Store extends Model
     {
         return $this->hasMany(WorkerHourRateTemplate::class, 'store_id');
     }
+
+    public function cuentasContables()
+    {
+        return $this->hasMany(CuentaContable::class);
+    }
 }

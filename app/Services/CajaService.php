@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Bolsillo;
+use App\Models\CuentaContable;
 use App\Models\MovimientoBolsillo;
 use App\Models\Store;
 use Exception;
@@ -10,6 +11,10 @@ use Illuminate\Support\Facades\DB;
 
 class CajaService
 {
+    public function __construct(
+        protected CuentaContableService $cuentaContableService,
+    ) {}
+
     /**
      * Caja = suma de todos los bolsillos. Sin tabla.
      * Retorna el total (suma de saldos de bolsillos de la tienda).
@@ -20,22 +25,39 @@ class CajaService
     }
 
     /**
-     * Crea un bolsillo con saldo inicial 0.
-     * Si se desea saldo inicial, el caller debe crear un Comprobante de Ingreso
-     * con destino a este bolsillo (ej. "Saldo inicial desde creación del bolsillo") para trazabilidad.
+     * Crea un bolsillo con saldo inicial 0 y su cuenta auxiliar del Disponible (11).
+     *
+     * datos.tipo_disponible: efectivo|corriente_cop|ahorro|divisas
+     * (fallback legacy: is_bank_account true → corriente_cop, false → efectivo)
      */
     public function crearBolsillo(Store $store, array $datos): Bolsillo
     {
         $this->validarNombreBolsilloUnico($store->id, $datos['name']);
 
-        return DB::transaction(function () use ($store, $datos) {
+        $tipo = $datos['tipo_disponible']
+            ?? ((bool) ($datos['is_bank_account'] ?? false) ? 'corriente_cop' : 'efectivo');
+
+        if (! isset(CuentaContable::TIPOS_BOLSILLO_PADRE[$tipo])) {
+            throw new Exception('Tipo de disponible inválido.');
+        }
+
+        $codigoPadre = CuentaContable::TIPOS_BOLSILLO_PADRE[$tipo];
+        $visible = (bool) ($datos['is_active'] ?? true);
+
+        return DB::transaction(function () use ($store, $datos, $codigoPadre, $visible) {
+            $cuenta = $this->cuentaContableService->crearAuxiliarSinBolsillo($store, $codigoPadre, [
+                'nombre' => $datos['name'],
+                'activo' => $visible,
+            ]);
+
             return Bolsillo::create([
                 'store_id' => $store->id,
+                'cuenta_contable_id' => $cuenta->id,
                 'name' => $datos['name'],
                 'detalles' => $datos['detalles'] ?? null,
                 'saldo' => 0,
-                'is_bank_account' => (bool) ($datos['is_bank_account'] ?? false),
-                'is_active' => (bool) ($datos['is_active'] ?? true),
+                'is_bank_account' => CuentaContable::codigoEsBanco($cuenta->codigo),
+                'is_active' => $visible,
             ]);
         });
     }
@@ -46,14 +68,31 @@ class CajaService
             $this->validarNombreBolsilloUnico($bolsillo->store_id, $datos['name'], $bolsillo->id);
         }
 
-        $bolsillo->update([
-            'name' => $datos['name'] ?? $bolsillo->name,
-            'detalles' => $datos['detalles'] ?? $bolsillo->detalles,
-            'is_bank_account' => $datos['is_bank_account'] ?? $bolsillo->is_bank_account,
-            'is_active' => $datos['is_active'] ?? $bolsillo->is_active,
-        ]);
+        return DB::transaction(function () use ($bolsillo, $datos) {
+            $name = $datos['name'] ?? $bolsillo->name;
+            $isActive = array_key_exists('is_active', $datos)
+                ? (bool) $datos['is_active']
+                : $bolsillo->is_active;
 
-        return $bolsillo;
+            $bolsillo->update([
+                'name' => $name,
+                'detalles' => array_key_exists('detalles', $datos) ? $datos['detalles'] : $bolsillo->detalles,
+                'is_active' => $isActive,
+                // is_bank_account no se cambia en edición (lo define la cuenta PUC).
+            ]);
+
+            if ($bolsillo->cuenta_contable_id) {
+                $cuenta = CuentaContable::query()->find($bolsillo->cuenta_contable_id);
+                if ($cuenta) {
+                    $cuenta->update([
+                        'nombre' => $name,
+                        'activo' => $isActive,
+                    ]);
+                }
+            }
+
+            return $bolsillo->fresh(['cuentaContable']);
+        });
     }
 
     public function eliminarBolsillo(Bolsillo $bolsillo): void
@@ -111,7 +150,9 @@ class CajaService
 
     public function listarBolsillos(Store $store, array $filtros = []): \Illuminate\Contracts\Pagination\LengthAwarePaginator
     {
-        $query = Bolsillo::deTienda($store->id)->orderBy('name');
+        $query = Bolsillo::deTienda($store->id)
+            ->with('cuentaContable:id,codigo,nombre,activo')
+            ->orderBy('name');
         if (! empty($filtros['search'])) {
             $query->buscar($filtros['search']);
         }
@@ -150,7 +191,46 @@ class CajaService
 
     public function obtenerBolsillo(Store $store, int $bolsilloId): Bolsillo
     {
-        return Bolsillo::deTienda($store->id)->findOrFail($bolsilloId);
+        return Bolsillo::deTienda($store->id)
+            ->with('cuentaContable')
+            ->findOrFail($bolsilloId);
+    }
+
+    /**
+     * Código auxiliar que se asignaría al crear un bolsillo del tipo dado.
+     */
+    public function previewCodigoAuxiliar(Store $store, string $tipoDisponible): ?string
+    {
+        $codigoPadre = CuentaContable::TIPOS_BOLSILLO_PADRE[$tipoDisponible] ?? null;
+        if (! $codigoPadre) {
+            return null;
+        }
+
+        $padre = CuentaContable::query()
+            ->deStore($store)
+            ->where('codigo', $codigoPadre)
+            ->where('es_auxiliar', false)
+            ->first();
+
+        // Si no está la de 6 dígitos, basta con que exista la cuenta de 4 (o el 11) para poder crearla al guardar.
+        if (! $padre) {
+            $codigoCuenta = substr($codigoPadre, 0, 4);
+            $tieneBase = CuentaContable::query()
+                ->deStore($store)
+                ->whereIn('codigo', [$codigoCuenta, '11'])
+                ->exists();
+            if (! $tieneBase) {
+                return null;
+            }
+
+            return $codigoPadre.'01';
+        }
+
+        try {
+            return $this->cuentaContableService->siguienteCodigoAuxiliar($store, $codigoPadre);
+        } catch (Exception) {
+            return null;
+        }
     }
 
     /**
@@ -167,6 +247,14 @@ class CajaService
         }
 
         return $query->get();
+    }
+
+    /**
+     * Vincula bolsillos existentes sin cuenta (requiere PUC importado).
+     */
+    public function backfillCuentasContables(Store $store): array
+    {
+        return $this->cuentaContableService->backfillBolsillosSinCuenta($store);
     }
 
     private function validarNombreBolsilloUnico(int $storeId, string $name, ?int $ignorarId = null): void

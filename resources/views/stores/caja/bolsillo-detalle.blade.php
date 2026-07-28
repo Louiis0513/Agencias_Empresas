@@ -31,7 +31,10 @@
                         @if($bolsillo->detalles)
                             <p class="text-xs text-indigo-600 dark:text-indigo-400 mt-1">{{ $bolsillo->detalles }}</p>
                         @endif
-                        <p class="text-xs text-indigo-600 dark:text-indigo-400">{{ $bolsillo->is_bank_account ? 'Cuenta bancaria' : 'Efectivo' }} · {{ $bolsillo->is_active ? 'Activo' : 'Inactivo' }}</p>
+                        <p class="text-xs text-indigo-600 dark:text-indigo-400">{{ $bolsillo->is_bank_account ? 'Cuenta bancaria' : 'Efectivo' }} · {{ $bolsillo->is_active ? 'Visible' : 'Oculto' }}</p>
+                        @if($bolsillo->cuentaContable)
+                            <p class="text-xs text-indigo-600 dark:text-indigo-400 mt-1">Cuenta: <span class="font-mono">{{ $bolsillo->cuentaContable->codigo }}</span> — {{ $bolsillo->cuentaContable->nombre }}</p>
+                        @endif
                     </div>
                     <div class="flex gap-2">
                         <a href="{{ route('stores.comprobantes-ingreso.create', $store) }}" class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 font-medium">

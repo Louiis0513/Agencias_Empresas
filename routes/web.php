@@ -10,6 +10,7 @@ use App\Http\Controllers\StoreCajaController;
 use App\Http\Controllers\StoreCategoryController;
 use App\Http\Controllers\StoreConfigController;
 use App\Http\Controllers\StoreController;
+use App\Http\Controllers\StoreCuentaContableController;
 use App\Http\Controllers\StoreCustomerController;
 use App\Http\Controllers\StoreInventoryController;
 use App\Http\Controllers\StoreInvoiceAnalysisController;
@@ -211,6 +212,12 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::put('/comprobantes-egreso/{comprobanteEgreso}', [StoreCajaController::class, 'updateComprobanteEgreso'])->name('comprobantes-egreso.update');
     Route::post('/comprobantes-egreso/{comprobanteEgreso}/reversar', [StoreCajaController::class, 'reversarComprobanteEgreso'])->name('comprobantes-egreso.reversar');
     Route::post('/comprobantes-egreso/{comprobanteEgreso}/anular', [StoreCajaController::class, 'anularComprobanteEgreso'])->name('comprobantes-egreso.anular');
+
+    // Contabilidad — plan de cuentas
+    Route::get('/contabilidad/cuentas', [StoreCuentaContableController::class, 'index'])->name('contabilidad.cuentas');
+    Route::post('/contabilidad/cuentas/importar-puc', [StoreCuentaContableController::class, 'importarPuc'])->name('contabilidad.cuentas.importar');
+    Route::post('/contabilidad/cuentas/auxiliares', [StoreCuentaContableController::class, 'storeAuxiliar'])->name('contabilidad.cuentas.auxiliar');
+    Route::put('/contabilidad/cuentas/{cuentaContable}', [StoreCuentaContableController::class, 'update'])->name('contabilidad.cuentas.update');
 
     // Activos Fijos
     Route::controller(StoreActivoController::class)->group(function () {

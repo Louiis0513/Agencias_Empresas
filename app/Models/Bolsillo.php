@@ -15,6 +15,7 @@ class Bolsillo extends Model
 
     protected $fillable = [
         'store_id',
+        'cuenta_contable_id',
         'name',
         'detalles',
         'saldo',
@@ -31,6 +32,11 @@ class Bolsillo extends Model
     public function store()
     {
         return $this->belongsTo(Store::class);
+    }
+
+    public function cuentaContable()
+    {
+        return $this->belongsTo(CuentaContable::class, 'cuenta_contable_id');
     }
 
     public function movimientos()

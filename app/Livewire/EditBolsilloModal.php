@@ -19,9 +19,13 @@ class EditBolsilloModal extends Component
 
     public ?string $detalles = null;
 
-    public bool $is_bank_account = false;
-
     public bool $is_active = true;
+
+    public ?string $cuentaCodigo = null;
+
+    public ?string $cuentaNombre = null;
+
+    public bool $isBankAccount = false;
 
     public function mount(?int $bolsilloId = null): void
     {
@@ -33,12 +37,17 @@ class EditBolsilloModal extends Component
 
     public function loadBolsillo(int $id): void
     {
-        $bolsillo = Bolsillo::where('id', $id)->where('store_id', $this->storeId)->firstOrFail();
+        $bolsillo = Bolsillo::with('cuentaContable')
+            ->where('id', $id)
+            ->where('store_id', $this->storeId)
+            ->firstOrFail();
         $this->bolsilloId = $bolsillo->id;
         $this->name = $bolsillo->name;
         $this->detalles = $bolsillo->detalles;
-        $this->is_bank_account = $bolsillo->is_bank_account;
         $this->is_active = $bolsillo->is_active;
+        $this->isBankAccount = $bolsillo->is_bank_account;
+        $this->cuentaCodigo = $bolsillo->cuentaContable?->codigo;
+        $this->cuentaNombre = $bolsillo->cuentaContable?->nombre;
         $this->resetValidation();
         $this->dispatch('open-modal', 'edit-bolsillo');
     }
@@ -48,7 +57,6 @@ class EditBolsilloModal extends Component
         return [
             'name' => ['required', 'string', 'max:255'],
             'detalles' => ['nullable', 'string', 'max:1000'],
-            'is_bank_account' => ['boolean'],
             'is_active' => ['boolean'],
         ];
     }
@@ -81,7 +89,6 @@ class EditBolsilloModal extends Component
             $cajaService->actualizarBolsillo($bolsillo, [
                 'name' => $this->name,
                 'detalles' => $this->detalles,
-                'is_bank_account' => $this->is_bank_account,
                 'is_active' => $this->is_active,
             ]);
 

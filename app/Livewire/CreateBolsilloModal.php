@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Models\CuentaContable;
 use App\Models\Store;
 use App\Services\CajaService;
 use App\Services\ComprobanteIngresoService;
@@ -19,7 +20,8 @@ class CreateBolsilloModal extends Component
 
     public string $saldo = '0';
 
-    public bool $is_bank_account = false;
+    /** efectivo|corriente_cop|ahorro|divisas */
+    public string $tipo_disponible = 'efectivo';
 
     public bool $is_active = true;
 
@@ -29,7 +31,7 @@ class CreateBolsilloModal extends Component
             'name' => ['required', 'string', 'max:255'],
             'detalles' => ['nullable', 'string', 'max:1000'],
             'saldo' => ['required', 'numeric', 'min:0'],
-            'is_bank_account' => ['boolean'],
+            'tipo_disponible' => ['required', 'in:efectivo,corriente_cop,ahorro,divisas'],
             'is_active' => ['boolean'],
         ];
     }
@@ -38,6 +40,7 @@ class CreateBolsilloModal extends Component
     {
         return [
             'name.required' => 'El nombre del bolsillo es obligatorio.',
+            'tipo_disponible.in' => 'Selecciona un tipo de disponible válido.',
         ];
     }
 
@@ -46,9 +49,27 @@ class CreateBolsilloModal extends Component
         return Store::find($this->storeId);
     }
 
+    public function getCodigoPreviewProperty(): ?string
+    {
+        $store = $this->getStoreProperty();
+        if (! $store) {
+            return null;
+        }
+
+        return app(CajaService::class)->previewCodigoAuxiliar($store, $this->tipo_disponible);
+    }
+
+    public function getCodigoPadreProperty(): ?string
+    {
+        return CuentaContable::TIPOS_BOLSILLO_PADRE[$this->tipo_disponible] ?? null;
+    }
+
     public function resetForm(): void
     {
-        $this->reset(['name', 'detalles', 'saldo', 'is_bank_account', 'is_active']);
+        $this->reset(['name', 'detalles', 'saldo', 'tipo_disponible', 'is_active']);
+        $this->tipo_disponible = 'efectivo';
+        $this->is_active = true;
+        $this->saldo = '0';
         $this->resetValidation();
     }
 
@@ -68,7 +89,7 @@ class CreateBolsilloModal extends Component
             $bolsillo = $cajaService->crearBolsillo($store, [
                 'name' => $this->name,
                 'detalles' => $this->detalles ?: null,
-                'is_bank_account' => $this->is_bank_account,
+                'tipo_disponible' => $this->tipo_disponible,
                 'is_active' => $this->is_active,
             ]);
 
@@ -84,12 +105,12 @@ class CreateBolsilloModal extends Component
                 ]);
             }
 
-            $this->reset(['name', 'detalles', 'saldo', 'is_bank_account', 'is_active']);
-            $this->resetValidation();
+            $this->resetForm();
 
+            $codigo = $bolsillo->cuentaContable?->codigo;
             $msg = $saldoInicial > 0
-                ? 'Bolsillo creado correctamente. Se registró un comprobante de ingreso por el saldo inicial.'
-                : 'Bolsillo creado correctamente.';
+                ? 'Bolsillo creado correctamente'.($codigo ? " (cuenta {$codigo})" : '').'. Se registró un comprobante de ingreso por el saldo inicial.'
+                : 'Bolsillo creado correctamente'.($codigo ? " (cuenta {$codigo})" : '').'.';
             if ($permissionService->can($store, 'store-config.view')) {
                 return redirect()->to(route('stores.configuracion', $store).'?panel=caja')->with('success', $msg);
             }

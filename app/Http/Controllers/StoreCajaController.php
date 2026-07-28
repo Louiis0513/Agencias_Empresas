@@ -520,6 +520,7 @@ class StoreCajaController extends Controller
             'fecha_hasta' => $request->get('fecha_hasta'),
             'per_page' => $request->get('per_page', 15),
         ];
+        $bolsillo->loadMissing('cuentaContable');
         $movimientos = $this->cajaService->listarMovimientos($store, $filtros);
         $bolsillosActivos = Bolsillo::deTienda($store->id)->activos()->orderBy('name')->get();
 
@@ -531,12 +532,17 @@ class StoreCajaController extends Controller
         $this->permissionService->authorize($store, 'caja.bolsillos.create');
 
         try {
-            $bolsillo = $this->cajaService->crearBolsillo($store, [
+            $payload = [
                 'name' => $request->input('name'),
                 'detalles' => $request->input('detalles'),
-                'is_bank_account' => (bool) $request->input('is_bank_account', false),
                 'is_active' => (bool) $request->input('is_active', true),
-            ]);
+            ];
+            if ($request->filled('tipo_disponible')) {
+                $payload['tipo_disponible'] = $request->input('tipo_disponible');
+            } else {
+                $payload['is_bank_account'] = (bool) $request->input('is_bank_account', false);
+            }
+            $bolsillo = $this->cajaService->crearBolsillo($store, $payload);
 
             $saldoInicial = (float) ($request->input('saldo') ?? 0);
             if ($saldoInicial > 0) {
@@ -567,7 +573,6 @@ class StoreCajaController extends Controller
             $this->cajaService->actualizarBolsillo($bolsillo, [
                 'name' => $request->input('name'),
                 'detalles' => $request->input('detalles'),
-                'is_bank_account' => (bool) $request->input('is_bank_account', false),
                 'is_active' => (bool) $request->input('is_active', true),
             ]);
 

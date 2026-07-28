@@ -3,7 +3,7 @@
     $perm = app(\App\Services\StorePermissionService::class);
     $canPersonas = $store && ($perm->can($store, 'customers.view') || $perm->can($store, 'workers.view') || $perm->can($store, 'workers.schedules.view'));
     $canProductos = $store && ($perm->can($store, 'products.view') || $perm->can($store, 'categories.view') || $perm->can($store, 'attribute-groups.view') || $perm->can($store, 'inventario.view') || $perm->can($store, 'proveedores.view') || $perm->can($store, 'product-purchases.view') || $perm->can($store, 'support-documents.view'));
-    $canFinanciero = $store && ($perm->can($store, 'caja.view') || $perm->can($store, 'activos.view') || $perm->can($store, 'accounts-payables.view') || $perm->can($store, 'accounts-receivables.view') || $perm->can($store, 'comprobantes-egreso.view') || $perm->can($store, 'comprobantes-ingreso.view') || $perm->can($store, 'invoices.view') || $perm->can($store, 'purchases.view'));
+    $canFinanciero = $store && ($perm->can($store, 'caja.view') || $perm->can($store, 'activos.view') || $perm->can($store, 'accounts-payables.view') || $perm->can($store, 'accounts-receivables.view') || $perm->can($store, 'comprobantes-egreso.view') || $perm->can($store, 'comprobantes-ingreso.view') || $perm->can($store, 'invoices.view') || $perm->can($store, 'purchases.view') || $perm->can($store, 'contabilidad.cuentas.view'));
     $canVentas = $store && ($perm->can($store, 'ventas.carrito.view') || $perm->can($store, 'cotizaciones.view'));
     $canSuscripciones = $store && ($perm->can($store, 'subscriptions.view') || $perm->can($store, 'asistencias.view'));
     $canInformes = $store && ($perm->can($store, 'reports.products.view') || $perm->can($store, 'reports.billing.view'));
@@ -19,7 +19,7 @@
     }
     $inProductos = $store && (request()->routeIs('stores.products*') || request()->routeIs('stores.categories*') || request()->routeIs('stores.attribute-groups*') || request()->routeIs('stores.proveedores*') || request()->routeIs('stores.product-purchases*') || (request()->routeIs('stores.purchases.show') && $isProductPurchase));
     $inPersonas = $store && (request()->routeIs('stores.customers*') || request()->routeIs('stores.workers*'));
-    $inFinanciero = $store && ((request()->routeIs('stores.cajas*') || request()->routeIs('stores.activos*') || request()->routeIs('stores.accounts-payables*') || request()->routeIs('stores.accounts-receivables*') || request()->routeIs('stores.comprobantes-egreso*') || request()->routeIs('stores.comprobantes-ingreso*') || request()->routeIs('stores.invoices*') || (request()->routeIs('stores.purchases*') && !$isProductPurchase)) && !request()->routeIs('stores.product-purchases*'));
+    $inFinanciero = $store && ((request()->routeIs('stores.cajas*') || request()->routeIs('stores.activos*') || request()->routeIs('stores.accounts-payables*') || request()->routeIs('stores.accounts-receivables*') || request()->routeIs('stores.comprobantes-egreso*') || request()->routeIs('stores.comprobantes-ingreso*') || request()->routeIs('stores.invoices*') || request()->routeIs('stores.contabilidad*') || (request()->routeIs('stores.purchases*') && !$isProductPurchase)) && !request()->routeIs('stores.product-purchases*'));
     $inVentas = $store && request()->routeIs('stores.ventas*');
     $inSuscripciones = $store && (request()->routeIs('stores.subscriptions*') || request()->routeIs('stores.asistencias*'));
     $inInformes = $store && request()->routeIs('stores.reports*');
@@ -146,6 +146,9 @@
                         @endstoreCan
                         @storeCan($store, 'caja.view')
                         <a href="{{ route('stores.cajas.movimientos', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.cajas*') ? 'text-brand' : 'text-gray-400 hover:text-white' }}">{{ __('Movimientos') }}</a>
+                        @endstoreCan
+                        @storeCan($store, 'contabilidad.cuentas.view')
+                        <a href="{{ route('stores.contabilidad.cuentas', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.contabilidad*') ? 'text-brand' : 'text-gray-400 hover:text-white' }}">{{ __('Plan de cuentas') }}</a>
                         @endstoreCan
                         @storeCan($store, 'activos.view')
                         <a href="{{ route('stores.activos', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.activos*') ? 'text-brand' : 'text-gray-400 hover:text-white' }}">Activos</a>

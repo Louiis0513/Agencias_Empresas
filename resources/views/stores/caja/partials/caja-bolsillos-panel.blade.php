@@ -58,10 +58,11 @@
                         <thead class="border-b border-white/5">
                             <tr>
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">{{ __('Nombre') }}</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">{{ __('Cuenta') }}</th>
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">{{ __('Detalles') }}</th>
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">{{ __('Saldo') }}</th>
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">{{ __('Tipo') }}</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">{{ __('Estado') }}</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">{{ __('Visible') }}</th>
                                 <th class="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">{{ __('Acciones') }}</th>
                             </tr>
                         </thead>
@@ -73,12 +74,13 @@
                                             {{ $b->name }}
                                         </a>
                                     </td>
+                                    <td class="px-4 py-3 text-sm font-mono text-brand">{{ $b->cuentaContable?->codigo ?? '—' }}</td>
                                     <td class="px-4 py-3 text-sm text-gray-400 max-w-xs truncate" title="{{ $b->detalles }}">{{ $b->detalles ?? '—' }}</td>
                                     <td class="px-4 py-3 text-sm font-semibold text-gray-100">{{ money($b->saldo, $store->currency ?? 'COP') }}</td>
                                     <td class="px-4 py-3 text-sm text-gray-400">{{ $b->is_bank_account ? __('Cuenta bancaria') : __('Efectivo') }}</td>
                                     <td class="px-4 py-3">
                                         <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ $b->is_active ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300' }}">
-                                            {{ $b->is_active ? __('Activo') : __('Inactivo') }}
+                                            {{ $b->is_active ? __('Sí') : __('No') }}
                                         </span>
                                     </td>
                                     <td class="px-4 py-3 text-right text-sm font-medium">

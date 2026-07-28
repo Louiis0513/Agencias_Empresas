@@ -44,7 +44,7 @@ new class extends Component
                         @php
                             $canPersonas = app(\App\Services\StorePermissionService::class)->can($store, 'customers.view') || app(\App\Services\StorePermissionService::class)->can($store, 'workers.view') || app(\App\Services\StorePermissionService::class)->can($store, 'workers.schedules.view');
                             $canProductos = app(\App\Services\StorePermissionService::class)->can($store, 'products.view') || app(\App\Services\StorePermissionService::class)->can($store, 'categories.view') || app(\App\Services\StorePermissionService::class)->can($store, 'attribute-groups.view') || app(\App\Services\StorePermissionService::class)->can($store, 'inventario.view') || app(\App\Services\StorePermissionService::class)->can($store, 'proveedores.view') || app(\App\Services\StorePermissionService::class)->can($store, 'product-purchases.view') || app(\App\Services\StorePermissionService::class)->can($store, 'support-documents.view');
-                            $canFinanciero = app(\App\Services\StorePermissionService::class)->can($store, 'caja.view') || app(\App\Services\StorePermissionService::class)->can($store, 'activos.view') || app(\App\Services\StorePermissionService::class)->can($store, 'accounts-payables.view') || app(\App\Services\StorePermissionService::class)->can($store, 'accounts-receivables.view') || app(\App\Services\StorePermissionService::class)->can($store, 'comprobantes-egreso.view') || app(\App\Services\StorePermissionService::class)->can($store, 'comprobantes-ingreso.view') || app(\App\Services\StorePermissionService::class)->can($store, 'invoices.view') || app(\App\Services\StorePermissionService::class)->can($store, 'purchases.view');
+                            $canFinanciero = app(\App\Services\StorePermissionService::class)->can($store, 'caja.view') || app(\App\Services\StorePermissionService::class)->can($store, 'activos.view') || app(\App\Services\StorePermissionService::class)->can($store, 'accounts-payables.view') || app(\App\Services\StorePermissionService::class)->can($store, 'accounts-receivables.view') || app(\App\Services\StorePermissionService::class)->can($store, 'comprobantes-egreso.view') || app(\App\Services\StorePermissionService::class)->can($store, 'comprobantes-ingreso.view') || app(\App\Services\StorePermissionService::class)->can($store, 'invoices.view') || app(\App\Services\StorePermissionService::class)->can($store, 'purchases.view') || app(\App\Services\StorePermissionService::class)->can($store, 'contabilidad.cuentas.view');
                             $canVentas = app(\App\Services\StorePermissionService::class)->can($store, 'ventas.carrito.view') || app(\App\Services\StorePermissionService::class)->can($store, 'cotizaciones.view');
                             $canSuscripciones = app(\App\Services\StorePermissionService::class)->can($store, 'subscriptions.view') || app(\App\Services\StorePermissionService::class)->can($store, 'asistencias.view');
                         @endphp
@@ -81,7 +81,7 @@ new class extends Component
                                 }
                             }
                         @endphp
-                        <x-nav-link :href="route('stores.cajas.movimientos', $store)" :active="(request()->routeIs('stores.cajas*') || request()->routeIs('stores.activos*') || request()->routeIs('stores.accounts-payables*') || request()->routeIs('stores.accounts-receivables*') || request()->routeIs('stores.comprobantes-egreso*') || request()->routeIs('stores.comprobantes-ingreso*') || request()->routeIs('stores.invoices*') || (request()->routeIs('stores.purchases*') && !$isProductPurchaseNav)) && !request()->routeIs('stores.product-purchases*')" wire:navigate>
+                        <x-nav-link :href="route('stores.cajas.movimientos', $store)" :active="(request()->routeIs('stores.cajas*') || request()->routeIs('stores.activos*') || request()->routeIs('stores.accounts-payables*') || request()->routeIs('stores.accounts-receivables*') || request()->routeIs('stores.comprobantes-egreso*') || request()->routeIs('stores.comprobantes-ingreso*') || request()->routeIs('stores.invoices*') || request()->routeIs('stores.contabilidad*') || (request()->routeIs('stores.purchases*') && !$isProductPurchaseNav)) && !request()->routeIs('stores.product-purchases*')" wire:navigate>
                             {{ __('Financiero') }}
                         </x-nav-link>
                         @endif
@@ -168,7 +168,7 @@ new class extends Component
                 
                 $inPersonas = request()->routeIs('stores.customers*') || request()->routeIs('stores.workers*') || request()->routeIs('stores.workers.schedules*');
                 $inProductos = request()->routeIs('stores.products*') || request()->routeIs('stores.categories*') || request()->routeIs('stores.attribute-groups*') || request()->routeIs('stores.proveedores*') || request()->routeIs('stores.product-purchases*') || (request()->routeIs('stores.purchases.show') && $isProductPurchase);
-                $inFinanciero = (request()->routeIs('stores.cajas*') || request()->routeIs('stores.activos*') || request()->routeIs('stores.accounts-payables*') || request()->routeIs('stores.accounts-receivables*') || request()->routeIs('stores.comprobantes-egreso*') || request()->routeIs('stores.comprobantes-ingreso*') || request()->routeIs('stores.invoices*') || (request()->routeIs('stores.purchases*') && !$isProductPurchase)) && !request()->routeIs('stores.product-purchases*');
+                $inFinanciero = (request()->routeIs('stores.cajas*') || request()->routeIs('stores.activos*') || request()->routeIs('stores.accounts-payables*') || request()->routeIs('stores.accounts-receivables*') || request()->routeIs('stores.comprobantes-egreso*') || request()->routeIs('stores.comprobantes-ingreso*') || request()->routeIs('stores.invoices*') || request()->routeIs('stores.contabilidad*') || (request()->routeIs('stores.purchases*') && !$isProductPurchase)) && !request()->routeIs('stores.product-purchases*');
                 $inVentas = request()->routeIs('stores.ventas*');
                 $inSuscripciones = request()->routeIs('stores.subscriptions*');
                 $inAsistencias = request()->routeIs('stores.asistencias*');
@@ -231,6 +231,11 @@ new class extends Component
                                 {{ __('Movimientos') }}
                             </a>
                             @endstoreCan
+                            @storeCan($store, 'contabilidad.cuentas.view')
+                            <a href="{{ route('stores.contabilidad.cuentas', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.contabilidad*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
+                                {{ __('Plan de cuentas') }}
+                            </a>
+                            @endstoreCan
                             @storeCan($store, 'activos.view')
                             <a href="{{ route('stores.activos', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.activos*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
                                 {{ __('Activos') }}
@@ -287,7 +292,7 @@ new class extends Component
                     $perm = app(\App\Services\StorePermissionService::class);
                     $canP = $perm->can($store, 'customers.view') || $perm->can($store, 'workers.view') || $perm->can($store, 'workers.schedules.view');
                     $canProd = $perm->can($store, 'products.view') || $perm->can($store, 'categories.view') || $perm->can($store, 'attribute-groups.view') || $perm->can($store, 'inventario.view') || $perm->can($store, 'proveedores.view') || $perm->can($store, 'product-purchases.view') || $perm->can($store, 'support-documents.view');
-                    $canF = $perm->can($store, 'caja.view') || $perm->can($store, 'activos.view') || $perm->can($store, 'accounts-payables.view') || $perm->can($store, 'accounts-receivables.view') || $perm->can($store, 'comprobantes-egreso.view') || $perm->can($store, 'comprobantes-ingreso.view') || $perm->can($store, 'invoices.view') || $perm->can($store, 'purchases.view');
+                    $canF = $perm->can($store, 'caja.view') || $perm->can($store, 'activos.view') || $perm->can($store, 'accounts-payables.view') || $perm->can($store, 'accounts-receivables.view') || $perm->can($store, 'comprobantes-egreso.view') || $perm->can($store, 'comprobantes-ingreso.view') || $perm->can($store, 'invoices.view') || $perm->can($store, 'purchases.view') || $perm->can($store, 'contabilidad.cuentas.view');
                     $canV = $perm->can($store, 'ventas.carrito.view') || $perm->can($store, 'cotizaciones.view');
                     $canSuscripciones = $perm->can($store, 'subscriptions.view') || $perm->can($store, 'asistencias.view');
                 @endphp
@@ -353,6 +358,11 @@ new class extends Component
                 @storeCan($store, 'caja.view')
                 <x-responsive-nav-link :href="route('stores.cajas.movimientos', $store)" :active="request()->routeIs('stores.cajas*')" wire:navigate>
                     {{ __('Movimientos') }}
+                </x-responsive-nav-link>
+                @endstoreCan
+                @storeCan($store, 'contabilidad.cuentas.view')
+                <x-responsive-nav-link :href="route('stores.contabilidad.cuentas', $store)" :active="request()->routeIs('stores.contabilidad*')" wire:navigate>
+                    {{ __('Plan de cuentas') }}
                 </x-responsive-nav-link>
                 @endstoreCan
                 @storeCan($store, 'activos.view')

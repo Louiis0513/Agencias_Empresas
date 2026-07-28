@@ -5,10 +5,23 @@
                 {{ __('Editar Bolsillo') }}
             </h2>
             <p class="mt-1 text-sm text-gray-400">
-                {{ __('El saldo solo se modifica mediante movimientos.') }}
+                {{ __('El saldo solo se modifica mediante movimientos. El tipo contable (caja/banco) lo define la cuenta PUC vinculada.') }}
             </p>
 
             <div class="mt-6 space-y-4">
+                @if($cuentaCodigo)
+                    <div class="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm">
+                        <span class="text-gray-400">Cuenta contable:</span>
+                        <span class="font-mono text-brand ml-1">{{ $cuentaCodigo }}</span>
+                        <span class="text-gray-300 ml-1">{{ $cuentaNombre }}</span>
+                        <span class="text-xs text-gray-500 ml-2">{{ $isBankAccount ? 'Banco' : 'Efectivo' }}</span>
+                    </div>
+                @else
+                    <div class="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+                        Sin cuenta contable vinculada. Ejecuta el vínculo desde Contabilidad o vuelve a crear el bolsillo tras importar el PUC.
+                    </div>
+                @endif
+
                 <div>
                     <x-input-label for="edit_bolsillo_name" value="{{ __('Nombre') }}" />
                     <x-text-input wire:model="name" id="edit_bolsillo_name" class="block mt-1 w-full" type="text" placeholder="Ej: Efectivo" required />
@@ -23,12 +36,8 @@
 
                 <div class="flex items-center gap-4">
                     <label class="inline-flex items-center">
-                        <input type="checkbox" wire:model="is_bank_account" class="rounded border-gray-300 dark:border-gray-700 dark:bg-gray-900">
-                        <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Es cuenta bancaria</span>
-                    </label>
-                    <label class="inline-flex items-center">
                         <input type="checkbox" wire:model="is_active" class="rounded border-gray-300 dark:border-gray-700 dark:bg-gray-900">
-                        <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Activo</span>
+                        <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Visible en operaciones</span>
                     </label>
                 </div>
             </div>
