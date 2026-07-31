@@ -243,6 +243,9 @@ new class extends Component
                             <a href="{{ route('stores.contabilidad.diario', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.contabilidad.diario') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
                                 {{ __('Libro Diario') }}
                             </a>
+                            <a href="{{ route('stores.contabilidad.mayor', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.contabilidad.mayor') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
+                                {{ __('Libro Mayor') }}
+                            </a>
                             @endstoreCan
                             @storeCan($store, 'activos.view')
                             <a href="{{ route('stores.activos', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.activos*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
@@ -379,6 +382,9 @@ new class extends Component
                 </x-responsive-nav-link>
                 <x-responsive-nav-link :href="route('stores.contabilidad.diario', $store)" :active="request()->routeIs('stores.contabilidad.diario')" wire:navigate>
                     {{ __('Libro Diario') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('stores.contabilidad.mayor', $store)" :active="request()->routeIs('stores.contabilidad.mayor')" wire:navigate>
+                    {{ __('Libro Mayor') }}
                 </x-responsive-nav-link>
                 @endstoreCan
                 @storeCan($store, 'activos.view')

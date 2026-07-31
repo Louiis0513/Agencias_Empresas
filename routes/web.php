@@ -236,6 +236,7 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::get('/contabilidad/comprobantes', [StoreComprobanteContableController::class, 'index'])->name('contabilidad.comprobantes');
     Route::get('/contabilidad/comprobantes/crear', [StoreComprobanteContableController::class, 'create'])->name('contabilidad.comprobantes.create');
     Route::get('/contabilidad/libro-diario', [StoreComprobanteContableController::class, 'diario'])->name('contabilidad.diario');
+    Route::get('/contabilidad/libro-mayor', [StoreComprobanteContableController::class, 'mayor'])->name('contabilidad.mayor');
     Route::post('/contabilidad/comprobantes', [StoreComprobanteContableController::class, 'store'])->name('contabilidad.comprobantes.store');
     Route::get('/contabilidad/comprobantes/{comprobanteContable}', [StoreComprobanteContableController::class, 'show'])->name('contabilidad.comprobantes.show');
     Route::get('/contabilidad/comprobantes/{comprobanteContable}/editar', [StoreComprobanteContableController::class, 'edit'])->name('contabilidad.comprobantes.edit');

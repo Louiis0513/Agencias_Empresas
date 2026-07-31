@@ -116,13 +116,14 @@ Campos clave: `prefijo`, `numeracion_automatica`, `siguiente_numero`, `activo`, 
 - UI: Financiero → **Asientos manuales**.
 - Permisos: `contabilidad.comprobantes.view|create|edit|post|reverse`.
 - Libro Diario inicial: consulta cronológica de movimientos contabilizados (incluye originales reversados y sus asientos inversos).
-- Pendiente: Libro Mayor y Balance de comprobación.
+- Libro Mayor: movimientos agrupados por cuenta auxiliar con saldo inicial, corrido y final (informe de consulta).
+- Pendiente: Balance de comprobación.
 
 ## Siguiente (automatización no implementada)
 0. **Matriz de eventos (especificación v1):** ver [`docs/MATRIZ_EVENTOS_CONTABLES.md`](MATRIZ_EVENTOS_CONTABLES.md). Debe aprobarla el contador antes de automatizar documentos operativos.
 1. Vincular documentos operativos al catálogo de tipos: `Invoice`→FV, `ComprobanteIngreso`→RC, `Purchase`→FC, `ComprobanteEgreso`→RP.
 2. Motor de asientos al vender/devolver/comprar usando `categoria_contable` + bolsillo de pago + tipo de comprobante + **`tercero_id`** (ver `docs/TERCEROS.md`).
-3. Construir Libro Mayor y Balance de comprobación desde `movimientos_contables`.
+3. Construir Balance de comprobación desde los saldos del Libro Mayor.
 
 ## Terceros
 Maestro unificado (clientes/proveedores/trabajadores): ver [`docs/TERCEROS.md`](TERCEROS.md). Los asientos deben usar `tercero_id`.

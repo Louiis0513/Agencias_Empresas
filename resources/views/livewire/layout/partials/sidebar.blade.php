@@ -153,6 +153,7 @@
                         @storeCan($store, 'contabilidad.comprobantes.view')
                         <a href="{{ route('stores.contabilidad.comprobantes', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.contabilidad.comprobantes*') ? 'text-brand' : 'text-gray-400 hover:text-white' }}">{{ __('Asientos manuales') }}</a>
                         <a href="{{ route('stores.contabilidad.diario', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.contabilidad.diario') ? 'text-brand' : 'text-gray-400 hover:text-white' }}">{{ __('Libro Diario') }}</a>
+                        <a href="{{ route('stores.contabilidad.mayor', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.contabilidad.mayor') ? 'text-brand' : 'text-gray-400 hover:text-white' }}">{{ __('Libro Mayor') }}</a>
                         @endstoreCan
                         @storeCan($store, 'activos.view')
                         <a href="{{ route('stores.activos', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.activos*') ? 'text-brand' : 'text-gray-400 hover:text-white' }}">Activos</a>

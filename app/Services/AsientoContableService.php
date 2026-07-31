@@ -110,6 +110,150 @@ class AsientoContableService
             ->withQueryString();
     }
 
+    /**
+     * Libro Mayor: movimientos agrupados por cuenta auxiliar con saldos.
+     *
+     * @return list<array{
+     *     cuenta: CuentaContable,
+     *     naturaleza: string,
+     *     saldo_inicial: float,
+     *     total_debito: float,
+     *     total_credito: float,
+     *     saldo_final: float,
+     *     movimientos: list<array{movimiento: MovimientoContable, saldo: float}>
+     * }>
+     */
+    public function libroMayor(Store $store, array $filtros = []): array
+    {
+        $cuentaId = ! empty($filtros['cuenta_contable_id'])
+            ? (int) $filtros['cuenta_contable_id']
+            : null;
+        $fechaDesde = ! empty($filtros['fecha_desde']) ? (string) $filtros['fecha_desde'] : null;
+        $fechaHasta = ! empty($filtros['fecha_hasta']) ? (string) $filtros['fecha_hasta'] : null;
+
+        $saldosIniciales = [];
+        if ($fechaDesde !== null) {
+            $aperturas = MovimientoContable::query()
+                ->selectRaw('cuenta_contable_id, SUM(debito) as total_debito, SUM(credito) as total_credito')
+                ->where('store_id', $store->id)
+                ->whereHas('comprobante', fn ($q) => $q
+                    ->where('store_id', $store->id)
+                    ->whereIn('estado', [
+                        ComprobanteContable::ESTADO_CONTABILIZADO,
+                        ComprobanteContable::ESTADO_REVERSADO,
+                    ])
+                    ->whereDate('fecha', '<', $fechaDesde))
+                ->when($cuentaId, fn ($q) => $q->where('cuenta_contable_id', $cuentaId))
+                ->groupBy('cuenta_contable_id')
+                ->get();
+
+            foreach ($aperturas as $fila) {
+                $saldosIniciales[(int) $fila->cuenta_contable_id] = [
+                    'debito' => (float) $fila->total_debito,
+                    'credito' => (float) $fila->total_credito,
+                ];
+            }
+        }
+
+        $movimientos = MovimientoContable::query()
+            ->with(['comprobante.tipoComprobante', 'cuentaContable', 'tercero'])
+            ->where('store_id', $store->id)
+            ->whereHas('comprobante', function ($q) use ($store, $fechaDesde, $fechaHasta) {
+                $q->where('store_id', $store->id)
+                    ->whereIn('estado', [
+                        ComprobanteContable::ESTADO_CONTABILIZADO,
+                        ComprobanteContable::ESTADO_REVERSADO,
+                    ]);
+
+                if ($fechaDesde !== null) {
+                    $q->whereDate('fecha', '>=', $fechaDesde);
+                }
+                if ($fechaHasta !== null) {
+                    $q->whereDate('fecha', '<=', $fechaHasta);
+                }
+            })
+            ->when($cuentaId, fn ($q) => $q->where('cuenta_contable_id', $cuentaId))
+            ->orderBy(
+                ComprobanteContable::select('fecha')
+                    ->whereColumn('comprobantes_contables.id', 'movimientos_contables.comprobante_contable_id')
+            )
+            ->orderBy('comprobante_contable_id')
+            ->orderBy('orden')
+            ->get();
+
+        $porCuenta = [];
+        foreach ($movimientos as $movimiento) {
+            $id = (int) $movimiento->cuenta_contable_id;
+            $porCuenta[$id][] = $movimiento;
+        }
+
+        $cuentaIds = collect(array_keys($saldosIniciales))
+            ->merge(array_keys($porCuenta))
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($cuentaIds === []) {
+            return [];
+        }
+
+        $cuentas = CuentaContable::query()
+            ->deStore($store)
+            ->whereIn('id', $cuentaIds)
+            ->orderBy('codigo')
+            ->get()
+            ->keyBy('id');
+
+        $resultado = [];
+        foreach ($cuentas as $cuenta) {
+            $id = (int) $cuenta->id;
+            $apertura = $saldosIniciales[$id] ?? ['debito' => 0.0, 'credito' => 0.0];
+            $saldoInicial = CuentaContable::firmarSaldo(
+                $cuenta->codigo,
+                $apertura['debito'],
+                $apertura['credito']
+            );
+
+            // Incluir solo si hay movimiento del periodo o saldo inicial distinto de cero.
+            $lineasPeriodo = $porCuenta[$id] ?? [];
+            if ($lineasPeriodo === [] && abs($saldoInicial) < 0.005) {
+                continue;
+            }
+
+            $saldoCorrido = $saldoInicial;
+            $totalDebito = 0.0;
+            $totalCredito = 0.0;
+            $movimientosConSaldo = [];
+
+            foreach ($lineasPeriodo as $movimiento) {
+                $debito = (float) $movimiento->debito;
+                $credito = (float) $movimiento->credito;
+                $totalDebito += $debito;
+                $totalCredito += $credito;
+                $saldoCorrido = round(
+                    $saldoCorrido + CuentaContable::firmarSaldo($cuenta->codigo, $debito, $credito),
+                    2
+                );
+                $movimientosConSaldo[] = [
+                    'movimiento' => $movimiento,
+                    'saldo' => $saldoCorrido,
+                ];
+            }
+
+            $resultado[] = [
+                'cuenta' => $cuenta,
+                'naturaleza' => CuentaContable::esNaturalezaDeudora($cuenta->codigo) ? 'deudora' : 'acreedora',
+                'saldo_inicial' => $saldoInicial,
+                'total_debito' => round($totalDebito, 2),
+                'total_credito' => round($totalCredito, 2),
+                'saldo_final' => $saldoCorrido,
+                'movimientos' => $movimientosConSaldo,
+            ];
+        }
+
+        return $resultado;
+    }
+
     public function obtener(Store $store, int $id): ComprobanteContable
     {
         return ComprobanteContable::query()

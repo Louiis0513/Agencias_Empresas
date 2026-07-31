@@ -195,6 +195,106 @@ class AsientoContableManualTest extends TestCase
             ->assertSee('CC-0002');
     }
 
+    public function test_libro_mayor_agrupa_por_cuenta_y_calcula_saldo_inicial(): void
+    {
+        $servicio = $this->servicio();
+        $ingreso = $this->crearCuenta($this->store, '41350101', 'Ventas mercadería');
+
+        $anterior = $servicio->crearBorrador($this->store, $this->user->id, [
+            'tipo_comprobante_id' => $this->tipo->id,
+            'fecha' => '2026-01-10',
+            'descripcion' => 'Aporte a caja',
+            'lineas' => [
+                [
+                    'cuenta_contable_id' => $this->caja->id,
+                    'descripcion' => 'Entrada',
+                    'debito' => 100000,
+                    'credito' => 0,
+                ],
+                [
+                    'cuenta_contable_id' => $ingreso->id,
+                    'descripcion' => 'Contrapartida',
+                    'debito' => 0,
+                    'credito' => 100000,
+                ],
+            ],
+        ]);
+        $servicio->contabilizar($this->store, $anterior, $this->user->id);
+
+        $periodo = $servicio->crearBorrador($this->store, $this->user->id, [
+            'tipo_comprobante_id' => $this->tipo->id,
+            'fecha' => '2026-02-15',
+            'descripcion' => 'Gasto del periodo',
+            'lineas' => [
+                [
+                    'cuenta_contable_id' => $this->gasto->id,
+                    'descripcion' => 'Papelería',
+                    'debito' => 20000,
+                    'credito' => 0,
+                ],
+                [
+                    'cuenta_contable_id' => $this->caja->id,
+                    'descripcion' => 'Salida',
+                    'debito' => 0,
+                    'credito' => 20000,
+                ],
+            ],
+        ]);
+        $servicio->contabilizar($this->store, $periodo, $this->user->id);
+
+        $mayor = $servicio->libroMayor($this->store, [
+            'fecha_desde' => '2026-02-01',
+            'fecha_hasta' => '2026-02-28',
+        ]);
+
+        $porCodigo = collect($mayor)->keyBy(fn ($bloque) => $bloque['cuenta']->codigo);
+
+        $this->assertTrue($porCodigo->has('11050501'));
+        $this->assertTrue($porCodigo->has('51959501'));
+        $this->assertTrue($porCodigo->has('41350101'));
+
+        $caja = $porCodigo->get('11050501');
+        $this->assertSame('deudora', $caja['naturaleza']);
+        $this->assertSame(100000.0, $caja['saldo_inicial']);
+        $this->assertSame(0.0, $caja['total_debito']);
+        $this->assertSame(20000.0, $caja['total_credito']);
+        $this->assertSame(80000.0, $caja['saldo_final']);
+        $this->assertCount(1, $caja['movimientos']);
+
+        $gasto = $porCodigo->get('51959501');
+        $this->assertSame(0.0, $gasto['saldo_inicial']);
+        $this->assertSame(20000.0, $gasto['total_debito']);
+        $this->assertSame(20000.0, $gasto['saldo_final']);
+
+        $ingresoBloque = $porCodigo->get('41350101');
+        $this->assertSame('acreedora', $ingresoBloque['naturaleza']);
+        $this->assertSame(100000.0, $ingresoBloque['saldo_inicial']);
+        $this->assertSame(0.0, $ingresoBloque['total_debito']);
+        $this->assertSame(0.0, $ingresoBloque['total_credito']);
+        $this->assertSame(100000.0, $ingresoBloque['saldo_final']);
+        $this->assertCount(0, $ingresoBloque['movimientos']);
+
+        $filtrado = $servicio->libroMayor($this->store, [
+            'fecha_desde' => '2026-02-01',
+            'fecha_hasta' => '2026-02-28',
+            'cuenta_contable_id' => $this->caja->id,
+        ]);
+        $this->assertCount(1, $filtrado);
+        $this->assertSame('11050501', $filtrado[0]['cuenta']->codigo);
+
+        $this->actingAs($this->user)
+            ->get(route('stores.contabilidad.mayor', [
+                'store' => $this->store,
+                'fecha_desde' => '2026-02-01',
+                'fecha_hasta' => '2026-02-28',
+            ]))
+            ->assertOk()
+            ->assertSee('Libro Mayor')
+            ->assertSee('11050501')
+            ->assertSee('51959501')
+            ->assertSee('CC-0002');
+    }
+
     private function servicio(): AsientoContableService
     {
         return app(AsientoContableService::class);

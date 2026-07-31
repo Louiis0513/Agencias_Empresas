@@ -514,7 +514,7 @@ Marcar en la reunión y actualizar el estado del evento:
 6. **Ingreso manual / gasto directo:** ¿obligar cuenta contable en UI antes de contabilizar?  
 7. **Documento soporte a crédito:** ¿debe crear CxP igual que una compra?  
 8. **Anulación de factura:** ¿prohibir anular si hay cobros, o forzar reverso en cascada?  
-9. **Siguiente entregable:** Libro Mayor y Balance desde los movimientos CC; el Libro Diario inicial ya está implementado.
+9. **Siguiente entregable:** Balance de comprobación desde los saldos del Mayor; Libro Diario y Libro Mayor ya están implementados.
 
 ### 5.3 Acta de aprobación (llenar a mano / con el contador)
 
@@ -580,7 +580,7 @@ flowchart TD
 ### Orden de implementación sugerido (post-aprobación)
 
 1. ~~Tablas `comprobantes_contables` + `movimientos_contables` + servicio de validación partida doble.~~ Implementado.  
-2. ~~UI/flujo `ASIENTO_MANUAL` (familia `CC`) + Libro Diario inicial.~~ Implementado. Pendientes: mayor / balance.  
+2. ~~UI/flujo `ASIENTO_MANUAL` (familia `CC`) + Libro Diario + Libro Mayor.~~ Implementado. Pendiente: balance.  
 3. Configuración de cuentas faltantes (clientes, proveedores, IVA…).  
 4. Adaptadores idempotentes: `VENTA_CREDITO`, `COBRO_CARTERA`, `VENTA_CONTADO`, compras y pagos.  
 5. Completar operativos bloqueados (anulación real, DSE a crédito, devoluciones) y luego sus asientos.

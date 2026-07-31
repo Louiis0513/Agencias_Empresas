@@ -172,6 +172,24 @@ class CuentaContable extends Model
         return self::CLASES_POR_DIGITO[$digito] ?? null;
     }
 
+    /** Naturaleza deudora PUC: clases 1, 5, 6, 7, 8. */
+    public static function esNaturalezaDeudora(string $codigo): bool
+    {
+        $digito = substr(preg_replace('/\D/', '', $codigo) ?? '', 0, 1);
+
+        return in_array($digito, ['1', '5', '6', '7', '8'], true);
+    }
+
+    public static function firmarSaldo(string $codigo, float|string $debito, float|string $credito): float
+    {
+        $debito = (float) $debito;
+        $credito = (float) $credito;
+
+        return self::esNaturalezaDeudora($codigo)
+            ? round($debito - $credito, 2)
+            : round($credito - $debito, 2);
+    }
+
     public static function esCodigoAuxiliar(string $codigo): bool
     {
         $soloDigitos = preg_replace('/\D/', '', $codigo) ?? '';

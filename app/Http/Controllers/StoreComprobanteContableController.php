@@ -62,6 +62,21 @@ class StoreComprobanteContableController extends Controller
         ]);
     }
 
+    public function mayor(Request $request, Store $store)
+    {
+        $this->permissionService->authorize($store, 'contabilidad.comprobantes.view');
+
+        return view('stores.contabilidad.libro-mayor', [
+            'store' => $store,
+            'cuentasMayor' => $this->asientoService->libroMayor($store, [
+                'fecha_desde' => $request->get('fecha_desde'),
+                'fecha_hasta' => $request->get('fecha_hasta'),
+                'cuenta_contable_id' => $request->get('cuenta_contable_id'),
+            ]),
+            'cuentas' => $this->asientoService->cuentasDisponibles($store),
+        ]);
+    }
+
     public function store(StoreComprobanteContableRequest $request, Store $store)
     {
         $this->permissionService->authorize($store, 'contabilidad.comprobantes.create');
