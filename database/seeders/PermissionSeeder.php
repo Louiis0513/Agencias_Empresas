@@ -119,6 +119,9 @@ class PermissionSeeder extends Seeder
             ['slug' => 'contabilidad.comprobantes.edit', 'name' => 'Editar comprobantes contables', 'description' => 'Editar asientos manuales en borrador'],
             ['slug' => 'contabilidad.comprobantes.post', 'name' => 'Contabilizar comprobantes', 'description' => 'Contabilizar asientos manuales balanceados'],
             ['slug' => 'contabilidad.comprobantes.reverse', 'name' => 'Reversar comprobantes contables', 'description' => 'Crear el reverso de un asiento contabilizado'],
+            ['slug' => 'contabilidad.impuestos.view', 'name' => 'Ver impuestos', 'description' => 'Ver catálogo de impuestos contables'],
+            ['slug' => 'contabilidad.impuestos.create', 'name' => 'Crear impuestos', 'description' => 'Crear impuestos en el catálogo contable'],
+            ['slug' => 'contabilidad.impuestos.edit', 'name' => 'Editar impuestos', 'description' => 'Editar impuestos del catálogo contable'],
 
             // Roles
             ['slug' => 'roles.view', 'name' => 'Ver roles y permisos', 'description' => 'Ver roles y permisos de la tienda'],

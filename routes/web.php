@@ -26,6 +26,7 @@ use App\Http\Controllers\StoreRoleController;
 use App\Http\Controllers\StoreSubscriptionController;
 use App\Http\Controllers\StoreTerceroController;
 use App\Http\Controllers\StoreTipoComprobanteController;
+use App\Http\Controllers\StoreImpuestoController;
 use App\Http\Controllers\StoreVitrinaController;
 use App\Http\Controllers\StoreWorkerController;
 use App\Http\Controllers\StoreWorkerHourRateTemplateController;
@@ -232,6 +233,9 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::get('/contabilidad/tipos-comprobante', [StoreTipoComprobanteController::class, 'index'])->name('contabilidad.tipos');
     Route::post('/contabilidad/tipos-comprobante', [StoreTipoComprobanteController::class, 'store'])->name('contabilidad.tipos.store');
     Route::put('/contabilidad/tipos-comprobante/{tipoComprobante}', [StoreTipoComprobanteController::class, 'update'])->name('contabilidad.tipos.update');
+    Route::get('/contabilidad/impuestos', [StoreImpuestoController::class, 'index'])->name('contabilidad.impuestos');
+    Route::post('/contabilidad/impuestos', [StoreImpuestoController::class, 'store'])->name('contabilidad.impuestos.store');
+    Route::put('/contabilidad/impuestos/{impuesto}', [StoreImpuestoController::class, 'update'])->name('contabilidad.impuestos.update');
 
     Route::get('/contabilidad/comprobantes', [StoreComprobanteContableController::class, 'index'])->name('contabilidad.comprobantes');
     Route::get('/contabilidad/comprobantes/crear', [StoreComprobanteContableController::class, 'create'])->name('contabilidad.comprobantes.create');

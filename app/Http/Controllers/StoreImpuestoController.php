@@ -1,0 +1,76 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Http\Requests\StoreImpuestoRequest;
+use App\Models\Impuesto;
+use App\Models\Store;
+use App\Services\ImpuestoService;
+use App\Services\StorePermissionService;
+use Exception;
+use Illuminate\Http\Request;
+
+class StoreImpuestoController extends Controller
+{
+    public function __construct(
+        protected StorePermissionService $permissionService,
+        protected ImpuestoService $impuestoService,
+    ) {}
+
+    public function index(Request $request, Store $store)
+    {
+        $this->permissionService->authorize($store, 'contabilidad.impuestos.view');
+
+        return view('stores.contabilidad.impuestos', [
+            'store' => $store,
+            'impuestos' => $this->impuestoService->listar($store, [
+                'search' => $request->get('search'),
+                'tipo' => $request->get('tipo'),
+                'en_uso' => $request->get('en_uso'),
+            ]),
+            'tipos' => Impuesto::TIPOS,
+            'cuentas' => $this->impuestoService->cuentasDisponibles($store),
+            'codigoSugerido' => $this->impuestoService->siguienteCodigo($store),
+        ]);
+    }
+
+    public function store(StoreImpuestoRequest $request, Store $store)
+    {
+        $this->permissionService->authorize($store, 'contabilidad.impuestos.create');
+
+        try {
+            $impuesto = $this->impuestoService->crear($store, $request->validated());
+
+            return redirect()
+                ->route('stores.contabilidad.impuestos', $store)
+                ->with('success', 'Impuesto «'.$impuesto->codigo.' — '.$impuesto->nombre.'» creado.');
+        } catch (Exception $e) {
+            return redirect()
+                ->route('stores.contabilidad.impuestos', $store)
+                ->with('error', $e->getMessage())
+                ->withInput();
+        }
+    }
+
+    public function update(StoreImpuestoRequest $request, Store $store, Impuesto $impuesto)
+    {
+        $this->permissionService->authorize($store, 'contabilidad.impuestos.edit');
+
+        if ($impuesto->store_id !== $store->id) {
+            abort(404);
+        }
+
+        try {
+            $this->impuestoService->actualizar($store, $impuesto, $request->validated());
+
+            return redirect()
+                ->route('stores.contabilidad.impuestos', $store)
+                ->with('success', 'Impuesto actualizado.');
+        } catch (Exception $e) {
+            return redirect()
+                ->route('stores.contabilidad.impuestos', $store)
+                ->with('error', $e->getMessage())
+                ->withInput();
+        }
+    }
+}

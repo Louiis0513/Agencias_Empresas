@@ -107,7 +107,14 @@ Campos clave: `prefijo`, `numeracion_automatica`, `siguiente_numero`, `activo`, 
 - `CuentaContableService` — listar, crear auxiliar (+ bolsillo si aplica), padres, reconstruir jerarquía, backfill.
 - `CategoriaContableService` — categorías producto/servicio y validación de cuentas por rol.
 - `TipoComprobanteService` — catálogo de tipos FV/RC/FC/RP/CC, defaults y consecutivos.
+- `ImpuestoService` — catálogo de impuestos (IVA, retenciones, etc.) con cuentas ventas/compras/devoluciones.
 - `CajaService` — crear/actualizar bolsillo con cuenta auxiliar.
+
+## Impuestos (catálogo v1)
+- Tabla `impuestos` por tienda: en uso, código, nombre, tipo, por valor, tarifa y 4 cuentas auxiliares.
+- Tipos fijos en código (`Impuesto::TIPOS`): IVA, Retefuente, ReteICA, ReteIVA, Impoconsumo, Bebidas azucaradas, Comestibles ultraprocesados.
+- UI: Financiero → **Impuestos**. Permisos `contabilidad.impuestos.view|create|edit`.
+- Aún no se aplica automáticamente en facturas/compras ni incluye autorretenciones.
 
 ## Asientos manuales CC (implementado)
 - Núcleo: `comprobantes_contables` + `movimientos_contables`, orquestado por `AsientoContableService`.

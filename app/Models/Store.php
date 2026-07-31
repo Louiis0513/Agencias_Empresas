@@ -157,4 +157,9 @@ class Store extends Model
     {
         return $this->hasMany(CategoriaContable::class);
     }
+
+    public function impuestos()
+    {
+        return $this->hasMany(Impuesto::class);
+    }
 }
