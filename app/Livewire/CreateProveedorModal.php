@@ -119,7 +119,7 @@ class CreateProveedorModal extends Component
             $this->reset(['nombre', 'numero_celular', 'telefono', 'email', 'nit', 'direccion', 'estado', 'producto_ids', 'busquedaProducto', 'productosEncontrados']);
             $this->resetValidation();
 
-            return redirect()->route('stores.proveedores', $store)
+            return redirect()->route('stores.terceros', ['store' => $store, 'rol' => 'proveedor'])
                 ->with('success', 'Proveedor creado correctamente.');
         } catch (\Exception $e) {
             $this->addError('nombre', $e->getMessage());

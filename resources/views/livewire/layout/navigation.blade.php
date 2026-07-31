@@ -42,14 +42,14 @@ new class extends Component
                         @endstoreCan
 
                         @php
-                            $canPersonas = app(\App\Services\StorePermissionService::class)->can($store, 'customers.view') || app(\App\Services\StorePermissionService::class)->can($store, 'workers.view') || app(\App\Services\StorePermissionService::class)->can($store, 'workers.schedules.view');
-                            $canProductos = app(\App\Services\StorePermissionService::class)->can($store, 'products.view') || app(\App\Services\StorePermissionService::class)->can($store, 'categories.view') || app(\App\Services\StorePermissionService::class)->can($store, 'attribute-groups.view') || app(\App\Services\StorePermissionService::class)->can($store, 'inventario.view') || app(\App\Services\StorePermissionService::class)->can($store, 'proveedores.view') || app(\App\Services\StorePermissionService::class)->can($store, 'product-purchases.view') || app(\App\Services\StorePermissionService::class)->can($store, 'support-documents.view');
-                            $canFinanciero = app(\App\Services\StorePermissionService::class)->can($store, 'caja.view') || app(\App\Services\StorePermissionService::class)->can($store, 'activos.view') || app(\App\Services\StorePermissionService::class)->can($store, 'accounts-payables.view') || app(\App\Services\StorePermissionService::class)->can($store, 'accounts-receivables.view') || app(\App\Services\StorePermissionService::class)->can($store, 'comprobantes-egreso.view') || app(\App\Services\StorePermissionService::class)->can($store, 'comprobantes-ingreso.view') || app(\App\Services\StorePermissionService::class)->can($store, 'invoices.view') || app(\App\Services\StorePermissionService::class)->can($store, 'purchases.view') || app(\App\Services\StorePermissionService::class)->can($store, 'contabilidad.cuentas.view') || app(\App\Services\StorePermissionService::class)->can($store, 'contabilidad.categorias.view') || app(\App\Services\StorePermissionService::class)->can($store, 'contabilidad.tipos.view');
+                            $canPersonas = app(\App\Services\StorePermissionService::class)->can($store, 'terceros.view') || app(\App\Services\StorePermissionService::class)->can($store, 'workers.schedules.view');
+                            $canProductos = app(\App\Services\StorePermissionService::class)->can($store, 'products.view') || app(\App\Services\StorePermissionService::class)->can($store, 'categories.view') || app(\App\Services\StorePermissionService::class)->can($store, 'attribute-groups.view') || app(\App\Services\StorePermissionService::class)->can($store, 'inventario.view') || app(\App\Services\StorePermissionService::class)->can($store, 'product-purchases.view') || app(\App\Services\StorePermissionService::class)->can($store, 'support-documents.view');
+                            $canFinanciero = app(\App\Services\StorePermissionService::class)->can($store, 'caja.view') || app(\App\Services\StorePermissionService::class)->can($store, 'activos.view') || app(\App\Services\StorePermissionService::class)->can($store, 'accounts-payables.view') || app(\App\Services\StorePermissionService::class)->can($store, 'accounts-receivables.view') || app(\App\Services\StorePermissionService::class)->can($store, 'comprobantes-egreso.view') || app(\App\Services\StorePermissionService::class)->can($store, 'comprobantes-ingreso.view') || app(\App\Services\StorePermissionService::class)->can($store, 'invoices.view') || app(\App\Services\StorePermissionService::class)->can($store, 'purchases.view') || app(\App\Services\StorePermissionService::class)->can($store, 'contabilidad.cuentas.view') || app(\App\Services\StorePermissionService::class)->can($store, 'contabilidad.categorias.view') || app(\App\Services\StorePermissionService::class)->can($store, 'contabilidad.tipos.view') || app(\App\Services\StorePermissionService::class)->can($store, 'contabilidad.comprobantes.view');
                             $canVentas = app(\App\Services\StorePermissionService::class)->can($store, 'ventas.carrito.view') || app(\App\Services\StorePermissionService::class)->can($store, 'cotizaciones.view');
                             $canSuscripciones = app(\App\Services\StorePermissionService::class)->can($store, 'subscriptions.view') || app(\App\Services\StorePermissionService::class)->can($store, 'asistencias.view');
                         @endphp
                         @if($canPersonas)
-                        <x-nav-link :href="route('stores.customers', $store)" :active="request()->routeIs('stores.customers*') || request()->routeIs('stores.workers*')" wire:navigate>
+                        <x-nav-link :href="route('stores.terceros', $store)" :active="request()->routeIs('stores.terceros*') || request()->routeIs('stores.workers*')" wire:navigate>
                             {{ __('Personas') }}
                         </x-nav-link>
                         @endif
@@ -65,7 +65,7 @@ new class extends Component
                                 }
                             }
                         @endphp
-                        <x-nav-link :href="route('stores.products', $store)" :active="request()->routeIs('stores.products*') || request()->routeIs('stores.categories*') || request()->routeIs('stores.attribute-groups*') || request()->routeIs('stores.proveedores*') || request()->routeIs('stores.product-purchases*') || (request()->routeIs('stores.purchases.show') && $isProductPurchaseMain)" wire:navigate>
+                        <x-nav-link :href="route('stores.products', $store)" :active="request()->routeIs('stores.products*') || request()->routeIs('stores.categories*') || request()->routeIs('stores.attribute-groups*') || request()->routeIs('stores.product-purchases*') || (request()->routeIs('stores.purchases.show') && $isProductPurchaseMain)" wire:navigate>
                             {{ __('Productos') }}
                         </x-nav-link>
                         @endif
@@ -166,8 +166,8 @@ new class extends Component
                     }
                 }
                 
-                $inPersonas = request()->routeIs('stores.customers*') || request()->routeIs('stores.workers*') || request()->routeIs('stores.workers.schedules*');
-                $inProductos = request()->routeIs('stores.products*') || request()->routeIs('stores.categories*') || request()->routeIs('stores.attribute-groups*') || request()->routeIs('stores.proveedores*') || request()->routeIs('stores.product-purchases*') || (request()->routeIs('stores.purchases.show') && $isProductPurchase);
+                $inPersonas = request()->routeIs('stores.terceros*') || request()->routeIs('stores.customers*') || request()->routeIs('stores.workers*') || request()->routeIs('stores.workers.schedules*');
+                $inProductos = request()->routeIs('stores.products*') || request()->routeIs('stores.categories*') || request()->routeIs('stores.attribute-groups*') || request()->routeIs('stores.product-purchases*') || (request()->routeIs('stores.purchases.show') && $isProductPurchase);
                 $inFinanciero = (request()->routeIs('stores.cajas*') || request()->routeIs('stores.activos*') || request()->routeIs('stores.accounts-payables*') || request()->routeIs('stores.accounts-receivables*') || request()->routeIs('stores.comprobantes-egreso*') || request()->routeIs('stores.comprobantes-ingreso*') || request()->routeIs('stores.invoices*') || request()->routeIs('stores.contabilidad*') || (request()->routeIs('stores.purchases*') && !$isProductPurchase)) && !request()->routeIs('stores.product-purchases*');
                 $inVentas = request()->routeIs('stores.ventas*');
                 $inSuscripciones = request()->routeIs('stores.subscriptions*');
@@ -177,14 +177,9 @@ new class extends Component
                 <div class="border-t border-white/5 bg-dark/80">
                     <div class="flex gap-1 py-2 overflow-x-auto">
                         @if($inPersonas)
-                            @storeCan($store, 'customers.view')
-                            <a href="{{ route('stores.customers', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.customers*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
-                                {{ __('Clientes') }}
-                            </a>
-                            @endstoreCan
-                            @storeCan($store, 'workers.view')
-                            <a href="{{ route('stores.workers', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.workers*') && !request()->routeIs('stores.workers.time-attendance') && !request()->routeIs('stores.workers.schedules*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
-                                {{ __('Trabajadores') }}
+                            @storeCan($store, 'terceros.view')
+                            <a href="{{ route('stores.terceros', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.terceros*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
+                                {{ __('Terceros') }}
                             </a>
                             @endstoreCan
                             @storeCan($store, 'workers.schedules.view')
@@ -207,11 +202,6 @@ new class extends Component
                             @storeCan($store, 'attribute-groups.view')
                             <a href="{{ route('stores.attribute-groups', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.attribute-groups*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
                                 {{ __('Atributos') }}
-                            </a>
-                            @endstoreCan
-                            @storeCan($store, 'proveedores.view')
-                            <a href="{{ route('stores.proveedores', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.proveedores*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
-                                {{ __('Proveedores') }}
                             </a>
                             @endstoreCan
                             @storeCan($store, 'product-purchases.view')
@@ -244,6 +234,14 @@ new class extends Component
                             @storeCan($store, 'contabilidad.tipos.view')
                             <a href="{{ route('stores.contabilidad.tipos', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.contabilidad.tipos*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
                                 {{ __('Tipos de comprobante') }}
+                            </a>
+                            @endstoreCan
+                            @storeCan($store, 'contabilidad.comprobantes.view')
+                            <a href="{{ route('stores.contabilidad.comprobantes', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.contabilidad.comprobantes*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
+                                {{ __('Asientos manuales') }}
+                            </a>
+                            <a href="{{ route('stores.contabilidad.diario', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.contabilidad.diario') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
+                                {{ __('Libro Diario') }}
                             </a>
                             @endstoreCan
                             @storeCan($store, 'activos.view')
@@ -300,9 +298,9 @@ new class extends Component
             @if($store)
                 @php
                     $perm = app(\App\Services\StorePermissionService::class);
-                    $canP = $perm->can($store, 'customers.view') || $perm->can($store, 'workers.view') || $perm->can($store, 'workers.schedules.view');
-                    $canProd = $perm->can($store, 'products.view') || $perm->can($store, 'categories.view') || $perm->can($store, 'attribute-groups.view') || $perm->can($store, 'inventario.view') || $perm->can($store, 'proveedores.view') || $perm->can($store, 'product-purchases.view') || $perm->can($store, 'support-documents.view');
-                    $canF = $perm->can($store, 'caja.view') || $perm->can($store, 'activos.view') || $perm->can($store, 'accounts-payables.view') || $perm->can($store, 'accounts-receivables.view') || $perm->can($store, 'comprobantes-egreso.view') || $perm->can($store, 'comprobantes-ingreso.view') || $perm->can($store, 'invoices.view') || $perm->can($store, 'purchases.view') || $perm->can($store, 'contabilidad.cuentas.view') || $perm->can($store, 'contabilidad.categorias.view') || $perm->can($store, 'contabilidad.tipos.view');
+                    $canP = $perm->can($store, 'terceros.view') || $perm->can($store, 'workers.schedules.view');
+                    $canProd = $perm->can($store, 'products.view') || $perm->can($store, 'categories.view') || $perm->can($store, 'attribute-groups.view') || $perm->can($store, 'inventario.view') || $perm->can($store, 'product-purchases.view') || $perm->can($store, 'support-documents.view');
+                    $canF = $perm->can($store, 'caja.view') || $perm->can($store, 'activos.view') || $perm->can($store, 'accounts-payables.view') || $perm->can($store, 'accounts-receivables.view') || $perm->can($store, 'comprobantes-egreso.view') || $perm->can($store, 'comprobantes-ingreso.view') || $perm->can($store, 'invoices.view') || $perm->can($store, 'purchases.view') || $perm->can($store, 'contabilidad.cuentas.view') || $perm->can($store, 'contabilidad.categorias.view') || $perm->can($store, 'contabilidad.tipos.view') || $perm->can($store, 'contabilidad.comprobantes.view');
                     $canV = $perm->can($store, 'ventas.carrito.view') || $perm->can($store, 'cotizaciones.view');
                     $canSuscripciones = $perm->can($store, 'subscriptions.view') || $perm->can($store, 'asistencias.view');
                 @endphp
@@ -314,14 +312,9 @@ new class extends Component
                 @endstoreCan
                 @if($canP)
                 <div class="px-4 py-2 text-xs font-semibold text-gray-400 uppercase">{{ __('Personas') }}</div>
-                @storeCan($store, 'customers.view')
-                <x-responsive-nav-link :href="route('stores.customers', $store)" :active="request()->routeIs('stores.customers*')" wire:navigate>
-                    {{ __('Clientes') }}
-                </x-responsive-nav-link>
-                @endstoreCan
-                @storeCan($store, 'workers.view')
-                <x-responsive-nav-link :href="route('stores.workers', $store)" :active="request()->routeIs('stores.workers*') && !request()->routeIs('stores.workers.time-attendance') && !request()->routeIs('stores.workers.schedules*')" wire:navigate>
-                    {{ __('Trabajadores') }}
+                @storeCan($store, 'terceros.view')
+                <x-responsive-nav-link :href="route('stores.terceros', $store)" :active="request()->routeIs('stores.terceros*')" wire:navigate>
+                    {{ __('Terceros') }}
                 </x-responsive-nav-link>
                 @endstoreCan
                 @storeCan($store, 'workers.schedules.view')
@@ -345,11 +338,6 @@ new class extends Component
                 @storeCan($store, 'attribute-groups.view')
                 <x-responsive-nav-link :href="route('stores.attribute-groups', $store)" :active="request()->routeIs('stores.attribute-groups*')" wire:navigate>
                     {{ __('Atributos') }}
-                </x-responsive-nav-link>
-                @endstoreCan
-                @storeCan($store, 'proveedores.view')
-                <x-responsive-nav-link :href="route('stores.proveedores', $store)" :active="request()->routeIs('stores.proveedores*')" wire:navigate>
-                    {{ __('Proveedores') }}
                 </x-responsive-nav-link>
                 @endstoreCan
                 @storeCan($store, 'product-purchases.view')
@@ -383,6 +371,14 @@ new class extends Component
                 @storeCan($store, 'contabilidad.tipos.view')
                 <x-responsive-nav-link :href="route('stores.contabilidad.tipos', $store)" :active="request()->routeIs('stores.contabilidad.tipos*')" wire:navigate>
                     {{ __('Tipos de comprobante') }}
+                </x-responsive-nav-link>
+                @endstoreCan
+                @storeCan($store, 'contabilidad.comprobantes.view')
+                <x-responsive-nav-link :href="route('stores.contabilidad.comprobantes', $store)" :active="request()->routeIs('stores.contabilidad.comprobantes*')" wire:navigate>
+                    {{ __('Asientos manuales') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('stores.contabilidad.diario', $store)" :active="request()->routeIs('stores.contabilidad.diario')" wire:navigate>
+                    {{ __('Libro Diario') }}
                 </x-responsive-nav-link>
                 @endstoreCan
                 @storeCan($store, 'activos.view')

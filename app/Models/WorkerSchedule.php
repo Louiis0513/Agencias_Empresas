@@ -11,7 +11,7 @@ class WorkerSchedule extends Model
 
     protected $fillable = [
         'store_id',
-        'worker_id',
+        'tercero_id',
         'fecha_hora_entrada',
         'fecha_hora_salida',
         'es_festivo',
@@ -41,7 +41,12 @@ class WorkerSchedule extends Model
 
     public function worker(): BelongsTo
     {
-        return $this->belongsTo(Worker::class);
+        return $this->belongsTo(Tercero::class, 'tercero_id');
+    }
+
+    public function tercero(): BelongsTo
+    {
+        return $this->belongsTo(Tercero::class, 'tercero_id');
     }
 
     public function registeredBy(): BelongsTo

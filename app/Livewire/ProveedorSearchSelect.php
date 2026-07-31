@@ -2,7 +2,7 @@
 
 namespace App\Livewire;
 
-use App\Models\Proveedor;
+use App\Models\Tercero;
 use Livewire\Component;
 
 class ProveedorSearchSelect extends Component
@@ -10,6 +10,8 @@ class ProveedorSearchSelect extends Component
     public int $storeId;
 
     public ?int $selectedProveedorId = null;
+
+    public ?int $selectedTerceroId = null;
 
     public string $emitEventName = 'proveedor-selected';
 
@@ -27,11 +29,14 @@ class ProveedorSearchSelect extends Component
         ?int $selectedProveedorId = null,
         string $emitEventName = 'proveedor-selected',
         string $emitClearEventName = 'proveedor-cleared',
+        ?int $selectedTerceroId = null,
     ): void {
+        $selectedProveedorId = $selectedTerceroId ?? $selectedProveedorId;
         $this->storeId = $storeId;
         $this->emitEventName = $emitEventName;
         $this->emitClearEventName = $emitClearEventName;
         $this->selectedProveedorId = $selectedProveedorId;
+        $this->selectedTerceroId = $selectedProveedorId;
 
         if ($selectedProveedorId) {
             $this->loadSelectedProveedor($selectedProveedorId);
@@ -40,6 +45,7 @@ class ProveedorSearchSelect extends Component
 
     public function updatedSelectedProveedorId($value): void
     {
+        $this->selectedTerceroId = $value ? (int) $value : null;
         if ($value) {
             $this->loadSelectedProveedor((int) $value);
         } else {
@@ -47,10 +53,17 @@ class ProveedorSearchSelect extends Component
         }
     }
 
+    public function updatedSelectedTerceroId($value): void
+    {
+        $this->selectedProveedorId = $value ? (int) $value : null;
+        $value ? $this->loadSelectedProveedor((int) $value) : $this->proveedorSeleccionado = null;
+    }
+
     protected function loadSelectedProveedor(int $proveedorId): void
     {
-        $p = Proveedor::where('id', $proveedorId)
+        $p = Tercero::where('id', $proveedorId)
             ->where('store_id', $this->storeId)
+            ->conRol(Tercero::ROL_PROVEEDOR)
             ->first();
 
         if ($p) {
@@ -86,18 +99,20 @@ class ProveedorSearchSelect extends Component
             return collect();
         }
 
-        return Proveedor::deTienda($this->storeId)
+        return Tercero::deStore($this->storeId)
+            ->conRol(Tercero::ROL_PROVEEDOR)
             ->activos()
             ->buscar($termino)
             ->orderBy('nombre')
             ->limit(50)
-            ->get(['id', 'nombre', 'nit']);
+            ->get(['id', 'nombre', 'numero_identificacion']);
     }
 
     public function seleccionarProveedor(int $proveedorId): void
     {
-        $p = Proveedor::where('id', $proveedorId)
+        $p = Tercero::where('id', $proveedorId)
             ->where('store_id', $this->storeId)
+            ->conRol(Tercero::ROL_PROVEEDOR)
             ->first();
 
         if ($p) {
@@ -107,6 +122,7 @@ class ProveedorSearchSelect extends Component
                 'nit' => $p->nit,
             ];
             $this->selectedProveedorId = $p->id;
+            $this->selectedTerceroId = $p->id;
             $this->cerrarModal();
 
             $this->dispatch($this->emitEventName, proveedor_id: $p->id, nombre: $p->nombre);
@@ -117,6 +133,7 @@ class ProveedorSearchSelect extends Component
     {
         $this->proveedorSeleccionado = null;
         $this->selectedProveedorId = null;
+        $this->selectedTerceroId = null;
         $this->cerrarModal();
         $this->dispatch($this->emitClearEventName);
     }

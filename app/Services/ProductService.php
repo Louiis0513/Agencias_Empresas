@@ -735,7 +735,8 @@ class ProductService
      */
     protected function syncProveedores(Product $product, Store $store, array $proveedorIds): void
     {
-        $validIds = \App\Models\Proveedor::where('store_id', $store->id)
+        $validIds = \App\Models\Tercero::where('store_id', $store->id)
+            ->conRol(\App\Models\Tercero::ROL_PROVEEDOR)
             ->whereIn('id', $proveedorIds)
             ->pluck('id')
             ->toArray();

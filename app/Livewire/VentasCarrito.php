@@ -928,7 +928,7 @@ class VentasCarrito extends Component
             return collect();
         }
 
-        return Customer::where('store_id', $store->id)->orderBy('name')->get();
+        return Customer::where('store_id', $store->id)->orderBy('nombre')->get();
     }
 
     public function render()

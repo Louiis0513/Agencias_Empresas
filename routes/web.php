@@ -7,12 +7,12 @@ use App\Http\Controllers\StoreAccountReceivableController;
 use App\Http\Controllers\StoreActivoController;
 use App\Http\Controllers\StoreAsistenciaController;
 use App\Http\Controllers\StoreCajaController;
+use App\Http\Controllers\StoreCategoriaContableController;
 use App\Http\Controllers\StoreCategoryController;
+use App\Http\Controllers\StoreComprobanteContableController;
 use App\Http\Controllers\StoreConfigController;
 use App\Http\Controllers\StoreController;
 use App\Http\Controllers\StoreCuentaContableController;
-use App\Http\Controllers\StoreCategoriaContableController;
-use App\Http\Controllers\StoreTipoComprobanteController;
 use App\Http\Controllers\StoreCustomerController;
 use App\Http\Controllers\StoreInventoryController;
 use App\Http\Controllers\StoreInvoiceAnalysisController;
@@ -24,6 +24,8 @@ use App\Http\Controllers\StoreProveedorController;
 use App\Http\Controllers\StorePurchaseController;
 use App\Http\Controllers\StoreRoleController;
 use App\Http\Controllers\StoreSubscriptionController;
+use App\Http\Controllers\StoreTerceroController;
+use App\Http\Controllers\StoreTipoComprobanteController;
 use App\Http\Controllers\StoreVitrinaController;
 use App\Http\Controllers\StoreWorkerController;
 use App\Http\Controllers\StoreWorkerHourRateTemplateController;
@@ -80,8 +82,21 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::get('/configuracion', [StoreConfigController::class, 'edit'])->name('configuracion');
     Route::put('/configuracion', [StoreConfigController::class, 'update'])->name('configuracion.update');
 
+    Route::get('/terceros', [StoreTerceroController::class, 'index'])->name('terceros');
+    Route::post('/terceros', [StoreTerceroController::class, 'store'])->name('terceros.store');
+    Route::get('/terceros/crear', [StoreTerceroController::class, 'create'])->name('terceros.create');
+    Route::get('/terceros/productos/buscar', [StoreTerceroController::class, 'buscarProductos'])->name('terceros.productos.buscar');
+    Route::post('/terceros/{tercero}/contactos', [StoreTerceroController::class, 'storeContacto'])->name('terceros.contactos.store');
+    Route::put('/terceros/{tercero}/contactos/{contacto}', [StoreTerceroController::class, 'updateContacto'])->name('terceros.contactos.update');
+    Route::delete('/terceros/{tercero}/contactos/{contacto}', [StoreTerceroController::class, 'destroyContacto'])->name('terceros.contactos.destroy');
+    Route::post('/terceros/{tercero}/direcciones', [StoreTerceroController::class, 'storeDireccion'])->name('terceros.direcciones.store');
+    Route::put('/terceros/{tercero}/direcciones/{direccion}', [StoreTerceroController::class, 'updateDireccion'])->name('terceros.direcciones.update');
+    Route::delete('/terceros/{tercero}/direcciones/{direccion}', [StoreTerceroController::class, 'destroyDireccion'])->name('terceros.direcciones.destroy');
+    Route::get('/terceros/{tercero}', [StoreTerceroController::class, 'show'])->name('terceros.show');
+    Route::put('/terceros/{tercero}', [StoreTerceroController::class, 'update'])->name('terceros.update');
+    Route::delete('/terceros/{tercero}', [StoreTerceroController::class, 'destroy'])->name('terceros.destroy');
+
     Route::get('/trabajadores', [StoreWorkerController::class, 'index'])->name('workers');
-    Route::get('/trabajadores/crear', [StoreWorkerController::class, 'create'])->name('workers.create');
     Route::get('/trabajadores/registro-horarios', [StoreWorkerController::class, 'timeAttendance'])->name('workers.time-attendance');
     Route::get('/trabajadores/registro-horarios/clasificacion-excel', [StoreWorkerController::class, 'exportTimeAttendanceClassification'])->name('workers.time-attendance.classification-excel');
     Route::post('/trabajadores/registro-horarios', [StoreWorkerScheduleController::class, 'store'])->name('workers.schedules.store');
@@ -90,11 +105,6 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::post('/trabajadores/registro-horarios/plantillas-valor-hora', [StoreWorkerHourRateTemplateController::class, 'store'])->name('workers.schedules.rate-templates.store');
     Route::put('/trabajadores/registro-horarios/plantillas-valor-hora/{template}', [StoreWorkerHourRateTemplateController::class, 'update'])->name('workers.schedules.rate-templates.update');
     Route::delete('/trabajadores/registro-horarios/plantillas-valor-hora/{template}', [StoreWorkerHourRateTemplateController::class, 'destroy'])->name('workers.schedules.rate-templates.destroy');
-    Route::post('/trabajadores', [StoreWorkerController::class, 'store'])->name('workers.store');
-    Route::get('/trabajadores/{worker}/editar', [StoreWorkerController::class, 'edit'])->name('workers.edit');
-    Route::put('/trabajadores/{worker}', [StoreWorkerController::class, 'update'])->name('workers.update');
-    Route::delete('/trabajadores/{worker}', [StoreWorkerController::class, 'destroy'])->name('workers.destroy');
-
     Route::get('/roles', [StoreRoleController::class, 'index'])->name('roles');
     Route::get('/roles/{role}/permisos', [StoreRoleController::class, 'permissions'])->name('roles.permissions');
     Route::post('/roles/{role}/permisos', [StoreRoleController::class, 'updatePermissions'])->name('roles.permissions.update');
@@ -158,9 +168,6 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
 
     // Proveedores
     Route::get('/proveedores', [StoreProveedorController::class, 'index'])->name('proveedores');
-    Route::post('/proveedores', [StoreProveedorController::class, 'store'])->name('proveedores.store');
-    Route::put('/proveedores/{proveedor}', [StoreProveedorController::class, 'update'])->name('proveedores.update');
-    Route::delete('/proveedores/{proveedor}', [StoreProveedorController::class, 'destroy'])->name('proveedores.destroy');
 
     // Suscripciones (planes, membresías)
     Route::get('/suscripciones/membresias', [StoreSubscriptionController::class, 'memberships'])->name('subscriptions.memberships');
@@ -176,9 +183,6 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
 
     // Clientes
     Route::get('/clientes', [StoreCustomerController::class, 'index'])->name('customers');
-    Route::post('/clientes', [StoreCustomerController::class, 'store'])->name('customers.store');
-    Route::put('/clientes/{customer}', [StoreCustomerController::class, 'update'])->name('customers.update');
-    Route::delete('/clientes/{customer}', [StoreCustomerController::class, 'destroy'])->name('customers.destroy');
 
     Route::get('/caja', [StoreCajaController::class, 'index'])->name('cajas');
     Route::get('/caja/movimientos/exportar-excel', [StoreCajaController::class, 'exportMovimientosExcel'])->name('cajas.movimientos.export-excel');
@@ -228,6 +232,16 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::get('/contabilidad/tipos-comprobante', [StoreTipoComprobanteController::class, 'index'])->name('contabilidad.tipos');
     Route::post('/contabilidad/tipos-comprobante', [StoreTipoComprobanteController::class, 'store'])->name('contabilidad.tipos.store');
     Route::put('/contabilidad/tipos-comprobante/{tipoComprobante}', [StoreTipoComprobanteController::class, 'update'])->name('contabilidad.tipos.update');
+
+    Route::get('/contabilidad/comprobantes', [StoreComprobanteContableController::class, 'index'])->name('contabilidad.comprobantes');
+    Route::get('/contabilidad/comprobantes/crear', [StoreComprobanteContableController::class, 'create'])->name('contabilidad.comprobantes.create');
+    Route::get('/contabilidad/libro-diario', [StoreComprobanteContableController::class, 'diario'])->name('contabilidad.diario');
+    Route::post('/contabilidad/comprobantes', [StoreComprobanteContableController::class, 'store'])->name('contabilidad.comprobantes.store');
+    Route::get('/contabilidad/comprobantes/{comprobanteContable}', [StoreComprobanteContableController::class, 'show'])->name('contabilidad.comprobantes.show');
+    Route::get('/contabilidad/comprobantes/{comprobanteContable}/editar', [StoreComprobanteContableController::class, 'edit'])->name('contabilidad.comprobantes.edit');
+    Route::put('/contabilidad/comprobantes/{comprobanteContable}', [StoreComprobanteContableController::class, 'update'])->name('contabilidad.comprobantes.update');
+    Route::post('/contabilidad/comprobantes/{comprobanteContable}/contabilizar', [StoreComprobanteContableController::class, 'contabilizar'])->name('contabilidad.comprobantes.post');
+    Route::post('/contabilidad/comprobantes/{comprobanteContable}/reversar', [StoreComprobanteContableController::class, 'reversar'])->name('contabilidad.comprobantes.reverse');
 
     // Activos Fijos
     Route::controller(StoreActivoController::class)->group(function () {

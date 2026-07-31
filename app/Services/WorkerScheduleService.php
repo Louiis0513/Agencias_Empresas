@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Models\Store;
-use App\Models\Worker;
+use App\Models\Tercero;
 use App\Models\WorkerSchedule;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Validator;
@@ -47,7 +47,7 @@ class WorkerScheduleService
         return WorkerSchedule::query()
             ->where('store_id', $store->id)
             ->whereBetween('fecha_hora_entrada', [$fromUtc, $toUtc])
-            ->with(['worker.role'])
+            ->with(['worker.perfilTrabajador.role'])
             ->orderBy('fecha_hora_entrada')
             ->get();
     }
@@ -60,6 +60,7 @@ class WorkerScheduleService
     public function create(Store $store, array $data, int $userId): WorkerSchedule
     {
         $this->validatePayload($store, $data, null);
+        $workerId = (int) ($data['tercero_id'] ?? $data['worker_id']);
 
         $fechaHoraEntrada = $this->parseDateTimeInStoreTz($store, $data['fecha_hora_entrada']);
         $fechaHoraSalida = ! empty($data['fecha_hora_salida'])
@@ -67,7 +68,7 @@ class WorkerScheduleService
             : null;
 
         $this->assertSalidaAfterEntrada($fechaHoraEntrada, $fechaHoraSalida);
-        $this->assertNoOverlap($store, (int) $data['worker_id'], $fechaHoraEntrada, $fechaHoraSalida, null);
+        $this->assertNoOverlap($store, $workerId, $fechaHoraEntrada, $fechaHoraSalida, null);
 
         $esDomingo = $this->isSundayInStoreTz($store, $fechaHoraEntrada);
         $esFestivo = $this->toBool($data['es_festivo'] ?? false);
@@ -93,7 +94,7 @@ class WorkerScheduleService
 
         $saved = WorkerSchedule::create([
             'store_id' => $store->id,
-            'worker_id' => (int) $data['worker_id'],
+            'tercero_id' => $workerId,
             'fecha_hora_entrada' => $fechaHoraEntrada,
             'fecha_hora_salida' => $fechaHoraSalida,
             'es_festivo' => $esFestivo,
@@ -108,7 +109,7 @@ class WorkerScheduleService
         $this->debugLog('run-pre-fix-1', 'H2', 'WorkerScheduleService.php:create', 'Created worker schedule', [
             'id' => $saved->id,
             'store_id' => $saved->store_id,
-            'worker_id' => $saved->worker_id,
+            'worker_id' => $saved->tercero_id,
             'entrada_attr_raw' => (string) $saved->getRawOriginal('fecha_hora_entrada'),
             'entrada_cast' => $saved->fecha_hora_entrada?->format('Y-m-d H:i:s'),
             'entrada_as_store_tz' => $saved->fecha_hora_entrada?->copy()->timezone($this->storeTimezoneService->getTimezoneForStore($store))->format('Y-m-d H:i:s'),
@@ -131,6 +132,7 @@ class WorkerScheduleService
         }
 
         $this->validatePayload($store, $data, $schedule->id);
+        $workerId = (int) ($data['tercero_id'] ?? $data['worker_id']);
 
         $fechaHoraEntrada = $this->parseDateTimeInStoreTz($store, $data['fecha_hora_entrada']);
         $fechaHoraSalida = ! empty($data['fecha_hora_salida'])
@@ -138,7 +140,7 @@ class WorkerScheduleService
             : null;
 
         $this->assertSalidaAfterEntrada($fechaHoraEntrada, $fechaHoraSalida);
-        $this->assertNoOverlap($store, (int) $data['worker_id'], $fechaHoraEntrada, $fechaHoraSalida, $schedule->id);
+        $this->assertNoOverlap($store, $workerId, $fechaHoraEntrada, $fechaHoraSalida, $schedule->id);
 
         $esDomingo = $this->isSundayInStoreTz($store, $fechaHoraEntrada);
         $esFestivo = $this->toBool($data['es_festivo'] ?? false);
@@ -163,7 +165,7 @@ class WorkerScheduleService
         }
 
         $schedule->update([
-            'worker_id' => (int) $data['worker_id'],
+            'tercero_id' => $workerId,
             'fecha_hora_entrada' => $fechaHoraEntrada,
             'fecha_hora_salida' => $fechaHoraSalida,
             'es_festivo' => $esFestivo,
@@ -178,7 +180,7 @@ class WorkerScheduleService
         $this->debugLog('run-pre-fix-1', 'H2', 'WorkerScheduleService.php:update', 'Updated worker schedule', [
             'id' => $fresh?->id,
             'store_id' => $fresh?->store_id,
-            'worker_id' => $fresh?->worker_id,
+            'worker_id' => $fresh?->tercero_id,
             'entrada_attr_raw' => $fresh ? (string) $fresh->getRawOriginal('fecha_hora_entrada') : null,
             'entrada_cast' => $fresh?->fecha_hora_entrada?->format('Y-m-d H:i:s'),
             'entrada_as_store_tz' => $fresh?->fecha_hora_entrada?->copy()->timezone($this->storeTimezoneService->getTimezoneForStore($store))->format('Y-m-d H:i:s'),
@@ -204,14 +206,18 @@ class WorkerScheduleService
      */
     private function validatePayload(Store $store, array $data, ?int $ignoreId): void
     {
-        Validator::make($data, [
-            'worker_id' => 'required|integer|exists:workers,id',
+        $workerId = $data['tercero_id'] ?? $data['worker_id'] ?? null;
+        Validator::make([...$data, 'worker_id' => $workerId], [
+            'worker_id' => 'required|integer|exists:terceros,id',
             'fecha_hora_entrada' => 'required|date',
             'fecha_hora_salida' => 'nullable|date',
             'observaciones' => 'nullable|string|max:500',
         ])->validate();
 
-        $worker = Worker::where('id', $data['worker_id'])->where('store_id', $store->id)->first();
+        $worker = Tercero::where('id', $workerId)
+            ->where('store_id', $store->id)
+            ->conRol(Tercero::ROL_TRABAJADOR)
+            ->first();
         if (! $worker) {
             throw ValidationException::withMessages([
                 'worker_id' => 'El trabajador no pertenece a esta tienda.',
@@ -235,7 +241,7 @@ class WorkerScheduleService
     {
         $existentes = WorkerSchedule::query()
             ->where('store_id', $store->id)
-            ->where('worker_id', $workerId)
+            ->where('tercero_id', $workerId)
             ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))
             ->get();
 

@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Models\Store;
-use App\Models\Worker;
+use App\Models\Tercero;
 use App\Models\WorkerSchedule;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -48,7 +48,7 @@ class WorkerScheduleClassificationExcelExportService
         string $storeTimezone,
         Carbon $fromLocalStart,
         Carbon $toLocalEnd,
-        ?Worker $filteredWorker,
+        ?Tercero $filteredWorker,
         Collection $schedulesInRange,
         WorkerScheduleLiquidationService $liquidationService,
         ?array $ratesOverride = null
@@ -342,7 +342,7 @@ class WorkerScheduleClassificationExcelExportService
             $startsNewVisualGroup = false;
             if ($dateGroupIndex < 0) {
                 $startsNewVisualGroup = true;
-            } elseif ($previousWorkerId !== $schedule->worker_id) {
+            } elseif ($previousWorkerId !== $schedule->tercero_id) {
                 $startsNewVisualGroup = true;
             } elseif (! $previousSalida || ! $entrada) {
                 $startsNewVisualGroup = true;
@@ -361,7 +361,7 @@ class WorkerScheduleClassificationExcelExportService
                 ->setFillType(Fill::FILL_SOLID)
                 ->getStartColor()->setARGB($zebra);
 
-            $previousWorkerId = $schedule->worker_id;
+            $previousWorkerId = $schedule->tercero_id;
             $previousSalida = $salida;
             $row++;
         }
@@ -379,7 +379,7 @@ class WorkerScheduleClassificationExcelExportService
      */
     private function writePaymentDetailSheet(
         Spreadsheet $spreadsheet,
-        ?Worker $filteredWorker,
+        ?Tercero $filteredWorker,
         Carbon $fromLocalStart,
         Carbon $toLocalEnd,
         array $totalPorTipo,

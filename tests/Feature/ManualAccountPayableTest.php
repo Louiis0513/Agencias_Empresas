@@ -5,12 +5,13 @@ namespace Tests\Feature;
 use App\Models\AccountPayable;
 use App\Models\Bolsillo;
 use App\Models\ComprobanteEgreso;
-use App\Models\Proveedor;
 use App\Models\Purchase;
 use App\Models\Store;
+use App\Models\Tercero;
 use App\Models\User;
 use App\Services\AccountPayableService;
 use App\Services\SesionCajaService;
+use App\Services\TerceroService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -122,16 +123,17 @@ class ManualAccountPayableTest extends TestCase
         [$user, $store] = $this->seedStoreWithOwner();
         [$bolsillo] = $this->seedOpenCajaConSaldo($store, $user, 500000.0);
 
-        $proveedor = Proveedor::create([
-            'store_id' => $store->id,
+        $proveedor = app(TerceroService::class)->crear($store, [
             'nombre' => 'Prov SA',
-            'nit' => '900123',
+            'tipo_identificacion' => 'NIT',
+            'numero_identificacion' => '900123',
+            'roles' => [Tercero::ROL_PROVEEDOR],
         ]);
 
         $purchase = Purchase::create([
             'store_id' => $store->id,
             'user_id' => $user->id,
-            'proveedor_id' => $proveedor->id,
+            'tercero_id' => $proveedor->id,
             'status' => Purchase::STATUS_APROBADO,
             'purchase_type' => Purchase::TYPE_ACTIVO,
             'payment_status' => Purchase::PAYMENT_PENDIENTE,

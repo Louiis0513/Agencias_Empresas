@@ -55,7 +55,7 @@ class PurchaseService
             $purchase = Purchase::create([
                 'store_id' => $store->id,
                 'user_id' => $userId,
-                'proveedor_id' => $data['proveedor_id'] ?? null,
+                'tercero_id' => $data['tercero_id'] ?? $data['proveedor_id'] ?? null,
                 'status' => Purchase::STATUS_BORRADOR,
                 'purchase_type' => $purchaseType,
                 'payment_status' => $paymentStatus,
@@ -93,6 +93,10 @@ class PurchaseService
 
             $details = $data['details'] ?? null;
             unset($data['details']);
+            if (array_key_exists('proveedor_id', $data)) {
+                $data['tercero_id'] = $data['proveedor_id'];
+                unset($data['proveedor_id']);
+            }
 
             if ($details !== null) {
                 $details = $this->normalizarDetallesParaCompra($details);
@@ -435,7 +439,7 @@ class PurchaseService
             throw new ValidationException($validator);
         }
 
-        if ($purchase->purchase_type === Purchase::TYPE_PRODUCTO && empty($purchase->proveedor_id)) {
+        if ($purchase->purchase_type === Purchase::TYPE_PRODUCTO && empty($purchase->tercero_id)) {
             $validator = Validator::make([], []);
             $validator->errors()->add('proveedor_id', 'Las compras de productos deben tener un proveedor seleccionado.');
             throw new ValidationException($validator);
@@ -558,7 +562,7 @@ class PurchaseService
 
         $purchaseType = $data['purchase_type'] ?? $purchase?->purchase_type ?? Purchase::TYPE_ACTIVO;
         if ($purchaseType === Purchase::TYPE_PRODUCTO) {
-            $proveedorId = $data['proveedor_id'] ?? $purchase?->proveedor_id ?? null;
+            $proveedorId = $data['tercero_id'] ?? $data['proveedor_id'] ?? $purchase?->tercero_id ?? null;
             if (empty($proveedorId)) {
                 $validator = Validator::make([], []);
                 $validator->errors()->add('proveedor_id', 'Las compras de productos deben tener un proveedor seleccionado.');
@@ -566,7 +570,7 @@ class PurchaseService
             }
             Validator::make(
                 ['proveedor_id' => $proveedorId],
-                ['proveedor_id' => ['required', 'exists:proveedores,id']],
+                ['proveedor_id' => ['required', 'exists:terceros,id']],
                 ['proveedor_id.exists' => 'El proveedor seleccionado no es válido.']
             )->validate();
         }
@@ -712,6 +716,7 @@ class PurchaseService
             ['purchase_id' => $purchase->id],
             [
                 'store_id' => $purchase->store_id,
+                'tercero_id' => $purchase->tercero_id,
                 'source' => AccountPayable::SOURCE_COMPRA,
                 'total_amount' => $purchase->total,
                 'balance' => $purchase->total,

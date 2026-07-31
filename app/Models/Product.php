@@ -101,7 +101,10 @@ class Product extends Model
 
     public function proveedores()
     {
-        return $this->belongsToMany(Proveedor::class, 'producto_proveedor')
+        return $this->belongsToMany(Tercero::class, 'producto_tercero', 'product_id', 'tercero_id')
+            ->whereHas('roles', fn ($query) => $query
+                ->where('rol', Tercero::ROL_PROVEEDOR)
+                ->where('activo', true))
             ->withTimestamps();
     }
 

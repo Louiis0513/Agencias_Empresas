@@ -2,8 +2,8 @@
 
 namespace App\Livewire;
 
-use App\Models\Customer;
 use App\Models\Store;
+use App\Models\Tercero;
 use App\Services\CustomerService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
@@ -53,8 +53,10 @@ class EditCustomerModal extends Component
             return;
         }
 
-        $customer = Customer::where('id', $this->customerId)
+        $customer = Tercero::where('id', $this->customerId)
             ->where('store_id', $store->id)
+            ->conRol(Tercero::ROL_CLIENTE)
+            ->with('perfilCliente.gym')
             ->first();
 
         if ($customer) {
@@ -62,12 +64,12 @@ class EditCustomerModal extends Component
             $this->email = $customer->email;
             $this->document_number = $customer->document_number;
             $this->address = $customer->address;
-            $this->gender = $customer->gender;
-            $this->blood_type = $customer->blood_type;
-            $this->eps = $customer->eps;
-            $this->birth_date = $customer->birth_date?->format('Y-m-d');
-            $this->emergency_contact_name = $customer->emergency_contact_name;
-            $this->emergency_contact_phone = $customer->emergency_contact_phone;
+            $this->gender = $customer->perfilCliente?->gym?->gender;
+            $this->blood_type = $customer->perfilCliente?->gym?->blood_type;
+            $this->eps = $customer->perfilCliente?->gym?->eps;
+            $this->birth_date = $customer->perfilCliente?->gym?->birth_date?->format('Y-m-d');
+            $this->emergency_contact_name = $customer->perfilCliente?->gym?->emergency_contact_name;
+            $this->emergency_contact_phone = $customer->perfilCliente?->gym?->emergency_contact_phone;
 
             $parsed = $this->parsePhone($customer->phone);
             $this->phone_country_code = $parsed['code'] ?? '57';
@@ -88,8 +90,10 @@ class EditCustomerModal extends Component
             return;
         }
 
-        $customer = Customer::where('id', $this->customerId)
+        $customer = Tercero::where('id', $this->customerId)
             ->where('store_id', $store->id)
+            ->conRol(Tercero::ROL_CLIENTE)
+            ->with('perfilCliente.gym')
             ->first();
 
         if ($customer) {
@@ -97,12 +101,12 @@ class EditCustomerModal extends Component
             $this->email = $customer->email;
             $this->document_number = $customer->document_number;
             $this->address = $customer->address;
-            $this->gender = $customer->gender;
-            $this->blood_type = $customer->blood_type;
-            $this->eps = $customer->eps;
-            $this->birth_date = $customer->birth_date?->format('Y-m-d');
-            $this->emergency_contact_name = $customer->emergency_contact_name;
-            $this->emergency_contact_phone = $customer->emergency_contact_phone;
+            $this->gender = $customer->perfilCliente?->gym?->gender;
+            $this->blood_type = $customer->perfilCliente?->gym?->blood_type;
+            $this->eps = $customer->perfilCliente?->gym?->eps;
+            $this->birth_date = $customer->perfilCliente?->gym?->birth_date?->format('Y-m-d');
+            $this->emergency_contact_name = $customer->perfilCliente?->gym?->emergency_contact_name;
+            $this->emergency_contact_phone = $customer->perfilCliente?->gym?->emergency_contact_phone;
 
             $parsed = $this->parsePhone($customer->phone);
             $this->phone_country_code = $parsed['code'] ?? '57';
@@ -145,7 +149,7 @@ class EditCustomerModal extends Component
                 'lowercase',
                 'email',
                 'max:255',
-                Rule::unique('customers', 'email')
+                Rule::unique('terceros', 'email')
                     ->where('store_id', $store?->id ?? 0)
                     ->whereNotNull('email')
                     ->ignore($this->customerId),
@@ -217,7 +221,7 @@ class EditCustomerModal extends Component
             $this->reset(['customerId', 'name', 'email', 'phone_country_code', 'phone', 'document_number', 'address', 'gender', 'blood_type', 'eps', 'birth_date', 'emergency_contact_name', 'emergency_contact_phone']);
             $this->resetValidation();
 
-            return redirect()->route('stores.customers', $store)
+            return redirect()->route('stores.terceros', ['store' => $store, 'rol' => 'cliente'])
                 ->with('success', 'Cliente actualizado correctamente.');
         } catch (\Exception $e) {
             $this->addError('name', $e->getMessage());

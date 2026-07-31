@@ -129,14 +129,14 @@ class ProductPurchasesBandejaService
     protected function comprasUnionSubquery(int $storeId, array $filtros): array
     {
         $q = DB::table('purchases')
-            ->leftJoin('proveedores', 'proveedores.id', '=', 'purchases.proveedor_id')
+            ->leftJoin('terceros', 'terceros.id', '=', 'purchases.tercero_id')
             ->where('purchases.store_id', $storeId)
             ->where('purchases.purchase_type', Purchase::TYPE_PRODUCTO)
             ->selectRaw("'purchase' as source")
             ->addSelect([
                 'purchases.id as id',
                 'purchases.created_at as created_at',
-                'proveedores.nombre as proveedor_nombre',
+                'terceros.nombre as proveedor_nombre',
                 'purchases.total as total',
                 'purchases.status as status',
                 'purchases.payment_status as payment_status',
@@ -154,7 +154,7 @@ class ProductPurchasesBandejaService
         }
         if (! empty(trim((string) ($filtros['proveedor_nombre'] ?? '')))) {
             $term = '%'.trim((string) $filtros['proveedor_nombre']).'%';
-            $q->where('proveedores.nombre', 'like', $term);
+            $q->where('terceros.nombre', 'like', $term);
         }
         if (! empty($filtros['fecha_desde'])) {
             $q->whereDate('purchases.created_at', '>=', $filtros['fecha_desde']);
@@ -172,13 +172,13 @@ class ProductPurchasesBandejaService
     protected function documentosUnionSubquery(int $storeId, array $filtros): array
     {
         $q = DB::table('support_documents')
-            ->leftJoin('proveedores', 'proveedores.id', '=', 'support_documents.proveedor_id')
+            ->leftJoin('terceros', 'terceros.id', '=', 'support_documents.tercero_id')
             ->where('support_documents.store_id', $storeId)
             ->selectRaw("'support_document' as source")
             ->addSelect([
                 'support_documents.id as id',
                 'support_documents.created_at as created_at',
-                'proveedores.nombre as proveedor_nombre',
+                'terceros.nombre as proveedor_nombre',
                 'support_documents.total as total',
                 'support_documents.status as status',
                 'support_documents.payment_status as payment_status',
@@ -198,7 +198,7 @@ class ProductPurchasesBandejaService
         }
         if (! empty(trim((string) ($filtros['proveedor_nombre'] ?? '')))) {
             $term = '%'.trim((string) $filtros['proveedor_nombre']).'%';
-            $q->where('proveedores.nombre', 'like', $term);
+            $q->where('terceros.nombre', 'like', $term);
         }
         if (! empty($filtros['fecha_desde'])) {
             $q->whereDate('support_documents.issue_date', '>=', $filtros['fecha_desde']);

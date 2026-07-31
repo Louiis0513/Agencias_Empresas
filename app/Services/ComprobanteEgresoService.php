@@ -10,6 +10,7 @@ use App\Models\MovimientoBolsillo;
 use App\Models\Purchase;
 use App\Models\SesionCaja;
 use App\Models\Store;
+use App\Models\Tercero;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -44,7 +45,9 @@ class ComprobanteEgresoService
     public function crearComprobante(Store $store, int $userId, array $data): ComprobanteEgreso
     {
         return DB::transaction(function () use ($store, $userId, $data) {
-            $proveedorId = ! empty($data['proveedor_id']) ? (int) $data['proveedor_id'] : null;
+            $proveedorId = ! empty($data['tercero_id'] ?? $data['proveedor_id'] ?? null)
+                ? (int) ($data['tercero_id'] ?? $data['proveedor_id'])
+                : null;
             $destinos = $data['destinos'] ?? [];
             $origenes = $data['origenes'] ?? [];
 
@@ -65,7 +68,7 @@ class ComprobanteEgresoService
 
             $comprobante = ComprobanteEgreso::create([
                 'store_id' => $store->id,
-                'proveedor_id' => $proveedorId,
+                'tercero_id' => $proveedorId,
                 'number' => $this->siguienteNumero($store),
                 'total_amount' => $totalDestinos,
                 'payment_date' => $data['payment_date'] ?? $this->storeTimezoneService->nowForStore($store)->toDateString(),
@@ -393,7 +396,7 @@ class ComprobanteEgresoService
         }
 
         if (! empty($filtros['proveedor_id'])) {
-            $query->where('comprobantes_egreso.proveedor_id', (int) $filtros['proveedor_id']);
+            $query->where('comprobantes_egreso.tercero_id', (int) $filtros['proveedor_id']);
         }
     }
 
@@ -468,14 +471,14 @@ class ComprobanteEgresoService
         $valorEnLetras = money_to_words_es((float) $c->total_amount, $cur);
 
         $proveedor = $c->proveedor;
-        $esGastoDirectoSinProveedor = $c->type === ComprobanteEgreso::TYPE_GASTO_DIRECTO && ! $c->proveedor_id;
+        $esGastoDirectoSinProveedor = $c->type === ComprobanteEgreso::TYPE_GASTO_DIRECTO && ! $c->tercero_id;
 
         if ($esGastoDirectoSinProveedor) {
             $pagadoNombre = '—';
             $pagadoNit = '—';
             $pagadoDireccion = '—';
             $pagadoCiudad = '—';
-        } elseif ($c->type === ComprobanteEgreso::TYPE_PAGO_CUENTA && ! $c->proveedor_id) {
+        } elseif ($c->type === ComprobanteEgreso::TYPE_PAGO_CUENTA && ! $c->tercero_id) {
             $cxpManual = $c->destinos->first(fn ($d) => $d->accountPayable && $d->accountPayable->isManual());
             if ($cxpManual && $cxpManual->accountPayable) {
                 $apCred = $cxpManual->accountPayable;
@@ -570,7 +573,7 @@ class ComprobanteEgresoService
     private function calcularBeneficiaryName(Store $store, ?int $proveedorId, array $destinos, bool $tieneCuentasPorPagar = false): ?string
     {
         if ($proveedorId) {
-            $proveedor = \App\Models\Proveedor::find($proveedorId);
+            $proveedor = Tercero::find($proveedorId);
 
             return $proveedor?->nombre ?? 'Proveedor';
         }
@@ -608,7 +611,7 @@ class ComprobanteEgresoService
             throw new Exception("La CxP #{$accountPayableId} no está vinculada a una compra con proveedor.");
         }
 
-        if ((int) $ap->purchase->proveedor_id !== $proveedorId) {
+        if ((int) $ap->purchase->tercero_id !== $proveedorId) {
             throw new Exception("La CxP #{$accountPayableId} no pertenece al proveedor seleccionado.");
         }
     }

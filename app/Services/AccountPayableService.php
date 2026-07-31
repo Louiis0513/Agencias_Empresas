@@ -79,7 +79,7 @@ class AccountPayableService
         }
 
         $comprobanteData = [
-            'proveedor_id' => $accountPayable->purchase?->proveedor_id,
+            'proveedor_id' => $accountPayable->tercero_id ?? $accountPayable->purchase?->tercero_id,
             'payment_date' => $data['payment_date'] ?? now()->toDateString(),
             'notes' => $data['notes'] ?? null,
             'destinos' => $destinos,
@@ -105,6 +105,7 @@ class AccountPayableService
             return AccountPayable::create([
                 'store_id' => $store->id,
                 'purchase_id' => null,
+                'tercero_id' => $data['tercero_id'] ?? $data['proveedor_id'] ?? null,
                 'source' => AccountPayable::SOURCE_MANUAL,
                 'creditor_name' => trim((string) $data['creditor_name']),
                 'creditor_document' => filled($data['creditor_document'] ?? null) ? trim((string) $data['creditor_document']) : null,
@@ -136,10 +137,10 @@ class AccountPayableService
             if ($filtros['proveedor_id'] === null || $filtros['proveedor_id'] === '') {
                 $query->where(function ($q) {
                     $q->where('source', AccountPayable::SOURCE_MANUAL)
-                        ->orWhereHas('purchase', fn ($pq) => $pq->whereNull('proveedor_id'));
+                        ->orWhereNull('tercero_id');
                 });
             } else {
-                $query->whereHas('purchase', fn ($q) => $q->where('proveedor_id', $filtros['proveedor_id']));
+                $query->where('tercero_id', $filtros['proveedor_id']);
             }
         }
 
@@ -169,7 +170,7 @@ class AccountPayableService
                 })
                     ->orWhereHas('purchase.proveedor', function ($sub) use ($term) {
                         $sub->where('nombre', 'like', "%{$term}%")
-                            ->orWhere('nit', 'like', "%{$term}%");
+                            ->orWhere('numero_identificacion', 'like', "%{$term}%");
                     })
                     ->orWhere(function ($q2) use ($term) {
                         $q2->where('source', AccountPayable::SOURCE_MANUAL)
@@ -220,10 +221,10 @@ class AccountPayableService
             if ($filtros['proveedor_id'] === null || $filtros['proveedor_id'] === '') {
                 $query->where(function ($q) {
                     $q->where('source', AccountPayable::SOURCE_MANUAL)
-                        ->orWhereHas('purchase', fn ($pq) => $pq->whereNull('proveedor_id'));
+                        ->orWhereNull('tercero_id');
                 });
             } else {
-                $query->whereHas('purchase', fn ($q) => $q->where('proveedor_id', $filtros['proveedor_id']));
+                $query->where('tercero_id', $filtros['proveedor_id']);
             }
         }
 
@@ -262,7 +263,7 @@ class AccountPayableService
                 })
                     ->orWhereHas('purchase.proveedor', function ($sub) use ($term) {
                         $sub->where('nombre', 'like', "%{$term}%")
-                            ->orWhere('nit', 'like', "%{$term}%");
+                            ->orWhere('numero_identificacion', 'like', "%{$term}%");
                     })
                     ->orWhere(function ($q2) use ($term) {
                         $q2->where('source', AccountPayable::SOURCE_MANUAL)

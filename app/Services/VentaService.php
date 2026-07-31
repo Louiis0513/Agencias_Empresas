@@ -220,7 +220,7 @@ class VentaService
             foreach ($subscriptionDetails as $item) {
                 $this->subscriptionService->createSubscription(
                     $store,
-                    (int) $factura->customer_id,
+                    (int) $factura->tercero_id,
                     (int) $item['store_plan_id'],
                     Carbon::parse($item['subscription_starts_at'])
                 );
@@ -329,7 +329,7 @@ class VentaService
             foreach ($subscriptionDetails as $item) {
                 $this->subscriptionService->createSubscription(
                     $store,
-                    (int) $factura->customer_id,
+                    (int) $factura->tercero_id,
                     (int) $item['store_plan_id'],
                     Carbon::parse($item['subscription_starts_at'])
                 );

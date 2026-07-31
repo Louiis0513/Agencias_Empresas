@@ -13,15 +13,13 @@ class StoreCustomerController extends Controller
 {
     public function index(Store $store, Request $request, CustomerService $customerService, StorePermissionService $permission)
     {
-        $permission->authorize($store, 'customers.view');
+        $permission->authorize($store, 'terceros.view');
 
-        $filtros = [
+        return redirect()->route('stores.terceros', [
+            'store' => $store,
+            'rol' => 'cliente',
             'search' => $request->get('search'),
-        ];
-
-        $customers = $customerService->getStoreCustomers($store, $filtros);
-
-        return view('stores.customer.clientes', compact('store', 'customers'));
+        ]);
     }
 
     public function store(Store $store, StoreCustomerRequest $request, CustomerService $customerService, StorePermissionService $permission)

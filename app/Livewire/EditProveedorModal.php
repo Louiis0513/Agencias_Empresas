@@ -3,8 +3,8 @@
 namespace App\Livewire;
 
 use App\Models\Product;
-use App\Models\Proveedor;
 use App\Models\Store;
+use App\Models\Tercero;
 use App\Services\ProductService;
 use App\Services\ProveedorService;
 use Illuminate\Support\Facades\Auth;
@@ -48,8 +48,9 @@ class EditProveedorModal extends Component
             return;
         }
 
-        $proveedor = Proveedor::where('id', $this->proveedorId)
+        $proveedor = Tercero::where('id', $this->proveedorId)
             ->where('store_id', $store->id)
+            ->conRol(Tercero::ROL_PROVEEDOR)
             ->first();
 
         if ($proveedor) {
@@ -60,7 +61,7 @@ class EditProveedorModal extends Component
             $this->email = $proveedor->email;
             $this->nit = $proveedor->nit;
             $this->direccion = $proveedor->direccion;
-            $this->estado = $proveedor->estado;
+            $this->estado = $proveedor->activo;
             $this->producto_ids = $proveedor->productos->pluck('id')->toArray();
 
             $this->dispatch('open-modal', 'edit-proveedor');
@@ -163,7 +164,7 @@ class EditProveedorModal extends Component
             $this->reset(['proveedorId', 'nombre', 'numero_celular', 'telefono', 'email', 'nit', 'direccion', 'estado', 'producto_ids', 'busquedaProducto', 'productosEncontrados']);
             $this->resetValidation();
 
-            return redirect()->route('stores.proveedores', $store)
+            return redirect()->route('stores.terceros', ['store' => $store, 'rol' => 'proveedor'])
                 ->with('success', 'Proveedor actualizado correctamente.');
         } catch (\Exception $e) {
             $this->addError('nombre', $e->getMessage());

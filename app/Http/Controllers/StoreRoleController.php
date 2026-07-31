@@ -85,7 +85,9 @@ class StoreRoleController extends Controller
 
         $role->load('permissions');
         $allPermissions = Permission::orderBy('name')->get();
-        $workersWithRole = $store->workerRecords()->where('role_id', $role->id)->get();
+        $workersWithRole = $store->workerRecords()
+            ->whereHas('perfilTrabajador', fn ($query) => $query->where('role_id', $role->id))
+            ->get();
 
         return view('stores.trabajadoryrol.role-permissions', compact('store', 'role', 'allPermissions', 'workersWithRole'));
     }

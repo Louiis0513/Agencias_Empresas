@@ -2,94 +2,57 @@
 
 namespace App\Services;
 
-use App\Models\Proveedor;
 use App\Models\Store;
-use Illuminate\Support\Facades\DB;
+use App\Models\Tercero;
 
+/** Adaptador temporal para callers legacy de proveedores. */
 class ProveedorService
 {
-    public function crearProveedor(Store $store, array $data): Proveedor
+    public function __construct(private readonly TerceroService $terceroService) {}
+
+    public function crearProveedor(Store $store, array $data): Tercero
     {
-        return DB::transaction(function () use ($store, $data) {
-            $productoIds = $data['producto_ids'] ?? [];
-            unset($data['producto_ids']);
-
-            $proveedor = Proveedor::create([
-                'store_id' => $store->id,
-                'nombre' => $data['nombre'],
-                'numero_celular' => $data['numero_celular'] ?? null,
-                'telefono' => $data['telefono'] ?? null,
-                'email' => $data['email'] ?? null,
-                'nit' => $data['nit'] ?? null,
-                'direccion' => $data['direccion'] ?? null,
-                'estado' => $data['estado'] ?? true,
-            ]);
-
-            $this->syncProductos($proveedor, $store, $productoIds);
-
-            return $proveedor;
-        });
+        return $this->terceroService->crear($store, $this->mapPayload($data));
     }
 
-    public function actualizarProveedor(Store $store, int $proveedorId, array $data): Proveedor
+    public function actualizarProveedor(Store $store, int $proveedorId, array $data): Tercero
     {
-        $proveedor = Proveedor::where('id', $proveedorId)
-            ->where('store_id', $store->id)
-            ->firstOrFail();
+        $tercero = $this->terceroService->obtener($store, $proveedorId);
+        $payload = $this->mapPayload($data);
+        $payload['roles'] = $tercero->roles->where('activo', true)->pluck('rol')->push(Tercero::ROL_PROVEEDOR)->unique()->values()->all();
 
-        return DB::transaction(function () use ($proveedor, $store, $data) {
-            $productoIds = $data['producto_ids'] ?? null;
-            unset($data['producto_ids']);
-
-            $proveedor->update($data);
-
-            if ($productoIds !== null) {
-                $this->syncProductos($proveedor, $store, $productoIds);
-            }
-
-            return $proveedor->fresh();
-        });
+        return $this->terceroService->actualizar($store, $tercero, $payload);
     }
 
     public function eliminarProveedor(Store $store, int $proveedorId): bool
     {
-        $proveedor = Proveedor::where('id', $proveedorId)
-            ->where('store_id', $store->id)
-            ->firstOrFail();
+        $this->terceroService->eliminar($store, $this->terceroService->obtener($store, $proveedorId));
 
-        return DB::transaction(function () use ($proveedor) {
-            $proveedor->delete();
-            return true;
-        });
+        return true;
     }
 
     public function listarProveedores(Store $store, array $filtros = [])
     {
-        $query = Proveedor::deTienda($store->id)->with('productos');
-
-        if (isset($filtros['search']) && !empty($filtros['search'])) {
-            $query->buscar($filtros['search']);
+        $filtros['rol'] = Tercero::ROL_PROVEEDOR;
+        if (array_key_exists('estado', $filtros)) {
+            $filtros['activo'] = $filtros['estado'];
         }
 
-        if (isset($filtros['estado']) && $filtros['estado'] !== null) {
-            $query->where('estado', (bool) $filtros['estado']);
-        }
-
-        $perPage = $filtros['per_page'] ?? 10;
-
-        return $query->orderBy('nombre')->paginate($perPage);
+        return $this->terceroService->listar($store, $filtros, (int) ($filtros['per_page'] ?? 10));
     }
 
-    /**
-     * Sincroniza los productos de un proveedor (solo productos de la misma tienda).
-     */
-    protected function syncProductos(Proveedor $proveedor, Store $store, array $productoIds): void
+    private function mapPayload(array $data): array
     {
-        $validIds = \App\Models\Product::where('store_id', $store->id)
-            ->whereIn('id', $productoIds)
-            ->pluck('id')
-            ->toArray();
-
-        $proveedor->productos()->sync($validIds);
+        return [
+            ...$data,
+            'nombre' => $data['nombre'] ?? $data['name'] ?? '',
+            'numero_identificacion' => $data['numero_identificacion'] ?? $data['nit'] ?? null,
+            'telefono' => $data['telefono'] ?? $data['numero_celular'] ?? $data['phone'] ?? null,
+            'direccion' => $data['direccion'] ?? $data['address'] ?? null,
+            'activo' => $data['activo'] ?? $data['estado'] ?? true,
+            'roles' => [Tercero::ROL_PROVEEDOR],
+            'productos' => $data['productos'] ?? $data['producto_ids'] ?? [],
+            'proveedor' => $data['proveedor'] ?? [],
+        ];
     }
 }

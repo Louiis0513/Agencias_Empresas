@@ -14,7 +14,7 @@ class ComprobanteEgreso extends Model
 
     protected $fillable = [
         'store_id',
-        'proveedor_id',
+        'tercero_id',
         'number',
         'total_amount',
         'payment_date',
@@ -43,7 +43,12 @@ class ComprobanteEgreso extends Model
 
     public function proveedor()
     {
-        return $this->belongsTo(Proveedor::class);
+        return $this->belongsTo(Tercero::class, 'tercero_id');
+    }
+
+    public function tercero()
+    {
+        return $this->belongsTo(Tercero::class, 'tercero_id');
     }
 
     public function user()

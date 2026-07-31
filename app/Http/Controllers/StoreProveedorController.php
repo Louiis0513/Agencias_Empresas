@@ -13,15 +13,13 @@ class StoreProveedorController extends Controller
 {
     public function index(Store $store, ProveedorService $proveedorService, Request $request, StorePermissionService $permission)
     {
-        $permission->authorize($store, 'proveedores.view');
+        $permission->authorize($store, 'terceros.view');
 
-        $filtros = [
+        return redirect()->route('stores.terceros', [
+            'store' => $store,
+            'rol' => 'proveedor',
             'search' => $request->get('search'),
-        ];
-
-        $proveedores = $proveedorService->listarProveedores($store, $filtros);
-
-        return view('stores.proovedor.proveedores', compact('store', 'proveedores'));
+        ]);
     }
 
     public function create(Store $store, StorePermissionService $permission)

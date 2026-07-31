@@ -57,20 +57,20 @@ class ComprobanteIngresoService
             }
 
             $type = ComprobanteIngreso::TYPE_INGRESO_MANUAL;
-            $customerId = $data['customer_id'] ?? null;
+            $customerId = $data['tercero_id'] ?? $data['customer_id'] ?? null;
 
             if ($invoiceId > 0) {
                 $type = ComprobanteIngreso::TYPE_PAGO_FACTURA;
                 $factura = Invoice::where('id', $invoiceId)->where('store_id', $store->id)->firstOrFail();
                 if ($customerId === null) {
-                    $customerId = $factura->customer_id;
+                    $customerId = $factura->tercero_id;
                 }
             } elseif (count($aplicaciones) > 0) {
                 $type = ComprobanteIngreso::TYPE_COBRO_CUENTA;
                 if (count($aplicaciones) === 1 && ! $customerId) {
                     $ar = AccountReceivable::where('id', $aplicaciones[0]['account_receivable_id'])->where('store_id', $store->id)->first();
                     if ($ar) {
-                        $customerId = $ar->customer_id;
+                        $customerId = $ar->tercero_id;
                     }
                 }
             }
@@ -82,7 +82,7 @@ class ComprobanteIngresoService
                 'date' => $data['date'] ?? $this->storeTimezoneService->nowForStore($store)->toDateString(),
                 'notes' => $data['notes'] ?? null,
                 'type' => $type,
-                'customer_id' => $customerId,
+                'tercero_id' => $customerId,
                 'user_id' => $userId,
             ];
             if ($invoiceId > 0) {
@@ -238,7 +238,7 @@ class ComprobanteIngresoService
             $query->where('type', $filtros['type']);
         }
         if (! empty($filtros['customer_id'])) {
-            $query->where('customer_id', $filtros['customer_id']);
+            $query->where('tercero_id', $filtros['customer_id']);
         }
 
         return $query->paginate($filtros['per_page'] ?? 15);
@@ -366,7 +366,7 @@ class ComprobanteIngresoService
         }
 
         if (! empty($filtros['customer_id'])) {
-            $query->where('comprobantes_ingreso.customer_id', (int) $filtros['customer_id']);
+            $query->where('comprobantes_ingreso.tercero_id', (int) $filtros['customer_id']);
         }
     }
 

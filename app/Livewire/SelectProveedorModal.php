@@ -2,8 +2,8 @@
 
 namespace App\Livewire;
 
-use App\Models\Proveedor;
 use App\Models\Store;
+use App\Models\Tercero;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -33,7 +33,8 @@ class SelectProveedorModal extends Component
             return collect();
         }
 
-        $query = Proveedor::deTienda($store->id)
+        $query = Tercero::deStore($store->id)
+            ->conRol(Tercero::ROL_PROVEEDOR)
             ->activos()
             ->orderBy('nombre');
 

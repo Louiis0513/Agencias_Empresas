@@ -5,7 +5,6 @@ namespace Database\Seeders;
 use App\Models\Bolsillo;
 use App\Models\Permission;
 use App\Models\Plan;
-use App\Models\Proveedor;
 use App\Models\Role;
 use App\Models\Attribute;
 use App\Models\AttributeGroup;
@@ -122,6 +121,9 @@ class DemoDataSeeder extends Seeder
             ]
         );
 
+        // Crear el rol base sin permisos en las tiendas existentes.
+        $this->call(DefaultStoreRolesSeeder::class);
+
         // Asignar todos los permisos existentes al rol Admin
         $allPermissionIds = Permission::pluck('id')->all();
         $adminRole->permissions()->sync($allPermissionIds);
@@ -226,6 +228,9 @@ class DemoDataSeeder extends Seeder
 
     private function seedProveedores(int $storeId): void
     {
+        $store = Store::findOrFail($storeId);
+        $terceroService = app(\App\Services\TerceroService::class);
+
         $nombres = [
             'Empresa1 - Distribuciones Andes',
             'Empresa2 - Logística del Norte',
@@ -233,20 +238,26 @@ class DemoDataSeeder extends Seeder
         ];
 
         foreach ($nombres as $index => $nombre) {
-            Proveedor::firstOrCreate(
-                [
-                    'store_id' => $storeId,
-                    'nombre' => $nombre,
-                ],
-                [
-                    'numero_celular' => '30000000' . ($index + 1),
-                    'telefono' => null,
-                    'email' => 'proveedor' . ($index + 1) . '@demo.test',
-                    'nit' => '900' . str_pad((string) ($index + 1), 6, '0', STR_PAD_LEFT),
-                    'direccion' => 'Calle ' . (10 + $index) . ' # 1-' . (20 + $index),
-                    'estado' => true,
-                ]
-            );
+            $nit = '900'.str_pad((string) ($index + 1), 6, '0', STR_PAD_LEFT);
+            $exists = \App\Models\Tercero::query()
+                ->deStore($store)
+                ->where('numero_identificacion', $nit)
+                ->exists();
+            if ($exists) {
+                continue;
+            }
+
+            $terceroService->crear($store, [
+                'nombre' => $nombre,
+                'tipo_persona' => 'juridica',
+                'tipo_identificacion' => 'NIT',
+                'numero_identificacion' => $nit,
+                'telefono' => '30000000'.($index + 1),
+                'email' => 'proveedor'.($index + 1).'@demo.test',
+                'direccion' => 'Calle '.(10 + $index).' # 1-'.(20 + $index),
+                'activo' => true,
+                'roles' => [\App\Models\Tercero::ROL_PROVEEDOR],
+            ]);
         }
     }
 

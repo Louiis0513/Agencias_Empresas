@@ -41,7 +41,7 @@ class CotizacionService
             $cotizacion = Cotizacion::create([
                 'store_id' => $store->id,
                 'user_id' => $userId,
-                'customer_id' => $customerId,
+                'tercero_id' => $customerId,
                 'nota' => $nota,
                 'vence_at' => $venceAt,
             ]);

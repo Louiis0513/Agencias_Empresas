@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\Customer;
+use App\Models\Role;
 use App\Models\Store;
 use App\Models\User;
 use Illuminate\Support\Str;
@@ -69,7 +69,12 @@ class StoreService
 
             $user->stores()->attach($store->id, ['role_id' => null]);
 
-            Customer::ensureConsumidorFinalForStore((int) $store->id);
+            Role::firstOrCreate([
+                'store_id' => $store->id,
+                'name' => 'Trabajador',
+            ]);
+
+            app(TerceroService::class)->asegurarConsumidorFinal($store);
 
             return $store;
         });

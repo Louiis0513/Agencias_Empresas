@@ -134,7 +134,7 @@ class InvoiceService
         }
 
         if (isset($filtros['customer_id']) && ! empty($filtros['customer_id'])) {
-            $query->where('customer_id', $filtros['customer_id']);
+            $query->where('tercero_id', $filtros['customer_id']);
         }
 
         if (isset($filtros['payment_method']) && $filtros['payment_method'] !== '') {
@@ -241,7 +241,7 @@ class InvoiceService
             $factura = Invoice::create([
                 'store_id'        => $store->id,
                 'user_id'         => $userId,
-                'customer_id'     => $datos['customer_id'] ?? null,
+                'tercero_id'      => $datos['tercero_id'] ?? $datos['customer_id'] ?? null,
                 'subtotal'        => $datos['subtotal'],
                 'tax'             => $datos['tax'] ?? 0,
                 'discount'        => $datos['discount'] ?? 0,
@@ -351,8 +351,9 @@ class InvoiceService
 
         // Si se proporciona un customer_id, validar que exista y pertenezca a la tienda
         if ($customerId !== null) {
-            $cliente = \App\Models\Customer::where('id', $customerId)
+            $cliente = \App\Models\Tercero::where('id', $customerId)
                 ->where('store_id', $store->id)
+                ->conRol(\App\Models\Tercero::ROL_CLIENTE)
                 ->first();
 
             if (!$cliente) {
@@ -361,7 +362,7 @@ class InvoiceService
         }
 
         // Actualizar el cliente de la factura
-        $factura->customer_id = $customerId;
+        $factura->tercero_id = $customerId;
         $factura->save();
 
         return $factura->fresh(['customer']);

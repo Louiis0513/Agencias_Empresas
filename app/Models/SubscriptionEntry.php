@@ -12,7 +12,7 @@ class SubscriptionEntry extends Model
     protected $fillable = [
         'customer_subscription_id',
         'store_id',
-        'customer_id',
+        'tercero_id',
         'recorded_at',
     ];
 
@@ -32,6 +32,11 @@ class SubscriptionEntry extends Model
 
     public function customer()
     {
-        return $this->belongsTo(Customer::class);
+        return $this->belongsTo(Tercero::class, 'tercero_id');
+    }
+
+    public function tercero()
+    {
+        return $this->belongsTo(Tercero::class, 'tercero_id');
     }
 }

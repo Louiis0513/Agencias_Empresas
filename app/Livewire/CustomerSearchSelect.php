@@ -2,7 +2,9 @@
 
 namespace App\Livewire;
 
-use App\Models\Customer;
+use App\Models\Store;
+use App\Models\Tercero;
+use App\Services\TerceroService;
 use Livewire\Component;
 
 class CustomerSearchSelect extends Component
@@ -10,6 +12,8 @@ class CustomerSearchSelect extends Component
     public int $storeId;
 
     public ?int $selectedCustomerId = null;
+
+    public ?int $selectedTerceroId = null;
 
     public string $emitEventName = 'customer-selected';
 
@@ -34,10 +38,13 @@ class CustomerSearchSelect extends Component
         ?int $selectedCustomerId = null,
         string $emitEventName = 'customer-selected',
         string $emitClearEventName = 'customer-cleared',
-        bool $showConsumidorFinalButton = false
+        bool $showConsumidorFinalButton = false,
+        ?int $selectedTerceroId = null,
     ): void {
+        $selectedCustomerId = $selectedTerceroId ?? $selectedCustomerId;
         $this->storeId = $storeId;
         $this->selectedCustomerId = $selectedCustomerId;
+        $this->selectedTerceroId = $selectedCustomerId;
         $this->emitEventName = $emitEventName;
         $this->emitClearEventName = $emitClearEventName;
         $this->showConsumidorFinalButton = $showConsumidorFinalButton;
@@ -49,6 +56,7 @@ class CustomerSearchSelect extends Component
 
     public function updatedSelectedCustomerId($value): void
     {
+        $this->selectedTerceroId = $value ? (int) $value : null;
         if ($value) {
             $this->loadSelectedCustomer((int) $value);
         } else {
@@ -56,10 +64,17 @@ class CustomerSearchSelect extends Component
         }
     }
 
+    public function updatedSelectedTerceroId($value): void
+    {
+        $this->selectedCustomerId = $value ? (int) $value : null;
+        $value ? $this->loadSelectedCustomer((int) $value) : $this->clienteSeleccionado = null;
+    }
+
     protected function loadSelectedCustomer(int $customerId): void
     {
-        $cliente = Customer::where('id', $customerId)
+        $cliente = Tercero::where('id', $customerId)
             ->where('store_id', $this->storeId)
+            ->conRol(Tercero::ROL_CLIENTE)
             ->first();
 
         if ($cliente) {
@@ -104,19 +119,19 @@ class CustomerSearchSelect extends Component
             return;
         }
 
-        $query = Customer::deTienda($this->storeId);
+        $query = Tercero::deStore($this->storeId)->conRol(Tercero::ROL_CLIENTE);
 
         if ($nombre !== '') {
-            $query->where('name', 'like', '%' . $nombre . '%');
+            $query->where('nombre', 'like', '%' . $nombre . '%');
         }
         if ($documento !== '') {
-            $query->where('document_number', 'like', '%' . $documento . '%');
+            $query->where('numero_identificacion', 'like', '%' . $documento . '%');
         }
         if ($telefono !== '') {
-            $query->where('phone', 'like', '%' . $telefono . '%');
+            $query->where('telefono', 'like', '%' . $telefono . '%');
         }
 
-        $this->clientesEncontrados = $query->orderBy('name')
+        $this->clientesEncontrados = $query->orderBy('nombre')
             ->limit(15)
             ->get()
             ->map(fn ($customer) => [
@@ -131,19 +146,16 @@ class CustomerSearchSelect extends Component
 
     public function aplicarConsumidorFinal(): void
     {
-        $cliente = Customer::where('store_id', $this->storeId)
-            ->where('document_number', Customer::CONSUMIDOR_FINAL_DOCUMENT)
-            ->first();
-        if (! $cliente) {
-            $cliente = Customer::ensureConsumidorFinalForStore($this->storeId);
-        }
+        $store = Store::findOrFail($this->storeId);
+        $cliente = app(TerceroService::class)->asegurarConsumidorFinal($store);
         $this->seleccionarCliente($cliente->id);
     }
 
     public function seleccionarCliente($clienteId): void
     {
-        $cliente = Customer::where('id', $clienteId)
+        $cliente = Tercero::where('id', $clienteId)
             ->where('store_id', $this->storeId)
+            ->conRol(Tercero::ROL_CLIENTE)
             ->first();
 
         if ($cliente) {
@@ -155,6 +167,7 @@ class CustomerSearchSelect extends Component
                 'phone' => $cliente->phone,
             ];
             $this->selectedCustomerId = $cliente->id;
+            $this->selectedTerceroId = $cliente->id;
             $this->cerrarModal();
 
             $this->dispatch($this->emitEventName, customer_id: $cliente->id, customer: $this->clienteSeleccionado);
@@ -165,6 +178,7 @@ class CustomerSearchSelect extends Component
     {
         $this->clienteSeleccionado = null;
         $this->selectedCustomerId = null;
+        $this->selectedTerceroId = null;
         $this->cerrarModal();
         $this->dispatch($this->emitClearEventName);
     }

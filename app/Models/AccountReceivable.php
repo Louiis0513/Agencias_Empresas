@@ -15,7 +15,7 @@ class AccountReceivable extends Model
     protected $fillable = [
         'store_id',
         'invoice_id',
-        'customer_id',
+        'tercero_id',
         'total_amount',
         'balance',
         'due_date',
@@ -44,7 +44,12 @@ class AccountReceivable extends Model
 
     public function customer()
     {
-        return $this->belongsTo(Customer::class);
+        return $this->belongsTo(Tercero::class, 'tercero_id');
+    }
+
+    public function tercero()
+    {
+        return $this->belongsTo(Tercero::class, 'tercero_id');
     }
 
     public function cuotas()

@@ -99,7 +99,7 @@ class StoreCajaController extends Controller
 
         $movCustomerLabel = null;
         if ($mf['customer_id']) {
-            $movCustomerLabel = Customer::where('store_id', $store->id)->where('id', $mf['customer_id'])->value('name');
+            $movCustomerLabel = Customer::where('store_id', $store->id)->where('id', $mf['customer_id'])->value('nombre');
         }
         $movProveedorNombre = null;
         if ($mf['proveedor_id']) {
@@ -396,7 +396,7 @@ class StoreCajaController extends Controller
                 'subtitle' => __('Dueño'),
             ]);
         }
-        foreach (Worker::deTienda($store->id)->with('role')->orderBy('name')->get() as $w) {
+        foreach (Worker::deTienda($store->id)->with('role')->orderBy('nombre')->get() as $w) {
             if ($w->user_id) {
                 $rows->push([
                     'user_id' => (int) $w->user_id,

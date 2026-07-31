@@ -25,10 +25,15 @@ class Store extends Model
             ->withTimestamps();
     }
 
-    // Relación: Una tienda tiene muchos registros de trabajadores (tabla workers)
+    public function terceros()
+    {
+        return $this->hasMany(Tercero::class);
+    }
+
+    // Alias de compatibilidad para terceros con rol trabajador.
     public function workerRecords()
     {
-        return $this->hasMany(Worker::class);
+        return $this->terceros()->conRol(Tercero::ROL_TRABAJADOR);
     }
 
     // Relación: Una tienda tiene muchos roles personalizados
@@ -65,7 +70,7 @@ class Store extends Model
 
     public function customers()
     {
-        return $this->hasMany(Customer::class);
+        return $this->terceros()->conRol(Tercero::ROL_CLIENTE);
     }
 
     public function invoices()
@@ -85,7 +90,7 @@ class Store extends Model
 
     public function proveedores()
     {
-        return $this->hasMany(Proveedor::class);
+        return $this->terceros()->conRol(Tercero::ROL_PROVEEDOR);
     }
 
     public function purchases()
@@ -141,6 +146,11 @@ class Store extends Model
     public function cuentasContables()
     {
         return $this->hasMany(CuentaContable::class);
+    }
+
+    public function comprobantesContables()
+    {
+        return $this->hasMany(ComprobanteContable::class);
     }
 
     public function categoriasContables()

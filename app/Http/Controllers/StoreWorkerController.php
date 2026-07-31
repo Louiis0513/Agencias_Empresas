@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreWorkerRequest;
 use App\Models\Role;
 use App\Models\Store;
-use App\Models\Worker;
+use App\Models\Tercero;
 use App\Models\WorkerHourRateTemplate;
 use App\Models\WorkerSchedule;
 use App\Services\StorePermissionService;
@@ -24,40 +24,9 @@ class StoreWorkerController extends Controller
 {
     public function index(Store $store, StorePermissionService $permission)
     {
-        $permission->authorize($store, 'workers.view');
+        $permission->authorize($store, 'terceros.view');
 
-        $roles = Role::where('store_id', $store->id)->get()->keyBy('id');
-
-        $owner = $store->owner;
-        $workersList = collect();
-
-        if ($owner) {
-            $workersList->push([
-                'id' => 'owner-'.$owner->id,
-                'worker_id' => null,
-                'name' => $owner->name,
-                'email' => $owner->email,
-                'role' => 'Dueño',
-                'role_id' => null,
-                'vinculado' => true,
-            ]);
-        }
-
-        foreach ($store->workerRecords()->with('role')->get() as $w) {
-            $workersList->push([
-                'id' => $w->id,
-                'worker_id' => $w->id,
-                'name' => $w->name,
-                'email' => $w->email,
-                'role' => $w->role->name ?? '-',
-                'role_id' => $w->role_id,
-                'vinculado' => $w->estaVinculado(),
-            ]);
-        }
-
-        $rolesList = Role::where('store_id', $store->id)->orderBy('name')->get();
-
-        return view('stores.trabajadoryrol.workers', compact('store', 'workersList', 'rolesList'));
+        return redirect()->route('stores.terceros', ['store' => $store, 'rol' => Tercero::ROL_TRABAJADOR]);
     }
 
     public function timeAttendance(
@@ -72,7 +41,11 @@ class StoreWorkerController extends Controller
         $permission->authorize($store, 'workers.schedules.view');
 
         $tz = $timezoneService->getTimezoneForStore($store);
-        $workers = Worker::where('store_id', $store->id)->orderBy('name')->get();
+        $workers = Tercero::deStore($store)
+            ->conRol(Tercero::ROL_TRABAJADOR)
+            ->with('perfilTrabajador.role')
+            ->orderBy('nombre')
+            ->get();
         $hourRateTemplates = WorkerHourRateTemplate::query()
             ->where('store_id', $store->id)
             ->orderByDesc('updated_at')
@@ -138,11 +111,11 @@ class StoreWorkerController extends Controller
             $query = WorkerSchedule::query()
                 ->where('store_id', $store->id)
                 ->whereBetween('fecha_hora_entrada', [$fromUtc, $toUtc])
-                ->with(['worker.role'])
+                ->with(['worker.perfilTrabajador.role'])
                 ->orderByDesc('fecha_hora_entrada');
 
             if ($workerId !== null) {
-                $query->where('worker_id', $workerId);
+                $query->where('tercero_id', $workerId);
             }
 
             $schedules = $query->get();
@@ -247,18 +220,18 @@ class StoreWorkerController extends Controller
         $query = WorkerSchedule::query()
             ->where('store_id', $store->id)
             ->whereBetween('fecha_hora_entrada', [$fromUtc, $toUtc])
-            ->with(['worker.role'])
+            ->with(['worker.perfilTrabajador.role'])
             ->orderByDesc('fecha_hora_entrada');
 
         if ($workerId !== null) {
-            $query->where('worker_id', $workerId);
+            $query->where('tercero_id', $workerId);
         }
 
         $schedules = $query->get();
 
         $filteredWorker = null;
         if ($workerId !== null) {
-            $filteredWorker = Worker::where('store_id', $store->id)->whereKey($workerId)->first();
+            $filteredWorker = Tercero::deStore($store)->conRol(Tercero::ROL_TRABAJADOR)->whereKey($workerId)->first();
         }
 
         $ratesOverride = null;
@@ -338,7 +311,7 @@ class StoreWorkerController extends Controller
 
             $workerId = $filterWorkerId !== null && $filterWorkerId !== '' ? (int) $filterWorkerId : null;
             if ($workerId !== null) {
-                $belongs = Worker::where('store_id', $store->id)->whereKey($workerId)->exists();
+                $belongs = Tercero::deStore($store)->conRol(Tercero::ROL_TRABAJADOR)->whereKey($workerId)->exists();
                 if (! $belongs) {
                     $validator->errors()->add('worker_id', 'Trabajador no válido para esta tienda.');
                 }
@@ -375,7 +348,7 @@ class StoreWorkerController extends Controller
             ->with('success', 'Trabajador añadido correctamente.');
     }
 
-    public function edit(Store $store, Worker $worker, StorePermissionService $permission)
+    public function edit(Store $store, Tercero $worker, StorePermissionService $permission)
     {
         $permission->authorize($store, 'workers.edit');
 
@@ -388,7 +361,7 @@ class StoreWorkerController extends Controller
         return view('stores.trabajadoryrol.worker-edit', compact('store', 'worker', 'rolesList'));
     }
 
-    public function update(Store $store, Worker $worker, StoreWorkerRequest $request, StorePermissionService $permission, WorkerService $workerService)
+    public function update(Store $store, Tercero $worker, StoreWorkerRequest $request, StorePermissionService $permission, WorkerService $workerService)
     {
         $permission->authorize($store, 'workers.edit');
 
@@ -410,7 +383,7 @@ class StoreWorkerController extends Controller
             ->with('success', 'Trabajador actualizado correctamente.');
     }
 
-    public function destroy(Store $store, Worker $worker, StorePermissionService $permission, WorkerService $workerService)
+    public function destroy(Store $store, Tercero $worker, StorePermissionService $permission, WorkerService $workerService)
     {
         $permission->authorize($store, 'workers.destroy');
 

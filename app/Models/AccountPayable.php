@@ -19,6 +19,7 @@ class AccountPayable extends Model
     protected $fillable = [
         'store_id',
         'purchase_id',
+        'tercero_id',
         'source',
         'creditor_name',
         'creditor_document',
@@ -50,6 +51,11 @@ class AccountPayable extends Model
     public function purchase()
     {
         return $this->belongsTo(Purchase::class);
+    }
+
+    public function tercero()
+    {
+        return $this->belongsTo(Tercero::class, 'tercero_id');
     }
 
     public function payments()

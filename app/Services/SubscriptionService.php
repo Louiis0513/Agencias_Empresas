@@ -2,11 +2,11 @@
 
 namespace App\Services;
 
-use App\Models\Customer;
 use App\Models\CustomerSubscription;
 use App\Models\Store;
 use App\Models\StorePlan;
 use App\Models\SubscriptionEntry;
+use App\Models\Tercero;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -175,11 +175,11 @@ class SubscriptionService
 
         // Subconsulta: última suscripción por cliente (por tienda)
         $latestPerCustomerSub = CustomerSubscription::select(
-            'customer_id',
+            'tercero_id',
             DB::raw('MAX(expires_at) as max_expires_at')
         )
             ->where('store_id', $store->id)
-            ->groupBy('customer_id');
+            ->groupBy('tercero_id');
 
         /** @var Builder $latestBase */
         $latestBase = CustomerSubscription::query()
@@ -188,7 +188,7 @@ class SubscriptionService
                 $latestPerCustomerSub,
                 'latest_customer_subscriptions',
                 function ($join) {
-                    $join->on('customer_subscriptions.customer_id', '=', 'latest_customer_subscriptions.customer_id')
+                    $join->on('customer_subscriptions.tercero_id', '=', 'latest_customer_subscriptions.tercero_id')
                         ->on('customer_subscriptions.expires_at', '=', 'latest_customer_subscriptions.max_expires_at');
                 }
             )
@@ -198,26 +198,26 @@ class SubscriptionService
         $countersBase = clone $latestBase;
 
         $totalClients = (clone $countersBase)
-            ->distinct('customer_subscriptions.customer_id')
-            ->count('customer_subscriptions.customer_id');
+            ->distinct('customer_subscriptions.tercero_id')
+            ->count('customer_subscriptions.tercero_id');
 
         $activeClients = (clone $countersBase)
             ->where('customer_subscriptions.starts_at', '<=', $now)
             ->where('customer_subscriptions.expires_at', '>=', $now)
-            ->distinct('customer_subscriptions.customer_id')
-            ->count('customer_subscriptions.customer_id');
+            ->distinct('customer_subscriptions.tercero_id')
+            ->count('customer_subscriptions.tercero_id');
 
         $expiringClients = (clone $countersBase)
             ->where('customer_subscriptions.starts_at', '<=', $now)
             ->where('customer_subscriptions.expires_at', '>=', $now)
             ->whereRaw('DATEDIFF(customer_subscriptions.expires_at, ?) BETWEEN 0 AND 6', [$now])
-            ->distinct('customer_subscriptions.customer_id')
-            ->count('customer_subscriptions.customer_id');
+            ->distinct('customer_subscriptions.tercero_id')
+            ->count('customer_subscriptions.tercero_id');
 
         $expiredClients = (clone $countersBase)
             ->where('customer_subscriptions.expires_at', '<', $now)
-            ->distinct('customer_subscriptions.customer_id')
-            ->count('customer_subscriptions.customer_id');
+            ->distinct('customer_subscriptions.tercero_id')
+            ->count('customer_subscriptions.tercero_id');
 
         $counters = [
             'total_clients' => $totalClients,
@@ -235,17 +235,17 @@ class SubscriptionService
 
             if ($name !== '') {
                 $query->whereHas('customer', function (Builder $q) use ($name) {
-                    $q->where('name', 'like', '%' . $name . '%');
+                    $q->where('nombre', 'like', '%' . $name . '%');
                 });
             }
             if ($document !== '') {
                 $query->whereHas('customer', function (Builder $q) use ($document) {
-                    $q->where('document_number', 'like', '%' . $document . '%');
+                    $q->where('numero_identificacion', 'like', '%' . $document . '%');
                 });
             }
             if ($phone !== '') {
                 $query->whereHas('customer', function (Builder $q) use ($phone) {
-                    $q->where('phone', 'like', '%' . $phone . '%');
+                    $q->where('telefono', 'like', '%' . $phone . '%');
                 });
             }
         } else {
@@ -268,13 +268,13 @@ class SubscriptionService
             if ($name !== '' || $document !== '' || $phone !== '') {
                 $query->whereHas('customer', function (Builder $q) use ($name, $document, $phone) {
                     if ($name !== '') {
-                        $q->where('name', 'like', '%' . $name . '%');
+                        $q->where('nombre', 'like', '%' . $name . '%');
                     }
                     if ($document !== '') {
-                        $q->where('document_number', 'like', '%' . $document . '%');
+                        $q->where('numero_identificacion', 'like', '%' . $document . '%');
                     }
                     if ($phone !== '') {
-                        $q->where('phone', 'like', '%' . $phone . '%');
+                        $q->where('telefono', 'like', '%' . $phone . '%');
                     }
                 });
             }
@@ -314,7 +314,7 @@ class SubscriptionService
         $at = $at ?? now();
 
         $query = CustomerSubscription::where('store_id', $store->id)
-            ->where('customer_id', $customerId)
+            ->where('tercero_id', $customerId)
             ->where('starts_at', '<=', $at)
             ->where('expires_at', '>=', $at);
 
@@ -326,7 +326,8 @@ class SubscriptionService
      */
     public function createSubscription(Store $store, int $customerId, int $planId, Carbon $startsAt): CustomerSubscription
     {
-        $customer = Customer::where('id', $customerId)->where('store_id', $store->id)->first();
+        $customer = Tercero::where('id', $customerId)->where('store_id', $store->id)
+            ->conRol(Tercero::ROL_CLIENTE)->first();
         if (! $customer) {
             throw new InvalidArgumentException('El cliente no existe o no pertenece a esta tienda.');
         }
@@ -340,7 +341,7 @@ class SubscriptionService
 
         // Validar que no exista una suscripción cruzada (mismo cliente/tienda, rangos solapados)
         $existente = CustomerSubscription::where('store_id', $store->id)
-            ->where('customer_id', $customerId)
+            ->where('tercero_id', $customerId)
             ->where('starts_at', '<=', $expiresAt)
             ->where('expires_at', '>=', $startsAt)
             ->first();
@@ -354,7 +355,7 @@ class SubscriptionService
 
         return CustomerSubscription::create([
             'store_id' => $store->id,
-            'customer_id' => $customerId,
+            'tercero_id' => $customerId,
             'store_plan_id' => $planId,
             'starts_at' => $startsAt,
             'expires_at' => $expiresAt,
@@ -371,7 +372,7 @@ class SubscriptionService
     {
         return DB::transaction(function () use ($store, $customerId, $dateTime) {
             $subscription = CustomerSubscription::where('store_id', $store->id)
-                ->where('customer_id', $customerId)
+                ->where('tercero_id', $customerId)
                 ->where('starts_at', '<=', $dateTime)
                 ->where('expires_at', '>=', $dateTime)
                 ->orderBy('starts_at', 'desc')
@@ -380,7 +381,7 @@ class SubscriptionService
 
             if (! $subscription) {
                 $ultima = CustomerSubscription::where('store_id', $store->id)
-                    ->where('customer_id', $customerId)
+                    ->where('tercero_id', $customerId)
                     ->orderBy('expires_at', 'desc')
                     ->first();
                 if ($ultima && $ultima->expires_at->isPast()) {
@@ -414,7 +415,7 @@ class SubscriptionService
             SubscriptionEntry::create([
                 'customer_subscription_id' => $subscription->id,
                 'store_id' => $store->id,
-                'customer_id' => $customerId,
+                'tercero_id' => $customerId,
                 'recorded_at' => $dateTime,
             ]);
 
@@ -438,7 +439,7 @@ class SubscriptionService
             $query->where('recorded_at', '<=', $to->copy()->endOfDay());
         }
         if ($customerId !== null) {
-            $query->where('customer_id', $customerId);
+            $query->where('tercero_id', $customerId);
         }
 
         return $query->paginate($perPage);

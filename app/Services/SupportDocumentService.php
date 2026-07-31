@@ -6,10 +6,10 @@ use App\Models\Bolsillo;
 use App\Models\ComprobanteEgreso;
 use App\Models\MovimientoInventario;
 use App\Models\Product;
-use App\Models\Proveedor;
 use App\Models\Store;
 use App\Models\SupportDocument;
 use App\Models\SupportDocumentSequence;
+use App\Models\Tercero;
 use App\Support\Quantity;
 use Exception;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -34,7 +34,7 @@ class SupportDocumentService
             $document = SupportDocument::create([
                 'store_id' => $store->id,
                 'user_id' => $userId,
-                'proveedor_id' => $normalized['proveedor_id'],
+                'tercero_id' => $normalized['proveedor_id'],
                 'status' => SupportDocument::STATUS_BORRADOR,
                 'payment_status' => $normalized['payment_status'],
                 'due_date' => $normalized['due_date'],
@@ -72,7 +72,7 @@ class SupportDocumentService
             $normalized = $this->validarYNormalizarPayload($store, $data);
 
             $document->update([
-                'proveedor_id' => $normalized['proveedor_id'],
+                'tercero_id' => $normalized['proveedor_id'],
                 'payment_status' => $normalized['payment_status'],
                 'due_date' => $normalized['due_date'],
                 'issue_date' => $normalized['issue_date'],
@@ -108,7 +108,7 @@ class SupportDocumentService
             $query->where('payment_status', $filtros['payment_status']);
         }
         if (! empty($filtros['proveedor_id'])) {
-            $query->where('proveedor_id', (int) $filtros['proveedor_id']);
+            $query->where('tercero_id', (int) $filtros['proveedor_id']);
         }
         if (! empty(trim($filtros['proveedor_nombre'] ?? ''))) {
             $term = trim((string) $filtros['proveedor_nombre']);
@@ -149,7 +149,7 @@ class SupportDocumentService
             $query->where('payment_status', $filtros['payment_status']);
         }
         if (! empty($filtros['proveedor_id'])) {
-            $query->where('proveedor_id', (int) $filtros['proveedor_id']);
+            $query->where('tercero_id', (int) $filtros['proveedor_id']);
         }
         if (! empty(trim($filtros['proveedor_nombre'] ?? ''))) {
             $term = trim((string) $filtros['proveedor_nombre']);
@@ -229,6 +229,8 @@ class SupportDocumentService
 
     protected function validarYNormalizarPayload(Store $store, array $data): array
     {
+        $data['proveedor_id'] = $data['tercero_id'] ?? $data['proveedor_id'] ?? null;
+
         $validator = Validator::make($data, [
             'proveedor_id' => ['required', 'integer'],
             'payment_status' => ['required', 'in:'.SupportDocument::PAYMENT_PAGADO.','.SupportDocument::PAYMENT_PENDIENTE],
@@ -271,7 +273,10 @@ class SupportDocumentService
 
             $proveedorId = (int) ($data['proveedor_id'] ?? 0);
             if ($proveedorId > 0) {
-                $validProveedor = Proveedor::where('id', $proveedorId)->where('store_id', $store->id)->exists();
+                $validProveedor = Tercero::where('id', $proveedorId)
+                    ->where('store_id', $store->id)
+                    ->conRol(Tercero::ROL_PROVEEDOR)
+                    ->exists();
                 if (! $validProveedor) {
                     $validator->errors()->add('proveedor_id', 'El proveedor seleccionado no pertenece a esta tienda.');
                 }
@@ -557,7 +562,7 @@ class SupportDocumentService
         }
 
         return $this->comprobanteEgresoService->crearComprobante($store, $userId, [
-            'proveedor_id' => $document->proveedor_id,
+            'proveedor_id' => $document->tercero_id,
             'payment_date' => optional($document->issue_date)->toDateString() ?? now()->toDateString(),
             'notes' => $concepto,
             'destinos' => $destinos,

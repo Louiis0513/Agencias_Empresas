@@ -42,7 +42,7 @@ class AccountReceivableService
             $account = AccountReceivable::create([
                 'store_id' => $store->id,
                 'invoice_id' => $invoice->id,
-                'customer_id' => $invoice->customer_id,
+                'tercero_id' => $invoice->tercero_id,
                 'total_amount' => $total,
                 'balance' => $total,
                 'due_date' => $due_date ? \Carbon\Carbon::parse($due_date) : null,
@@ -94,7 +94,7 @@ class AccountReceivableService
             $query->where('status', $filtros['status']);
         }
         if (! empty($filtros['customer_id'])) {
-            $query->where('customer_id', $filtros['customer_id']);
+            $query->where('tercero_id', $filtros['customer_id']);
         }
 
         $invoiceUserIds = array_values(array_unique(array_filter(array_map('intval', $filtros['invoice_user_ids'] ?? []))));
@@ -122,7 +122,7 @@ class AccountReceivableService
             $query->where('status', $filtros['status']);
         }
         if (! empty($filtros['customer_id'])) {
-            $query->where('customer_id', $filtros['customer_id']);
+            $query->where('tercero_id', $filtros['customer_id']);
         }
 
         $invoiceUserIds = array_values(array_unique(array_filter(array_map('intval', $filtros['invoice_user_ids'] ?? []))));

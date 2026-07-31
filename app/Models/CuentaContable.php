@@ -133,6 +133,11 @@ class CuentaContable extends Model
         return $this->hasOne(Bolsillo::class, 'cuenta_contable_id');
     }
 
+    public function movimientosContables(): HasMany
+    {
+        return $this->hasMany(MovimientoContable::class);
+    }
+
     public function scopeDeStore($query, Store|int $store)
     {
         $storeId = $store instanceof Store ? $store->id : $store;

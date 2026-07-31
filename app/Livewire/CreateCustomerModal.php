@@ -38,7 +38,7 @@ class CreateCustomerModal extends Component
                 'lowercase',
                 'email',
                 'max:255',
-                Rule::unique('customers', 'email')
+                Rule::unique('terceros', 'email')
                     ->where('store_id', $store?->id ?? 0)
                     ->whereNotNull('email'),
             ],
@@ -105,7 +105,7 @@ class CreateCustomerModal extends Component
             $this->reset(['name', 'email', 'phone_country_code', 'phone', 'document_number', 'address', 'gender', 'blood_type', 'eps', 'birth_date', 'emergency_contact_name', 'emergency_contact_phone']);
             $this->resetValidation();
 
-            return redirect()->route('stores.customers', $store)
+            return redirect()->route('stores.terceros', ['store' => $store, 'rol' => 'cliente'])
                 ->with('success', 'Cliente creado correctamente.');
         } catch (\Exception $e) {
             $this->addError('name', $e->getMessage());

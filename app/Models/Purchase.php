@@ -13,7 +13,7 @@ class Purchase extends Model
     protected $fillable = [
         'store_id',
         'user_id',
-        'proveedor_id',
+        'tercero_id',
         'status',
         'purchase_type',
         'payment_status',
@@ -57,7 +57,12 @@ class Purchase extends Model
 
     public function proveedor()
     {
-        return $this->belongsTo(Proveedor::class);
+        return $this->belongsTo(Tercero::class, 'tercero_id');
+    }
+
+    public function tercero()
+    {
+        return $this->belongsTo(Tercero::class, 'tercero_id');
     }
 
     public function details()

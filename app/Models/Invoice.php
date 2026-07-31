@@ -14,7 +14,7 @@ class Invoice extends Model
     protected $fillable = [
         'store_id',
         'user_id',
-        'customer_id',
+        'tercero_id',
         'subtotal',
         'tax',
         'discount',
@@ -48,7 +48,12 @@ class Invoice extends Model
     
     public function customer()
     {
-        return $this->belongsTo(Customer::class);
+        return $this->belongsTo(Tercero::class, 'tercero_id');
+    }
+
+    public function tercero()
+    {
+        return $this->belongsTo(Tercero::class, 'tercero_id');
     }
 
     /** Cuenta por cobrar asociada (1:1) si la factura es a crédito (PENDING/PARTIAL). */

@@ -109,6 +109,20 @@ Campos clave: `prefijo`, `numeracion_automatica`, `siguiente_numero`, `activo`, 
 - `TipoComprobanteService` — catálogo de tipos FV/RC/FC/RP/CC, defaults y consecutivos.
 - `CajaService` — crear/actualizar bolsillo con cuenta auxiliar.
 
-## Siguiente (no implementado aún)
-1. Vincular documentos operativos al catálogo: `Invoice`→FV, `ComprobanteIngreso`→RC (reemplazar `CI-`), `Purchase`→FC, `ComprobanteEgreso`→RP.
-2. Motor de asientos al vender/devolver/comprar usando `categoria_contable` + bolsillo de pago + tipo de comprobante (incl. CC manual).
+## Asientos manuales CC (implementado)
+- Núcleo: `comprobantes_contables` + `movimientos_contables`, orquestado por `AsientoContableService`.
+- Flujo: crear/editar borrador balanceado → contabilizar con consecutivo CC → reversar mediante un nuevo asiento inverso.
+- Reglas: solo auxiliares transaccionales activas de la tienda; una línea usa débito o crédito; débitos = créditos; contabilizados no se editan ni eliminan.
+- UI: Financiero → **Asientos manuales**.
+- Permisos: `contabilidad.comprobantes.view|create|edit|post|reverse`.
+- Libro Diario inicial: consulta cronológica de movimientos contabilizados (incluye originales reversados y sus asientos inversos).
+- Pendiente: Libro Mayor y Balance de comprobación.
+
+## Siguiente (automatización no implementada)
+0. **Matriz de eventos (especificación v1):** ver [`docs/MATRIZ_EVENTOS_CONTABLES.md`](MATRIZ_EVENTOS_CONTABLES.md). Debe aprobarla el contador antes de automatizar documentos operativos.
+1. Vincular documentos operativos al catálogo de tipos: `Invoice`→FV, `ComprobanteIngreso`→RC, `Purchase`→FC, `ComprobanteEgreso`→RP.
+2. Motor de asientos al vender/devolver/comprar usando `categoria_contable` + bolsillo de pago + tipo de comprobante + **`tercero_id`** (ver `docs/TERCEROS.md`).
+3. Construir Libro Mayor y Balance de comprobación desde `movimientos_contables`.
+
+## Terceros
+Maestro unificado (clientes/proveedores/trabajadores): ver [`docs/TERCEROS.md`](TERCEROS.md). Los asientos deben usar `tercero_id`.

@@ -58,13 +58,15 @@ class User extends Authenticatable
         return $this->belongsTo(Plan::class);
     }
 
-    /**
-     * Relación: Un usuario puede ser cliente en múltiples tiendas
-     * Un User (global) puede tener muchos Customer (uno por cada tienda)
-     */
+    public function terceros()
+    {
+        return $this->hasMany(Tercero::class);
+    }
+
+    /** Alias de compatibilidad para terceros con rol cliente. */
     public function customers()
     {
-        return $this->hasMany(Customer::class);
+        return $this->terceros()->conRol(Tercero::ROL_CLIENTE);
     }
 
     /**
@@ -73,6 +75,6 @@ class User extends Authenticatable
      */
     public function workerRecords()
     {
-        return $this->hasMany(Worker::class);
+        return $this->terceros()->conRol(Tercero::ROL_TRABAJADOR);
     }
 }

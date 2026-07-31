@@ -99,13 +99,14 @@
                     <div class="grid gap-5 lg:grid-cols-2">
                         <div>
                             <label class="block text-xs font-medium text-gray-400 mb-1.5">Trabajador <span class="text-red-400">*</span></label>
-                            <select name="worker_id" required class="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-gray-100 focus:border-brand focus:ring-brand">
+                            <select name="tercero_id" required class="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-gray-100 focus:border-brand focus:ring-brand">
                                 <option value="">Seleccionar…</option>
                                 @foreach($workers as $w)
-                                    <option value="{{ $w->id }}" @selected((int) old('worker_id', $editing?->worker_id) === $w->id)>{{ $w->name }} @if($w->role) — {{ $w->role->name }} @endif</option>
+                                    <option value="{{ $w->id }}" @selected((int) old('tercero_id', old('worker_id', $editing?->tercero_id)) === $w->id)>{{ $w->name }} @if($w->role) — {{ $w->role->name }} @endif</option>
                                 @endforeach
                             </select>
                             @error('worker_id')<p class="mt-1 text-xs text-red-400">{{ $message }}</p>@enderror
+                            @error('tercero_id')<p class="mt-1 text-xs text-red-400">{{ $message }}</p>@enderror
                         </div>
                         <div class="grid gap-4 sm:grid-cols-2">
                             <div>

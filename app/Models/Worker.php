@@ -3,56 +3,55 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasOneThrough;
 
-class Worker extends Model
+/**
+ * Alias de compatibilidad: Worker = Tercero (rol trabajador).
+ * Preferir App\Models\Tercero en código nuevo.
+ */
+class Worker extends Tercero
 {
-    protected $fillable = [
-        'store_id',
-        'user_id',
-        'role_id',
-        'name',
-        'email',
-        'phone',
-        'document_number',
-        'address',
-    ];
+    protected $table = 'terceros';
 
-    public function store(): BelongsTo
+    protected static function booted(): void
     {
-        return $this->belongsTo(Store::class);
-    }
-
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
-    }
-
-    public function role(): BelongsTo
-    {
-        return $this->belongsTo(Role::class);
-    }
-
-    public function schedules(): HasMany
-    {
-        return $this->hasMany(WorkerSchedule::class, 'worker_id');
+        static::addGlobalScope('trabajador', function (Builder $query) {
+            $query->conRol(self::ROL_TRABAJADOR);
+        });
     }
 
     public function scopeDeTienda(Builder $query, int $storeId): void
     {
-        $query->where('store_id', $storeId);
+        $query->deStore($storeId);
     }
 
-    public function scopeSinVincular(Builder $query): void
+    public function perfilTrabajador(): HasOne
     {
-        $query->whereNull('user_id');
+        return $this->hasOne(TerceroTrabajadorPerfil::class, 'tercero_id');
     }
 
-    public function scopeVinculados(Builder $query): void
+    public function role(): HasOneThrough
     {
-        $query->whereNotNull('user_id');
+        return $this->hasOneThrough(
+            Role::class,
+            TerceroTrabajadorPerfil::class,
+            'tercero_id',
+            'id',
+            'id',
+            'role_id'
+        );
+    }
+
+    public function getRoleIdAttribute()
+    {
+        return $this->perfilTrabajador?->role_id;
+    }
+
+    public function schedules(): HasMany
+    {
+        return $this->hasMany(WorkerSchedule::class, 'tercero_id');
     }
 
     public function estaVinculado(): bool

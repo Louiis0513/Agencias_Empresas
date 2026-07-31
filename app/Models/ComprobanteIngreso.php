@@ -19,7 +19,7 @@ class ComprobanteIngreso extends Model
         'date',
         'notes',
         'type',
-        'customer_id',
+        'tercero_id',
         'invoice_id',
         'user_id',
         'reversed_at',
@@ -43,7 +43,12 @@ class ComprobanteIngreso extends Model
 
     public function customer()
     {
-        return $this->belongsTo(Customer::class);
+        return $this->belongsTo(Tercero::class, 'tercero_id');
+    }
+
+    public function tercero()
+    {
+        return $this->belongsTo(Tercero::class, 'tercero_id');
     }
 
     public function invoice()

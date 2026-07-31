@@ -40,7 +40,7 @@
                                             <td class="px-4 py-3 text-sm font-medium text-gray-100">{{ $worker->name }}</td>
                                             <td class="px-4 py-3 text-sm text-gray-400">{{ $worker->email }}</td>
                                             <td class="px-4 py-3 text-right text-sm">
-                                                <a href="{{ route('stores.workers.edit', [$store, $worker]) }}" class="text-brand hover:text-white transition">Editar</a>
+                                                <a href="{{ route('stores.terceros.show', [$store, $worker]) }}" class="text-brand hover:text-white transition">Editar</a>
                                             </td>
                                         </tr>
                                     @endforeach
@@ -103,6 +103,7 @@
                                 'invoices' => 'Facturas',
                                 'proveedores' => 'Proveedores',
                                 'customers' => 'Clientes',
+                                'terceros' => 'Terceros',
                                 'caja' => 'Caja',
                                 'inventario' => 'Inventario',
                                 'activos' => 'Activos',

@@ -58,6 +58,12 @@ class PermissionSeeder extends Seeder
             ['slug' => 'customers.edit', 'name' => 'Editar clientes', 'description' => 'Modificar datos de clientes'],
             ['slug' => 'customers.destroy', 'name' => 'Eliminar clientes', 'description' => 'Eliminar clientes'],
 
+            // Terceros (unifica clientes / proveedores / trabajadores)
+            ['slug' => 'terceros.view', 'name' => 'Ver terceros', 'description' => 'Ver catálogo de terceros'],
+            ['slug' => 'terceros.create', 'name' => 'Crear terceros', 'description' => 'Crear terceros'],
+            ['slug' => 'terceros.edit', 'name' => 'Editar terceros', 'description' => 'Editar terceros, roles y perfiles'],
+            ['slug' => 'terceros.destroy', 'name' => 'Eliminar terceros', 'description' => 'Desactivar o eliminar terceros'],
+
             // Caja / Bolsillos / Movimientos
             ['slug' => 'caja.view', 'name' => 'Ver caja', 'description' => 'Ver caja y bolsillos'],
             ['slug' => 'caja.bolsillos.create', 'name' => 'Crear bolsillos', 'description' => 'Crear nuevos bolsillos'],
@@ -106,6 +112,13 @@ class PermissionSeeder extends Seeder
             ['slug' => 'comprobantes-egreso.edit', 'name' => 'Editar comprobantes de egreso', 'description' => 'Editar comprobantes de egreso'],
             ['slug' => 'comprobantes-egreso.reversar', 'name' => 'Reversar comprobantes de egreso', 'description' => 'Reversar comprobantes de egreso'],
             ['slug' => 'comprobantes-egreso.anular', 'name' => 'Anular comprobantes de egreso', 'description' => 'Anular comprobantes de egreso'],
+
+            // Comprobantes contables / asientos manuales
+            ['slug' => 'contabilidad.comprobantes.view', 'name' => 'Ver comprobantes contables', 'description' => 'Ver asientos y comprobantes contables'],
+            ['slug' => 'contabilidad.comprobantes.create', 'name' => 'Crear comprobantes contables', 'description' => 'Crear asientos manuales en borrador'],
+            ['slug' => 'contabilidad.comprobantes.edit', 'name' => 'Editar comprobantes contables', 'description' => 'Editar asientos manuales en borrador'],
+            ['slug' => 'contabilidad.comprobantes.post', 'name' => 'Contabilizar comprobantes', 'description' => 'Contabilizar asientos manuales balanceados'],
+            ['slug' => 'contabilidad.comprobantes.reverse', 'name' => 'Reversar comprobantes contables', 'description' => 'Crear el reverso de un asiento contabilizado'],
 
             // Roles
             ['slug' => 'roles.view', 'name' => 'Ver roles y permisos', 'description' => 'Ver roles y permisos de la tienda'],

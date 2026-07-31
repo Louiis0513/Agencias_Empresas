@@ -38,11 +38,9 @@ class Role extends Model
             ->withTimestamps();
     }
 
-    /**
-     * Los trabajadores que tienen este rol (tabla workers)
-     */
+    /** Perfiles de trabajadores que tienen este rol. */
     public function workers(): HasMany
     {
-        return $this->hasMany(Worker::class);
+        return $this->hasMany(TerceroTrabajadorPerfil::class);
     }
 }

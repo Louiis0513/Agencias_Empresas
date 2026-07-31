@@ -13,7 +13,7 @@ class SupportDocument extends Model
     protected $fillable = [
         'store_id',
         'user_id',
-        'proveedor_id',
+        'tercero_id',
         'comprobante_egreso_id',
         'status',
         'payment_status',
@@ -57,7 +57,12 @@ class SupportDocument extends Model
 
     public function proveedor()
     {
-        return $this->belongsTo(Proveedor::class);
+        return $this->belongsTo(Tercero::class, 'tercero_id');
+    }
+
+    public function tercero()
+    {
+        return $this->belongsTo(Tercero::class, 'tercero_id');
     }
 
     public function comprobanteEgreso()

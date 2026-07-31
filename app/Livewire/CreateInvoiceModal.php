@@ -412,7 +412,7 @@ class CreateInvoiceModal extends Component
 
         return Customer::where('id', $this->customer_id)
             ->where('store_id', $store->id)
-            ->where('document_number', Customer::CONSUMIDOR_FINAL_DOCUMENT)
+            ->where('numero_identificacion', Customer::CONSUMIDOR_FINAL_DOCUMENT)
             ->exists();
     }
 
