@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Bolsillo;
 use App\Models\CuentaContable;
 use App\Models\Store;
+use App\Support\CatalogoImpuestosPredeterminados;
 use Exception;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -288,11 +289,20 @@ class CuentaContableService
         $esAuxiliar = $lenHijo > CuentaContable::MAX_CODIGO_BASE;
         $nivel = $lenHijo >= 8 ? CuentaContable::NIVEL_TRANSACCIONAL : null;
 
-        if ($lenHijo >= 8 && array_key_exists('nivel_agrupacion', $data)) {
+        $forzarTransaccional = (bool) ($data['forzar_transaccional'] ?? false);
+        if ($forzarTransaccional && $lenHijo >= CuentaContable::MAX_CODIGO_BASE) {
+            $nivel = CuentaContable::NIVEL_TRANSACCIONAL;
+        } elseif ($lenHijo >= 8 && array_key_exists('nivel_agrupacion', $data)) {
             $nivelRaw = $data['nivel_agrupacion'];
             $nivel = ($nivelRaw === '' || $nivelRaw === null)
                 ? null
                 : (string) $nivelRaw;
+        } elseif (
+            $lenHijo === CuentaContable::MAX_CODIGO_BASE
+            && array_key_exists('nivel_agrupacion', $data)
+            && $data['nivel_agrupacion'] === CuentaContable::NIVEL_TRANSACCIONAL
+        ) {
+            $nivel = CuentaContable::NIVEL_TRANSACCIONAL;
         }
 
         $clase = trim((string) ($data['clase'] ?? ''));
@@ -390,6 +400,156 @@ class CuentaContableService
                 'traslado_realizado' => $traslado,
             ];
         });
+    }
+
+    /**
+     * Asegura una cuenta por código exacto creando la cadena PUC faltante (1→2→4→6→8).
+     *
+     * @param  array{
+     *   nombre?: string,
+     *   categoria?: ?string,
+     *   relacion_con?: ?string,
+     *   clase?: ?string,
+     *   forzar_transaccional?: bool
+     * }  $meta
+     */
+    public function asegurarCuentaPorCodigo(Store $store, string $codigo, array $meta = []): CuentaContable
+    {
+        $codigo = preg_replace('/\D/', '', $codigo) ?? '';
+        if ($codigo === '') {
+            throw new Exception('El código de cuenta es obligatorio.');
+        }
+
+        $cadena = CatalogoImpuestosPredeterminados::cadenaCodigos($codigo);
+        $cuenta = null;
+
+        foreach ($cadena as $codigoNivel) {
+            $existente = CuentaContable::query()
+                ->deStore($store)
+                ->where('codigo', $codigoNivel)
+                ->first();
+
+            if ($existente) {
+                $cuenta = $existente;
+                continue;
+            }
+
+            $len = strlen($codigoNivel);
+            $nombre = $this->nombreParaCodigoCadena($codigoNivel, $codigo, $meta);
+            $esHojaFinal = $codigoNivel === $codigo;
+            $forzarTransaccional = $esHojaFinal && (
+                (bool) ($meta['forzar_transaccional'] ?? false)
+                || CatalogoImpuestosPredeterminados::esHojaSeisTransaccional($codigoNivel)
+                || $len > CuentaContable::MAX_CODIGO_BASE
+            );
+
+            if ($len === 1) {
+                $cuenta = CuentaContable::create([
+                    'store_id' => $store->id,
+                    'codigo' => $codigoNivel,
+                    'nombre' => $nombre,
+                    'clase' => CuentaContable::claseDesdeCodigo($codigoNivel) ?? $nombre,
+                    'categoria' => null,
+                    'relacion_con' => null,
+                    'maneja_vencimientos' => null,
+                    'diferencia_fiscal' => false,
+                    'activo' => true,
+                    'nivel_agrupacion' => null,
+                    'es_auxiliar' => false,
+                    'origen' => CuentaContable::ORIGEN_PLANTILLA,
+                    'cuenta_padre_id' => null,
+                ]);
+                continue;
+            }
+
+            $lenPadre = $len === 2 ? 1 : $len - 2;
+            $codigoPadre = substr($codigoNivel, 0, $lenPadre);
+            $padre = CuentaContable::query()
+                ->deStore($store)
+                ->where('codigo', $codigoPadre)
+                ->first();
+
+            if (! $padre) {
+                throw new Exception('No se pudo asegurar el padre '.$codigoPadre.' para '.$codigoNivel.'.');
+            }
+
+            $sufijo = substr($codigoNivel, $lenPadre);
+            $payload = [
+                'cuenta_padre_id' => $padre->id,
+                'sufijo' => $sufijo,
+                'nombre' => $nombre,
+                'confirmar_traslado' => true,
+                'omitir_bolsillo' => true,
+                'activo' => true,
+            ];
+
+            if ($esHojaFinal) {
+                if (array_key_exists('categoria', $meta)) {
+                    $payload['categoria'] = $meta['categoria'];
+                }
+                if (array_key_exists('relacion_con', $meta)) {
+                    $payload['relacion_con'] = $meta['relacion_con'];
+                }
+                if (! empty($meta['clase'])) {
+                    $payload['clase'] = $meta['clase'];
+                }
+                $payload['maneja_vencimientos'] = CuentaContable::MANEJA_VENCIMIENTOS_NO;
+            }
+
+            if ($forzarTransaccional) {
+                $payload['forzar_transaccional'] = true;
+                $payload['nivel_agrupacion'] = CuentaContable::NIVEL_TRANSACCIONAL;
+            }
+
+            $cuenta = $this->crearHijo($store, $payload)['cuenta'];
+        }
+
+        if (! $cuenta) {
+            throw new Exception('No se pudo asegurar la cuenta '.$codigo.'.');
+        }
+
+        $esHojaSeis = CatalogoImpuestosPredeterminados::esHojaSeisTransaccional($codigo)
+            || (bool) ($meta['forzar_transaccional'] ?? false);
+
+        if (
+            $esHojaSeis
+            && strlen($codigo) === CuentaContable::MAX_CODIGO_BASE
+            && ! $cuenta->esTransaccional()
+        ) {
+            $cuenta->update(['nivel_agrupacion' => CuentaContable::NIVEL_TRANSACCIONAL]);
+            $cuenta = $cuenta->fresh();
+        }
+
+        if (
+            strlen($codigo) > CuentaContable::MAX_CODIGO_BASE
+            && ! $cuenta->esTransaccional()
+        ) {
+            $cuenta->update(['nivel_agrupacion' => CuentaContable::NIVEL_TRANSACCIONAL]);
+            $cuenta = $cuenta->fresh();
+        }
+
+        return $cuenta;
+    }
+
+    /**
+     * @param  array{nombre?: string}  $meta
+     */
+    private function nombreParaCodigoCadena(string $codigoNivel, string $codigoHoja, array $meta): string
+    {
+        if ($codigoNivel === $codigoHoja && ! empty($meta['nombre'])) {
+            return (string) $meta['nombre'];
+        }
+
+        $desdePadres = CatalogoImpuestosPredeterminados::nombrePadre($codigoNivel);
+        if ($desdePadres !== null) {
+            return $desdePadres;
+        }
+
+        if ($codigoNivel === $codigoHoja && ! empty($meta['nombre'])) {
+            return (string) $meta['nombre'];
+        }
+
+        return 'Cuenta '.$codigoNivel;
     }
 
     /**

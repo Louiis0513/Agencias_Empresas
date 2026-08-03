@@ -291,9 +291,7 @@ class AsientoContableService
     {
         return CuentaContable::query()
             ->deStore($store)
-            ->activas()
-            ->transaccionales()
-            ->where('es_auxiliar', true)
+            ->usablesEnDocumentoContable()
             ->orderBy('codigo')
             ->get(['id', 'codigo', 'nombre', 'clase', 'maneja_vencimientos']);
     }
@@ -588,13 +586,9 @@ class AsientoContableService
         foreach (array_values($lineas) as $index => $linea) {
             $cuentaId = (int) ($linea['cuenta_contable_id'] ?? 0);
             $cuenta = $cuentas->get($cuentaId);
-            if (! $cuenta
-                || ! $cuenta->activo
-                || ! $cuenta->es_auxiliar
-                || ! $cuenta->esTransaccional()
-            ) {
+            if (! $cuenta || ! $cuenta->esUsableEnDocumentoContable()) {
                 throw new Exception('La cuenta de la línea '.($index + 1)
-                    .' debe ser auxiliar, transaccional, activa y pertenecer a esta tienda.');
+                    .' debe ser auxiliar (o hoja de 6 dígitos) transaccional, activa y pertenecer a esta tienda.');
             }
 
             $terceroId = $linea['tercero_id'] ?? null;

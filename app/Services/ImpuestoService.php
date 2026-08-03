@@ -5,12 +5,18 @@ namespace App\Services;
 use App\Models\CuentaContable;
 use App\Models\Impuesto;
 use App\Models\Store;
+use App\Support\CatalogoImpuestosPredeterminados;
 use Exception;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class ImpuestoService
 {
+    public function __construct(
+        protected CuentaContableService $cuentaContableService,
+    ) {}
+
     public function listar(Store $store, array $filtros = [], int $perPage = 30): LengthAwarePaginator
     {
         $q = Impuesto::query()
@@ -48,9 +54,7 @@ class ImpuestoService
     {
         return CuentaContable::query()
             ->deStore($store)
-            ->activas()
-            ->transaccionales()
-            ->where('es_auxiliar', true)
+            ->usablesEnDocumentoContable()
             ->orderBy('codigo')
             ->get(['id', 'codigo', 'nombre']);
     }
@@ -62,6 +66,58 @@ class ImpuestoService
             ->max('codigo');
 
         return $max + 1;
+    }
+
+    /**
+     * Asegura auxiliares/hojas PUC del subárbol de impuestos y los 22 impuestos Siigo.
+     * Idempotente: no duplica por código de impuesto ni por código de cuenta.
+     *
+     * @return array{creadas: int, omitidas: int, errores: list<string>}
+     */
+    public function asegurarDefaults(Store $store): array
+    {
+        $stats = ['creadas' => 0, 'omitidas' => 0, 'errores' => []];
+
+        foreach (CatalogoImpuestosPredeterminados::impuestos() as $def) {
+            $existe = Impuesto::query()
+                ->deStore($store)
+                ->where('codigo', $def['codigo'])
+                ->exists();
+
+            if ($existe) {
+                $stats['omitidas']++;
+
+                continue;
+            }
+
+            try {
+                DB::transaction(function () use ($store, $def, &$stats) {
+                    $ventas = $this->asegurarHoja($store, $def['ventas']);
+                    $compras = $this->asegurarHoja($store, $def['compras']);
+                    $devVentas = $this->asegurarHoja($store, $def['devolucion_ventas']);
+                    $devCompras = $this->asegurarHoja($store, $def['devolucion_compras']);
+
+                    $this->crear($store, [
+                        'en_uso' => true,
+                        'codigo' => $def['codigo'],
+                        'nombre' => $def['nombre'],
+                        'tipo' => $def['tipo'],
+                        'por_valor' => $def['por_valor'],
+                        'tarifa' => $def['tarifa'],
+                        'cuenta_ventas_id' => $ventas->id,
+                        'cuenta_compras_id' => $compras->id,
+                        'cuenta_devolucion_ventas_id' => $devVentas->id,
+                        'cuenta_devolucion_compras_id' => $devCompras->id,
+                    ]);
+
+                    $stats['creadas']++;
+                });
+            } catch (Exception $e) {
+                $stats['errores'][] = $def['nombre'].': '.$e->getMessage();
+            }
+        }
+
+        return $stats;
     }
 
     public function crear(Store $store, array $data): Impuesto
@@ -85,6 +141,21 @@ class ImpuestoService
             'cuentaCompras',
             'cuentaDevolucionVentas',
             'cuentaDevolucionCompras',
+        ]);
+    }
+
+    /**
+     * @param  array{codigo: string, nombre: string, relacion_con: string, categoria: string}  $hoja
+     */
+    private function asegurarHoja(Store $store, array $hoja): CuentaContable
+    {
+        return $this->cuentaContableService->asegurarCuentaPorCodigo($store, $hoja['codigo'], [
+            'nombre' => $hoja['nombre'],
+            'categoria' => $hoja['categoria'],
+            'relacion_con' => $hoja['relacion_con'],
+            'clase' => CatalogoImpuestosPredeterminados::claseDesdeCodigo($hoja['codigo']),
+            'forzar_transaccional' => CatalogoImpuestosPredeterminados::esHojaSeisTransaccional($hoja['codigo'])
+                || strlen(preg_replace('/\D/', '', $hoja['codigo']) ?? '') > CuentaContable::MAX_CODIGO_BASE,
         ]);
     }
 
@@ -143,10 +214,10 @@ class ImpuestoService
         $devVentasId = $this->requireId($data['cuenta_devolucion_ventas_id'] ?? null, 'cuenta de devolución de ventas');
         $devComprasId = $this->requireId($data['cuenta_devolucion_compras_id'] ?? null, 'cuenta de devolución de compras');
 
-        $this->assertCuentaAuxiliar($store, $ventasId, 'ventas');
-        $this->assertCuentaAuxiliar($store, $comprasId, 'compras');
-        $this->assertCuentaAuxiliar($store, $devVentasId, 'devolución de ventas');
-        $this->assertCuentaAuxiliar($store, $devComprasId, 'devolución de compras');
+        $this->assertCuentaUsable($store, $ventasId, 'ventas');
+        $this->assertCuentaUsable($store, $comprasId, 'compras');
+        $this->assertCuentaUsable($store, $devVentasId, 'devolución de ventas');
+        $this->assertCuentaUsable($store, $devComprasId, 'devolución de compras');
 
         return [
             'en_uso' => array_key_exists('en_uso', $data) ? (bool) $data['en_uso'] : true,
@@ -171,21 +242,16 @@ class ImpuestoService
         return (int) $value;
     }
 
-    private function assertCuentaAuxiliar(Store $store, int $cuentaId, string $rol): void
+    private function assertCuentaUsable(Store $store, int $cuentaId, string $rol): void
     {
         $cuenta = CuentaContable::query()
             ->deStore($store)
             ->whereKey($cuentaId)
             ->first();
 
-        if (
-            ! $cuenta
-            || ! $cuenta->activo
-            || ! $cuenta->es_auxiliar
-            || ! $cuenta->esTransaccional()
-        ) {
+        if (! $cuenta || ! $cuenta->esUsableEnDocumentoContable()) {
             throw new Exception(
-                'La cuenta de '.$rol.' debe ser auxiliar, transaccional, activa y pertenecer a esta tienda.'
+                'La cuenta de '.$rol.' debe ser auxiliar (o hoja de 6 dígitos) transaccional, activa y pertenecer a esta tienda.'
             );
         }
     }

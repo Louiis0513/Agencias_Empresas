@@ -188,6 +188,33 @@ class CuentaContable extends Model
         return $this->nivel_agrupacion === self::NIVEL_TRANSACCIONAL;
     }
 
+    /**
+     * Cuenta usable en impuestos / asientos: auxiliar transaccional
+     * o hoja de 6 dígitos transaccional (estilo Siigo, p. ej. Impoconsumo por valor).
+     */
+    public function esUsableEnDocumentoContable(): bool
+    {
+        if (! $this->activo || ! $this->esTransaccional()) {
+            return false;
+        }
+
+        if ($this->es_auxiliar) {
+            return true;
+        }
+
+        return self::longitudCodigo($this->codigo) === self::MAX_CODIGO_BASE;
+    }
+
+    public function scopeUsablesEnDocumentoContable($query)
+    {
+        return $query->activas()
+            ->transaccionales()
+            ->where(function ($q) {
+                $q->where('es_auxiliar', true)
+                    ->orWhereRaw('LENGTH(codigo) = ?', [self::MAX_CODIGO_BASE]);
+            });
+    }
+
     public static function claseDesdeCodigo(string $codigo): ?string
     {
         $digito = substr(preg_replace('/\D/', '', $codigo) ?? '', 0, 1);

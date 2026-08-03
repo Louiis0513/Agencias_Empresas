@@ -118,9 +118,13 @@ Campos clave: `prefijo`, `numeracion_automatica`, `siguiente_numero`, `activo`, 
 - `CajaService` — crear/actualizar bolsillo con cuenta auxiliar.
 
 ## Impuestos (catálogo v1)
-- Tabla `impuestos` por tienda: en uso, código, nombre, tipo, por valor, tarifa y 4 cuentas auxiliares.
+- Tabla `impuestos` por tienda: en uso, código, nombre, tipo, por valor, tarifa y 4 cuentas (ventas / compras / devoluciones).
 - Tipos fijos en código (`Impuesto::TIPOS`): IVA, Retefuente, ReteICA, ReteIVA, Impoconsumo, Bebidas azucaradas, Comestibles ultraprocesados.
 - UI: Financiero → **Impuestos**. Permisos `contabilidad.impuestos.view|create|edit`.
+- Al abrir la pantalla se aseguran **22 impuestos** estilo Siigo (`CatalogoImpuestosPredeterminados`) con sus cuentas hoja.
+- Si falta un padre PUC, se crea la **cadena completa** (clase → grupo → cuenta → subcuenta → auxiliar/hoja). Nombres de padres alineados a `docs/cuentas-contables-puc.xlsx` / [puc.com.co](https://puc.com.co/).
+- IVA 0% reutiliza las mismas cuentas del IVA 19%. Impoconsumo por valor usa hojas de **6 dígitos** transaccionales (`246401`–`246404`), como en Siigo.
+- Cuentas válidas en impuestos/asientos: auxiliar transaccional **o** hoja de 6 dígitos transaccional.
 - Aún no se aplica automáticamente en facturas/compras ni incluye autorretenciones.
 
 ## Formas de pago (catálogo v1)
@@ -137,7 +141,7 @@ Campos clave: `prefijo`, `numeracion_automatica`, `siguiente_numero`, `activo`, 
 ## Asientos manuales CC (implementado)
 - Núcleo: `comprobantes_contables` + `movimientos_contables`, orquestado por `AsientoContableService`.
 - Flujo: crear/editar borrador balanceado → contabilizar con consecutivo CC → reversar mediante un nuevo asiento inverso.
-- Reglas: solo auxiliares transaccionales activas de la tienda; una línea usa débito o crédito; débitos = créditos; contabilizados no se editan ni eliminan.
+- Reglas: solo cuentas usables (auxiliar o hoja de 6 dígitos transaccional) activas de la tienda; una línea usa débito o crédito; débitos = créditos; contabilizados no se editan ni eliminan.
 - UI: Financiero → **Asientos manuales**.
 - Permisos: `contabilidad.comprobantes.view|create|edit|post|reverse`.
 - Libro Diario inicial: consulta cronológica de movimientos contabilizados (incluye originales reversados y sus asientos inversos).

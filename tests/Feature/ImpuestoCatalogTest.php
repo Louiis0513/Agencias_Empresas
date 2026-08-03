@@ -89,9 +89,81 @@ class ImpuestoCatalogTest extends TestCase
         $datos['cuenta_ventas_id'] = $cuentaAjena->id;
 
         $this->expectException(Exception::class);
-        $this->expectExceptionMessage('debe ser auxiliar');
+        $this->expectExceptionMessage('pertenecer a esta tienda');
 
         $this->servicio()->crear($this->store, $datos);
+    }
+
+    public function test_asegurar_defaults_crea_cadena_puc_e_impuestos_sin_puc_previo(): void
+    {
+        $storeVacia = Store::factory()->create(['user_id' => $this->user->id]);
+        DB::table('store_user')->insert([
+            'store_id' => $storeVacia->id,
+            'user_id' => $this->user->id,
+            'role_id' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->assertSame(0, CuentaContable::query()->deStore($storeVacia)->count());
+
+        $stats = $this->servicio()->asegurarDefaults($storeVacia);
+
+        $this->assertSame(22, $stats['creadas']);
+        $this->assertSame([], $stats['errores']);
+        $this->assertSame(22, Impuesto::query()->deStore($storeVacia)->count());
+
+        $this->assertDatabaseHas('cuentas_contables', [
+            'store_id' => $storeVacia->id,
+            'codigo' => '1',
+        ]);
+        $this->assertDatabaseHas('cuentas_contables', [
+            'store_id' => $storeVacia->id,
+            'codigo' => '135515',
+        ]);
+        $this->assertDatabaseHas('cuentas_contables', [
+            'store_id' => $storeVacia->id,
+            'codigo' => '24080601',
+            'es_auxiliar' => true,
+            'nivel_agrupacion' => CuentaContable::NIVEL_TRANSACCIONAL,
+        ]);
+        $this->assertDatabaseHas('cuentas_contables', [
+            'store_id' => $storeVacia->id,
+            'codigo' => '246401',
+            'nivel_agrupacion' => CuentaContable::NIVEL_TRANSACCIONAL,
+        ]);
+
+        $iva19 = Impuesto::query()->deStore($storeVacia)->where('codigo', 1)->first();
+        $iva0 = Impuesto::query()->deStore($storeVacia)->where('codigo', 22)->first();
+        $this->assertNotNull($iva19);
+        $this->assertNotNull($iva0);
+        $this->assertSame($iva19->cuenta_ventas_id, $iva0->cuenta_ventas_id);
+
+        $stats2 = $this->servicio()->asegurarDefaults($storeVacia);
+        $this->assertSame(0, $stats2['creadas']);
+        $this->assertSame(22, $stats2['omitidas']);
+        $this->assertSame(22, Impuesto::query()->deStore($storeVacia)->count());
+    }
+
+    public function test_index_dispara_defaults(): void
+    {
+        $storeVacia = Store::factory()->create(['user_id' => $this->user->id]);
+        DB::table('store_user')->insert([
+            'store_id' => $storeVacia->id,
+            'user_id' => $this->user->id,
+            'role_id' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->actingAs($this->user)
+            ->get(route('stores.contabilidad.impuestos', $storeVacia))
+            ->assertOk()
+            ->assertSee('IVA 19%')
+            ->assertSee('Retefuente 4%')
+            ->assertSee('24080601');
+
+        $this->assertSame(22, Impuesto::query()->deStore($storeVacia)->count());
     }
 
     public function test_propietario_puede_guardar_por_http(): void

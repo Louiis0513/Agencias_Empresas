@@ -21,6 +21,22 @@ class StoreImpuestoController extends Controller
     {
         $this->permissionService->authorize($store, 'contabilidad.impuestos.view');
 
+        $defaults = $this->impuestoService->asegurarDefaults($store);
+
+        if ($defaults['creadas'] > 0) {
+            session()->flash(
+                'success',
+                'Se crearon '.$defaults['creadas'].' impuesto(s) por defecto con sus cuentas contables.'
+            );
+        }
+
+        if ($defaults['errores'] !== []) {
+            session()->flash(
+                'warning',
+                'Algunos impuestos no se pudieron crear: '.implode(' | ', $defaults['errores'])
+            );
+        }
+
         return view('stores.contabilidad.impuestos', [
             'store' => $store,
             'impuestos' => $this->impuestoService->listar($store, [
