@@ -8,6 +8,7 @@ use App\Models\Store;
 use App\Models\TipoComprobante;
 use App\Models\User;
 use App\Services\AsientoContableService;
+use App\Services\CentroCostoService;
 use Exception;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -293,6 +294,108 @@ class AsientoContableManualTest extends TestCase
             ->assertSee('11050501')
             ->assertSee('51959501')
             ->assertSee('CC-0002');
+    }
+
+    public function test_tipo_con_centros_rechaza_linea_sin_subcentro(): void
+    {
+        $this->tipo->update([
+            'maneja_centro_costos' => true,
+            'centro_costo_obligatorio' => true,
+        ]);
+        app(CentroCostoService::class)->crearCentro($this->store, [
+            'codigo' => 'ADM',
+            'nombre' => 'Administración',
+        ]);
+
+        $this->expectException(Exception::class);
+        $this->expectExceptionMessage('subcentro de costo');
+
+        $this->servicio()->crearBorrador($this->store, $this->user->id, $this->datosBalanceados());
+    }
+
+    public function test_tipo_con_centros_guarda_subcentro_en_lineas(): void
+    {
+        $this->tipo->update([
+            'maneja_centro_costos' => true,
+            'centro_costo_obligatorio' => true,
+        ]);
+        $centro = app(CentroCostoService::class)->crearCentro($this->store, [
+            'codigo' => 'ADM',
+            'nombre' => 'Administración',
+        ]);
+        $sub = $centro->hijos()->first();
+
+        $datos = $this->datosBalanceados();
+        $datos['lineas'][0]['centro_costo_id'] = $sub->id;
+        $datos['lineas'][1]['centro_costo_id'] = $sub->id;
+
+        $comprobante = $this->servicio()->crearBorrador($this->store, $this->user->id, $datos);
+
+        $this->assertSame($sub->id, $comprobante->movimientos[0]->centro_costo_id);
+        $this->assertSame($sub->id, $comprobante->movimientos[1]->centro_costo_id);
+    }
+
+    public function test_tipo_sin_centros_fuerza_null_aunque_envien_id(): void
+    {
+        $this->tipo->update([
+            'maneja_centro_costos' => false,
+            'centro_costo_obligatorio' => false,
+        ]);
+        $centro = app(CentroCostoService::class)->crearCentro($this->store, [
+            'codigo' => 'ADM',
+            'nombre' => 'Administración',
+        ]);
+        $sub = $centro->hijos()->first();
+
+        $datos = $this->datosBalanceados();
+        $datos['lineas'][0]['centro_costo_id'] = $sub->id;
+        $datos['lineas'][1]['centro_costo_id'] = $sub->id;
+
+        $comprobante = $this->servicio()->crearBorrador($this->store, $this->user->id, $datos);
+
+        $this->assertNull($comprobante->movimientos[0]->centro_costo_id);
+        $this->assertNull($comprobante->movimientos[1]->centro_costo_id);
+    }
+
+    public function test_reverso_copia_centro_costo(): void
+    {
+        $this->tipo->update([
+            'maneja_centro_costos' => true,
+            'centro_costo_obligatorio' => true,
+        ]);
+        $centro = app(CentroCostoService::class)->crearCentro($this->store, [
+            'codigo' => 'ADM',
+            'nombre' => 'Administración',
+        ]);
+        $sub = $centro->hijos()->first();
+
+        $datos = $this->datosBalanceados();
+        $datos['lineas'][0]['centro_costo_id'] = $sub->id;
+        $datos['lineas'][1]['centro_costo_id'] = $sub->id;
+
+        $servicio = $this->servicio();
+        $comprobante = $servicio->crearBorrador($this->store, $this->user->id, $datos);
+        $contabilizado = $servicio->contabilizar($this->store, $comprobante, $this->user->id);
+        $reverso = $servicio->reversar($this->store, $contabilizado, $this->user->id);
+
+        $this->assertSame($sub->id, $reverso->movimientos[0]->centro_costo_id);
+        $this->assertSame($sub->id, $reverso->movimientos[1]->centro_costo_id);
+    }
+
+    public function test_maneja_sin_obligatorio_permite_linea_sin_subcentro(): void
+    {
+        $this->tipo->update([
+            'maneja_centro_costos' => true,
+            'centro_costo_obligatorio' => false,
+        ]);
+
+        $comprobante = $this->servicio()->crearBorrador(
+            $this->store,
+            $this->user->id,
+            $this->datosBalanceados()
+        );
+
+        $this->assertNull($comprobante->movimientos[0]->centro_costo_id);
     }
 
     private function servicio(): AsientoContableService

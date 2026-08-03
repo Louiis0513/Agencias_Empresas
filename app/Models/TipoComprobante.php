@@ -51,6 +51,8 @@ class TipoComprobante extends Model
         'siguiente_numero',
         'activo',
         'maneja_centro_costos',
+        'centro_costo_obligatorio',
+        'centro_costo_default_id',
         'libro_oficial',
     ];
 
@@ -61,6 +63,7 @@ class TipoComprobante extends Model
             'siguiente_numero' => 'integer',
             'activo' => 'boolean',
             'maneja_centro_costos' => 'boolean',
+            'centro_costo_obligatorio' => 'boolean',
         ];
     }
 
@@ -69,9 +72,37 @@ class TipoComprobante extends Model
         return $this->belongsTo(Store::class);
     }
 
+    public function centroCostoDefault(): BelongsTo
+    {
+        return $this->belongsTo(CentroCosto::class, 'centro_costo_default_id');
+    }
+
     public function comprobantesContables(): HasMany
     {
         return $this->hasMany(ComprobanteContable::class);
+    }
+
+    /** ¿Mostrar campo de centro de costo en el documento? */
+    public function manejaCentroCostos(): bool
+    {
+        return (bool) $this->maneja_centro_costos;
+    }
+
+    /** ¿Exigir subcentro cuando el tipo maneja centros? */
+    public function exigeCentroCostos(): bool
+    {
+        return $this->manejaCentroCostos() && (bool) $this->centro_costo_obligatorio;
+    }
+
+    public static function etiquetasFamiliasGrupo(): array
+    {
+        return [
+            self::FAMILIA_FV => 'FACTURAS',
+            self::FAMILIA_FC => 'FACTURAS DE COMPRA',
+            self::FAMILIA_RC => 'RECIBOS DE CAJA',
+            self::FAMILIA_RP => 'RECIBOS DE PAGO',
+            self::FAMILIA_CC => 'COMPROBANTES CONTABLES',
+        ];
     }
 
     public function scopeDeStore($query, Store|int $store)

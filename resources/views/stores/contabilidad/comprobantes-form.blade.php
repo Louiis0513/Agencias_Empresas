@@ -1,27 +1,79 @@
 @php
     $editando = $comprobante !== null;
     $tipoInicial = old('tipo_comprobante_id', $comprobante?->tipo_comprobante_id ?? $tipos->first()?->id);
+    $centrosLookup = collect($centrosCosto ?? []);
+    $subcentroACentro = [];
+    foreach ($centrosLookup as $centro) {
+        foreach ($centro['subcentros'] as $sub) {
+            $subcentroACentro[(string) $sub['id']] = (string) $centro['id'];
+        }
+    }
     $lineasIniciales = old('lineas');
     if ($lineasIniciales === null && $comprobante) {
-        $lineasIniciales = $comprobante->movimientos->map(fn ($linea) => [
-            'cuenta_contable_id' => (string) $linea->cuenta_contable_id,
-            'tercero_id' => $linea->tercero_id ? (string) $linea->tercero_id : '',
-            'detalle_contable' => $linea->detalle_contable ?? '',
-            'descripcion' => $linea->descripcion ?? '',
-            'debito' => (string) $linea->debito,
-            'credito' => (string) $linea->credito,
-        ])->values()->all();
+        $lineasIniciales = $comprobante->movimientos->map(function ($linea) use ($subcentroACentro) {
+            $subId = $linea->centro_costo_id ? (string) $linea->centro_costo_id : '';
+
+            return [
+                'cuenta_contable_id' => (string) $linea->cuenta_contable_id,
+                'tercero_id' => $linea->tercero_id ? (string) $linea->tercero_id : '',
+                'centro_id' => $subId !== '' ? ($subcentroACentro[$subId] ?? '') : '',
+                'centro_costo_id' => $subId,
+                'detalle_contable' => $linea->detalle_contable ?? '',
+                'descripcion' => $linea->descripcion ?? '',
+                'debito' => (string) $linea->debito,
+                'credito' => (string) $linea->credito,
+            ];
+        })->values()->all();
+    } elseif (is_array($lineasIniciales)) {
+        $lineasIniciales = collect($lineasIniciales)->map(function ($linea) use ($subcentroACentro) {
+            $subId = (string) ($linea['centro_costo_id'] ?? '');
+            $centroId = (string) ($linea['centro_id'] ?? '');
+            if ($centroId === '' && $subId !== '') {
+                $centroId = $subcentroACentro[$subId] ?? '';
+            }
+
+            return [
+                'cuenta_contable_id' => (string) ($linea['cuenta_contable_id'] ?? ''),
+                'tercero_id' => (string) ($linea['tercero_id'] ?? ''),
+                'centro_id' => $centroId,
+                'centro_costo_id' => $subId,
+                'detalle_contable' => (string) ($linea['detalle_contable'] ?? ''),
+                'descripcion' => (string) ($linea['descripcion'] ?? ''),
+                'debito' => (string) ($linea['debito'] ?? ''),
+                'credito' => (string) ($linea['credito'] ?? ''),
+            ];
+        })->values()->all();
     }
-    $lineasIniciales ??= [
-        ['cuenta_contable_id' => '', 'tercero_id' => '', 'detalle_contable' => '', 'descripcion' => '', 'debito' => '', 'credito' => ''],
-        ['cuenta_contable_id' => '', 'tercero_id' => '', 'detalle_contable' => '', 'descripcion' => '', 'debito' => '', 'credito' => ''],
-    ];
+    $lineasIniciales ??= null;
+    if ($lineasIniciales === null) {
+        $tipoParaDefault = $tipos->firstWhere('id', (int) $tipoInicial);
+        $defaultSubId = $tipoParaDefault?->centro_costo_default_id
+            ? (string) $tipoParaDefault->centro_costo_default_id
+            : '';
+        $defaultCentroId = $defaultSubId !== '' ? ($subcentroACentro[$defaultSubId] ?? '') : '';
+        $lineaVacia = [
+            'cuenta_contable_id' => '',
+            'tercero_id' => '',
+            'centro_id' => $defaultCentroId,
+            'centro_costo_id' => $defaultSubId,
+            'detalle_contable' => '',
+            'descripcion' => '',
+            'debito' => '',
+            'credito' => '',
+        ];
+        $lineasIniciales = [$lineaVacia, $lineaVacia];
+    }
     $tiposJs = $tipos->map(fn ($tipo) => [
         'id' => (string) $tipo->id,
         'prefijo' => $tipo->prefijo,
         'numeracion_automatica' => $tipo->numeracion_automatica,
         'siguiente_numero' => $tipo->siguiente_numero,
         'maneja_centro_costos' => $tipo->maneja_centro_costos,
+        'centro_costo_obligatorio' => $tipo->centro_costo_obligatorio,
+        'centro_costo_default_id' => $tipo->centro_costo_default_id ? (string) $tipo->centro_costo_default_id : '',
+        'centro_default_padre_id' => $tipo->centro_costo_default_id
+            ? ($subcentroACentro[(string) $tipo->centro_costo_default_id] ?? '')
+            : '',
     ])->values();
     $monedaCodigo = strtoupper($store->currency ?: 'COP');
     $monedaEtiqueta = $monedaCodigo === 'COP' ? 'COP — Peso colombiano' : $monedaCodigo;
@@ -41,10 +93,23 @@
     <div class="py-10"
          x-data="{
             tipos: @js($tiposJs),
+            centros: @js($centrosLookup->values()),
             tipoId: @js((string) $tipoInicial),
             lineas: @js($lineasIniciales),
             nuevaLinea() {
-                return { cuenta_contable_id: '', tercero_id: '', detalle_contable: '', descripcion: '', debito: '', credito: '' };
+                const tipo = this.tipoSeleccionado;
+                const subId = tipo?.centro_costo_default_id || '';
+                const centroId = tipo?.centro_default_padre_id || '';
+                return {
+                    cuenta_contable_id: '',
+                    tercero_id: '',
+                    centro_id: this.manejaCentroCostos ? centroId : '',
+                    centro_costo_id: this.manejaCentroCostos ? subId : '',
+                    detalle_contable: '',
+                    descripcion: '',
+                    debito: '',
+                    credito: ''
+                };
             },
             agregar() { this.lineas.push(this.nuevaLinea()); },
             quitar(index) { if (this.lineas.length > 2) this.lineas.splice(index, 1); },
@@ -64,6 +129,14 @@
                 return this.tipoSeleccionado.prefijo + '-' + String(this.tipoSeleccionado.siguiente_numero).padStart(4, '0');
             },
             get manejaCentroCostos() { return !!this.tipoSeleccionado?.maneja_centro_costos; },
+            get centroObligatorio() { return this.manejaCentroCostos && !!this.tipoSeleccionado?.centro_costo_obligatorio; },
+            subcentrosDe(linea) {
+                const centro = this.centros.find(c => String(c.id) === String(linea.centro_id));
+                return centro ? centro.subcentros : [];
+            },
+            onCentroChange(linea) {
+                linea.centro_costo_id = '';
+            },
             moneda(valor) { return new Intl.NumberFormat('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(valor); }
          }">
         <div class="mx-auto max-w-7xl space-y-5 sm:px-6 lg:px-8">
@@ -135,11 +208,15 @@
                         <div>
                             <h3 class="font-semibold text-gray-100">Líneas del asiento</h3>
                             <p class="text-xs text-gray-500">El tercero, detalle y descripción corresponden a cada cuenta afectada.</p>
+                            <p class="mt-1 text-xs text-amber-300/80" x-show="manejaCentroCostos && centros.length === 0" x-cloak>
+                                Este tipo exige centro de costo, pero no hay centros activos.
+                                <a href="{{ route('stores.contabilidad.centros-costo', $store) }}" class="underline">Crear centros</a>
+                            </p>
                         </div>
                         <button type="button" @click="agregar()" class="rounded-lg bg-white/10 px-3 py-2 text-sm text-gray-100 hover:bg-white/15">+ Línea</button>
                     </div>
                     <div class="overflow-x-auto">
-                        <table class="min-w-[1700px] w-full">
+                        <table class="min-w-[1900px] w-full">
                             <thead class="border-b border-white/5 text-left text-xs uppercase text-gray-400">
                                 <tr>
                                     <th class="px-3 py-3 w-12">#</th>
@@ -147,10 +224,7 @@
                                     <th class="px-3 py-3 min-w-56">Tercero</th>
                                     <th class="px-3 py-3 min-w-56">Detalle contable</th>
                                     <th class="px-3 py-3 min-w-56">Descripción</th>
-                                    <th class="px-3 py-3 min-w-52">
-                                        Centro de costo
-                                        <span class="normal-case text-gray-600">(próximamente)</span>
-                                    </th>
+                                    <th class="px-3 py-3 min-w-64">Centro de costo</th>
                                     <th class="px-3 py-3 w-40 text-right">Débito</th>
                                     <th class="px-3 py-3 w-40 text-right">Crédito</th>
                                     <th class="px-3 py-3 w-16"></th>
@@ -191,10 +265,26 @@
                                                    class="w-full rounded-md border-white/10 bg-white/5 text-sm text-gray-100">
                                         </td>
                                         <td class="px-3 py-3">
-                                            <select disabled
-                                                    class="w-full cursor-not-allowed rounded-md border-white/10 bg-white/[0.03] text-sm text-gray-500">
-                                                <option x-text="manejaCentroCostos ? 'Pendiente de configurar' : 'No aplica'"></option>
-                                            </select>
+                                            <div x-show="!manejaCentroCostos" class="text-sm text-gray-500">No aplica</div>
+                                            <div x-show="manejaCentroCostos" x-cloak class="grid gap-2">
+                                                <select x-model="linea.centro_id" @change="onCentroChange(linea)"
+                                                        :required="centroObligatorio"
+                                                        class="w-full rounded-md border-white/10 bg-white/5 text-sm text-gray-100">
+                                                    <option value="">Centro...</option>
+                                                    <template x-for="centro in centros" :key="centro.id">
+                                                        <option :value="String(centro.id)" x-text="centro.codigo + ' — ' + centro.nombre"></option>
+                                                    </template>
+                                                </select>
+                                                <select x-model="linea.centro_costo_id"
+                                                        :name="`lineas[${index}][centro_costo_id]`"
+                                                        :required="centroObligatorio"
+                                                        class="w-full rounded-md border-white/10 bg-white/5 text-sm text-gray-100">
+                                                    <option value="">Subcentro...</option>
+                                                    <template x-for="sub in subcentrosDe(linea)" :key="sub.id">
+                                                        <option :value="String(sub.id)" x-text="sub.codigo + ' — ' + sub.nombre"></option>
+                                                    </template>
+                                                </select>
+                                            </div>
                                         </td>
                                         <td class="px-3 py-3">
                                             <input type="number" min="0" step="0.01" x-model="linea.debito"

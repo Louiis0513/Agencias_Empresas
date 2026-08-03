@@ -28,6 +28,7 @@ use App\Http\Controllers\StoreTerceroController;
 use App\Http\Controllers\StoreTipoComprobanteController;
 use App\Http\Controllers\StoreImpuestoController;
 use App\Http\Controllers\StoreFormaPagoController;
+use App\Http\Controllers\StoreCentroCostoController;
 use App\Http\Controllers\StoreVitrinaController;
 use App\Http\Controllers\StoreWorkerController;
 use App\Http\Controllers\StoreWorkerHourRateTemplateController;
@@ -242,6 +243,11 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::get('/contabilidad/formas-pago', [StoreFormaPagoController::class, 'index'])->name('contabilidad.formas-pago');
     Route::post('/contabilidad/formas-pago', [StoreFormaPagoController::class, 'store'])->name('contabilidad.formas-pago.store');
     Route::put('/contabilidad/formas-pago/{formaPago}', [StoreFormaPagoController::class, 'update'])->name('contabilidad.formas-pago.update');
+
+    Route::get('/contabilidad/centros-costo', [StoreCentroCostoController::class, 'index'])->name('contabilidad.centros-costo');
+    Route::post('/contabilidad/centros-costo', [StoreCentroCostoController::class, 'store'])->name('contabilidad.centros-costo.store');
+    Route::put('/contabilidad/centros-costo/definir-comprobantes', [StoreCentroCostoController::class, 'updateDefinirComprobantes'])->name('contabilidad.centros-costo.definir');
+    Route::put('/contabilidad/centros-costo/{centroCosto}', [StoreCentroCostoController::class, 'update'])->name('contabilidad.centros-costo.update');
 
     Route::get('/contabilidad/comprobantes', [StoreComprobanteContableController::class, 'index'])->name('contabilidad.comprobantes');
     Route::get('/contabilidad/comprobantes/crear', [StoreComprobanteContableController::class, 'create'])->name('contabilidad.comprobantes.create');

@@ -116,6 +116,7 @@ Campos clave: `prefijo`, `numeracion_automatica`, `siguiente_numero`, `activo`, 
 - `TipoComprobanteService` — catálogo de tipos FV/RC/FC/RP/CC, defaults y consecutivos.
 - `ImpuestoService` — catálogo de impuestos (IVA, retenciones, etc.) con cuentas ventas/compras/devoluciones.
 - `FormaPagoService` — catálogo de formas de pago (aplica a + cuenta + medio DIAN) y defaults con auxiliares.
+- `CentroCostoService` — catálogo centro/subcentro, auto-subcentro General, opciones para asientos.
 - `CajaService` — crear/actualizar bolsillo con cuenta auxiliar.
 
 ## Impuestos (catálogo v1)
@@ -135,6 +136,17 @@ Campos clave: `prefijo`, `numeracion_automatica`, `siguiente_numero`, `activo`, 
 - UI: Financiero → **Formas de pago**. Permisos `contabilidad.formas-pago.view|create|edit`.
 - Aún no se usa en facturas/POS/CI/CE (sigue bolsillo).
 
+## Centros de costo (catálogo v1, estilo Siigo)
+- Dimensión analítica **dentro de la tienda** (área, proyecto, departamento). **No** es otro `Store` ni un PUC aparte.
+- Tabla `centros_costo`: jerarquía de **2 niveles** — centro (`parent_id` null) y subcentro (`parent_id` = centro). Unique `(store_id, codigo)`.
+- Al crear un centro se crea automáticamente el subcentro `General` (código `{codigo}-01`).
+- UI con pestañas estilo Siigo:
+  1. **Crear centro de costo** — catálogo centro/subcentro.
+  2. **Definir comprobantes** — matriz **global** por tipo (`tipos_comprobante`): `maneja_centro_costos`, `centro_costo_default_id` (subcentro), `centro_costo_obligatorio`. No es por cada centro.
+- En asientos manuales CC: si maneja → se muestra el campo; si además es obligatorio → se exige subcentro; el default preselecciona líneas nuevas. Otras familias (FV/FC/RC/RP) quedan configurables aquí para engancharlas cuando existan esos flujos.
+- Permisos `contabilidad.centros-costo.view|create|edit`.
+- Fuera de alcance aún: FV/FC/CI/CE automáticos, informes por centro, export Excel.
+
 ## Usado en (Plan de cuentas)
 - Columna **Usado en** en el listado del PUC: se deriva de catálogos (Formas de pago, Impuestos - Ventas/Compras/Dev., Categorías de productos y servicios - Inventario/Costo/Ventas/Devolución), no se edita a mano.
 - Enlaces: Formas de pago filtra por cuenta; Impuestos y Categorías abren el catálogo completo.
@@ -144,6 +156,7 @@ Campos clave: `prefijo`, `numeracion_automatica`, `siguiente_numero`, `activo`, 
 - Núcleo: `comprobantes_contables` + `movimientos_contables`, orquestado por `AsientoContableService`.
 - Flujo: crear/editar borrador balanceado → contabilizar con consecutivo CC → reversar mediante un nuevo asiento inverso.
 - Reglas: solo cuentas usables (auxiliar o hoja de 6 dígitos transaccional) activas de la tienda; una línea usa débito o crédito; débitos = créditos; contabilizados no se editan ni eliminan.
+- Centros de costo: según Definir comprobantes — si el tipo `maneja_centro_costos`, se muestra el campo; si `centro_costo_obligatorio`, cada línea exige subcentro; `centro_costo_default_id` preselecciona. El reverso copia el mismo `centro_costo_id`. Si no maneja, se guarda `null`.
 - UI: Financiero → **Asientos manuales**.
 - Permisos: `contabilidad.comprobantes.view|create|edit|post|reverse`.
 - Libro Diario inicial: consulta cronológica de movimientos contabilizados (incluye originales reversados y sus asientos inversos).

@@ -3,7 +3,7 @@
     $perm = app(\App\Services\StorePermissionService::class);
     $canPersonas = $store && ($perm->can($store, 'terceros.view') || $perm->can($store, 'workers.schedules.view'));
     $canProductos = $store && ($perm->can($store, 'products.view') || $perm->can($store, 'categories.view') || $perm->can($store, 'attribute-groups.view') || $perm->can($store, 'inventario.view') || $perm->can($store, 'product-purchases.view') || $perm->can($store, 'support-documents.view'));
-    $canFinanciero = $store && ($perm->can($store, 'caja.view') || $perm->can($store, 'activos.view') || $perm->can($store, 'accounts-payables.view') || $perm->can($store, 'accounts-receivables.view') || $perm->can($store, 'comprobantes-egreso.view') || $perm->can($store, 'comprobantes-ingreso.view') || $perm->can($store, 'invoices.view') || $perm->can($store, 'purchases.view') || $perm->can($store, 'contabilidad.cuentas.view') || $perm->can($store, 'contabilidad.categorias.view') || $perm->can($store, 'contabilidad.tipos.view') || $perm->can($store, 'contabilidad.impuestos.view') || $perm->can($store, 'contabilidad.formas-pago.view') || $perm->can($store, 'contabilidad.comprobantes.view'));
+    $canFinanciero = $store && ($perm->can($store, 'caja.view') || $perm->can($store, 'activos.view') || $perm->can($store, 'accounts-payables.view') || $perm->can($store, 'accounts-receivables.view') || $perm->can($store, 'comprobantes-egreso.view') || $perm->can($store, 'comprobantes-ingreso.view') || $perm->can($store, 'invoices.view') || $perm->can($store, 'purchases.view') || $perm->can($store, 'contabilidad.cuentas.view') || $perm->can($store, 'contabilidad.categorias.view') || $perm->can($store, 'contabilidad.tipos.view') || $perm->can($store, 'contabilidad.impuestos.view') || $perm->can($store, 'contabilidad.formas-pago.view') || $perm->can($store, 'contabilidad.centros-costo.view') || $perm->can($store, 'contabilidad.comprobantes.view'));
     $canVentas = $store && ($perm->can($store, 'ventas.carrito.view') || $perm->can($store, 'cotizaciones.view'));
     $canSuscripciones = $store && ($perm->can($store, 'subscriptions.view') || $perm->can($store, 'asistencias.view'));
     $canInformes = $store && ($perm->can($store, 'reports.products.view') || $perm->can($store, 'reports.billing.view'));
@@ -155,6 +155,9 @@
                         @endstoreCan
                         @storeCan($store, 'contabilidad.formas-pago.view')
                         <a href="{{ route('stores.contabilidad.formas-pago', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.contabilidad.formas-pago*') ? 'text-brand' : 'text-gray-400 hover:text-white' }}">{{ __('Formas de pago') }}</a>
+                        @endstoreCan
+                        @storeCan($store, 'contabilidad.centros-costo.view')
+                        <a href="{{ route('stores.contabilidad.centros-costo', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.contabilidad.centros-costo*') ? 'text-brand' : 'text-gray-400 hover:text-white' }}">{{ __('Centros de costo') }}</a>
                         @endstoreCan
                         @storeCan($store, 'contabilidad.comprobantes.view')
                         <a href="{{ route('stores.contabilidad.comprobantes', $store) }}" wire:navigate class="block rounded-lg py-2 pl-2 text-sm {{ request()->routeIs('stores.contabilidad.comprobantes*') ? 'text-brand' : 'text-gray-400 hover:text-white' }}">{{ __('Asientos manuales') }}</a>

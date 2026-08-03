@@ -4,9 +4,16 @@
             <h2 class="font-semibold text-xl text-white leading-tight">
                 Tipos de comprobante — {{ $store->name }}
             </h2>
-            <a href="{{ route('stores.contabilidad.categorias', $store) }}" class="text-sm text-gray-400 hover:text-brand transition">
-                ← Categorías contables
-            </a>
+            <div class="flex items-center gap-4">
+                @storeCan($store, 'contabilidad.centros-costo.view')
+                <a href="{{ route('stores.contabilidad.centros-costo', $store) }}" class="text-sm text-gray-400 hover:text-brand transition">
+                    Centros de costo
+                </a>
+                @endstoreCan
+                <a href="{{ route('stores.contabilidad.categorias', $store) }}" class="text-sm text-gray-400 hover:text-brand transition">
+                    ← Categorías contables
+                </a>
+            </div>
         </div>
     </x-slot>
 

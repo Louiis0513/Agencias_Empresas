@@ -6,6 +6,7 @@ use App\Http\Requests\StoreComprobanteContableRequest;
 use App\Models\ComprobanteContable;
 use App\Models\Store;
 use App\Services\AsientoContableService;
+use App\Services\CentroCostoService;
 use App\Services\StorePermissionService;
 use Exception;
 use Illuminate\Http\Request;
@@ -15,6 +16,7 @@ class StoreComprobanteContableController extends Controller
     public function __construct(
         protected StorePermissionService $permissionService,
         protected AsientoContableService $asientoService,
+        protected CentroCostoService $centroCostoService,
     ) {}
 
     public function index(Request $request, Store $store)
@@ -187,6 +189,7 @@ class StoreComprobanteContableController extends Controller
             'tipos' => $this->asientoService->tiposCcDisponibles($store),
             'cuentas' => $this->asientoService->cuentasDisponibles($store),
             'terceros' => $this->asientoService->tercerosDisponibles($store),
+            'centrosCosto' => $this->centroCostoService->opcionesParaAsiento($store),
         ];
     }
 }

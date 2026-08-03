@@ -17,6 +17,7 @@ class AsientoContableService
 {
     public function __construct(
         protected TipoComprobanteService $tipoComprobanteService,
+        protected CentroCostoService $centroCostoService,
     ) {}
 
     public function listar(Store $store, array $filtros = [], int $perPage = 25): LengthAwarePaginator
@@ -268,6 +269,7 @@ class AsientoContableService
                 'reverso',
                 'movimientos.cuentaContable',
                 'movimientos.tercero',
+                'movimientos.centroCosto.padre',
             ])
             ->findOrFail($id);
     }
@@ -311,7 +313,8 @@ class AsientoContableService
         $tipo = $this->validarTipoCc($store, (int) $data['tipo_comprobante_id']);
         [$lineas, $totalDebito, $totalCredito] = $this->validarYNormalizarLineas(
             $store,
-            $data['lineas'] ?? []
+            $data['lineas'] ?? [],
+            $tipo
         );
         $terceroId = $this->validarTercero($store, $data['tercero_id'] ?? null);
         $numero = $this->resolverNumeroManual($store, $tipo, $data['numero'] ?? null);
@@ -356,7 +359,8 @@ class AsientoContableService
         $tipo = $this->validarTipoCc($store, (int) $data['tipo_comprobante_id']);
         [$lineas, $totalDebito, $totalCredito] = $this->validarYNormalizarLineas(
             $store,
-            $data['lineas'] ?? []
+            $data['lineas'] ?? [],
+            $tipo
         );
         $terceroId = $this->validarTercero($store, $data['tercero_id'] ?? null);
         $numero = $this->resolverNumeroManual($store, $tipo, $data['numero'] ?? null, $comprobante);
@@ -417,11 +421,13 @@ class AsientoContableService
                 $locked->movimientos->map(fn ($linea) => [
                     'cuenta_contable_id' => $linea->cuenta_contable_id,
                     'tercero_id' => $linea->tercero_id,
+                    'centro_costo_id' => $linea->centro_costo_id,
                     'detalle_contable' => $linea->detalle_contable,
                     'descripcion' => $linea->descripcion,
                     'debito' => $linea->debito,
                     'credito' => $linea->credito,
-                ])->all()
+                ])->all(),
+                $tipo
             );
 
             $numero = $locked->numero;
@@ -495,6 +501,7 @@ class AsientoContableService
                     'store_id' => $store->id,
                     'cuenta_contable_id' => $linea->cuenta_contable_id,
                     'tercero_id' => $linea->tercero_id,
+                    'centro_costo_id' => $linea->centro_costo_id,
                     'detalle_contable' => $linea->detalle_contable,
                     'descripcion' => $linea->descripcion,
                     'debito' => $linea->credito,
@@ -546,11 +553,14 @@ class AsientoContableService
     /**
      * @return array{0: list<array<string, mixed>>, 1: string, 2: string}
      */
-    private function validarYNormalizarLineas(Store $store, array $lineas): array
+    private function validarYNormalizarLineas(Store $store, array $lineas, ?TipoComprobante $tipo = null): array
     {
         if (count($lineas) < 2) {
             throw new Exception('El asiento debe tener al menos dos líneas.');
         }
+
+        $manejaCentro = (bool) ($tipo?->maneja_centro_costos);
+        $exigeCentro = $tipo?->exigeCentroCostos() ?? false;
 
         $cuentaIds = collect($lineas)
             ->pluck('cuenta_contable_id')
@@ -597,6 +607,27 @@ class AsientoContableService
                 throw new Exception('El tercero de la línea '.($index + 1).' no es válido para esta tienda.');
             }
 
+            $centroCostoId = $linea['centro_costo_id'] ?? null;
+            $centroCostoId = ($centroCostoId === null || $centroCostoId === '') ? null : (int) $centroCostoId;
+            if (! $manejaCentro) {
+                $centroCostoId = null;
+            } elseif ($exigeCentro) {
+                if (! $centroCostoId) {
+                    throw new Exception('La línea '.($index + 1).' debe tener un subcentro de costo.');
+                }
+                try {
+                    $this->centroCostoService->assertSubcentroUsable($store, $centroCostoId);
+                } catch (Exception $e) {
+                    throw new Exception('Línea '.($index + 1).': '.$e->getMessage());
+                }
+            } elseif ($centroCostoId !== null) {
+                try {
+                    $this->centroCostoService->assertSubcentroUsable($store, $centroCostoId);
+                } catch (Exception $e) {
+                    throw new Exception('Línea '.($index + 1).': '.$e->getMessage());
+                }
+            }
+
             $debito = $this->aCentavos($linea['debito'] ?? 0, $index);
             $credito = $this->aCentavos($linea['credito'] ?? 0, $index);
 
@@ -610,6 +641,7 @@ class AsientoContableService
             $normalizadas[] = [
                 'cuenta_contable_id' => $cuentaId,
                 'tercero_id' => $terceroId,
+                'centro_costo_id' => $centroCostoId,
                 'detalle_contable' => $this->textoNullable($linea['detalle_contable'] ?? null),
                 'descripcion' => $this->textoNullable($linea['descripcion'] ?? null),
                 'debito' => $this->desdeCentavos($debito),

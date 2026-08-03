@@ -17,6 +17,7 @@ class MovimientoContable extends Model
         'store_id',
         'cuenta_contable_id',
         'tercero_id',
+        'centro_costo_id',
         'detalle_contable',
         'descripcion',
         'debito',
@@ -51,5 +52,10 @@ class MovimientoContable extends Model
     public function tercero(): BelongsTo
     {
         return $this->belongsTo(Tercero::class);
+    }
+
+    public function centroCosto(): BelongsTo
+    {
+        return $this->belongsTo(CentroCosto::class, 'centro_costo_id');
     }
 }

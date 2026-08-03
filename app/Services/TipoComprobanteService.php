@@ -200,6 +200,8 @@ class TipoComprobanteService
                     'siguiente_numero' => 1,
                     'activo' => true,
                     'maneja_centro_costos' => false,
+                    'centro_costo_obligatorio' => false,
+                    'centro_costo_default_id' => null,
                     'libro_oficial' => $def['libro_oficial'],
                 ]);
                 $stats['creadas'][] = $clave;
@@ -338,7 +340,15 @@ class TipoComprobanteService
             'activo' => array_key_exists('activo', $data) ? (bool) $data['activo'] : true,
             'maneja_centro_costos' => array_key_exists('maneja_centro_costos', $data)
                 ? (bool) $data['maneja_centro_costos']
-                : false,
+                : ($existente?->maneja_centro_costos ?? false),
+            'centro_costo_obligatorio' => array_key_exists('centro_costo_obligatorio', $data)
+                ? (bool) $data['centro_costo_obligatorio']
+                : ($existente?->centro_costo_obligatorio ?? false),
+            'centro_costo_default_id' => array_key_exists('centro_costo_default_id', $data)
+                ? (($data['centro_costo_default_id'] === null || $data['centro_costo_default_id'] === '')
+                    ? null
+                    : (int) $data['centro_costo_default_id'])
+                : $existente?->centro_costo_default_id,
             'libro_oficial' => $libro,
         ];
     }

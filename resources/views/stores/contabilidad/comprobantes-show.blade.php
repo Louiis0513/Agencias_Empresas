@@ -129,7 +129,19 @@
                                     <td class="px-4 py-3">{{ $linea->tercero?->nombre ?? '—' }}</td>
                                     <td class="px-4 py-3">{{ $linea->detalle_contable ?? '—' }}</td>
                                     <td class="px-4 py-3">{{ $linea->descripcion ?? '—' }}</td>
-                                    <td class="px-4 py-3 text-gray-500">No aplica</td>
+                                    <td class="px-4 py-3">
+                                        @if($linea->centroCosto)
+                                            <span class="font-mono text-xs text-brand">{{ $linea->centroCosto->codigo }}</span>
+                                            <div class="text-xs text-gray-400">
+                                                @if($linea->centroCosto->padre)
+                                                    {{ $linea->centroCosto->padre->nombre }} /
+                                                @endif
+                                                {{ $linea->centroCosto->nombre }}
+                                            </div>
+                                        @else
+                                            <span class="text-gray-500">—</span>
+                                        @endif
+                                    </td>
                                     <td class="px-4 py-3 text-right font-mono">
                                         {{ (float) $linea->debito > 0 ? '$ '.number_format((float) $linea->debito, 2, ',', '.') : '—' }}
                                     </td>

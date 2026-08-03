@@ -125,6 +125,9 @@ class PermissionSeeder extends Seeder
             ['slug' => 'contabilidad.formas-pago.view', 'name' => 'Ver formas de pago', 'description' => 'Ver catálogo de formas de pago contables'],
             ['slug' => 'contabilidad.formas-pago.create', 'name' => 'Crear formas de pago', 'description' => 'Crear formas de pago en el catálogo contable'],
             ['slug' => 'contabilidad.formas-pago.edit', 'name' => 'Editar formas de pago', 'description' => 'Editar formas de pago del catálogo contable'],
+            ['slug' => 'contabilidad.centros-costo.view', 'name' => 'Ver centros de costo', 'description' => 'Ver catálogo de centros y subcentros de costo'],
+            ['slug' => 'contabilidad.centros-costo.create', 'name' => 'Crear centros de costo', 'description' => 'Crear centros y subcentros de costo'],
+            ['slug' => 'contabilidad.centros-costo.edit', 'name' => 'Editar centros de costo', 'description' => 'Editar o inactivar centros y subcentros de costo'],
 
             // Roles
             ['slug' => 'roles.view', 'name' => 'Ver roles y permisos', 'description' => 'Ver roles y permisos de la tienda'],
