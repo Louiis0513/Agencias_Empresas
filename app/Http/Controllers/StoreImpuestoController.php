@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreImpuestoRequest;
+use App\Models\CuentaContable;
 use App\Models\Impuesto;
 use App\Models\Store;
 use App\Services\ImpuestoService;
@@ -37,16 +38,27 @@ class StoreImpuestoController extends Controller
             );
         }
 
+        $cuentaFiltroId = $request->integer('cuenta_contable_id') ?: null;
+        $cuentaFiltro = null;
+        if ($cuentaFiltroId) {
+            $cuentaFiltro = CuentaContable::query()
+                ->deStore($store)
+                ->whereKey($cuentaFiltroId)
+                ->first(['id', 'codigo', 'nombre']);
+        }
+
         return view('stores.contabilidad.impuestos', [
             'store' => $store,
             'impuestos' => $this->impuestoService->listar($store, [
                 'search' => $request->get('search'),
                 'tipo' => $request->get('tipo'),
                 'en_uso' => $request->get('en_uso'),
+                'cuenta_contable_id' => $cuentaFiltroId,
             ]),
             'tipos' => Impuesto::TIPOS,
             'cuentas' => $this->impuestoService->cuentasDisponibles($store),
             'codigoSugerido' => $this->impuestoService->siguienteCodigo($store),
+            'cuentaFiltro' => $cuentaFiltro,
         ]);
     }
 

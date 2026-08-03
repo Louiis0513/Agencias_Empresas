@@ -327,6 +327,58 @@ class CuentaContableJerarquiaTest extends TestCase
             ->assertOk();
     }
 
+    public function test_usos_catalogo_incluye_categorias_con_enlace(): void
+    {
+        $inventario = $this->crearEstructura($this->store, '14350101', 'Mercancía', true);
+        $costo = $this->crearEstructura($this->store, '61350501', 'Costo mercancía', true);
+        $ingreso = $this->crearEstructura($this->store, '41350101', 'Ingreso mercancía', true);
+        $devolucion = $this->crearEstructura($this->store, '41750501', 'Devolución mercancía', true);
+
+        \App\Models\CategoriaContable::create([
+            'store_id' => $this->store->id,
+            'codigo' => '1',
+            'nombre' => 'Productos',
+            'tipo' => \App\Models\CategoriaContable::TIPO_PRODUCTO,
+            'cuenta_inventario_id' => $inventario->id,
+            'cuenta_costo_id' => $costo->id,
+            'cuenta_ingreso_id' => $ingreso->id,
+            'cuenta_devolucion_id' => $devolucion->id,
+            'activo' => true,
+        ]);
+
+        $usos = $this->servicio()->usosCatalogoPorCuentaIds($this->store, [
+            $inventario->id,
+            $costo->id,
+            $ingreso->id,
+            $devolucion->id,
+        ]);
+
+        $etiquetasIngreso = collect($usos[$ingreso->id] ?? [])->pluck('etiqueta')->all();
+        $this->assertContains('Categorías de productos y servicios - Ventas', $etiquetasIngreso);
+
+        $usoVentas = collect($usos[$ingreso->id])->firstWhere(
+            'etiqueta',
+            'Categorías de productos y servicios - Ventas'
+        );
+        $this->assertSame(
+            route('stores.contabilidad.categorias', $this->store),
+            $usoVentas['url']
+        );
+
+        $this->assertContains(
+            'Categorías de productos y servicios - Inventario',
+            collect($usos[$inventario->id] ?? [])->pluck('etiqueta')->all()
+        );
+        $this->assertContains(
+            'Categorías de productos y servicios - Costo',
+            collect($usos[$costo->id] ?? [])->pluck('etiqueta')->all()
+        );
+        $this->assertContains(
+            'Categorías de productos y servicios - Devolución',
+            collect($usos[$devolucion->id] ?? [])->pluck('etiqueta')->all()
+        );
+    }
+
     private function servicio(): CuentaContableService
     {
         return app(CuentaContableService::class);

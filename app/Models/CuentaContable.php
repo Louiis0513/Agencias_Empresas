@@ -20,11 +20,41 @@ class CuentaContable extends Model
 
     public const CATEGORIA_CAJA_BANCOS = 'Caja - Bancos';
 
+    public const CATEGORIA_CUENTAS_POR_COBRAR = 'Cuentas por cobrar';
+
+    public const CATEGORIA_OTROS_ACTIVOS_CORRIENTES = 'Otros activos corrientes';
+
     public const CATEGORIA_INVENTARIOS = 'Inventarios';
+
+    public const CATEGORIA_ACTIVOS_FIJOS = 'Activos fijos';
+
+    public const CATEGORIA_OTROS_ACTIVOS = 'Otros activos';
+
+    public const CATEGORIA_CUENTAS_POR_PAGAR = 'Cuentas por pagar';
+
+    public const CATEGORIA_OTROS_PASIVOS_CORRIENTES = 'Otros pasivos corrientes';
+
+    public const CATEGORIA_PASIVO_CORTO_PLAZO = 'Pasivo corto plazo';
+
+    public const CATEGORIA_PASIVOS_LARGOS_PLAZOS = 'Pasivos largos plazos';
+
+    public const CATEGORIA_OTROS_PASIVOS = 'Otros pasivos';
+
+    public const CATEGORIA_PATRIMONIO = 'Patrimonio';
 
     public const CATEGORIA_INGRESOS = 'Ingresos';
 
+    public const CATEGORIA_OTROS_INGRESOS = 'Otros ingresos';
+
     public const CATEGORIA_COSTO_VENTAS = 'Costo de ventas';
+
+    public const CATEGORIA_GASTOS = 'Gastos';
+
+    public const CATEGORIA_OTROS_GASTOS = 'Otros gastos';
+
+    public const CATEGORIA_ORDEN = 'Orden';
+
+    public const CATEGORIA_GASTO_NOMINA = 'Gasto - Nómina';
 
     public const RELACION_FORMAS_DE_PAGO = 'Formas de pago';
 
@@ -38,12 +68,30 @@ class CuentaContable extends Model
 
     public const MANEJA_VENCIMIENTOS_NO = 'No maneja vencimiento';
 
-    /** Categorías sugeridas al crear auxiliares (estilo Siigo). */
+    /**
+     * Categorías de reporte estilo Siigo (lista fija del sistema).
+     * Se usan al crear/editar auxiliares y en generación de reportes.
+     */
     public const CATEGORIAS_SUGERIDAS = [
         self::CATEGORIA_CAJA_BANCOS,
+        self::CATEGORIA_CUENTAS_POR_COBRAR,
+        self::CATEGORIA_OTROS_ACTIVOS_CORRIENTES,
         self::CATEGORIA_INVENTARIOS,
+        self::CATEGORIA_ACTIVOS_FIJOS,
+        self::CATEGORIA_OTROS_ACTIVOS,
+        self::CATEGORIA_CUENTAS_POR_PAGAR,
+        self::CATEGORIA_OTROS_PASIVOS_CORRIENTES,
+        self::CATEGORIA_PASIVO_CORTO_PLAZO,
+        self::CATEGORIA_PASIVOS_LARGOS_PLAZOS,
+        self::CATEGORIA_OTROS_PASIVOS,
+        self::CATEGORIA_PATRIMONIO,
         self::CATEGORIA_INGRESOS,
+        self::CATEGORIA_OTROS_INGRESOS,
         self::CATEGORIA_COSTO_VENTAS,
+        self::CATEGORIA_GASTOS,
+        self::CATEGORIA_OTROS_GASTOS,
+        self::CATEGORIA_ORDEN,
+        self::CATEGORIA_GASTO_NOMINA,
     ];
 
     /** Padres de 6 dígitos usados al crear bolsillos desde Caja. */

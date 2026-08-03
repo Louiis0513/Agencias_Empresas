@@ -147,7 +147,19 @@
                                         </div>
                                         <div class="col-span-6 sm:col-span-2 text-xs text-gray-500 truncate">
                                             <template x-if="row.usos && row.usos.length">
-                                                <span x-text="row.usos.join(' · ')"></span>
+                                                <span class="inline-flex flex-wrap gap-x-1 gap-y-0.5 items-center">
+                                                    <template x-for="(uso, idx) in row.usos" :key="(uso.etiqueta || '') + '-' + idx">
+                                                        <span>
+                                                            <a x-show="uso.url"
+                                                               :href="uso.url"
+                                                               class="text-sky-300 hover:text-sky-200 hover:underline"
+                                                               x-text="(idx > 0 ? ' · ' : '') + uso.etiqueta"
+                                                               @click.stop></a>
+                                                            <span x-show="!uso.url"
+                                                                  x-text="(idx > 0 ? ' · ' : '') + uso.etiqueta"></span>
+                                                        </span>
+                                                    </template>
+                                                </span>
                                             </template>
                                             <template x-if="!row.usos || !row.usos.length">
                                                 <span>—</span>
@@ -214,9 +226,19 @@
                                                 <td class="px-4 py-3 text-sm text-gray-400">{{ $cuenta->clase }}</td>
                                                 <td class="px-4 py-3 text-sm text-gray-400">
                                                     @forelse($usos as $uso)
-                                                        @php $et = is_array($uso) ? ($uso['etiqueta'] ?? '') : (string) $uso; @endphp
+                                                        @php
+                                                            $et = is_array($uso) ? ($uso['etiqueta'] ?? '') : (string) $uso;
+                                                            $url = is_array($uso) ? ($uso['url'] ?? null) : null;
+                                                        @endphp
                                                         @if($et !== '')
-                                                            <span class="px-2 py-0.5 text-xs rounded-full bg-sky-900/40 text-sky-200">{{ $et }}</span>
+                                                            @if($url)
+                                                                <a href="{{ $url }}"
+                                                                   class="inline-block px-2 py-0.5 text-xs rounded-full bg-sky-900/40 text-sky-200 hover:bg-sky-800/50 hover:underline">
+                                                                    {{ $et }}
+                                                                </a>
+                                                            @else
+                                                                <span class="px-2 py-0.5 text-xs rounded-full bg-sky-900/40 text-sky-200">{{ $et }}</span>
+                                                            @endif
                                                         @endif
                                                     @empty
                                                         <span class="text-gray-600">—</span>

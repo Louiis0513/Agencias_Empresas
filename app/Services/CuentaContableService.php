@@ -109,9 +109,23 @@ class CuentaContableService
             $tieneHijos = $this->contarHijosDirectos($store, $cuenta) > 0;
             $usosNodo = [];
             foreach ($usos[$cuenta->id] ?? [] as $uso) {
-                $usosNodo[] = is_array($uso) ? (string) ($uso['etiqueta'] ?? '') : (string) $uso;
+                if (! is_array($uso)) {
+                    $etiqueta = trim((string) $uso);
+                    if ($etiqueta !== '') {
+                        $usosNodo[] = ['etiqueta' => $etiqueta, 'url' => null];
+                    }
+
+                    continue;
+                }
+                $etiqueta = trim((string) ($uso['etiqueta'] ?? ''));
+                if ($etiqueta === '') {
+                    continue;
+                }
+                $usosNodo[] = [
+                    'etiqueta' => $etiqueta,
+                    'url' => $uso['url'] ?? null,
+                ];
             }
-            $usosNodo = array_values(array_filter($usosNodo));
 
             $out[] = [
                 'id' => $cuenta->id,
@@ -917,6 +931,40 @@ class CuentaContableService
                 $mapa[$cid][] = [
                     'etiqueta' => $etiqueta,
                     'url' => route('stores.contabilidad.impuestos', $store),
+                ];
+            }
+        }
+
+        $categorias = \App\Models\CategoriaContable::query()
+            ->deStore($store)
+            ->where(function ($q) use ($cuentaIds) {
+                $q->whereIn('cuenta_inventario_id', $cuentaIds)
+                    ->orWhereIn('cuenta_costo_id', $cuentaIds)
+                    ->orWhereIn('cuenta_ingreso_id', $cuentaIds)
+                    ->orWhereIn('cuenta_devolucion_id', $cuentaIds);
+            })
+            ->get([
+                'id',
+                'cuenta_inventario_id',
+                'cuenta_costo_id',
+                'cuenta_ingreso_id',
+                'cuenta_devolucion_id',
+            ]);
+
+        foreach ($categorias as $categoria) {
+            $roles = [
+                (int) $categoria->cuenta_inventario_id => 'Categorías de productos y servicios - Inventario',
+                (int) $categoria->cuenta_costo_id => 'Categorías de productos y servicios - Costo',
+                (int) $categoria->cuenta_ingreso_id => 'Categorías de productos y servicios - Ventas',
+                (int) $categoria->cuenta_devolucion_id => 'Categorías de productos y servicios - Devolución',
+            ];
+            foreach ($roles as $cid => $etiqueta) {
+                if ($cid < 1 || ! isset($mapa[$cid])) {
+                    continue;
+                }
+                $mapa[$cid][] = [
+                    'etiqueta' => $etiqueta,
+                    'url' => route('stores.contabilidad.categorias', $store),
                 ];
             }
         }

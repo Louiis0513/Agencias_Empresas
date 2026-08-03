@@ -46,6 +46,16 @@ class ImpuestoService
             $q->where('en_uso', filter_var($filtros['en_uso'], FILTER_VALIDATE_BOOLEAN));
         }
 
+        if (! empty($filtros['cuenta_contable_id'])) {
+            $cuentaId = (int) $filtros['cuenta_contable_id'];
+            $q->where(function ($qq) use ($cuentaId) {
+                $qq->where('cuenta_ventas_id', $cuentaId)
+                    ->orWhere('cuenta_compras_id', $cuentaId)
+                    ->orWhere('cuenta_devolucion_ventas_id', $cuentaId)
+                    ->orWhere('cuenta_devolucion_compras_id', $cuentaId);
+            });
+        }
+
         return $q->paginate($perPage)->withQueryString();
     }
 

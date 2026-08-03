@@ -49,6 +49,9 @@
             @if(session('success'))
                 <div class="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-950/30 px-4 py-3 text-emerald-200">{{ session('success') }}</div>
             @endif
+            @if(session('warning'))
+                <div class="mb-4 rounded-xl border border-amber-500/30 bg-amber-950/30 px-4 py-3 text-amber-200">{{ session('warning') }}</div>
+            @endif
             @if(session('error'))
                 <div class="mb-4 rounded-xl border border-red-500/30 bg-red-950/30 px-4 py-3 text-red-200">{{ session('error') }}</div>
             @endif
@@ -67,6 +70,18 @@
                 Los tipos (IVA, Retefuente, etc.) son fijos del sistema. Aún no se aplican automáticamente en facturas.
             </div>
 
+            @if($cuentaFiltro)
+                <div class="mb-4 rounded-xl border border-violet-500/30 bg-violet-950/30 px-4 py-3 text-sm text-violet-100 flex flex-wrap items-center justify-between gap-2">
+                    <span>
+                        Mostrando impuestos que usan la cuenta
+                        <span class="font-mono font-semibold">{{ $cuentaFiltro->codigo }}</span>
+                        — {{ $cuentaFiltro->nombre }}.
+                    </span>
+                    <a href="{{ route('stores.contabilidad.impuestos', $store) }}"
+                       class="text-violet-200 hover:text-white underline text-sm">Quitar filtro</a>
+                </div>
+            @endif
+
             @if($cuentas->isEmpty())
                 <div class="mb-4 rounded-xl border border-amber-500/30 bg-amber-950/30 px-4 py-3 text-amber-200">
                     No hay cuentas auxiliares transaccionales. Créelas primero en el Plan de cuentas.
@@ -77,6 +92,9 @@
                 <div class="p-6">
                     <div class="mb-6 flex flex-wrap justify-between items-center gap-4">
                         <form method="GET" action="{{ route('stores.contabilidad.impuestos', $store) }}" class="flex flex-wrap gap-2 items-end">
+                            @if($cuentaFiltro)
+                                <input type="hidden" name="cuenta_contable_id" value="{{ $cuentaFiltro->id }}">
+                            @endif
                             <input type="text" name="search" value="{{ request('search') }}"
                                    placeholder="Buscar código, nombre o tipo..."
                                    class="rounded-md border-white/10 bg-white/5 text-gray-100">
@@ -92,7 +110,7 @@
                                 <option value="0" @selected(request('en_uso') === '0')>Fuera de uso</option>
                             </select>
                             <button type="submit" class="px-4 py-2 bg-brand text-white rounded-xl">Filtrar</button>
-                            @if(request()->anyFilled(['search', 'tipo', 'en_uso']))
+                            @if(request()->anyFilled(['search', 'tipo', 'en_uso', 'cuenta_contable_id']))
                                 <a href="{{ route('stores.contabilidad.impuestos', $store) }}" class="px-4 py-2 bg-gray-700 text-gray-200 rounded-md text-sm">Limpiar</a>
                             @endif
                         </form>

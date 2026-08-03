@@ -166,6 +166,43 @@ class ImpuestoCatalogTest extends TestCase
         $this->assertSame(22, Impuesto::query()->deStore($storeVacia)->count());
     }
 
+    public function test_filtra_impuestos_por_cuenta_contable(): void
+    {
+        $stats = $this->servicio()->asegurarDefaults($this->store);
+        $this->assertSame([], $stats['errores']);
+
+        $cuenta = CuentaContable::query()
+            ->deStore($this->store)
+            ->where('codigo', '24080601')
+            ->firstOrFail();
+
+        $filtrados = $this->servicio()->listar($this->store, [
+            'cuenta_contable_id' => $cuenta->id,
+        ]);
+
+        $this->assertGreaterThanOrEqual(2, $filtrados->total());
+        foreach ($filtrados as $impuesto) {
+            $ids = [
+                $impuesto->cuenta_ventas_id,
+                $impuesto->cuenta_compras_id,
+                $impuesto->cuenta_devolucion_ventas_id,
+                $impuesto->cuenta_devolucion_compras_id,
+            ];
+            $this->assertContains($cuenta->id, $ids);
+        }
+
+        $this->actingAs($this->user)
+            ->get(route('stores.contabilidad.impuestos', [
+                'store' => $this->store,
+                'cuenta_contable_id' => $cuenta->id,
+            ]))
+            ->assertOk()
+            ->assertSee('Mostrando impuestos que usan la cuenta')
+            ->assertSee('24080601')
+            ->assertSee('IVA 19%')
+            ->assertSee('IVA 0%');
+    }
+
     public function test_propietario_puede_guardar_por_http(): void
     {
         $response = $this->actingAs($this->user)

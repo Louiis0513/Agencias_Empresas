@@ -51,6 +51,7 @@ Padres típicos de mercancía (revenda): `143501`, `613505`, `413501`, `417505`.
 
 **Maneja vencimientos** = detalle de cartera/proveedores. Inventario, ingreso y costo van en `No maneja vencimiento`.
 
+**Categoría (reporte):** lista fija estilo Siigo en `CuentaContable::CATEGORIAS_SUGERIDAS` (19 valores: Caja - Bancos, Cuentas por cobrar, Inventarios, Ingresos, Gastos, Gasto - Nómina, Orden, etc.). No es editable por el usuario; se elige al crear/editar el auxiliar y sirve para informes.
 ## Artisan
 ```bash
 php artisan contable:importar-puc {store_id|slug}
@@ -135,7 +136,8 @@ Campos clave: `prefijo`, `numeracion_automatica`, `siguiente_numero`, `activo`, 
 - Aún no se usa en facturas/POS/CI/CE (sigue bolsillo).
 
 ## Usado en (Plan de cuentas)
-- Columna **Usado en** en el listado del PUC: se deriva de catálogos (Formas de pago, Impuestos - Ventas/Compras/Dev.), no se edita a mano.
+- Columna **Usado en** en el listado del PUC: se deriva de catálogos (Formas de pago, Impuestos - Ventas/Compras/Dev., Categorías de productos y servicios - Inventario/Costo/Ventas/Devolución), no se edita a mano.
+- Enlaces: Formas de pago filtra por cuenta; Impuestos y Categorías abren el catálogo completo.
 - En crear auxiliar, «Relacionado con» queda como sugerencia de solo lectura según el código padre.
 
 ## Asientos manuales CC (implementado)
