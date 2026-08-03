@@ -8,6 +8,9 @@
                 Dinero del <span class="text-gray-200">Disponible (11)</span>: efectivo o bancos.
                 Se crea automáticamente la cuenta auxiliar en el plan de cuentas.
             </p>
+            <div class="mt-4">
+                @include('stores.partials.flujo-bolsillo-incompleto')
+            </div>
 
             <div class="mt-6 space-y-4">
                 <div>

@@ -27,6 +27,7 @@ use App\Http\Controllers\StoreSubscriptionController;
 use App\Http\Controllers\StoreTerceroController;
 use App\Http\Controllers\StoreTipoComprobanteController;
 use App\Http\Controllers\StoreImpuestoController;
+use App\Http\Controllers\StoreFormaPagoController;
 use App\Http\Controllers\StoreVitrinaController;
 use App\Http\Controllers\StoreWorkerController;
 use App\Http\Controllers\StoreWorkerHourRateTemplateController;
@@ -222,8 +223,9 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
 
     // Contabilidad — plan de cuentas y categorías de productos/servicios
     Route::get('/contabilidad/cuentas', [StoreCuentaContableController::class, 'index'])->name('contabilidad.cuentas');
+    Route::get('/contabilidad/cuentas/{cuentaContable}/hijos', [StoreCuentaContableController::class, 'hijosJson'])->name('contabilidad.cuentas.hijos.json');
     Route::post('/contabilidad/cuentas/importar-puc', [StoreCuentaContableController::class, 'importarPuc'])->name('contabilidad.cuentas.importar');
-    Route::post('/contabilidad/cuentas/auxiliares', [StoreCuentaContableController::class, 'storeAuxiliar'])->name('contabilidad.cuentas.auxiliar');
+    Route::post('/contabilidad/cuentas/hijos', [StoreCuentaContableController::class, 'storeHijo'])->name('contabilidad.cuentas.hijos');
     Route::put('/contabilidad/cuentas/{cuentaContable}', [StoreCuentaContableController::class, 'update'])->name('contabilidad.cuentas.update');
 
     Route::get('/contabilidad/categorias', [StoreCategoriaContableController::class, 'index'])->name('contabilidad.categorias');
@@ -236,6 +238,10 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::get('/contabilidad/impuestos', [StoreImpuestoController::class, 'index'])->name('contabilidad.impuestos');
     Route::post('/contabilidad/impuestos', [StoreImpuestoController::class, 'store'])->name('contabilidad.impuestos.store');
     Route::put('/contabilidad/impuestos/{impuesto}', [StoreImpuestoController::class, 'update'])->name('contabilidad.impuestos.update');
+
+    Route::get('/contabilidad/formas-pago', [StoreFormaPagoController::class, 'index'])->name('contabilidad.formas-pago');
+    Route::post('/contabilidad/formas-pago', [StoreFormaPagoController::class, 'store'])->name('contabilidad.formas-pago.store');
+    Route::put('/contabilidad/formas-pago/{formaPago}', [StoreFormaPagoController::class, 'update'])->name('contabilidad.formas-pago.update');
 
     Route::get('/contabilidad/comprobantes', [StoreComprobanteContableController::class, 'index'])->name('contabilidad.comprobantes');
     Route::get('/contabilidad/comprobantes/crear', [StoreComprobanteContableController::class, 'create'])->name('contabilidad.comprobantes.create');

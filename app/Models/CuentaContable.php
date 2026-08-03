@@ -86,6 +86,29 @@ class CuentaContable extends Model
     /** Longitud máxima del código PUC base (sin auxiliares de empresa). */
     public const MAX_CODIGO_BASE = 6;
 
+    /** Longitud máxima de hoja (subauxiliar). */
+    public const MAX_CODIGO_HOJA = 10;
+
+    /** Longitudes de padre desde las que se puede crear hijo. */
+    public const LONGITUDES_PADRE_HIJO = [1, 2, 4, 6, 8];
+
+    public const NIVEL_LABELS = [
+        1 => 'Clase',
+        2 => 'Grupo',
+        4 => 'Cuenta',
+        6 => 'Subcuenta',
+        8 => 'Auxiliar',
+        10 => 'Subauxiliar',
+    ];
+
+    public const ACCION_CREAR_HIJO = [
+        1 => 'Grupo',
+        2 => 'Cuenta',
+        4 => 'Subcuenta',
+        6 => 'Auxiliar',
+        8 => 'Subauxiliar',
+    ];
+
     protected $table = 'cuentas_contables';
 
     protected $fillable = [
@@ -195,6 +218,32 @@ class CuentaContable extends Model
         $soloDigitos = preg_replace('/\D/', '', $codigo) ?? '';
 
         return strlen($soloDigitos) > self::MAX_CODIGO_BASE;
+    }
+
+    public static function longitudCodigo(string $codigo): int
+    {
+        return strlen(preg_replace('/\D/', '', $codigo) ?? '');
+    }
+
+    public static function labelNivelPorLongitud(int $longitud): string
+    {
+        return self::NIVEL_LABELS[$longitud] ?? 'Cuenta';
+    }
+
+    public static function labelAccionCrearHijo(int $longitudPadre): ?string
+    {
+        return self::ACCION_CREAR_HIJO[$longitudPadre] ?? null;
+    }
+
+    /** Dígitos del sufijo al crear hijo: Clase→Grupo = 1; resto = 2. */
+    public static function digitosSufijoHijo(int $longitudPadre): int
+    {
+        return $longitudPadre === 1 ? 1 : 2;
+    }
+
+    public static function longitudHijoEsperada(int $longitudPadre): int
+    {
+        return $longitudPadre + self::digitosSufijoHijo($longitudPadre);
     }
 
     /**

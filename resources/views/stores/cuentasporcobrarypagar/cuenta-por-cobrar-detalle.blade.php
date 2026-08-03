@@ -88,6 +88,7 @@
 
                     @if(!$accountReceivable->isPagado())
                         <div class="mb-6 p-4 border-b border-white/5 rounded-lg">
+                            @include('stores.partials.flujo-bolsillo-incompleto')
                             <h3 class="text-sm font-medium text-gray-100 mb-3">Cobrar (registrar ingreso y abonar a esta cuenta)</h3>
                             <form method="POST" action="{{ route('stores.accounts-receivables.cobrar', [$store, $accountReceivable]) }}">
                                 @csrf

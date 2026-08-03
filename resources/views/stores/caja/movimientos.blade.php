@@ -100,6 +100,7 @@
 
     <div class="py-8" @if($usaCrudCajaLocalMov) x-data @endif>
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
+            @include('stores.partials.flujo-bolsillo-incompleto')
             {{-- Pestañas principales: Transacciones | Cierres --}}
             <div class="inline-flex rounded-xl border border-white/10 bg-white/5 p-1">
                 <span class="px-5 py-2 rounded-lg text-sm font-semibold bg-brand text-white shadow-sm">

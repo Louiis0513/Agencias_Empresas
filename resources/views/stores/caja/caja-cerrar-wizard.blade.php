@@ -10,6 +10,7 @@
 
     <div class="py-12" x-data="{ step: 1 }">
         <div class="max-w-2xl mx-auto sm:px-6 lg:px-8">
+            @include('stores.partials.flujo-bolsillo-incompleto')
             @if(session('error'))
                 <div class="mb-4 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-3 rounded relative" role="alert">
                     <span class="block sm:inline">{{ session('error') }}</span>

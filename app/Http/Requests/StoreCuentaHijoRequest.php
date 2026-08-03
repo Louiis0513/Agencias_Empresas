@@ -6,7 +6,7 @@ use App\Models\CuentaContable;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class StoreCuentaAuxiliarRequest extends FormRequest
+class StoreCuentaHijoRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -26,17 +26,18 @@ class StoreCuentaAuxiliarRequest extends FormRequest
             'diferencia_fiscal' => ['nullable', 'boolean'],
             'activo' => ['nullable', 'boolean'],
             'nivel_agrupacion' => ['nullable', 'string', 'max:40', Rule::in(['', CuentaContable::NIVEL_TRANSACCIONAL])],
+            'confirmar_traslado' => ['nullable', 'boolean'],
         ];
     }
 
     protected function prepareForValidation(): void
     {
-        if ($this->has('diferencia_fiscal')) {
-            $this->merge(['diferencia_fiscal' => $this->boolean('diferencia_fiscal')]);
+        foreach (['diferencia_fiscal', 'activo', 'confirmar_traslado'] as $field) {
+            if ($this->has($field)) {
+                $this->merge([$field => $this->boolean($field)]);
+            }
         }
-        if ($this->has('activo')) {
-            $this->merge(['activo' => $this->boolean('activo')]);
-        }
+
         if ($this->input('nivel_agrupacion') === '') {
             $this->merge(['nivel_agrupacion' => null]);
         }
@@ -45,8 +46,8 @@ class StoreCuentaAuxiliarRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'cuenta_padre_id.required' => 'Debes elegir la cuenta padre (subcuenta de 6 dígitos).',
-            'nombre.required' => 'El nombre de la auxiliar es obligatorio.',
+            'cuenta_padre_id.required' => 'Debes elegir la cuenta padre.',
+            'nombre.required' => 'El nombre es obligatorio.',
             'sufijo.regex' => 'El sufijo debe ser numérico (ej. 01).',
         ];
     }

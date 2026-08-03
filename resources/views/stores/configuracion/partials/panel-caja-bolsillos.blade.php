@@ -3,6 +3,7 @@
     Requiere: $store, $bolsillosConfig (paginador)
 --}}
 <div class="space-y-6">
+    @include('stores.partials.flujo-bolsillo-incompleto')
     <div class="rounded-xl border border-white/10 bg-dark-card p-6">
         <h3 class="font-medium text-white mb-1">{{ __('Medios de pago y bolsillos') }}</h3>
         <p class="text-sm text-gray-400 mb-6">{{ __('Define cajas en efectivo, cuentas bancarias u otros medios donde se registran ingresos y egresos.') }}</p>

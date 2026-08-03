@@ -7,6 +7,9 @@
             <p class="mt-1 text-sm text-gray-400">
                 {{ __('El saldo solo se modifica mediante movimientos. El tipo contable (caja/banco) lo define la cuenta PUC vinculada.') }}
             </p>
+            <div class="mt-4">
+                @include('stores.partials.flujo-bolsillo-incompleto')
+            </div>
 
             <div class="mt-6 space-y-4">
                 @if($cuentaCodigo)

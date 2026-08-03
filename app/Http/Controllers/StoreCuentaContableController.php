@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\StoreCuentaAuxiliarRequest;
+use App\Http\Requests\StoreCuentaHijoRequest;
 use App\Models\CuentaContable;
 use App\Models\Store;
 use App\Services\CuentaContableService;
@@ -23,26 +23,64 @@ class StoreCuentaContableController extends Controller
     {
         $this->permissionService->authorize($store, 'contabilidad.cuentas.view');
 
-        $cuentas = $this->cuentaContableService->listar($store, [
+        $filtros = [
             'search' => $request->get('search'),
             'clase' => $request->get('clase'),
             'es_auxiliar' => $request->get('es_auxiliar'),
             'activo' => $request->get('activo'),
-        ]);
+        ];
+        $modoBusqueda = $request->anyFilled(['search', 'clase', 'es_auxiliar']);
 
         $stats = $this->cuentaContableService->contarPorStore($store);
-        $padres = $this->cuentaContableService->padresParaAuxiliar($store);
         $clases = array_values(CuentaContable::CLASES_POR_DIGITO);
         $categoriasSugeridas = CuentaContable::CATEGORIAS_SUGERIDAS;
+
+        $cuentas = null;
+        $usosPorCuenta = [];
+        $metaHijos = [];
+        $nodosRaiz = [];
+
+        if ($modoBusqueda) {
+            $cuentas = $this->cuentaContableService->listar($store, $filtros);
+            $usosPorCuenta = $this->cuentaContableService->usosCatalogoPorCuentaIds(
+                $store,
+                $cuentas->getCollection()->pluck('id')->all()
+            );
+            foreach ($cuentas->getCollection() as $cuenta) {
+                $metaHijos[$cuenta->id] = $this->cuentaContableService->metaCrearHijo($store, $cuenta);
+            }
+        } else {
+            $nodosRaiz = $this->cuentaContableService->nodosRaizArbol($store);
+        }
 
         return view('stores.contabilidad.cuentas', compact(
             'store',
             'cuentas',
             'stats',
-            'padres',
             'clases',
-            'categoriasSugeridas'
+            'categoriasSugeridas',
+            'usosPorCuenta',
+            'metaHijos',
+            'nodosRaiz',
+            'modoBusqueda'
         ));
+    }
+
+    public function hijosJson(Store $store, CuentaContable $cuentaContable)
+    {
+        $this->permissionService->authorize($store, 'contabilidad.cuentas.view');
+
+        if ($cuentaContable->store_id !== $store->id) {
+            abort(404);
+        }
+
+        try {
+            return response()->json(
+                $this->cuentaContableService->hijosDirectosArbol($store, $cuentaContable)
+            );
+        } catch (Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
     }
 
     public function importarPuc(Store $store)
@@ -67,13 +105,18 @@ class StoreCuentaContableController extends Controller
         }
     }
 
-    public function storeAuxiliar(StoreCuentaAuxiliarRequest $request, Store $store)
+    public function storeHijo(StoreCuentaHijoRequest $request, Store $store)
     {
         $this->permissionService->authorize($store, 'contabilidad.cuentas.create');
 
         try {
-            $cuenta = $this->cuentaContableService->crearAuxiliar($store, $request->validated());
-            $msg = 'Cuenta auxiliar '.$cuenta->codigo.' creada correctamente.';
+            $resultado = $this->cuentaContableService->crearHijo($store, $request->validated());
+            $cuenta = $resultado['cuenta'];
+            $accion = CuentaContable::labelNivelPorLongitud(CuentaContable::longitudCodigo($cuenta->codigo));
+            $msg = $accion.' '.$cuenta->codigo.' creada correctamente.';
+            if ($resultado['traslado_realizado']) {
+                $msg .= ' Se trasladaron movimientos y vínculos del padre al nuevo código.';
+            }
             if ($cuenta->bolsillo) {
                 $msg .= ' También se creó el bolsillo «'.$cuenta->bolsillo->name.'» en Caja.';
             }

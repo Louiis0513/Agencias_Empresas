@@ -6,12 +6,17 @@ Catálogo PUC por tienda (`cuentas_contables`), scoped por `store_id`.
 ## Reglas
 - **Clase** se deriva del primer dígito del código (1 Activo … 9 Orden acreedoras).
 - **Import PUC base**: solo códigos de **hasta 6 dígitos** (clase/grupo/cuenta/subcuenta). Se omiten auxiliares de otras empresas.
-- **Auxiliares**: las crea el usuario bajo una subcuenta de 6 dígitos (ej. `110505` → `11050501`). Quedan `es_auxiliar=true`, `nivel_agrupacion=Transaccional`, `origen=manual`.
+- **Jerarquía (creación de hijos):** Clase(1) → Grupo(2) → Cuenta(4) → Subcuenta(6) → Auxiliar(8) → Subauxiliar(10). Sufijo: **1 dígito** (1–9) de Clase→Grupo; **2 dígitos** (`01`–`99`) en el resto. No se crean clases 1–9 desde la UI (vienen del import); no hay hijos bajo longitud 10.
+- **Transaccional:** al crear, `nivel_agrupacion=Transaccional` desde longitud **≥ 8** (auxiliar/subauxiliar). Subcuenta de 6 queda como estructura salvo que el import ya la marcara. Asientos / formas / impuestos exigen auxiliar + transaccional + activa.
+- **Traslado Siigo (primer hijo):** si el padre era hoja con usos (`movimientos_contables`, bolsillos, formas de pago, impuestos, categorías contables), al crear el **primer** hijo con `confirmar_traslado` se reasignan esos FKs al hijo y el padre deja de ser `Transaccional`. Si ya tenía hijos, se crea el nuevo sin migrar.
+- **Atajo + Auxiliar:** eliminado de la UI; usar el botón contextual **+ Auxiliar** en subcuentas de 6 dígitos (`crearAuxiliar` sigue disponible para otros servicios).
 - El Excel de referencia está en `docs/cuentas-contables-puc.xlsx` (no pegar auxiliares sucios de otra empresa).
 
 ## Bolsillos ↔ Disponible (11)
 
-Cada bolsillo de caja apunta a una **cuenta auxiliar** del grupo 11 (`bolsillos.cuenta_contable_id`).
+> **Puente operativo temporal.** El cobro/pago por bolsillo sigue activo en caja/CI/CE/facturas, pero con aviso de *flujo incompleto* en la UI. El flujo contable definitivo será **Forma de pago → cuenta PUC → asiento** (POS/documentos aún no rewirados).
+
+Cada bolsillo de caja apunta a una **cuenta auxiliar** del grupo 11 (`bolsillos.cuenta_contable_id`). Es la capa de **saldo** de disponible, no el catálogo de medios de pago de documentos.
 
 | Tipo en Caja | Padre PUC (6 dígitos) | Significado |
 |---|---|---|
@@ -27,12 +32,12 @@ Notas PUC:
 
 ### Creación bidireccional
 - **Desde Caja** (Crear bolsillo): crea la auxiliar con defaults `Caja - Bancos`, `Formas de pago`, `No maneja vencimiento`, clase `Activo`, nivel `Transaccional`, y el bolsillo vinculado.
-- **Desde Plan de cuentas** (Crear auxiliar): si el padre es `1105` / `1110` / `1120` y el nivel es `Transaccional`, también crea el bolsillo (visible según `activo`).
+- **Desde Plan de cuentas** (crear hijo auxiliar/subauxiliar): si el código es Disponible operable (`1105` / `1110` / `1120`) y el nivel es `Transaccional`, también crea el bolsillo (visible según `activo`).
 - Visibilidad: `bolsillos.is_active` ↔ `cuentas_contables.activo`.
 
 ## Mercancía / ingresos / costo — reconocimiento por código
 
-Al crear un auxiliar con **+ Auxiliar**, el sistema infiere defaults según el código del padre:
+Al crear un auxiliar/subauxiliar con el botón contextual, el sistema infiere defaults según el código del padre:
 
 | Prefijo del padre | Categoría | Relacionado con | Clase |
 |---|---|---|---|
@@ -96,18 +101,20 @@ Campos clave: `prefijo`, `numeracion_automatica`, `siguiente_numero`, `activo`, 
 ## Cómo usar
 1. Entrar a la tienda → Financiero → **Plan de cuentas**.
 2. Pulsar **Importar PUC base**.
-3. Crear auxiliares con **+ Auxiliar** (el sistema sugiere categoría según el código).
-4. Ir a **Categorías contables** y crear p. ej. «Productos» con las 4 auxiliares.
-5. Al crear/editar un producto, la categoría contable es obligatoria (default «Productos»).
-6. Ir a **Tipos de comprobante** (se crean FV/RC/FC/RP/CC si faltan).
-7. Crear bolsillos desde Caja/Configuración, o auxiliares del 11 desde Plan de cuentas.
+3. En el **árbol**, despliega Clase → Grupo → … y usa el botón contextual (**+ Grupo**, **+ Cuenta**, etc.). La búsqueda muestra lista plana.
+4. Si el padre tiene movimientos/vínculos, confirmar el traslado al nuevo hijo en el modal.
+5. Ir a **Categorías contables** y crear p. ej. «Productos» con las 4 auxiliares.
+6. Al crear/editar un producto, la categoría contable es obligatoria (default «Productos»).
+7. Ir a **Tipos de comprobante** (se crean FV/RC/FC/RP/CC si faltan).
+8. Crear bolsillos desde Caja/Configuración, o auxiliares del 11 desde Plan de cuentas.
 
 ## Servicios
 - `ImportacionPucService` — lee Excel e importa.
-- `CuentaContableService` — listar, crear auxiliar (+ bolsillo si aplica), padres, reconstruir jerarquía, backfill.
+- `CuentaContableService` — listar, `crearHijo` / `crearAuxiliar` (+ bolsillo si aplica), `metaCrearHijo`, `padreTieneUsos`, traslado de usos, padres, reconstruir jerarquía, backfill.
 - `CategoriaContableService` — categorías producto/servicio y validación de cuentas por rol.
 - `TipoComprobanteService` — catálogo de tipos FV/RC/FC/RP/CC, defaults y consecutivos.
 - `ImpuestoService` — catálogo de impuestos (IVA, retenciones, etc.) con cuentas ventas/compras/devoluciones.
+- `FormaPagoService` — catálogo de formas de pago (aplica a + cuenta + medio DIAN) y defaults con auxiliares.
 - `CajaService` — crear/actualizar bolsillo con cuenta auxiliar.
 
 ## Impuestos (catálogo v1)
@@ -115,6 +122,17 @@ Campos clave: `prefijo`, `numeracion_automatica`, `siguiente_numero`, `activo`, 
 - Tipos fijos en código (`Impuesto::TIPOS`): IVA, Retefuente, ReteICA, ReteIVA, Impoconsumo, Bebidas azucaradas, Comestibles ultraprocesados.
 - UI: Financiero → **Impuestos**. Permisos `contabilidad.impuestos.view|create|edit`.
 - Aún no se aplica automáticamente en facturas/compras ni incluye autorretenciones.
+
+## Formas de pago (catálogo v1)
+- Tabla `formas_pago` por tienda: en uso, código, nombre, `aplica_a` (`cartera` | `proveedores` | `ambos`), `cuenta_contable_id`, `medio_pago_dian` (catálogo fijo DIAN PaymentMeansCode), `es_pago_en_linea`.
+- Varias formas pueden apuntar a la **misma** cuenta auxiliar (N:1).
+- Al abrir la pantalla se aseguran defaults (si faltan y existe el padre PUC de 6 dígitos): **Efectivo** (`110505` + medio `10`), **Transferencia** (`111005` + medio `45`), **Crédito** (`130505`, aplica cartera, medio `1`).
+- UI: Financiero → **Formas de pago**. Permisos `contabilidad.formas-pago.view|create|edit`.
+- Aún no se usa en facturas/POS/CI/CE (sigue bolsillo).
+
+## Usado en (Plan de cuentas)
+- Columna **Usado en** en el listado del PUC: se deriva de catálogos (Formas de pago, Impuestos - Ventas/Compras/Dev.), no se edita a mano.
+- En crear auxiliar, «Relacionado con» queda como sugerencia de solo lectura según el código padre.
 
 ## Asientos manuales CC (implementado)
 - Núcleo: `comprobantes_contables` + `movimientos_contables`, orquestado por `AsientoContableService`.
@@ -126,10 +144,13 @@ Campos clave: `prefijo`, `numeracion_automatica`, `siguiente_numero`, `activo`, 
 - Libro Mayor: movimientos agrupados por cuenta auxiliar con saldo inicial, corrido y final (informe de consulta).
 - Pendiente: Balance de comprobación.
 
+## Pendiente UI PUC
+- Panel detalle derecha estilo Siigo (el árbol expandible lazy-load ya está en el listado).
+
 ## Siguiente (automatización no implementada)
 0. **Matriz de eventos (especificación v1):** ver [`docs/MATRIZ_EVENTOS_CONTABLES.md`](MATRIZ_EVENTOS_CONTABLES.md). Debe aprobarla el contador antes de automatizar documentos operativos.
 1. Vincular documentos operativos al catálogo de tipos: `Invoice`→FV, `ComprobanteIngreso`→RC, `Purchase`→FC, `ComprobanteEgreso`→RP.
-2. Motor de asientos al vender/devolver/comprar usando `categoria_contable` + bolsillo de pago + tipo de comprobante + **`tercero_id`** (ver `docs/TERCEROS.md`).
+2. Motor de asientos al vender/devolver/comprar usando `categoria_contable` + **forma de pago** (cuenta PUC) + tipo de comprobante + **`tercero_id`** (ver `docs/TERCEROS.md`). El bolsillo queda solo para saldo de disponible `11…` cuando aplique.
 3. Construir Balance de comprobación desde los saldos del Libro Mayor.
 
 ## Terceros

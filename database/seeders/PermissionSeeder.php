@@ -122,6 +122,9 @@ class PermissionSeeder extends Seeder
             ['slug' => 'contabilidad.impuestos.view', 'name' => 'Ver impuestos', 'description' => 'Ver catálogo de impuestos contables'],
             ['slug' => 'contabilidad.impuestos.create', 'name' => 'Crear impuestos', 'description' => 'Crear impuestos en el catálogo contable'],
             ['slug' => 'contabilidad.impuestos.edit', 'name' => 'Editar impuestos', 'description' => 'Editar impuestos del catálogo contable'],
+            ['slug' => 'contabilidad.formas-pago.view', 'name' => 'Ver formas de pago', 'description' => 'Ver catálogo de formas de pago contables'],
+            ['slug' => 'contabilidad.formas-pago.create', 'name' => 'Crear formas de pago', 'description' => 'Crear formas de pago en el catálogo contable'],
+            ['slug' => 'contabilidad.formas-pago.edit', 'name' => 'Editar formas de pago', 'description' => 'Editar formas de pago del catálogo contable'],
 
             // Roles
             ['slug' => 'roles.view', 'name' => 'Ver roles y permisos', 'description' => 'Ver roles y permisos de la tienda'],

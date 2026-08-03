@@ -310,6 +310,7 @@
 
                     @if($status === 'PAID')
                         <div class="p-6 bg-slate-800/80 rounded-2xl border border-slate-600 shadow-xl animate-in fade-in zoom-in duration-300">
+                            @include('stores.partials.flujo-bolsillo-incompleto')
                             <div class="flex items-center justify-between mb-6">
                                 <h4 class="text-white font-bold flex items-center">
                                     <span class="w-2 h-6 bg-indigo-500 rounded mr-3"></span>
