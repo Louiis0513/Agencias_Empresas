@@ -26,6 +26,8 @@ use App\Http\Controllers\StoreRoleController;
 use App\Http\Controllers\StoreSubscriptionController;
 use App\Http\Controllers\StoreTerceroController;
 use App\Http\Controllers\StoreTipoComprobanteController;
+use App\Http\Controllers\StoreReciboCajaTipoController;
+use App\Http\Controllers\StoreReciboCajaController;
 use App\Http\Controllers\StoreImpuestoController;
 use App\Http\Controllers\StoreFormaPagoController;
 use App\Http\Controllers\StoreCentroCostoController;
@@ -208,6 +210,11 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::post('/comprobantes-ingreso', [StoreCajaController::class, 'storeComprobanteIngreso'])->name('comprobantes-ingreso.store');
     Route::get('/comprobantes-ingreso/{comprobanteIngreso}/pdf', [StoreCajaController::class, 'pdfComprobanteIngreso'])->name('comprobantes-ingreso.pdf');
     Route::get('/comprobantes-ingreso/{comprobanteIngreso}', [StoreCajaController::class, 'showComprobanteIngreso'])->name('comprobantes-ingreso.show');
+
+    // Recibo de caja (elaborar — estilo Siigo)
+    Route::get('/recibos-caja/crear', [StoreReciboCajaController::class, 'create'])->name('recibos-caja.create');
+    Route::post('/recibos-caja', [StoreReciboCajaController::class, 'store'])->name('recibos-caja.store');
+    Route::get('/recibos-caja/cuentas-pendientes', [StoreReciboCajaController::class, 'cuentasPendientes'])->name('recibos-caja.cuentas-pendientes');
     // Comprobantes de egreso (índice unificado en Movimientos → pestaña Egresos)
     Route::get('/comprobantes-egreso', function (Store $store) {
         return redirect()->route('stores.cajas.movimientos', ['store' => $store, 'tab' => 'egresos']);
@@ -236,6 +243,11 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::get('/contabilidad/tipos-comprobante', [StoreTipoComprobanteController::class, 'index'])->name('contabilidad.tipos');
     Route::post('/contabilidad/tipos-comprobante', [StoreTipoComprobanteController::class, 'store'])->name('contabilidad.tipos.store');
     Route::put('/contabilidad/tipos-comprobante/{tipoComprobante}', [StoreTipoComprobanteController::class, 'update'])->name('contabilidad.tipos.update');
+
+    Route::get('/contabilidad/recibos-caja', [StoreReciboCajaTipoController::class, 'index'])->name('contabilidad.recibos-caja');
+    Route::post('/contabilidad/recibos-caja', [StoreReciboCajaTipoController::class, 'store'])->name('contabilidad.recibos-caja.store');
+    Route::put('/contabilidad/recibos-caja/{tipoComprobante}', [StoreReciboCajaTipoController::class, 'update'])->name('contabilidad.recibos-caja.update');
+
     Route::get('/contabilidad/impuestos', [StoreImpuestoController::class, 'index'])->name('contabilidad.impuestos');
     Route::post('/contabilidad/impuestos', [StoreImpuestoController::class, 'store'])->name('contabilidad.impuestos.store');
     Route::put('/contabilidad/impuestos/{impuesto}', [StoreImpuestoController::class, 'update'])->name('contabilidad.impuestos.update');

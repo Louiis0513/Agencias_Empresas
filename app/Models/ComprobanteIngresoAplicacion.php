@@ -14,6 +14,7 @@ class ComprobanteIngresoAplicacion extends Model
     protected $fillable = [
         'comprobante_ingreso_id',
         'account_receivable_id',
+        'account_receivable_cuota_id',
         'amount',
     ];
 
@@ -30,4 +31,10 @@ class ComprobanteIngresoAplicacion extends Model
     {
         return $this->belongsTo(AccountReceivable::class);
     }
+
+    public function cuota()
+    {
+        return $this->belongsTo(AccountReceivableCuota::class, 'account_receivable_cuota_id');
+    }
 }
+

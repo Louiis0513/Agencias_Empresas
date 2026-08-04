@@ -2,16 +2,19 @@
 
 namespace App\Services;
 
+use App\Models\CuentaContable;
 use App\Models\Store;
 use App\Models\TipoComprobante;
+use App\Support\CatalogoComprobantesContablesPredeterminados;
 use Exception;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class TipoComprobanteService
 {
     /**
-     * Tipos base estilo Siigo (un registro por familia con código "1").
+     * Tipos base: FV/RC/FC/RP código 1 + catálogo completo de CC estilo Siigo.
      *
      * @return list<array{
      *   familia: string,
@@ -24,48 +27,43 @@ class TipoComprobanteService
      */
     public function defaults(): array
     {
-        return [
+        return array_merge(
             [
-                'familia' => TipoComprobante::FAMILIA_FV,
-                'codigo' => '1',
-                'nombre' => 'Factura de venta',
-                'titulo' => 'Factura de venta',
-                'prefijo' => 'FV',
-                'libro_oficial' => TipoComprobante::LIBRO_VENTAS,
+                [
+                    'familia' => TipoComprobante::FAMILIA_FV,
+                    'codigo' => '1',
+                    'nombre' => 'Factura de venta',
+                    'titulo' => 'Factura de venta',
+                    'prefijo' => 'FV',
+                    'libro_oficial' => TipoComprobante::LIBRO_VENTAS,
+                ],
+                [
+                    'familia' => TipoComprobante::FAMILIA_RC,
+                    'codigo' => '1',
+                    'nombre' => 'Recibo de caja',
+                    'titulo' => 'Recibo de caja',
+                    'prefijo' => 'RC',
+                    'libro_oficial' => null,
+                ],
+                [
+                    'familia' => TipoComprobante::FAMILIA_FC,
+                    'codigo' => '1',
+                    'nombre' => 'Factura de compra',
+                    'titulo' => 'Factura de compra',
+                    'prefijo' => 'FC',
+                    'libro_oficial' => TipoComprobante::LIBRO_COMPRAS,
+                ],
+                [
+                    'familia' => TipoComprobante::FAMILIA_RP,
+                    'codigo' => '1',
+                    'nombre' => 'Recibo de pago / egreso',
+                    'titulo' => 'Recibo de pago / egreso',
+                    'prefijo' => 'RP',
+                    'libro_oficial' => null,
+                ],
             ],
-            [
-                'familia' => TipoComprobante::FAMILIA_RC,
-                'codigo' => '1',
-                'nombre' => 'Recibo de caja',
-                'titulo' => 'Recibo de caja',
-                'prefijo' => 'RC',
-                'libro_oficial' => null,
-            ],
-            [
-                'familia' => TipoComprobante::FAMILIA_FC,
-                'codigo' => '1',
-                'nombre' => 'Factura de compra',
-                'titulo' => 'Factura de compra',
-                'prefijo' => 'FC',
-                'libro_oficial' => TipoComprobante::LIBRO_COMPRAS,
-            ],
-            [
-                'familia' => TipoComprobante::FAMILIA_RP,
-                'codigo' => '1',
-                'nombre' => 'Recibo de pago / egreso',
-                'titulo' => 'Recibo de pago / egreso',
-                'prefijo' => 'RP',
-                'libro_oficial' => null,
-            ],
-            [
-                'familia' => TipoComprobante::FAMILIA_CC,
-                'codigo' => '1',
-                'nombre' => 'Comprobante contable',
-                'titulo' => 'Comprobante contable',
-                'prefijo' => 'CC',
-                'libro_oficial' => null,
-            ],
-        ];
+            CatalogoComprobantesContablesPredeterminados::tipos()
+        );
     }
 
     public function tipoPorDefecto(Store $store, string $familia): ?TipoComprobante
@@ -89,6 +87,7 @@ class TipoComprobanteService
     {
         $q = TipoComprobante::query()
             ->deStore($store)
+            ->with(['cuentaAnticipos:id,codigo,nombre'])
             ->orderByRaw("CASE familia WHEN 'FV' THEN 1 WHEN 'RC' THEN 2 WHEN 'FC' THEN 3 WHEN 'RP' THEN 4 WHEN 'CC' THEN 5 ELSE 99 END")
             ->orderByRaw('CAST(codigo AS UNSIGNED) asc')
             ->orderBy('codigo');
@@ -112,6 +111,22 @@ class TipoComprobanteService
         }
 
         return $q->paginate($perPage)->withQueryString();
+    }
+
+    /**
+     * Cuentas usables como anticipos de clientes en tipos RC.
+     *
+     * @return Collection<int, CuentaContable>
+     */
+    public function cuentasDisponiblesAnticipos(Store $store): Collection
+    {
+        return CuentaContable::query()
+            ->deStore($store)
+            ->activas()
+            ->orderBy('codigo')
+            ->get(['id', 'codigo', 'nombre', 'es_auxiliar', 'nivel_agrupacion', 'activo'])
+            ->filter(fn (CuentaContable $c) => $c->esUsableEnDocumentoContable())
+            ->values();
     }
 
     public function sugerirCodigo(Store $store, string $familia): string
@@ -163,7 +178,7 @@ class TipoComprobanteService
     }
 
     /**
-     * Asegura los 5 tipos base (FV/RC/FC/RP/CC con código 1). Idempotente.
+     * Asegura FV/RC/FC/RP código 1 y el catálogo de CC. Idempotente (no renombra existentes).
      *
      * @return array{creadas: list<string>, omitidas: list<string>, errores: list<string>}
      */
@@ -300,7 +315,7 @@ class TipoComprobanteService
         } else {
             $libro = strtolower(trim((string) $libro));
             if (! in_array($libro, TipoComprobante::LIBROS_OFICIALES, true)) {
-                throw new Exception('El libro oficial debe ser ventas, compras o vacío.');
+                throw new Exception('El libro oficial debe ser ventas, ventas_devoluciones, compras, compras_devoluciones o vacío.');
             }
         }
 
@@ -327,6 +342,30 @@ class TipoComprobanteService
             );
         }
 
+        $cuentaAnticiposId = $existente?->cuenta_anticipos_id;
+        if (array_key_exists('cuenta_anticipos_id', $data)) {
+            $raw = $data['cuenta_anticipos_id'];
+            if ($raw === null || $raw === '') {
+                $cuentaAnticiposId = null;
+            } else {
+                $cuenta = CuentaContable::query()
+                    ->deStore($store)
+                    ->where('id', (int) $raw)
+                    ->first();
+                if (! $cuenta || ! $cuenta->esUsableEnDocumentoContable()) {
+                    throw new Exception(
+                        'La cuenta de anticipos debe ser auxiliar (o hoja de 6 dígitos) transaccional, activa y de esta tienda.'
+                    );
+                }
+                $cuentaAnticiposId = $cuenta->id;
+            }
+        }
+
+        // Solo RC usa cuenta de anticipos; otras familias la limpian.
+        if ($familia !== TipoComprobante::FAMILIA_RC) {
+            $cuentaAnticiposId = null;
+        }
+
         return [
             'familia' => $familia,
             'codigo' => $codigo,
@@ -350,6 +389,7 @@ class TipoComprobanteService
                     : (int) $data['centro_costo_default_id'])
                 : $existente?->centro_costo_default_id,
             'libro_oficial' => $libro,
+            'cuenta_anticipos_id' => $cuentaAnticiposId,
         ];
     }
 }

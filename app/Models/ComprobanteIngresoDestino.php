@@ -14,6 +14,7 @@ class ComprobanteIngresoDestino extends Model
     protected $fillable = [
         'comprobante_ingreso_id',
         'bolsillo_id',
+        'forma_pago_id',
         'amount',
         'reference',
     ];
@@ -31,4 +32,10 @@ class ComprobanteIngresoDestino extends Model
     {
         return $this->belongsTo(Bolsillo::class);
     }
+
+    public function formaPago()
+    {
+        return $this->belongsTo(FormaPago::class, 'forma_pago_id');
+    }
 }
+

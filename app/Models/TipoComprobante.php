@@ -31,11 +31,17 @@ class TipoComprobante extends Model
 
     public const LIBRO_VENTAS = 'ventas';
 
+    public const LIBRO_VENTAS_DEVOLUCIONES = 'ventas_devoluciones';
+
     public const LIBRO_COMPRAS = 'compras';
+
+    public const LIBRO_COMPRAS_DEVOLUCIONES = 'compras_devoluciones';
 
     public const LIBROS_OFICIALES = [
         self::LIBRO_VENTAS,
+        self::LIBRO_VENTAS_DEVOLUCIONES,
         self::LIBRO_COMPRAS,
+        self::LIBRO_COMPRAS_DEVOLUCIONES,
     ];
 
     protected $table = 'tipos_comprobante';
@@ -54,6 +60,7 @@ class TipoComprobante extends Model
         'centro_costo_obligatorio',
         'centro_costo_default_id',
         'libro_oficial',
+        'cuenta_anticipos_id',
     ];
 
     protected function casts(): array
@@ -75,6 +82,11 @@ class TipoComprobante extends Model
     public function centroCostoDefault(): BelongsTo
     {
         return $this->belongsTo(CentroCosto::class, 'centro_costo_default_id');
+    }
+
+    public function cuentaAnticipos(): BelongsTo
+    {
+        return $this->belongsTo(CuentaContable::class, 'cuenta_anticipos_id');
     }
 
     public function comprobantesContables(): HasMany
@@ -131,11 +143,20 @@ class TipoComprobante extends Model
 
     public function etiquetaLibroOficial(): string
     {
-        return match ($this->libro_oficial) {
-            self::LIBRO_VENTAS => 'Ventas',
-            self::LIBRO_COMPRAS => 'Compras',
-            default => '—',
-        };
+        return self::etiquetasLibrosOficiales()[$this->libro_oficial] ?? '—';
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function etiquetasLibrosOficiales(): array
+    {
+        return [
+            self::LIBRO_VENTAS => 'Libro ventas - Ventas',
+            self::LIBRO_VENTAS_DEVOLUCIONES => 'Libro ventas - Devoluciones',
+            self::LIBRO_COMPRAS => 'Libro compras - Compras',
+            self::LIBRO_COMPRAS_DEVOLUCIONES => 'Libro compras - Devoluciones',
+        ];
     }
 
     public static function etiquetasFamilias(): array

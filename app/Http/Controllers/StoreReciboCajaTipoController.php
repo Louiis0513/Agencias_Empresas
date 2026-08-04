@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\StoreTipoComprobanteRequest;
+use App\Http\Requests\StoreReciboCajaTipoRequest;
 use App\Models\Store;
 use App\Models\TipoComprobante;
 use App\Services\StorePermissionService;
@@ -10,7 +10,7 @@ use App\Services\TipoComprobanteService;
 use Exception;
 use Illuminate\Http\Request;
 
-class StoreTipoComprobanteController extends Controller
+class StoreReciboCajaTipoController extends Controller
 {
     public function __construct(
         protected StorePermissionService $permissionService,
@@ -22,15 +22,15 @@ class StoreTipoComprobanteController extends Controller
         $this->permissionService->authorize($store, 'contabilidad.tipos.view');
 
         $defaults = $this->tipoComprobanteService->asegurarTiposPorDefecto($store);
-        $creadosCc = count(array_filter(
+        $creadosRc = count(array_filter(
             $defaults['creadas'],
-            fn (string $clave) => str_starts_with($clave, TipoComprobante::FAMILIA_CC.':')
+            fn (string $clave) => str_starts_with($clave, TipoComprobante::FAMILIA_RC.':')
         ));
 
-        if ($creadosCc > 0) {
+        if ($creadosRc > 0) {
             session()->flash(
                 'success',
-                'Se crearon '.$creadosCc.' tipo(s) de comprobante contable por defecto.'
+                'Se creó el tipo de recibo de caja por defecto (RC-1).'
             );
         }
 
@@ -43,32 +43,33 @@ class StoreTipoComprobanteController extends Controller
 
         $tipos = $this->tipoComprobanteService->listar($store, [
             'search' => $request->get('search'),
-            'familia' => TipoComprobante::FAMILIA_CC,
+            'familia' => TipoComprobante::FAMILIA_RC,
             'activo' => $request->get('activo'),
         ], 50);
 
         $codigoSugerido = $this->tipoComprobanteService->sugerirCodigo(
             $store,
-            TipoComprobante::FAMILIA_CC
+            TipoComprobante::FAMILIA_RC
         );
 
-        return view('stores.contabilidad.tipos-comprobante', compact(
+        $cuentasAnticipos = $this->tipoComprobanteService->cuentasDisponiblesAnticipos($store);
+
+        return view('stores.contabilidad.recibos-caja', compact(
             'store',
             'tipos',
-            'codigoSugerido'
+            'codigoSugerido',
+            'cuentasAnticipos'
         ));
     }
 
-    public function store(StoreTipoComprobanteRequest $request, Store $store)
+    public function store(StoreReciboCajaTipoRequest $request, Store $store)
     {
         $this->permissionService->authorize($store, 'contabilidad.tipos.create');
 
         try {
             $data = $request->validated();
-            $data['familia'] = TipoComprobante::FAMILIA_CC;
-            if (empty($data['prefijo'])) {
-                $data['prefijo'] = 'CC';
-            }
+            $data['familia'] = TipoComprobante::FAMILIA_RC;
+            $data['prefijo'] = $data['prefijo'] ?? 'RC';
             if (empty($data['nombre']) && ! empty($data['titulo'])) {
                 $data['nombre'] = $data['titulo'];
             }
@@ -76,40 +77,45 @@ class StoreTipoComprobanteController extends Controller
             $tipo = $this->tipoComprobanteService->crear($store, $data);
 
             return redirect()
-                ->route('stores.contabilidad.tipos', $store)
-                ->with('success', 'Tipo «CC-'.$tipo->codigo.'» ('.$tipo->titulo.') creado.');
+                ->route('stores.contabilidad.recibos-caja', $store)
+                ->with('success', 'Tipo «RC-'.$tipo->codigo.'» ('.$tipo->titulo.') creado.');
         } catch (Exception $e) {
             return redirect()
-                ->route('stores.contabilidad.tipos', $store)
+                ->route('stores.contabilidad.recibos-caja', $store)
                 ->with('error', $e->getMessage())
                 ->withInput();
         }
     }
 
-    public function update(StoreTipoComprobanteRequest $request, Store $store, TipoComprobante $tipoComprobante)
+    public function update(StoreReciboCajaTipoRequest $request, Store $store, TipoComprobante $tipoComprobante)
     {
         $this->permissionService->authorize($store, 'contabilidad.tipos.edit');
 
         if ($tipoComprobante->store_id !== $store->id
-            || $tipoComprobante->familia !== TipoComprobante::FAMILIA_CC) {
+            || $tipoComprobante->familia !== TipoComprobante::FAMILIA_RC) {
             abort(404);
         }
 
         try {
             $data = $request->validated();
-            $data['familia'] = TipoComprobante::FAMILIA_CC;
+            $data['familia'] = TipoComprobante::FAMILIA_RC;
+            $data['prefijo'] = $data['prefijo'] ?? 'RC';
             if (empty($data['nombre']) && ! empty($data['titulo'])) {
                 $data['nombre'] = $data['titulo'];
+            }
+            // Asegurar que se procese incluso si viene null (limpiar cuenta).
+            if (! array_key_exists('cuenta_anticipos_id', $data)) {
+                $data['cuenta_anticipos_id'] = null;
             }
 
             $this->tipoComprobanteService->actualizar($store, $tipoComprobante, $data);
 
             return redirect()
-                ->route('stores.contabilidad.tipos', $store)
-                ->with('success', 'Comprobante contable actualizado.');
+                ->route('stores.contabilidad.recibos-caja', $store)
+                ->with('success', 'Recibo de caja actualizado.');
         } catch (Exception $e) {
             return redirect()
-                ->route('stores.contabilidad.tipos', $store)
+                ->route('stores.contabilidad.recibos-caja', $store)
                 ->with('error', $e->getMessage())
                 ->withInput();
         }

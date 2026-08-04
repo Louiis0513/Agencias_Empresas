@@ -11,7 +11,7 @@
                 Impuestos — {{ $store->name }}
             </h2>
             <a href="{{ route('stores.contabilidad.tipos', $store) }}" class="text-sm text-gray-400 hover:text-brand transition">
-                ← Tipos de comprobante
+                ← Comprobantes contables
             </a>
         </div>
     </x-slot>

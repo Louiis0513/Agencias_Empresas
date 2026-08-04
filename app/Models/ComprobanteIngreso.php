@@ -16,9 +16,14 @@ class ComprobanteIngreso extends Model
         'store_id',
         'number',
         'total_amount',
+        'monto_anticipo',
         'date',
         'notes',
         'type',
+        'tipo_comprobante_id',
+        'modo',
+        'forma_pago_id',
+        'centro_costo_id',
         'tercero_id',
         'invoice_id',
         'user_id',
@@ -28,13 +33,30 @@ class ComprobanteIngreso extends Model
 
     protected $casts = [
         'total_amount' => 'decimal:2',
+        'monto_anticipo' => 'decimal:2',
         'date' => 'date',
         'reversed_at' => 'datetime',
     ];
 
     public const TYPE_INGRESO_MANUAL = 'INGRESO_MANUAL';
+
     public const TYPE_COBRO_CUENTA = 'COBRO_CUENTA';
+
     public const TYPE_PAGO_FACTURA = 'PAGO_FACTURA';
+
+    public const TYPE_ANTICIPO = 'ANTICIPO';
+
+    public const MODO_ABONO = 'abono';
+
+    public const MODO_ANTICIPO = 'anticipo';
+
+    public const MODO_OTRO_INGRESO = 'otro_ingreso';
+
+    public const MODOS = [
+        self::MODO_ABONO,
+        self::MODO_ANTICIPO,
+        self::MODO_OTRO_INGRESO,
+    ];
 
     public function store()
     {
@@ -66,6 +88,21 @@ class ComprobanteIngreso extends Model
         return $this->belongsTo(User::class, 'reversal_user_id');
     }
 
+    public function tipoComprobante()
+    {
+        return $this->belongsTo(TipoComprobante::class, 'tipo_comprobante_id');
+    }
+
+    public function formaPago()
+    {
+        return $this->belongsTo(FormaPago::class, 'forma_pago_id');
+    }
+
+    public function centroCosto()
+    {
+        return $this->belongsTo(CentroCosto::class, 'centro_costo_id');
+    }
+
     public function destinos()
     {
         return $this->hasMany(ComprobanteIngresoDestino::class, 'comprobante_ingreso_id');
@@ -90,5 +127,12 @@ class ComprobanteIngreso extends Model
     public function isCobroCuenta(): bool
     {
         return $this->type === self::TYPE_COBRO_CUENTA && $this->aplicaciones()->exists();
+    }
+
+    public function esReciboCaja(): bool
+    {
+        return $this->tipo_comprobante_id
+            && $this->tipoComprobante
+            && $this->tipoComprobante->familia === TipoComprobante::FAMILIA_RC;
     }
 }

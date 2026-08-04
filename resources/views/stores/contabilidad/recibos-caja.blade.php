@@ -1,21 +1,24 @@
 <?php
     $editando = old('_edit_id');
+    $cuentaLabel = fn ($cuenta) => $cuenta
+        ? $cuenta->codigo.' — '.$cuenta->nombre
+        : '—';
 ?>
 <x-app-layout>
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-white leading-tight">
-                Tipos de comprobante contable — {{ $store->name }}
+                Tipos de recibo de caja — {{ $store->name }}
             </h2>
             <div class="flex items-center gap-4">
-                @storeCan($store, 'contabilidad.centros-costo.view')
-                <a href="{{ route('stores.contabilidad.centros-costo', $store) }}" class="text-sm text-gray-400 hover:text-brand transition">
-                    Centros de costo
+                @storeCan($store, 'contabilidad.tipos.view')
+                <a href="{{ route('stores.contabilidad.tipos', $store) }}" class="text-sm text-gray-400 hover:text-brand transition">
+                    Comprobantes contables
                 </a>
                 @endstoreCan
-                @storeCan($store, 'contabilidad.comprobantes.view')
-                <a href="{{ route('stores.contabilidad.comprobantes', $store) }}" class="text-sm text-gray-400 hover:text-brand transition">
-                    Asientos manuales
+                @storeCan($store, 'comprobantes-ingreso.view')
+                <a href="{{ route('stores.comprobantes-ingreso.index', $store) }}" class="text-sm text-gray-400 hover:text-brand transition">
+                    Comprobantes de ingreso
                 </a>
                 @endstoreCan
             </div>
@@ -28,9 +31,9 @@
         editId: {{ $editando ? (int) $editando : 'null' }},
         editCodigo: @js(old('codigo', '')),
         editTitulo: @js(old('titulo', '')),
-        editPrefijo: @js(old('prefijo', 'CC')),
+        editPrefijo: @js(old('prefijo', 'RC')),
         editSiguiente: {{ (int) old('siguiente_numero', 1) }},
-        editLibro: @js(old('libro_oficial', '')),
+        editCuentaAnticipos: @js(old('cuenta_anticipos_id', '') !== null && old('cuenta_anticipos_id', '') !== '' ? (string) old('cuenta_anticipos_id') : ''),
         editNumeracion: {{ old('numeracion_automatica', true) ? 'true' : 'false' }},
         editCentroCostos: {{ old('maneja_centro_costos', false) ? 'true' : 'false' }},
         editCentroObligatorio: {{ old('centro_costo_obligatorio', false) ? 'true' : 'false' }},
@@ -39,9 +42,9 @@
             this.editId = t.id;
             this.editCodigo = t.codigo;
             this.editTitulo = t.titulo || t.nombre || '';
-            this.editPrefijo = t.prefijo || 'CC';
+            this.editPrefijo = t.prefijo || 'RC';
             this.editSiguiente = t.siguiente_numero;
-            this.editLibro = t.libro_oficial || '';
+            this.editCuentaAnticipos = t.cuenta_anticipos_id ? String(t.cuenta_anticipos_id) : '';
             this.editNumeracion = !!t.numeracion_automatica;
             this.editCentroCostos = !!t.maneja_centro_costos;
             this.editCentroObligatorio = !!t.centro_costo_obligatorio;
@@ -71,14 +74,15 @@
             @endif
 
             <div class="mb-4 rounded-xl border border-sky-500/30 bg-sky-950/40 px-4 py-3 text-sm text-sky-100">
-                Configuración de tipos <strong>CC</strong> (comprobantes contables). Cada código tiene su propio consecutivo.
-                Al abrir esta pantalla se aseguran los tipos básicos estilo Siigo.
+                Configuración de tipos <strong>RC</strong> (recibos de caja), estilo Siigo.
+                Cada código tiene su propio consecutivo. La cuenta de anticipos se usará cuando se cablee el cobro adelantado.
+                Aún no reemplaza la numeración de los comprobantes de ingreso operativos (<code class="text-xs">CI-</code>).
             </div>
 
             <div class="bg-dark-card border border-white/5 overflow-hidden sm:rounded-xl">
                 <div class="p-6">
                     <div class="mb-6 flex flex-wrap justify-between items-center gap-4">
-                        <form method="GET" action="{{ route('stores.contabilidad.tipos', $store) }}" class="flex flex-wrap gap-2 items-end">
+                        <form method="GET" action="{{ route('stores.contabilidad.recibos-caja', $store) }}" class="flex flex-wrap gap-2 items-end">
                             <input type="text" name="search" value="{{ request('search') }}"
                                    placeholder="Buscar código o título..."
                                    class="rounded-md border-white/10 bg-white/5 text-gray-100">
@@ -89,7 +93,7 @@
                             </select>
                             <button type="submit" class="px-4 py-2 bg-brand text-white rounded-xl">Filtrar</button>
                             @if(request()->anyFilled(['search', 'activo']))
-                                <a href="{{ route('stores.contabilidad.tipos', $store) }}" class="px-4 py-2 bg-gray-700 text-gray-200 rounded-md text-sm">Limpiar</a>
+                                <a href="{{ route('stores.contabilidad.recibos-caja', $store) }}" class="px-4 py-2 bg-gray-700 text-gray-200 rounded-md text-sm">Limpiar</a>
                             @endif
                         </form>
 
@@ -106,8 +110,9 @@
                             <table class="min-w-full divide-y divide-white/5">
                                 <thead class="bg-brand/20 border-b border-white/10">
                                     <tr>
-                                        <th class="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wide">Código del comprobante</th>
-                                        <th class="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wide">Título comprobante</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wide">Código</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wide">Título</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-300 uppercase">Anticipos</th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-300 uppercase">Estado</th>
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-300 uppercase">Acciones</th>
                                     </tr>
@@ -117,6 +122,7 @@
                                         <tr class="hover:bg-white/5 transition">
                                             <td class="px-4 py-3 text-sm font-mono text-gray-100">{{ $tipo->codigo }}</td>
                                             <td class="px-4 py-3 text-sm text-gray-100">{{ $tipo->titulo ?: $tipo->nombre }}</td>
+                                            <td class="px-4 py-3 text-sm text-gray-400 font-mono text-xs">{{ $cuentaLabel($tipo->cuentaAnticipos) }}</td>
                                             <td class="px-4 py-3 text-sm">
                                                 @if($tipo->activo)
                                                     <span class="text-emerald-400">En uso</span>
@@ -132,10 +138,9 @@
                                                         id: {{ $tipo->id }},
                                                         codigo: @js($tipo->codigo),
                                                         titulo: @js($tipo->titulo ?: $tipo->nombre),
-                                                        nombre: @js($tipo->nombre),
                                                         prefijo: @js($tipo->prefijo),
                                                         siguiente_numero: {{ $tipo->siguiente_numero }},
-                                                        libro_oficial: @js($tipo->libro_oficial),
+                                                        cuenta_anticipos_id: {{ $tipo->cuenta_anticipos_id ? (int) $tipo->cuenta_anticipos_id : 'null' }},
                                                         numeracion_automatica: {{ $tipo->numeracion_automatica ? 'true' : 'false' }},
                                                         maneja_centro_costos: {{ $tipo->maneja_centro_costos ? 'true' : 'false' }},
                                                         centro_costo_obligatorio: {{ $tipo->centro_costo_obligatorio ? 'true' : 'false' }},
@@ -155,32 +160,32 @@
                         </div>
                     @else
                         <div class="text-center py-12 text-gray-400">
-                            <p class="mb-2">Aún no hay tipos de comprobante contable.</p>
-                            <p class="text-sm">Al abrir esta pantalla se crean los tipos básicos automáticamente.</p>
+                            <p class="mb-2">Aún no hay tipos de recibo de caja.</p>
+                            <p class="text-sm">Al abrir esta pantalla se crea RC-1 automáticamente.</p>
                         </div>
                     @endif
                 </div>
             </div>
         </div>
 
-        {{-- Modal crear --}}
         <div x-show="showCreate" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto" style="display: none;">
             <div class="absolute inset-0 bg-black/60" @click="showCreate = false"></div>
             <div class="relative bg-dark-card border border-white/10 rounded-xl w-full max-w-xl p-6 shadow-xl my-8">
-                <h3 class="text-lg font-semibold text-gray-100 mb-4">Crear nuevo tipo de comprobante</h3>
-                <form method="POST" action="{{ route('stores.contabilidad.tipos.store', $store) }}" class="space-y-4">
+                <h3 class="text-lg font-semibold text-gray-100 mb-4">Crear nuevo tipo de recibo de caja</h3>
+                <form method="POST" action="{{ route('stores.contabilidad.recibos-caja.store', $store) }}" class="space-y-4">
                     @csrf
-                    <input type="hidden" name="familia" value="CC">
-                    <input type="hidden" name="prefijo" value="CC">
-                    @include('stores.contabilidad.partials.tipo-comprobante-cc-form', [
+                    <input type="hidden" name="familia" value="RC">
+                    <input type="hidden" name="prefijo" value="RC">
+                    @include('stores.contabilidad.partials.tipo-recibo-caja-form', [
                         'codigoDefault' => old('codigo', $codigoSugerido),
-                        'tituloDefault' => old('titulo'),
+                        'tituloDefault' => old('titulo', 'Recibo de caja'),
                         'siguienteDefault' => old('siguiente_numero', 1),
-                        'libroDefault' => old('libro_oficial'),
+                        'cuentaAnticiposDefault' => old('cuenta_anticipos_id'),
                         'numeracionDefault' => old('numeracion_automatica', true),
                         'centroCostosDefault' => old('maneja_centro_costos', false),
                         'centroObligatorioDefault' => old('centro_costo_obligatorio', false),
                         'activoDefault' => old('activo', true),
+                        'cuentasAnticipos' => $cuentasAnticipos,
                         'alpine' => false,
                     ])
                     <div class="flex justify-end gap-2 pt-2">
@@ -191,26 +196,26 @@
             </div>
         </div>
 
-        {{-- Modal editar --}}
         <div x-show="showEdit" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto" style="display: none;">
             <div class="absolute inset-0 bg-black/60" @click="showEdit = false"></div>
             <div class="relative bg-dark-card border border-white/10 rounded-xl w-full max-w-xl p-6 shadow-xl my-8">
-                <h3 class="text-lg font-semibold text-gray-100 mb-4">Editar tipo de comprobante</h3>
-                <form method="POST" :action="'{{ url('/stores/'.$store->slug.'/contabilidad/tipos-comprobante') }}/' + editId" class="space-y-4">
+                <h3 class="text-lg font-semibold text-gray-100 mb-4">Editar recibo de caja</h3>
+                <form method="POST" :action="'{{ url('/stores/'.$store->slug.'/contabilidad/recibos-caja') }}/' + editId" class="space-y-4">
                     @csrf
                     @method('PUT')
                     <input type="hidden" name="_edit_id" :value="editId">
-                    <input type="hidden" name="familia" value="CC">
+                    <input type="hidden" name="familia" value="RC">
                     <input type="hidden" name="prefijo" x-model="editPrefijo">
-                    @include('stores.contabilidad.partials.tipo-comprobante-cc-form', [
+                    @include('stores.contabilidad.partials.tipo-recibo-caja-form', [
                         'codigoDefault' => '',
                         'tituloDefault' => '',
                         'siguienteDefault' => 1,
-                        'libroDefault' => '',
+                        'cuentaAnticiposDefault' => null,
                         'numeracionDefault' => true,
                         'centroCostosDefault' => false,
                         'centroObligatorioDefault' => false,
                         'activoDefault' => true,
+                        'cuentasAnticipos' => $cuentasAnticipos,
                         'alpine' => true,
                     ])
                     <div class="flex justify-end gap-2 pt-2">

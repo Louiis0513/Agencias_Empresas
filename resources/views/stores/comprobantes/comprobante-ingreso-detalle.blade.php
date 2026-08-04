@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div class="flex flex-wrap justify-between items-center gap-3">
             <h2 class="font-semibold text-xl text-white leading-tight">
-                {{ __('Comprobante de ingreso') }} · {{ $c->number }}
+                {{ $c->tipo_comprobante_id ? __('Recibo de caja') : __('Comprobante de ingreso') }} · {{ $c->number }}
             </h2>
             <div class="flex flex-wrap items-center gap-3">
                 <a href="{{ route('stores.comprobantes-ingreso.pdf', [$store, $comprobanteIngreso]) }}"
@@ -30,162 +30,142 @@
                 </div>
             @endif
 
-            {{-- Documento tipo formulario impreso --}}
             <article class="rounded-xl border border-gray-200 bg-white text-gray-900 shadow-sm overflow-hidden">
-                <div class="p-6 sm:p-8 space-y-5">
+                <div class="p-6 sm:p-8 space-y-4">
 
-                    {{-- Cabecera: tienda | documento --}}
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div class="rounded-lg border border-gray-200 p-4 sm:p-5">
-                            <p class="text-lg sm:text-xl font-bold text-blue-800 leading-tight">{{ $store->name }}</p>
+                    {{-- Cabecera 3 cols: logo | datos empresa | título+número --}}
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 items-start border-b border-gray-200 pb-4">
+                        <div class="flex items-center justify-center min-h-[5.5rem]">
+                            @if($store->logo_path)
+                                <img src="{{ asset('storage/'.$store->logo_path) }}" alt="{{ $store->name }}"
+                                     class="h-28 w-auto max-w-[220px] object-contain">
+                            @endif
+                        </div>
+                        <div class="text-center text-xs sm:text-sm text-gray-700 space-y-0.5">
+                            <p class="font-bold uppercase text-gray-900">{{ $store->name }}</p>
                             @if($store->rut_nit)
-                                <p class="mt-2 text-sm text-gray-600">{{ __('NIT.') }} {{ $store->rut_nit }}</p>
+                                <p>{{ __('NIT') }} {{ $store->rut_nit }}</p>
                             @endif
-                            @if($dirTel !== '')
-                                <p class="mt-1 text-xs sm:text-sm text-gray-500">{{ $dirTel }}</p>
+                            @if($store->address)
+                                <p>{{ $store->address }}</p>
+                            @endif
+                            @if($store->phone || ($store->mobile ?? null))
+                                <p>{{ __('Teléfono') }} {{ $store->phone ?: $store->mobile }}</p>
+                            @endif
+                            @if($ciudadEmpresa !== '')
+                                <p>{{ $ciudadEmpresa }}</p>
                             @endif
                         </div>
-                        <div class="rounded-lg border border-gray-200 p-4 sm:p-5 text-right sm:text-left">
-                            <p class="text-lg sm:text-xl font-bold text-blue-800">{{ __('Comprobante de ingreso') }}</p>
-                            <p class="mt-3 text-base font-bold text-gray-900">{{ __('No.') }} {{ $c->number }}</p>
-                            <p class="mt-2 inline-flex rounded-full border border-gray-200 bg-gray-50 px-2.5 py-0.5 text-xs font-medium text-gray-600">
-                                {{ $tipoEtiqueta }}
-                            </p>
+                        <div class="border border-gray-300 rounded text-center px-3 py-3">
+                            <p class="text-base sm:text-lg font-bold text-gray-900">{{ $c->tipo_comprobante_id ? __('Recibo de caja') : __('Comprobante de ingreso') }}</p>
+                            <p class="mt-1 text-sm font-semibold text-gray-800">{{ __('No.') }} {{ $c->number }}</p>
                         </div>
                     </div>
 
-                    {{-- Fecha, cliente, valor --}}
-                    <div class="rounded-lg border border-gray-200 p-4 sm:p-5">
-                        <div class="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-start">
-                            <div class="lg:col-span-2">
-                                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Fecha') }}</p>
-                                <p class="mt-1 text-sm font-bold text-gray-900">{{ $c->date->format('d/m/Y') }}</p>
-                            </div>
-                            <div class="lg:col-span-7 border-t border-gray-100 pt-4 lg:border-t-0 lg:pt-0">
-                                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Recibido de') }}</p>
-                                <p class="mt-1 text-sm font-bold text-gray-900">
-                                    {{ $customer?->name ?? '—' }}
-                                </p>
-                                <div class="mt-3 grid grid-cols-1 gap-2 text-xs text-gray-600 sm:grid-cols-3">
-                                    <div>
-                                        <span class="font-medium text-gray-500">{{ __('CC') }}</span>
-                                        <span class="block text-gray-800">{{ $customer?->document_number ?? '—' }}</span>
-                                    </div>
-                                    <div class="sm:col-span-2">
-                                        <span class="font-medium text-gray-500">{{ __('Dirección') }}</span>
-                                        <span class="block text-gray-800">{{ $customer?->address ?? '—' }}</span>
-                                    </div>
-                                    <div>
-                                        <span class="font-medium text-gray-500">{{ __('Ciudad') }}</span>
-                                        <span class="block text-gray-800">—</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="lg:col-span-3 border-t border-gray-100 pt-4 lg:border-t-0 lg:pt-0 lg:text-right">
-                                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ __('Valor') }}</p>
-                                <p class="mt-1 text-2xl font-bold text-gray-900 tabular-nums">{{ money($c->total_amount, $cur) }}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {{-- Tabla detalle --}}
-                    <div class="space-y-2">
-                        <p class="text-xs font-semibold text-gray-700">{{ $detalleSubtitulo }}</p>
-                        <div class="overflow-x-auto rounded-lg border border-gray-200">
-                            <table class="min-w-full divide-y divide-gray-200 text-sm">
-                                <thead class="bg-gray-100">
-                                    <tr>
-                                        <th scope="col" class="px-3 py-2.5 text-left text-xs font-bold uppercase text-gray-800">{{ __('Descripción') }}</th>
-                                        <th scope="col" class="px-3 py-2.5 text-right text-xs font-bold uppercase text-gray-800 w-36">{{ __('Valor') }}</th>
+                    {{-- Cliente 2/3 + Fecha 1/3 --}}
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                        <div class="lg:col-span-2 border border-gray-300 rounded overflow-hidden text-sm">
+                            <table class="w-full">
+                                <tbody>
+                                    <tr class="border-b border-gray-200">
+                                        <td class="bg-gray-100 px-3 py-1.5 font-semibold text-gray-700 w-36 whitespace-nowrap">{{ __('Señores') }}</td>
+                                        <td class="px-3 py-1.5 font-bold text-gray-900" colspan="3">
+                                            {{ $customer?->nombre ?? '—' }}
+                                        </td>
                                     </tr>
-                                </thead>
-                                <tbody class="divide-y divide-gray-200 bg-white">
-                                    @foreach($detalleLineasVista as $fila)
-                                        <tr>
-                                            <td class="px-3 py-2.5 text-gray-800">{{ $fila['descripcion'] }}</td>
-                                            <td class="px-3 py-2.5 text-right font-medium tabular-nums text-gray-900">{{ money($fila['valor'], $cur) }}</td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    {{-- Bloque reservado + forma de pago (bolsillos) --}}
-                    <div class="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch">
-                        <div class="min-h-[100px] lg:min-h-[140px] rounded-lg border border-dashed border-gray-300 bg-gray-50/80" aria-hidden="true"></div>
-                        <div class="rounded-lg border border-gray-200 overflow-hidden">
-                            <table class="min-w-full divide-y divide-gray-200 text-sm">
-                                <thead class="bg-gray-100">
-                                    <tr>
-                                        <th scope="col" class="px-3 py-2.5 text-left text-xs font-bold uppercase text-gray-800">{{ __('Forma de pago') }}</th>
-                                        <th scope="col" class="px-3 py-2.5 text-left text-xs font-bold uppercase text-gray-800 w-28">{{ __('Identificación') }}</th>
-                                        <th scope="col" class="px-3 py-2.5 text-right text-xs font-bold uppercase text-gray-800 w-32">{{ __('Valor') }}</th>
+                                    <tr class="border-b border-gray-200">
+                                        <td class="bg-gray-100 px-3 py-1.5 font-semibold text-gray-700">{{ __('NIT') }}</td>
+                                        <td class="px-3 py-1.5 text-gray-800">
+                                            {{ $customer?->numero_identificacion ?? '—' }}
+                                            @if($customer?->digito_verificacion)
+                                                -{{ $customer->digito_verificacion }}
+                                            @endif
+                                        </td>
+                                        <td class="bg-gray-100 px-3 py-1.5 font-semibold text-gray-700 w-24">{{ __('Teléfono') }}</td>
+                                        <td class="px-3 py-1.5 text-gray-800">{{ $customer?->telefono ?? '—' }}</td>
                                     </tr>
-                                </thead>
-                                <tbody class="divide-y divide-gray-200 bg-white">
-                                    @foreach($c->destinos as $d)
-                                        <tr>
-                                            <td class="px-3 py-2.5 text-gray-800">{{ $d->bolsillo->name ?? '—' }}</td>
-                                            <td class="px-3 py-2.5 text-gray-400">—</td>
-                                            <td class="px-3 py-2.5 text-right font-medium tabular-nums text-gray-900">{{ money((float) $d->amount, $cur) }}</td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    {{-- Valor en letras --}}
-                    <div class="rounded-lg border border-gray-200 bg-gray-50/50 p-4">
-                        <p class="text-xs font-semibold uppercase text-gray-500">{{ __('Valor (en letras)') }}</p>
-                        <p class="mt-2 text-sm font-bold leading-relaxed text-gray-900">{{ $valorEnLetras }}</p>
-                    </div>
-
-                    @if($c->aplicaciones->isNotEmpty())
-                        <div class="rounded-lg border border-gray-200 overflow-hidden">
-                            <p class="bg-gray-100 px-3 py-2 text-xs font-bold uppercase text-gray-800">{{ __('Aplicado a cuentas por cobrar') }}</p>
-                            <table class="min-w-full divide-y divide-gray-200 text-sm">
-                                <thead class="bg-white border-b border-gray-200">
-                                    <tr>
-                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-600">{{ __('Factura') }}</th>
-                                        <th class="px-3 py-2 text-right text-xs font-medium text-gray-600">{{ __('Monto aplicado') }}</th>
+                                    <tr class="border-b border-gray-200">
+                                        <td class="bg-gray-100 px-3 py-1.5 font-semibold text-gray-700">{{ __('Dirección') }}</td>
+                                        <td class="px-3 py-1.5 text-gray-800" colspan="3">{{ $customer?->direccion ?? '—' }}</td>
                                     </tr>
-                                </thead>
-                                <tbody class="divide-y divide-gray-200">
-                                    @foreach($c->aplicaciones as $ap)
+                                    @if($c->centroCosto)
                                         <tr>
-                                            <td class="px-3 py-2">
-                                                <a href="{{ route('stores.accounts-receivables.show', [$store, $ap->accountReceivable]) }}" class="text-blue-700 hover:underline font-medium">
-                                                    {{ __('Factura #:id', ['id' => $ap->accountReceivable->invoice->id]) }}
-                                                </a>
+                                            <td class="bg-gray-100 px-3 py-1.5 font-semibold text-gray-700">{{ __('Centro de costos') }}</td>
+                                            <td class="px-3 py-1.5 text-gray-800" colspan="3">
+                                                {{ $c->centroCosto->codigo }} — {{ $c->centroCosto->nombre }}
                                             </td>
-                                            <td class="px-3 py-2 text-right tabular-nums">{{ money((float) $ap->amount, $cur) }}</td>
                                         </tr>
-                                    @endforeach
+                                    @endif
                                 </tbody>
                             </table>
                         </div>
-                    @endif
-
-                    {{-- Firmas --}}
-                    <div class="grid grid-cols-1 gap-4 lg:grid-cols-12 pt-2">
-                        <div class="lg:col-span-7 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
-                            @foreach ([__('Preparado'), __('Aprobado'), __('Contabilizado'), __('Revisado')] as $label)
-                                <div class="flex flex-col rounded-lg border border-gray-200 min-h-[88px] p-2">
-                                    <span class="text-[10px] font-semibold uppercase text-center text-gray-600">{{ $label }}</span>
-                                    <span class="mt-auto border-t border-gray-300 pt-6 block"></span>
-                                </div>
-                            @endforeach
-                        </div>
-                        <div class="lg:col-span-5 rounded-lg border border-gray-200 p-4 min-h-[120px] flex flex-col">
-                            <p class="text-xs font-bold uppercase text-center text-gray-800">{{ __('Firma de recibido') }}</p>
-                            <div class="mt-auto pt-8 border-t border-gray-400"></div>
-                            <p class="mt-2 text-center text-[10px] font-medium text-gray-500">{{ __('C.C. o NIT') }}</p>
+                        <div class="border border-gray-300 rounded overflow-hidden text-sm self-start">
+                            <div class="bg-gray-100 px-3 py-1.5 font-semibold text-gray-700 text-center border-b border-gray-200">
+                                {{ __('Fecha de recibo') }}
+                            </div>
+                            <div class="px-3 py-4 text-center font-bold text-gray-900 text-base">
+                                {{ $c->date->format('d/m/Y') }}
+                            </div>
                         </div>
                     </div>
 
-                    {{-- Pie impresión --}}
+                    {{-- Tabla ítems --}}
+                    <div class="overflow-x-auto border border-gray-300 rounded">
+                        <table class="min-w-full text-sm">
+                            <thead class="bg-gray-100 border-b border-gray-300">
+                                <tr>
+                                    <th class="px-3 py-2 text-left text-xs font-bold uppercase text-gray-800 w-14">{{ __('Ítem') }}</th>
+                                    <th class="px-3 py-2 text-left text-xs font-bold uppercase text-gray-800">{{ __('Documento') }}</th>
+                                    <th class="px-3 py-2 text-left text-xs font-bold uppercase text-gray-800">{{ __('Descripción') }}</th>
+                                    <th class="px-3 py-2 text-right text-xs font-bold uppercase text-gray-800 w-36">{{ __('Valor') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200">
+                                @foreach($detalleLineasVista as $fila)
+                                    <tr>
+                                        <td class="px-3 py-2 text-gray-700">{{ $fila['item'] }}</td>
+                                        <td class="px-3 py-2 text-gray-800">{{ $fila['documento'] !== '' ? $fila['documento'] : '—' }}</td>
+                                        <td class="px-3 py-2 text-gray-800">{{ $fila['descripcion'] }}</td>
+                                        <td class="px-3 py-2 text-right font-medium tabular-nums text-gray-900">{{ money($fila['valor'], $cur) }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {{-- Totales + pie --}}
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 text-sm">
+                        <div class="space-y-3">
+                            <p>
+                                <span class="font-semibold text-gray-700">{{ __('Total ítems') }}:</span>
+                                <span class="text-gray-900">{{ $totalItems }}</span>
+                            </p>
+                            <div>
+                                <p class="font-semibold text-gray-700">{{ __('Valor en letras') }}:</p>
+                                <p class="mt-0.5 text-gray-900">{{ $valorEnLetras }}</p>
+                            </div>
+                            <div>
+                                <p class="font-semibold text-gray-700">{{ __('Condiciones de pago') }}:</p>
+                                <div class="mt-0.5 flex flex-wrap justify-between gap-2 text-gray-900">
+                                    <span>{{ $condicionPago }}</span>
+                                    <span class="tabular-nums font-medium">{{ money($condicionPagoMonto, $cur) }}</span>
+                                </div>
+                            </div>
+                            <div>
+                                <p class="font-semibold text-gray-700">{{ __('Observaciones') }}:</p>
+                                <p class="mt-0.5 text-gray-800 whitespace-pre-line min-h-[1.5rem]">{{ filled($c->notes) ? $c->notes : '' }}</p>
+                            </div>
+                        </div>
+                        <div class="space-y-2 lg:justify-self-end w-full max-w-xs">
+                            <div class="flex border border-gray-300 overflow-hidden rounded">
+                                <div class="bg-gray-100 px-3 py-2 font-semibold text-gray-800 flex-1">{{ __('Total pago') }}</div>
+                                <div class="px-3 py-2 font-bold tabular-nums text-gray-900 bg-gray-50 text-right min-w-[8rem]">
+                                    {{ money($c->total_amount, $cur) }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <footer class="border-t border-gray-200 pt-4 mt-2">
                         <p class="text-[10px] text-gray-400 leading-relaxed">
                             {{ __('Impreso con :name — v:version — :url', [

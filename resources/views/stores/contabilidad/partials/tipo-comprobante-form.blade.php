@@ -42,8 +42,9 @@
         <label class="block text-sm text-gray-400 mb-1">Libro oficial</label>
         <select name="libro_oficial" class="w-full rounded-md border-white/10 bg-white/5 text-gray-100">
             <option value="" @selected(($libroDefault ?? '') === '')>No aplica</option>
-            <option value="ventas" @selected(($libroDefault ?? '') === 'ventas')>Ventas</option>
-            <option value="compras" @selected(($libroDefault ?? '') === 'compras')>Compras</option>
+            @foreach(\App\Models\TipoComprobante::etiquetasLibrosOficiales() as $valor => $etiqueta)
+                <option value="{{ $valor }}" @selected(($libroDefault ?? '') === $valor)>{{ $etiqueta }}</option>
+            @endforeach
         </select>
     </div>
 </div>

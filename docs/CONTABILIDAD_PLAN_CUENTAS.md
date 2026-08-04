@@ -87,17 +87,37 @@ Tabla `tipos_comprobante`: catálogo por tienda estilo Siigo (`familia` + `codig
 | Familia | Nombre | Uso futuro en Centradia |
 |---|---|---|
 | `FV` | Factura de venta | `Invoice` |
-| `RC` | Recibo de caja | `ComprobanteIngreso` (hoy `CI-`) |
+| `RC` | Recibo de caja | `ComprobanteIngreso` (documento RC) |
 | `FC` | Factura de compra | `Purchase` |
 | `RP` | Recibo de pago / egreso | `ComprobanteEgreso` (hoy `CE-`) |
 | `CC` | Comprobante contable | Ajustes / asientos manuales |
 
-Campos clave: `prefijo`, `numeracion_automatica`, `siguiente_numero`, `activo`, `maneja_centro_costos`, `libro_oficial` (`ventas`\|`compras`\|null). Unique `(store_id, familia, codigo)`.
+Campos clave: `prefijo`, `numeracion_automatica`, `siguiente_numero`, `activo`, `maneja_centro_costos`, `centro_costo_obligatorio`, `libro_oficial` (`ventas`\|`ventas_devoluciones`\|`compras`\|`compras_devoluciones`\|null, estilo Siigo), `cuenta_anticipos_id` (solo RC, opcional). Unique `(store_id, familia, codigo)`.
 
-- UI: Financiero → **Tipos de comprobante**
-- Al abrir se aseguran por defecto (si faltan) FV/RC/FC/RP/CC con código `1`.
-- `TipoComprobanteService::tomarSiguienteNumero()` reserva el consecutivo con `lockForUpdate` (aún no enganchado a CI/CE).
-- Permisos: `contabilidad.tipos.view|create|edit`
+### Pantalla CC (comprobantes contables)
+- UI: Financiero → **Comprobantes contables** (ruta `contabilidad/tipos-comprobante`).
+- Lista estilo Siigo: **Código del comprobante** | **Título comprobante**.
+- Al abrir se aseguran FV/RC/FC/RP código `1` (para otros módulos) y el **catálogo completo de CC** (`CatalogoComprobantesContablesPredeterminados`, 19 tipos).
+- Create-only idempotente: si el código ya existe, no se renombra.
+- Desde esta UI solo se crean/editan tipos `familia=CC`.
+
+### Pantalla RC (recibos de caja)
+- UI config: Financiero → **Recibos de caja** (ruta `contabilidad/recibos-caja`).
+- Lista: código | título | cuenta de anticipos | estado.
+- Campos estilo Siigo: numeración, centros de costo, **cuenta contable de anticipos** (`cuenta_anticipos_id`).
+- Default: `RC-1` Recibo de caja (el usuario puede crear RC-2, etc.).
+- UI operativa: Financiero → **Elaborar recibo de caja** (`recibos-caja/crear`).
+  - Modos: abono a deuda (`COBRO_CUENTA`), anticipo (`ANTICIPO`), otro ingreso (`INGRESO_MANUAL`).
+  - Numeración: `TipoComprobanteService::tomarSiguienteNumero()` → `RC-0001`, etc. (legado `CI-` solo si no hay tipo RC).
+  - **UI Siigo:** 1 forma de pago (bolsillo con label `nombre — código cuenta`) + 1 `valor_recibido`; bajo el cliente se muestra `saldo_actual` de cartera.
+  - Modo abono: reparto FIFO por `due_date` al cambiar el valor; checkboxes/montos manuales; sobrante → `monto_anticipo` (saldo a favor). Sin multi-formas ni impuestos por línea en esta entrega.
+  - Por detrás: un destino (`bolsillo_id` + amount); si existe forma de pago del catálogo con la misma cuenta, se asocia `forma_pago_id`.
+  - Abonos por **cuota** (`account_receivable_cuota_id` en aplicaciones).
+  - Sin asiento contable automático en esta entrega.
+- Permisos: config `contabilidad.tipos.*`; elaborar/ver `comprobantes-ingreso.*`.
+
+- `TipoComprobanteService::tomarSiguienteNumero()` reserva el consecutivo con `lockForUpdate` (enganchado a RC vía `ComprobanteIngresoService`).
+- FV/FC/RP: configuración dedicada pendiente.
 
 ## Cómo usar
 1. Entrar a la tienda → Financiero → **Plan de cuentas**.
@@ -106,14 +126,14 @@ Campos clave: `prefijo`, `numeracion_automatica`, `siguiente_numero`, `activo`, 
 4. Si el padre tiene movimientos/vínculos, confirmar el traslado al nuevo hijo en el modal.
 5. Ir a **Categorías contables** y crear p. ej. «Productos» con las 4 auxiliares.
 6. Al crear/editar un producto, la categoría contable es obligatoria (default «Productos»).
-7. Ir a **Tipos de comprobante** (se crean FV/RC/FC/RP/CC si faltan).
+7. Ir a **Comprobantes contables** (catálogo CC) y/o **Recibos de caja** (tipos RC).
 8. Crear bolsillos desde Caja/Configuración, o auxiliares del 11 desde Plan de cuentas.
 
 ## Servicios
 - `ImportacionPucService` — lee Excel e importa.
 - `CuentaContableService` — listar, `crearHijo` / `crearAuxiliar` (+ bolsillo si aplica), `metaCrearHijo`, `padreTieneUsos`, traslado de usos, padres, reconstruir jerarquía, backfill.
 - `CategoriaContableService` — categorías producto/servicio y validación de cuentas por rol.
-- `TipoComprobanteService` — catálogo de tipos FV/RC/FC/RP/CC, defaults y consecutivos.
+- `TipoComprobanteService` — catálogo de tipos; defaults FV/RC/FC/RP + `CatalogoComprobantesContablesPredeterminados` (CC).
 - `ImpuestoService` — catálogo de impuestos (IVA, retenciones, etc.) con cuentas ventas/compras/devoluciones.
 - `FormaPagoService` — catálogo de formas de pago (aplica a + cuenta + medio DIAN) y defaults con auxiliares.
 - `CentroCostoService` — catálogo centro/subcentro, auto-subcentro General, opciones para asientos.
@@ -168,7 +188,7 @@ Campos clave: `prefijo`, `numeracion_automatica`, `siguiente_numero`, `activo`, 
 
 ## Siguiente (automatización no implementada)
 0. **Matriz de eventos (especificación v1):** ver [`docs/MATRIZ_EVENTOS_CONTABLES.md`](MATRIZ_EVENTOS_CONTABLES.md). Debe aprobarla el contador antes de automatizar documentos operativos.
-1. Vincular documentos operativos al catálogo de tipos: `Invoice`→FV, `ComprobanteIngreso`→RC, `Purchase`→FC, `ComprobanteEgreso`→RP.
+1. Vincular documentos operativos al catálogo de tipos: `Invoice`→FV, `ComprobanteIngreso`→RC (**parcial v1: Elaborar RC**), `Purchase`→FC, `ComprobanteEgreso`→RP.
 2. Motor de asientos al vender/devolver/comprar usando `categoria_contable` + **forma de pago** (cuenta PUC) + tipo de comprobante + **`tercero_id`** (ver `docs/TERCEROS.md`). El bolsillo queda solo para saldo de disponible `11…` cuando aplique.
 3. Construir Balance de comprobación desde los saldos del Libro Mayor.
 

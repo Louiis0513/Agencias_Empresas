@@ -6,7 +6,7 @@ use App\Models\TipoComprobante;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class StoreTipoComprobanteRequest extends FormRequest
+class StoreReciboCajaTipoRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -15,9 +15,10 @@ class StoreTipoComprobanteRequest extends FormRequest
 
     public function rules(): array
     {
+        $store = $this->route('store');
+
         return [
-            // La UI de esta pantalla solo gestiona CC; el controller fuerza familia=CC.
-            'familia' => ['nullable', 'string', Rule::in([TipoComprobante::FAMILIA_CC])],
+            'familia' => ['nullable', 'string', Rule::in([TipoComprobante::FAMILIA_RC])],
             'codigo' => ['nullable', 'string', 'max:32', 'regex:/^[A-Za-z0-9]+$/'],
             'nombre' => ['nullable', 'string', 'max:255'],
             'titulo' => ['required', 'string', 'max:255'],
@@ -27,7 +28,13 @@ class StoreTipoComprobanteRequest extends FormRequest
             'activo' => ['nullable', 'boolean'],
             'maneja_centro_costos' => ['nullable', 'boolean'],
             'centro_costo_obligatorio' => ['nullable', 'boolean'],
-            'libro_oficial' => ['nullable', 'string', Rule::in(TipoComprobante::LIBROS_OFICIALES)],
+            'cuenta_anticipos_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('cuentas_contables', 'id')->where(
+                    fn ($q) => $q->where('store_id', $store->id)
+                ),
+            ],
         ];
     }
 
@@ -39,7 +46,7 @@ class StoreTipoComprobanteRequest extends FormRequest
             }
         }
 
-        foreach (['codigo', 'titulo', 'prefijo', 'libro_oficial', 'nombre'] as $field) {
+        foreach (['codigo', 'titulo', 'prefijo', 'nombre', 'cuenta_anticipos_id'] as $field) {
             if ($this->input($field) === '') {
                 $this->merge([$field => null]);
             }
@@ -47,15 +54,11 @@ class StoreTipoComprobanteRequest extends FormRequest
 
         $titulo = $this->input('titulo');
         $nombre = $this->input('nombre');
-        if ((!$nombre || $nombre === null) && is_string($titulo) && $titulo !== '') {
+        if ((! $nombre || $nombre === null) && is_string($titulo) && $titulo !== '') {
             $this->merge(['nombre' => $titulo]);
         }
 
-        if ($this->has('familia') && is_string($this->input('familia'))) {
-            $this->merge(['familia' => strtoupper(trim($this->input('familia')))]);
-        } else {
-            $this->merge(['familia' => TipoComprobante::FAMILIA_CC]);
-        }
+        $this->merge(['familia' => TipoComprobante::FAMILIA_RC]);
 
         if ($this->has('prefijo') && is_string($this->input('prefijo')) && $this->input('prefijo') !== null) {
             $this->merge(['prefijo' => strtoupper(trim($this->input('prefijo')))]);
@@ -69,11 +72,11 @@ class StoreTipoComprobanteRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'titulo.required' => 'El título del comprobante es obligatorio.',
-            'codigo.regex' => 'El código solo puede contener letras y números (ej. 1, 999, ADT).',
-            'siguiente_numero.min' => 'El siguiente número (consecutivo) debe ser al menos 1.',
-            'libro_oficial.in' => 'El libro oficial debe ser una de las 4 opciones Siigo (ventas/compras ± devoluciones) o vacío.',
-            'familia.in' => 'Esta pantalla solo gestiona comprobantes contables (CC).',
+            'titulo.required' => 'El título del recibo de caja es obligatorio.',
+            'codigo.regex' => 'El código solo puede contener letras y números (ej. 1, 2).',
+            'siguiente_numero.min' => 'El consecutivo debe ser al menos 1.',
+            'cuenta_anticipos_id.exists' => 'La cuenta de anticipos no es válida para esta tienda.',
+            'familia.in' => 'Esta pantalla solo gestiona recibos de caja (RC).',
         ];
     }
 }

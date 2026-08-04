@@ -65,17 +65,19 @@ class StoreAccountReceivableController extends Controller
         $data = [
             'date' => $request->input('date', now()->toDateString()),
             'notes' => $request->input('notes'),
+            'modo' => \App\Models\ComprobanteIngreso::MODO_ABONO,
             'destinos' => $destinos,
             'aplicaciones' => [
                 ['account_receivable_id' => $accountReceivable->id, 'amount' => $amount],
             ],
+            'tercero_id' => $accountReceivable->tercero_id,
         ];
 
         try {
-            $this->comprobanteIngresoService->crearComprobante($store, Auth::id(), $data);
+            $comprobante = $this->comprobanteIngresoService->crearComprobante($store, Auth::id(), $data);
 
-            return redirect()->route('stores.accounts-receivables.show', [$store, $accountReceivable])
-                ->with('success', 'Cobro registrado correctamente.');
+            return redirect()->route('stores.comprobantes-ingreso.show', [$store, $comprobante])
+                ->with('success', 'Recibo de caja (cobro) registrado correctamente.');
         } catch (\Exception $e) {
             return redirect()->back()->withInput()->with('error', $e->getMessage());
         }

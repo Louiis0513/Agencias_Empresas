@@ -32,8 +32,9 @@ Fuentes: `VentaService`, `InvoiceService`, `AccountReceivableService`, `Comproba
 |---|---|---|---|---|---|
 | `VENTA_CONTADO` | `VentaService::registrarVentaContado` | `Invoice` PAID + `ComprobanteIngreso` PAGO_FACTURA | FV (+ RC implícito o asiento conjunto) | Sí | No |
 | `VENTA_CREDITO` | `VentaService::ventaACredito` | `Invoice` PENDING + `AccountReceivable` | FV | Sí | No |
-| `COBRO_CARTERA` | `ComprobanteIngresoService::crearComprobante` (con aplicaciones) | `ComprobanteIngreso` COBRO_CUENTA | RC | Sí | No |
-| `INGRESO_MANUAL` | `ComprobanteIngresoService::crearComprobante` (sin factura/aplicaciones) | `ComprobanteIngreso` INGRESO_MANUAL | RC o CC | Sí | No |
+| `COBRO_CARTERA` | `ComprobanteIngresoService::crearComprobante` (con aplicaciones / modo abono) | `ComprobanteIngreso` COBRO_CUENTA + tipo RC | RC | Sí | No |
+| `INGRESO_MANUAL` | `ComprobanteIngresoService::crearComprobante` (modo otro_ingreso) | `ComprobanteIngreso` INGRESO_MANUAL + tipo RC | RC o CC | Sí | No |
+| `ANTICIPO_CLIENTE` | `ComprobanteIngresoService::crearComprobante` (modo anticipo) | `ComprobanteIngreso` ANTICIPO + tipo RC | RC | Sí (parcial: sin saldo a favor) | No |
 | `COMPRA_CREDITO` | `PurchaseService::aprobarCompra` (crédito) | `Purchase` APROBADO + `AccountPayable` | FC | Sí | No |
 | `COMPRA_CONTADO` | `PurchaseService::aprobarCompra` (contado) | `Purchase` + CxP + `ComprobanteEgreso` | FC (+ RP) | Sí | No |
 | `PAGO_PROVEEDOR` | `ComprobanteEgresoService::crearComprobante` / `AccountPayableService::registrarPago` | `ComprobanteEgreso` PAGO_CUENTA | RP | Sí | No |
@@ -77,8 +78,9 @@ Fuentes: `VentaService`, `InvoiceService`, `AccountReceivableService`, `Comproba
 |---|---|---|---|---|---|---|---|---|
 | `VENTA_CONTADO` | Venta de producto/servicio pagada al instante | `Invoice` PAID (+ CI PAGO_FACTURA) | Al confirmar venta con destinos de bolsillo | `status=PAID`; hay al menos un destino; líneas producto y/o suscripción | Cliente (`invoice.tercero_id`) | Baja inventario FIFO; crea CI; sube bolsillo(s); puede crear suscripción | Reverso completo: inventario, caja, asiento (hoy no existe) | `PROPUESTO` |
 | `VENTA_CREDITO` | Venta a crédito / cuenta por cobrar | `Invoice` PENDING + `AccountReceivable` | Al confirmar venta con cuotas | `status=PENDING`; cuotas suman el total | Cliente | Baja inventario; crea CxC + cuotas; **no** mueve caja | Reverso: stock + CxC + asiento | `PROPUESTO` |
-| `COBRO_CARTERA` | Recaudo de cuenta por cobrar | `ComprobanteIngreso` COBRO_CUENTA | Al registrar cobro con aplicaciones | Hay `aplicaciones` a CxC; montos > 0 | Cliente de la CxC | Sube bolsillo; baja balance CxC/cuotas; puede marcar factura PAID | Reverso CI (hoy campos existen, flujo no) | `PROPUESTO` |
-| `INGRESO_MANUAL` | Ingreso de caja sin factura | `ComprobanteIngreso` INGRESO_MANUAL | Al crear CI sin factura ni aplicaciones | Sin `invoice_id` ni aplicaciones | Opcional | Solo sube bolsillo(s) | Reverso CI | `PROPUESTO` / `BLOQUEADO` parcial: falta cuenta de contrapartida (ingreso/gasto/pasivo) configurable |
+| `COBRO_CARTERA` | Recaudo de cuenta por cobrar | `ComprobanteIngreso` COBRO_CUENTA / RC modo abono | Al registrar cobro con aplicaciones (Elaborar RC o detalle CxC) | Hay `aplicaciones` a CxC/cuotas; montos > 0; tipo RC; condiciones = formas de pago | Cliente de la CxC | Sube bolsillo(s) vía FP→cuenta 11; baja balance CxC/cuotas; `monto_anticipo` si sobra valor; número `RC-…` | Reverso CI (hoy campos existen, flujo no) | `PROPUESTO` |
+| `INGRESO_MANUAL` | Ingreso de caja sin factura | `ComprobanteIngreso` INGRESO_MANUAL / RC modo otro ingreso | Al crear RC u otro CI sin factura ni aplicaciones | Sin `invoice_id` ni aplicaciones | Opcional | Solo sube bolsillo(s) vía formas de pago; número RC si hay tipo | Reverso CI | `PROPUESTO` / `BLOQUEADO` parcial: falta cuenta de contrapartida (ingreso/gasto/pasivo) configurable |
+| `ANTICIPO_CLIENTE` | Anticipo de cliente | `ComprobanteIngreso` ANTICIPO / RC modo anticipo o sobrante de abono | Al elaborar RC modo anticipo o abono con saldo a favor | Cliente obligatorio; sin (o con parcial) aplicaciones a CxC | Cliente | Sube bolsillo; no toca (o reduce parcialmente) cartera; `monto_anticipo` documentado | Reverso CI | `PROPUESTO` / parcial: sin ledger consumible ni consumo en FV |
 
 ### 1.2 Compras y pagos
 

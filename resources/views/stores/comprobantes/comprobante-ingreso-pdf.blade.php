@@ -2,84 +2,79 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-    <title>{{ __('Comprobante de ingreso') }} {{ $comprobanteIngreso->number }}</title>
+    <title>{{ $comprobanteIngreso->tipo_comprobante_id ? __('Recibo de caja') : __('Comprobante de ingreso') }} {{ $comprobanteIngreso->number }}</title>
     <style>
         * { box-sizing: border-box; }
         body {
             font-family: DejaVu Sans, sans-serif;
-            font-size: 9.5pt;
+            font-size: 9pt;
             color: #111827;
             margin: 0;
-            padding: 8mm 11mm;
+            padding: 8mm 10mm;
         }
-        .title-blue { color: #1e40af; font-weight: bold; margin: 0; }
-        .muted { color: #6b7280; font-size: 8.5pt; }
-        .box {
-            border: 1px solid #d1d5db;
-            border-radius: 4px;
-            padding: 6px 10px;
-            vertical-align: top;
-        }
-        .w-50 { width: 50%; }
-        .w-100 { width: 100%; }
-        table.grid { width: 100%; border-collapse: separate; border-spacing: 5px 5px; margin: 0 -5px; }
-        table.grid td { padding: 0; }
-        .label {
-            font-size: 7.5pt;
-            font-weight: bold;
-            text-transform: uppercase;
-            color: #6b7280;
-            margin: 0 0 3px 0;
-        }
+        .muted { color: #6b7280; font-size: 8pt; }
         .strong { font-weight: bold; }
-        table.data {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 8.5pt;
+        .w-100 { width: 100%; }
+        table { border-collapse: collapse; }
+        .label-cell {
+            background: #f3f4f6;
+            font-size: 8pt;
+            font-weight: bold;
+            color: #374151;
+            padding: 4px 6px;
             border: 1px solid #d1d5db;
-            border-radius: 4px;
+            white-space: nowrap;
+            width: 110px;
         }
-        table.data th {
+        .value-cell {
+            padding: 4px 6px;
+            border: 1px solid #d1d5db;
+            font-size: 9pt;
+        }
+        .header-doc {
+            border: 1px solid #9ca3af;
+            text-align: center;
+            padding: 8px 6px;
+        }
+        .data th {
             background: #f3f4f6;
             text-align: left;
-            padding: 5px 8px;
-            border-bottom: 1px solid #d1d5db;
+            padding: 5px 6px;
+            border: 1px solid #d1d5db;
             font-size: 7.5pt;
             text-transform: uppercase;
         }
-        table.data th.num { text-align: right; }
-        table.data td {
-            padding: 5px 8px;
-            border-bottom: 1px solid #e5e7eb;
+        .data th.num, .data td.num { text-align: right; }
+        .data td {
+            padding: 5px 6px;
+            border: 1px solid #d1d5db;
+            font-size: 8.5pt;
+            vertical-align: top;
         }
-        table.data td.num { text-align: right; }
-        .detail-caption { font-size: 8.5pt; font-weight: bold; margin: 8px 0 4px 0; color: #374151; }
-        .reserve {
-            border: 1px dashed #d1d5db;
-            background: #f9fafb;
-            min-height: 52px;
+        .total-box {
+            border: 1px solid #9ca3af;
+            width: 100%;
         }
-        .two-col td { width: 50%; vertical-align: top; }
-        .valor-big { font-size: 14pt; font-weight: bold; }
-        .badge { font-size: 7.5pt; border: 1px solid #e5e7eb; padding: 2px 6px; border-radius: 8px; color: #4b5563; display: inline-block; margin-top: 4px; }
-        .footer-print { font-size: 6.5pt; color: #9ca3af; border-top: 1px solid #e5e7eb; padding-top: 8px; margin-top: 10px; }
-        .sign-grid td { width: 25%; vertical-align: top; }
+        .total-box td { padding: 6px 8px; font-size: 9pt; }
+        .total-box .lbl { background: #f3f4f6; font-weight: bold; width: 45%; }
+        .total-box .val { text-align: right; font-weight: bold; background: #f9fafb; }
         .sign-box {
             border: 1px solid #d1d5db;
-            border-radius: 4px;
             padding: 3px 4px;
-            min-height: 46px;
+            min-height: 44px;
             text-align: center;
         }
         .sign-box .sig-label { font-size: 6.5pt; font-weight: bold; text-transform: uppercase; color: #6b7280; }
         .sign-line { border-top: 1px solid #d1d5db; margin-top: 20px; }
         .sign-client {
             border: 1px solid #d1d5db;
-            border-radius: 4px;
             padding: 6px 8px;
-            min-height: 68px;
+            min-height: 64px;
         }
-        .warn { color: #b91c1c; font-size: 8.5pt; padding: 6px; border: 1px solid #fecaca; background: #fef2f2; margin-bottom: 6px; border-radius: 4px; }
+        .footer-print { font-size: 6.5pt; color: #9ca3af; border-top: 1px solid #e5e7eb; padding-top: 6px; margin-top: 10px; }
+        .warn { color: #b91c1c; font-size: 8.5pt; padding: 6px; border: 1px solid #fecaca; background: #fef2f2; margin-bottom: 6px; }
+        .badge { font-size: 7pt; border: 1px solid #e5e7eb; padding: 1px 5px; color: #4b5563; display: inline-block; margin-top: 3px; }
+        .logo { max-height: 110px; max-width: 220px; }
     </style>
 </head>
 <body>
@@ -88,63 +83,97 @@
     <div class="warn">{{ __('Este comprobante fue revertido y no tiene efecto contable.') }}</div>
 @endif
 
-<table class="w-100" style="margin-bottom: 6px;"><tr>
-    <td class="box w-50">
-        <p class="title-blue" style="font-size: 12pt;">{{ $store->name }}</p>
-        @if($store->rut_nit)
-            <p class="muted" style="margin: 4px 0 0 0;">{{ __('NIT.') }} {{ $store->rut_nit }}</p>
-        @endif
-        @if($dirTel !== '')
-            <p class="muted" style="margin: 3px 0 0 0;">{{ $dirTel }}</p>
-        @endif
-    </td>
-    <td class="box w-50">
-        <p class="title-blue" style="font-size: 12pt;">{{ __('Comprobante de ingreso') }}</p>
-        <p class="strong" style="margin: 6px 0 0 0; font-size: 10pt;">{{ __('No.') }} {{ $c->number }}</p>
-        <span class="badge">{{ $tipoEtiqueta }}</span>
-    </td>
-</tr></table>
+{{-- Cabecera 3 columnas --}}
+<table class="w-100" style="margin-bottom: 8px;">
+    <tr>
+        <td style="width: 28%; vertical-align: middle; text-align: center; padding-right: 6px;">
+            @if($logoAbsPath)
+                <img src="{{ $logoAbsPath }}" class="logo" alt="">
+            @endif
+        </td>
+        <td style="width: 44%; vertical-align: top; text-align: center; padding: 0 4px;">
+            <p class="strong" style="margin: 0; font-size: 9.5pt; text-transform: uppercase;">{{ $store->name }}</p>
+            @if($store->rut_nit)
+                <p class="muted" style="margin: 2px 0 0 0;">{{ __('NIT') }} {{ $store->rut_nit }}</p>
+            @endif
+            @if($store->address)
+                <p class="muted" style="margin: 2px 0 0 0;">{{ $store->address }}</p>
+            @endif
+            @if($store->phone || ($store->mobile ?? null))
+                <p class="muted" style="margin: 2px 0 0 0;">{{ __('Teléfono') }} {{ $store->phone ?: $store->mobile }}</p>
+            @endif
+            @if($ciudadEmpresa !== '')
+                <p class="muted" style="margin: 2px 0 0 0;">{{ $ciudadEmpresa }}</p>
+            @endif
+        </td>
+        <td style="width: 28%; vertical-align: top;">
+            <div class="header-doc">
+                <p class="strong" style="margin: 0; font-size: 11pt;">{{ $c->tipo_comprobante_id ? __('Recibo de caja') : __('Comprobante de ingreso') }}</p>
+                <p class="strong" style="margin: 6px 0 0 0; font-size: 10pt;">{{ __('No.') }} {{ $c->number }}</p>
+            </div>
+        </td>
+    </tr>
+</table>
 
-<table class="w-100 box" style="border-collapse: collapse; margin-bottom: 6px;"><tr>
-    <td style="width: 18%; vertical-align: top; padding: 7px 9px;">
-        <p class="label">{{ __('Fecha') }}</p>
-        <p class="strong">{{ $c->date->format('d/m/Y') }}</p>
-    </td>
-    <td style="width: 52%; vertical-align: top; border-left: 1px solid #e5e7eb; padding: 7px 9px;">
-        <p class="label">{{ __('Recibido de') }}</p>
-        <p class="strong">{{ $customer?->name ?? '—' }}</p>
-        <table class="w-100" style="margin-top: 5px; font-size: 8.5pt;"><tr>
-            <td style="width: 33%; vertical-align: top;">
-                <span class="muted">{{ __('CC') }}</span><br>
-                <span class="strong">{{ $customer?->document_number ?? '—' }}</span>
-            </td>
-            <td style="width: 42%; vertical-align: top;">
-                <span class="muted">{{ __('Dirección') }}</span><br>
-                <span>{{ $customer?->address ?? '—' }}</span>
-            </td>
-            <td style="width: 25%; vertical-align: top;">
-                <span class="muted">{{ __('Ciudad') }}</span><br>
-                <span>—</span>
-            </td>
-        </tr></table>
-    </td>
-    <td style="width: 30%; vertical-align: top; border-left: 1px solid #e5e7eb; text-align: right; padding: 7px 9px;">
-        <p class="label">{{ __('Valor') }}</p>
-        <p class="valor-big">{{ money($c->total_amount, $cur) }}</p>
-    </td>
-</tr></table>
+{{-- Cliente 2/3 + Fecha 1/3 --}}
+<table class="w-100" style="margin-bottom: 8px;">
+    <tr>
+        <td style="width: 70%; vertical-align: top; padding-right: 6px;">
+            <table class="w-100">
+                <tr>
+                    <td class="label-cell">{{ __('Señores') }}</td>
+                    <td class="value-cell strong" colspan="3">{{ $customer?->nombre ?? '—' }}</td>
+                </tr>
+                <tr>
+                    <td class="label-cell">{{ __('NIT') }}</td>
+                    <td class="value-cell">
+                        {{ $customer?->numero_identificacion ?? '—' }}@if($customer?->digito_verificacion)-{{ $customer->digito_verificacion }}@endif
+                    </td>
+                    <td class="label-cell" style="width: 70px;">{{ __('Teléfono') }}</td>
+                    <td class="value-cell">{{ $customer?->telefono ?? '—' }}</td>
+                </tr>
+                <tr>
+                    <td class="label-cell">{{ __('Dirección') }}</td>
+                    <td class="value-cell" colspan="3">{{ $customer?->direccion ?? '—' }}</td>
+                </tr>
+                @if($c->centroCosto)
+                    <tr>
+                        <td class="label-cell">{{ __('Centro de costos') }}</td>
+                        <td class="value-cell" colspan="3">{{ $c->centroCosto->codigo }} — {{ $c->centroCosto->nombre }}</td>
+                    </tr>
+                @endif
+            </table>
+        </td>
+        <td style="width: 30%; vertical-align: top;">
+            <table class="w-100">
+                <tr>
+                    <td class="label-cell" style="text-align: center; width: auto;">{{ __('Fecha de recibo') }}</td>
+                </tr>
+                <tr>
+                    <td class="value-cell strong" style="text-align: center; padding: 14px 6px; font-size: 11pt;">
+                        {{ $c->date->format('d/m/Y') }}
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
 
-<p class="detail-caption">{{ $detalleSubtitulo }}</p>
-<table class="data">
+{{-- Tabla detalle --}}
+<table class="w-100 data" style="margin-bottom: 8px;">
     <thead>
         <tr>
+            <th style="width: 8%;">{{ __('Ítem') }}</th>
+            <th style="width: 32%;">{{ __('Documento') }}</th>
             <th>{{ __('Descripción') }}</th>
-            <th class="num" style="width: 28%;">{{ __('Valor') }}</th>
+            <th class="num" style="width: 20%;">{{ __('Valor') }}</th>
         </tr>
     </thead>
     <tbody>
         @foreach($detalleLineasVista as $fila)
             <tr>
+                <td>{{ $fila['item'] }}</td>
+                <td>{{ $fila['documento'] !== '' ? $fila['documento'] : '—' }}</td>
                 <td>{{ $fila['descripcion'] }}</td>
                 <td class="num">{{ money($fila['valor'], $cur) }}</td>
             </tr>
@@ -152,76 +181,35 @@
     </tbody>
 </table>
 
-<table class="w-100" style="margin-top: 6px; border-collapse: separate; border-spacing: 4px 0;"><tr class="two-col">
-    <td class="reserve box" style="border-style: dashed;"></td>
-    <td>
-        <table class="data" style="margin: 0;">
-            <thead>
+{{-- Pie: totales / letras / condiciones / observaciones --}}
+<table class="w-100" style="margin-bottom: 8px;">
+    <tr>
+        <td style="width: 58%; vertical-align: top; padding-right: 8px;">
+            <p style="margin: 0 0 6px 0;">
+                <span class="strong">{{ __('Total ítems') }}:</span> {{ $totalItems }}
+            </p>
+            <p style="margin: 0 0 2px 0;" class="strong">{{ __('Valor en letras') }}:</p>
+            <p style="margin: 0 0 8px 0;">{{ $valorEnLetras }}</p>
+            <p style="margin: 0 0 2px 0;" class="strong">{{ __('Condiciones de pago') }}:</p>
+            <table class="w-100" style="margin: 0 0 8px 0;">
                 <tr>
-                    <th>{{ __('Forma de pago') }}</th>
-                    <th>{{ __('Identificación') }}</th>
-                    <th class="num" style="width: 26%;">{{ __('Valor') }}</th>
+                    <td style="padding: 0;">{{ $condicionPago }}</td>
+                    <td style="padding: 0; text-align: right; font-weight: bold;">{{ money($condicionPagoMonto, $cur) }}</td>
                 </tr>
-            </thead>
-            <tbody>
-                @foreach($c->destinos as $d)
-                    <tr>
-                        <td>{{ $d->bolsillo->name ?? '—' }}</td>
-                        <td style="color: #9ca3af;">—</td>
-                        <td class="num">{{ money((float) $d->amount, $cur) }}</td>
-                    </tr>
-                @endforeach
-            </tbody>
-        </table>
-    </td>
-</tr></table>
-
-<div class="box" style="margin-top: 6px; background: #f9fafb;">
-    <p class="label">{{ __('Valor (en letras)') }}</p>
-    <p class="strong" style="margin: 3px 0 0 0; line-height: 1.3;">{{ $valorEnLetras }}</p>
-</div>
-
-@if($c->aplicaciones->isNotEmpty())
-    <p class="detail-caption">{{ __('Aplicado a cuentas por cobrar') }}</p>
-    <table class="data">
-        <thead>
-            <tr>
-                <th>{{ __('Factura') }}</th>
-                <th class="num" style="width: 35%;">{{ __('Monto aplicado') }}</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach($c->aplicaciones as $ap)
+            </table>
+            <p style="margin: 0 0 2px 0;" class="strong">{{ __('Observaciones') }}:</p>
+            <p style="margin: 0;">{{ filled($c->notes) ? $c->notes : '' }}</p>
+        </td>
+        <td style="width: 42%; vertical-align: top;">
+            <table class="total-box">
                 <tr>
-                    <td>{{ __('Factura #:id', ['id' => $ap->accountReceivable->invoice->id]) }}</td>
-                    <td class="num">{{ money((float) $ap->amount, $cur) }}</td>
+                    <td class="lbl">{{ __('Total pago') }}</td>
+                    <td class="val">{{ money($c->total_amount, $cur) }}</td>
                 </tr>
-            @endforeach
-        </tbody>
-    </table>
-@endif
-
-<table class="w-100" style="margin-top: 8px;"><tr>
-    <td style="width: 58%; vertical-align: top;">
-        <table class="w-100 sign-grid" style="border-collapse: separate; border-spacing: 2px;"><tr>
-            @foreach ([__('Preparado'), __('Aprobado'), __('Contabilizado'), __('Revisado')] as $label)
-                <td>
-                    <div class="sign-box">
-                        <div class="sig-label">{{ $label }}</div>
-                        <div class="sign-line"></div>
-                    </div>
-                </td>
-            @endforeach
-        </tr></table>
-    </td>
-    <td style="width: 42%; vertical-align: top; padding-left: 5px;">
-        <div class="sign-client">
-            <p class="label" style="text-align: center; margin-bottom: 4px;">{{ __('Firma de recibido') }}</p>
-            <div class="sign-line" style="margin-top: 22px;"></div>
-            <p class="muted" style="text-align: center; margin: 4px 0 0 0; font-size: 7.5pt;">{{ __('C.C. o NIT') }}</p>
-        </div>
-    </td>
-</tr></table>
+            </table>
+        </td>
+    </tr>
+</table>
 
 <div class="footer-print">
     {{ __('Impreso con :name — v:version — :url', [

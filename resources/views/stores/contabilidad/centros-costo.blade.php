@@ -5,7 +5,7 @@
                 Centros de costo — {{ $store->name }}
             </h2>
             <a href="{{ route('stores.contabilidad.tipos', $store) }}" class="text-sm text-gray-400 hover:text-brand transition">
-                Tipos de comprobante →
+                Comprobantes contables →
             </a>
         </div>
     </x-slot>
@@ -257,7 +257,7 @@
                                     @empty
                                         <tr>
                                             <td colspan="4" class="px-3 py-10 text-center text-gray-400">
-                                                No hay tipos de comprobante. Se crean al abrir Tipos de comprobante o esta pestaña.
+                                                No hay tipos de comprobante. Se crean al abrir Comprobantes contables o esta pestaña.
                                             </td>
                                         </tr>
                                     @endforelse

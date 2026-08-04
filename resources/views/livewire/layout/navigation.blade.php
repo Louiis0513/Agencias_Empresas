@@ -233,7 +233,15 @@ new class extends Component
                             @endstoreCan
                             @storeCan($store, 'contabilidad.tipos.view')
                             <a href="{{ route('stores.contabilidad.tipos', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.contabilidad.tipos*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
-                                {{ __('Tipos de comprobante') }}
+                                {{ __('Comprobantes contables') }}
+                            </a>
+                            <a href="{{ route('stores.contabilidad.recibos-caja', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.contabilidad.recibos-caja*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
+                                {{ __('Recibos de caja') }}
+                            </a>
+                            @endstoreCan
+                            @storeCan($store, 'comprobantes-ingreso.create')
+                            <a href="{{ route('stores.recibos-caja.create', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.recibos-caja.create') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
+                                {{ __('Elaborar RC') }}
                             </a>
                             @endstoreCan
                             @storeCan($store, 'contabilidad.impuestos.view')
@@ -388,7 +396,10 @@ new class extends Component
                 @endstoreCan
                 @storeCan($store, 'contabilidad.tipos.view')
                 <x-responsive-nav-link :href="route('stores.contabilidad.tipos', $store)" :active="request()->routeIs('stores.contabilidad.tipos*')" wire:navigate>
-                    {{ __('Tipos de comprobante') }}
+                    {{ __('Comprobantes contables') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('stores.contabilidad.recibos-caja', $store)" :active="request()->routeIs('stores.contabilidad.recibos-caja*')" wire:navigate>
+                    {{ __('Recibos de caja') }}
                 </x-responsive-nav-link>
                 @endstoreCan
                 @storeCan($store, 'contabilidad.impuestos.view')
