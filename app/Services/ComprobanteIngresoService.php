@@ -908,15 +908,15 @@ class ComprobanteIngresoService
             });
             if ((float) $c->monto_anticipo > 0.009) {
                 $detalleLineas = $detalleLineas->push((object) [
-                    'documento' => '',
-                    'descripcion' => __('Saldo a favor / Anticipo'),
+                    'documento' => $c->number.' - '.__('Cuota :n', ['n' => 1]),
+                    'descripcion' => __('Anticipo'),
                     'valor' => (float) $c->monto_anticipo,
                 ]);
             }
         } elseif ($c->type === ComprobanteIngreso::TYPE_ANTICIPO) {
             $detalleLineas = collect([(object) [
-                'documento' => '',
-                'descripcion' => filled($c->notes) ? $c->notes : __('Anticipo'),
+                'documento' => $c->number.' - '.__('Cuota :n', ['n' => 1]),
+                'descripcion' => __('Anticipo'),
                 'valor' => (float) $c->total_amount,
             ]]);
         } elseif ($c->invoice_id && $c->invoice && $c->invoice->details->isNotEmpty()) {

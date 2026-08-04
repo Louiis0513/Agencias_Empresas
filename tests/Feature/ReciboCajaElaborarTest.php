@@ -319,6 +319,12 @@ class ReciboCajaElaborarTest extends TestCase
         $this->assertSame(ComprobanteIngreso::TYPE_ANTICIPO, $ci->type);
         $this->assertSame('25000.00', (string) $ci->monto_anticipo);
         $this->assertSame($balanceAntes, (string) $ar->fresh()->balance);
+
+        $this->actingAs($this->user)
+            ->get(route('stores.comprobantes-ingreso.show', [$this->store, $ci]))
+            ->assertOk()
+            ->assertSee($ci->number.' - Cuota 1')
+            ->assertSee('Anticipo');
     }
 
     public function test_bolsillo_sin_cuenta_rechazado(): void
