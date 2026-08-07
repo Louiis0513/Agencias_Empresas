@@ -59,7 +59,7 @@ class CreateProveedorModal extends Component
             return collect();
         }
 
-        return Product::whereIn('id', $this->producto_ids)->orderBy('name')->get();
+        return Product::whereIn('id', $this->producto_ids)->orderBy('nombre')->get();
     }
 
     public function buscarProductos(): void
@@ -77,8 +77,8 @@ class CreateProveedorModal extends Component
 
         $query = Product::query()
             ->where('store_id', $store->id)
-            ->where('name', 'like', '%'.$this->busquedaProducto.'%')
-            ->orderBy('name')
+            ->where('nombre', 'like', '%'.$this->busquedaProducto.'%')
+            ->orderBy('nombre')
             ->limit(25);
 
         if (! empty($this->producto_ids)) {
@@ -86,8 +86,8 @@ class CreateProveedorModal extends Component
         }
 
         $this->productosEncontrados = $query
-            ->get(['id', 'name'])
-            ->map(fn (Product $p) => ['id' => $p->id, 'name' => $p->name])
+            ->get(['id', 'nombre'])
+            ->map(fn (Product $p) => ['id' => $p->id, 'name' => $p->nombre])
             ->toArray();
     }
 

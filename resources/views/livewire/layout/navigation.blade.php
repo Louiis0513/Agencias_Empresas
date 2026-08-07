@@ -54,7 +54,7 @@ new class extends Component
                         @endif
                         @if($canProductos)
                         <x-nav-link :href="route('stores.products', $store)" :active="request()->routeIs('stores.products*')" wire:navigate>
-                            {{ __('Productos') }}
+                            {{ __('Productos y servicios') }}
                         </x-nav-link>
                         @endif
                         @if($canFinanciero)
@@ -149,7 +149,7 @@ new class extends Component
                         @if($inProductos)
                             @storeCan($store, 'products.view')
                             <a href="{{ route('stores.products', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.products*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
-                                {{ __('Productos') }}
+                                {{ __('Productos y servicios') }}
                             </a>
                             @endstoreCan
                         @endif
@@ -262,10 +262,10 @@ new class extends Component
                 @endstoreCan
                 @endif
                 @if($canProd)
-                <div class="px-4 py-2 text-xs font-semibold text-gray-400 uppercase">{{ __('Productos') }}</div>
+                <div class="px-4 py-2 text-xs font-semibold text-gray-400 uppercase">{{ __('Productos y servicios') }}</div>
                 @storeCan($store, 'products.view')
                 <x-responsive-nav-link :href="route('stores.products', $store)" :active="request()->routeIs('stores.products*')" wire:navigate>
-                    {{ __('Productos') }}
+                    {{ __('Productos y servicios') }}
                 </x-responsive-nav-link>
                 @endstoreCan
                 @endif

@@ -53,6 +53,11 @@ class Store extends Model
         return $this->hasMany(Product::class);
     }
 
+    public function listasPrecios()
+    {
+        return $this->hasMany(ListaPrecio::class);
+    }
+
     public function customers()
     {
         return $this->terceros()->conRol(Tercero::ROL_CLIENTE);
