@@ -96,4 +96,5 @@
     @storeCan($store, 'products.edit')
         <livewire:add-product-photo-modal :store-id="$store->id" />
     @endstoreCan
+    <livewire:manage-product-image-modal :store-id="$store->id" />
 </x-app-layout>

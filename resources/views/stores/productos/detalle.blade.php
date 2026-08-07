@@ -253,6 +253,17 @@
                         </div>
                     </div>
 
+                    {{-- Imágenes (sidebar, debajo de impuestos) --}}
+                    @if($product->images->isNotEmpty())
+                        <div class="bg-dark-card border border-white/5 rounded-xl p-5 sm:p-6">
+                            <h3 class="text-base font-semibold text-white mb-4">Imágenes</h3>
+                            @include('stores.productos._image-thumbs', [
+                                'images' => $product->images,
+                                'productId' => $product->id,
+                            ])
+                        </div>
+                    @endif
+
                     {{-- Datos exportación (solo producto) --}}
                     @unless($esServicio)
                         <div class="bg-dark-card border border-white/5 rounded-xl p-5 sm:p-6">
@@ -277,4 +288,9 @@
             </div>
         </div>
     </div>
+
+    <livewire:manage-product-image-modal :store-id="$store->id" />
+    @storeCan($store, 'products.edit')
+        <livewire:add-product-photo-modal :store-id="$store->id" />
+    @endstoreCan
 </x-app-layout>

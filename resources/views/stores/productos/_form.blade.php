@@ -405,15 +405,11 @@
                 }
              }">
             @if($imagenesExistentes->isNotEmpty())
-                <div>
-                    <p class="text-sm text-gray-400 mb-2">Imágenes actuales ({{ $imagenesExistentes->count() }} / {{ \App\Models\Product::MAX_IMAGENES }})</p>
-                    <div class="flex flex-wrap gap-2">
-                        @foreach($imagenesExistentes as $img)
-                            <img src="{{ asset('storage/'.$img->path) }}" alt=""
-                                 class="h-16 w-16 rounded-lg object-cover border border-white/10">
-                        @endforeach
-                    </div>
-                </div>
+                @include('stores.productos._image-thumbs', [
+                    'images' => $imagenesExistentes,
+                    'productId' => $product->id,
+                    'title' => 'Imágenes actuales ('.$imagenesExistentes->count().' / '.\App\Models\Product::MAX_IMAGENES.')',
+                ])
             @endif
 
             @if($cupoImagenes > 0)

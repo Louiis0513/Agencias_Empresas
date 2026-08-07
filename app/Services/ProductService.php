@@ -107,6 +107,7 @@ class ProductService
                 'impuestoCargo:id,nombre,tarifa,tipo,por_valor',
                 'impuestoRetencion:id,nombre,tarifa,tipo',
                 'unidadMedidaFe:codigo,nombre',
+                'images',
                 'precios' => fn ($pq) => $pq->with(['listaPrecio:id,numero,nombre,activo,store_id']),
             ])
             ->findOrFail($productId);
@@ -408,6 +409,71 @@ class ProductService
                 'path' => $path,
                 'orden' => $orden,
             ]);
+        });
+    }
+
+    /**
+     * Elimina una imagen del producto (archivo + registro).
+     */
+    public function eliminarImagen(Store $store, Product $product, ProductImage $image): void
+    {
+        if ($product->store_id !== $store->id) {
+            throw new Exception('El producto no pertenece a esta tienda.');
+        }
+        if ($image->product_id !== $product->id) {
+            throw new Exception('La imagen no pertenece a este producto.');
+        }
+
+        DB::transaction(function () use ($image) {
+            if ($image->path && Storage::disk('public')->exists($image->path)) {
+                Storage::disk('public')->delete($image->path);
+            }
+            $image->delete();
+        });
+    }
+
+    /**
+     * Reemplaza el archivo de una imagen existente (conserva el orden).
+     */
+    public function reemplazarImagen(Store $store, Product $product, ProductImage $image, UploadedFile $nueva): ProductImage
+    {
+        if ($product->store_id !== $store->id) {
+            throw new Exception('El producto no pertenece a esta tienda.');
+        }
+        if ($image->product_id !== $product->id) {
+            throw new Exception('La imagen no pertenece a este producto.');
+        }
+
+        $maxBytes = Product::MAX_IMAGEN_KB * 1024;
+        if (! $nueva->isValid()) {
+            throw new Exception('La imagen no es válida.');
+        }
+        if ($nueva->getSize() > $maxBytes) {
+            throw new Exception('Cada imagen debe pesar máximo 1 MB.');
+        }
+        $mime = (string) $nueva->getMimeType();
+        if (! in_array($mime, ['image/jpeg', 'image/jpg', 'image/png'], true)) {
+            throw new Exception('Las imágenes deben ser PNG o JPG.');
+        }
+
+        return DB::transaction(function () use ($store, $product, $image, $nueva) {
+            $oldPath = $image->path;
+
+            $dir = 'stores/'.$store->id.'/products/'.$product->id;
+            $path = $nueva->store($dir, 'public');
+            try {
+                $path = $this->convertidorImgService->convertPublicImageToWebp($path);
+            } catch (\Throwable) {
+                // Se conserva el archivo original si falla la conversión.
+            }
+
+            $image->update(['path' => $path]);
+
+            if ($oldPath && $oldPath !== $path && Storage::disk('public')->exists($oldPath)) {
+                Storage::disk('public')->delete($oldPath);
+            }
+
+            return $image->fresh();
         });
     }
 
