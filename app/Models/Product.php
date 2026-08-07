@@ -27,7 +27,11 @@ class Product extends Model
     /** Código DIAN por defecto: unidad. */
     public const UNIDAD_MEDIDA_DIAN_DEFAULT = '94';
 
+    /** Máximo de imágenes por producto/servicio. */
     public const MAX_IMAGENES = 5;
+
+    /** Tamaño máximo por imagen (KB). 1024 = 1 MB. */
+    public const MAX_IMAGEN_KB = 1024;
 
     protected $fillable = [
         'store_id',
@@ -41,6 +45,8 @@ class Product extends Model
         'visible_en_ventas',
         'impuesto_cargo_id',
         'impuesto_retencion_id',
+        'valor_impuesto_cargo',
+        'aplica_impuesto_bolsas',
         'referencia',
         'unidad_medida_factura',
         'stock_minimo',
@@ -58,8 +64,10 @@ class Product extends Model
             'es_inventariable' => 'boolean',
             'visible_en_ventas' => 'boolean',
             'precio_incluye_iva' => 'boolean',
+            'aplica_impuesto_bolsas' => 'boolean',
             'is_active' => 'boolean',
             'stock_minimo' => 'decimal:4',
+            'valor_impuesto_cargo' => 'decimal:2',
         ];
     }
 
@@ -81,6 +89,11 @@ class Product extends Model
     public function impuestoRetencion(): BelongsTo
     {
         return $this->belongsTo(Impuesto::class, 'impuesto_retencion_id');
+    }
+
+    public function unidadMedidaFe(): BelongsTo
+    {
+        return $this->belongsTo(UnidadMedidaFe::class, 'unidad_medida_dian', 'codigo');
     }
 
     public function precios(): HasMany

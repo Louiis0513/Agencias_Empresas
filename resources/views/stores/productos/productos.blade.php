@@ -32,13 +32,37 @@
             tab: 'gestion',
             drawerOpen: false,
             openActionId: null,
-            toggleAction(id) {
-                this.openActionId = this.openActionId === id ? null : id;
+            actionMenuStyle: {},
+            toggleAction(id, event) {
+                event?.stopPropagation();
+                if (this.openActionId === id) {
+                    this.openActionId = null;
+                    return;
+                }
+                const btn = event?.currentTarget;
+                if (btn) {
+                    const r = btn.getBoundingClientRect();
+                    this.actionMenuStyle = {
+                        position: 'fixed',
+                        top: (r.bottom + 4) + 'px',
+                        right: (window.innerWidth - r.right) + 'px',
+                        zIndex: 80,
+                    };
+                }
+                this.$nextTick(() => { this.openActionId = id; });
             }
         }"
         @keydown.escape.window="drawerOpen = false; openActionId = null"
+        @scroll.window="openActionId = null"
     >
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+            @if(session('success'))
+                <x-flash-alert type="success" class="mb-4">{{ session('success') }}</x-flash-alert>
+            @endif
+            @if(session('error'))
+                <x-flash-alert type="error" class="mb-4">{{ session('error') }}</x-flash-alert>
+            @endif
+
             {{-- Pestañas estilo Siigo --}}
             <div class="mb-6 border-b border-white/10">
                 <nav class="-mb-px flex flex-wrap gap-1" aria-label="Pestañas productos">
@@ -71,7 +95,7 @@
 
             {{-- Gestión --}}
             <div x-show="tab === 'gestion'" x-cloak>
-                <div class="bg-dark-card border border-white/5 overflow-hidden sm:rounded-xl">
+                <div class="bg-dark-card border border-white/5 overflow-visible sm:rounded-xl">
                     <div class="p-4 sm:p-6 space-y-4">
                         {{-- Barra: buscador + filtros + acciones --}}
                         <div class="flex flex-wrap items-center gap-3">
@@ -114,16 +138,34 @@
                                         class="inline-flex items-center px-4 py-2 rounded-lg border border-brand/40 text-brand text-sm font-semibold hover:bg-brand/10">
                                     Ver reportes
                                 </button>
-                                <button type="button"
-                                        class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-brand text-white text-sm font-semibold hover:opacity-95">
-                                    Crear / Importar
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                                </button>
+                                <div class="relative" x-data="{ openCreate: false }" @click.outside="openCreate = false">
+                                    <button type="button"
+                                            @click="openCreate = !openCreate"
+                                            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-brand text-white text-sm font-semibold hover:opacity-95">
+                                        Crear / Importar
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                    </button>
+                                    <div x-show="openCreate" x-cloak x-transition
+                                         class="absolute right-0 z-20 mt-1 w-52 rounded-lg border border-white/10 bg-dark-card py-1 shadow-xl">
+                                        @storeCan($store, 'products.create')
+                                        <a href="{{ route('stores.products.create', $store) }}" wire:navigate
+                                           class="block px-4 py-2 text-sm text-gray-200 hover:bg-white/5">
+                                            Crear producto / servicio
+                                        </a>
+                                        @endstoreCan
+                                        <button type="button"
+                                                class="block w-full px-4 py-2 text-sm text-gray-500 text-left cursor-not-allowed"
+                                                disabled>
+                                            Importar
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        {{-- Tabla --}}
-                        <div class="overflow-x-auto rounded-lg border border-white/5">
+                        {{-- Tabla: overflow-visible para que el menú de acciones se superponga --}}
+                        <div class="rounded-lg border border-white/5 overflow-visible">
+                            <div class="overflow-x-auto overflow-y-visible">
                             <table class="min-w-full divide-y divide-white/5 text-sm">
                                 <thead class="bg-white/5 text-left text-xs uppercase tracking-wider text-gray-400">
                                     <tr>
@@ -145,7 +187,10 @@
                                                 {{ $product->esServicio() ? 'Servicio' : 'Producto' }}
                                             </td>
                                             <td class="px-4 py-3">
-                                                <span class="text-brand font-medium">{{ $product->nombre }}</span>
+                                                <a href="{{ route('stores.products.show', [$store, $product]) }}"
+                                                   class="text-brand font-medium hover:underline">
+                                                    {{ $product->nombre }}
+                                                </a>
                                             </td>
                                             <td class="px-4 py-3 font-mono text-xs text-gray-300">{{ $product->codigo }}</td>
                                             <td class="px-4 py-3 text-gray-300">{{ $product->unidad_medida_factura ?: 'unidad' }}</td>
@@ -169,26 +214,54 @@
                                             </td>
                                             <td class="px-4 py-3 text-right">
                                                 <div class="inline-flex items-center gap-1">
-                                                    <button type="button"
-                                                            class="inline-flex items-center px-3 py-1.5 rounded-md border border-brand/40 text-brand text-xs font-semibold hover:bg-brand/10">
+                                                    @storeCan($store, 'products.edit')
+                                                    <a href="{{ route('stores.products.edit', [$store, $product]) }}"
+                                                       class="inline-flex items-center px-3 py-1.5 rounded-md border border-brand/40 text-brand text-xs font-semibold hover:bg-brand/10">
                                                         Editar
-                                                    </button>
-                                                    <div class="relative" @click.outside="if (openActionId === {{ $product->id }}) openActionId = null">
+                                                    </a>
+                                                    @endstoreCan
+                                                    <div class="relative">
                                                         <button type="button"
-                                                                @click="toggleAction({{ $product->id }})"
+                                                                @click="toggleAction({{ $product->id }}, $event)"
                                                                 class="inline-flex items-center justify-center h-8 w-8 rounded-md border border-brand/40 text-brand hover:bg-brand/10"
-                                                                aria-label="Más acciones">
+                                                                aria-label="Más acciones"
+                                                                :aria-expanded="openActionId === {{ $product->id }}">
                                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                                                         </button>
-                                                        <div x-show="openActionId === {{ $product->id }}"
-                                                             x-cloak
-                                                             x-transition
-                                                             class="absolute right-0 z-20 mt-1 w-44 rounded-lg border border-white/10 bg-dark-card py-1 shadow-xl text-left">
-                                                            <button type="button" class="block w-full px-4 py-2 text-sm text-gray-200 hover:bg-white/5 text-left">Agregar foto</button>
-                                                            <button type="button" class="block w-full px-4 py-2 text-sm text-gray-200 hover:bg-white/5 text-left">Inactivar</button>
-                                                            <button type="button" class="block w-full px-4 py-2 text-sm text-gray-200 hover:bg-white/5 text-left">Eliminar</button>
-                                                            <button type="button" class="block w-full px-4 py-2 text-sm text-gray-200 hover:bg-white/5 text-left">Duplicar</button>
-                                                        </div>
+                                                        <template x-teleport="body">
+                                                            <div x-show="openActionId === {{ $product->id }}"
+                                                                 x-cloak
+                                                                 x-transition
+                                                                 @click.outside="openActionId = null"
+                                                                 :style="actionMenuStyle"
+                                                                 class="w-44 rounded-lg border border-white/10 bg-dark-card py-1 shadow-xl text-left">
+                                                                @storeCan($store, 'products.edit')
+                                                                <button type="button"
+                                                                        @click="openActionId = null; Livewire.dispatch('open-add-product-photo', { productId: {{ $product->id }} })"
+                                                                        class="block w-full px-4 py-2 text-sm text-gray-200 hover:bg-white/5 text-left">
+                                                                    Agregar foto
+                                                                </button>
+                                                                @endstoreCan
+                                                                @storeCan($store, 'products.edit')
+                                                                <form method="POST" action="{{ route('stores.products.toggle', [$store, $product]) }}">
+                                                                    @csrf
+                                                                    @method('PATCH')
+                                                                    <button type="submit" class="block w-full px-4 py-2 text-sm text-gray-200 hover:bg-white/5 text-left">
+                                                                        {{ $product->is_active ? 'Inactivar' : 'Activar' }}
+                                                                    </button>
+                                                                </form>
+                                                                @endstoreCan
+                                                                @storeCan($store, 'products.destroy')
+                                                                <form method="POST" action="{{ route('stores.products.destroy', [$store, $product]) }}"
+                                                                      onsubmit="return confirm(@js('¿Eliminar «'.$product->nombre.'»? Una vez eliminado no se puede recuperar; habrá que crearlo de nuevo.'));">
+                                                                    @csrf
+                                                                    @method('DELETE')
+                                                                    <button type="submit" class="block w-full px-4 py-2 text-sm text-red-400 hover:bg-white/5 text-left">Eliminar</button>
+                                                                </form>
+                                                                @endstoreCan
+                                                                <button type="button" class="block w-full px-4 py-2 text-sm text-gray-200 hover:bg-white/5 text-left">Duplicar</button>
+                                                            </div>
+                                                        </template>
                                                     </div>
                                                 </div>
                                             </td>
@@ -202,6 +275,7 @@
                                     @endforelse
                                 </tbody>
                             </table>
+                            </div>
                         </div>
 
                         @if($products->hasPages())
@@ -325,4 +399,8 @@
             </div>
         </div>
     </div>
+
+    @storeCan($store, 'products.edit')
+        <livewire:add-product-photo-modal :store-id="$store->id" />
+    @endstoreCan
 </x-app-layout>

@@ -76,8 +76,15 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::put('/roles/{role}', [StoreRoleController::class, 'update'])->name('roles.update');
     Route::delete('/roles/{role}', [StoreRoleController::class, 'destroy'])->name('roles.destroy');
 
-    // Productos (shell — flujo incompleto)
+    // Productos y servicios
     Route::get('/productos', [StoreProductController::class, 'index'])->name('products');
+    Route::get('/productos/crear', [StoreProductController::class, 'create'])->name('products.create');
+    Route::post('/productos', [StoreProductController::class, 'store'])->name('products.store');
+    Route::get('/productos/{product}/editar', [StoreProductController::class, 'edit'])->name('products.edit');
+    Route::put('/productos/{product}', [StoreProductController::class, 'update'])->name('products.update');
+    Route::patch('/productos/{product}/estado', [StoreProductController::class, 'toggle'])->name('products.toggle');
+    Route::delete('/productos/{product}', [StoreProductController::class, 'destroy'])->name('products.destroy');
+    Route::get('/productos/{product}', [StoreProductController::class, 'show'])->name('products.show');
 
     Route::get('/informes', [StoreController::class, 'reportsIndex'])->name('reports.index');
     Route::post('/informes/analisis-facturas', [StoreInvoiceAnalysisController::class, 'process'])->name('reports.invoice-analysis.process');

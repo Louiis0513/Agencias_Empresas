@@ -87,6 +87,7 @@ class DatabaseSeeder extends Seeder
         // ---------------------------------------------------
         $this->call(PermissionSeeder::class);
         $this->call(PlanFeatureSeeder::class);
+        $this->call(UnidadMedidaFeSeeder::class);
 
         // 3. CREAR DATOS DE DEMO PARA LA TIENDA PRINCIPAL (SOLO ENTORNO LOCAL)
         // ---------------------------------------------------
