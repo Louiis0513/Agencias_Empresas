@@ -1,29 +1,19 @@
 <?php
 
-use App\Http\Controllers\PanelSuscripcionesAuthController;
-use App\Http\Controllers\PanelSuscripcionesController;
 use App\Http\Controllers\StoreAccountPayableController;
 use App\Http\Controllers\StoreAccountReceivableController;
-use App\Http\Controllers\StoreActivoController;
-use App\Http\Controllers\StoreAsistenciaController;
 use App\Http\Controllers\StoreCajaController;
 use App\Http\Controllers\StoreCategoriaContableController;
-use App\Http\Controllers\StoreCategoryController;
 use App\Http\Controllers\StoreComprobanteContableController;
 use App\Http\Controllers\StoreConfigController;
 use App\Http\Controllers\StoreController;
 use App\Http\Controllers\StoreCuentaContableController;
 use App\Http\Controllers\StoreCustomerController;
-use App\Http\Controllers\StoreInventoryController;
 use App\Http\Controllers\StoreInvoiceAnalysisController;
 use App\Http\Controllers\StoreInvoiceController;
-use App\Http\Controllers\StorePanelSuscripcionesController;
-use App\Http\Controllers\StorePlanDesignerController;
 use App\Http\Controllers\StoreProductController;
 use App\Http\Controllers\StoreProveedorController;
-use App\Http\Controllers\StorePurchaseController;
 use App\Http\Controllers\StoreRoleController;
-use App\Http\Controllers\StoreSubscriptionController;
 use App\Http\Controllers\StoreTerceroController;
 use App\Http\Controllers\StoreTipoComprobanteController;
 use App\Http\Controllers\StoreReciboCajaTipoController;
@@ -31,12 +21,9 @@ use App\Http\Controllers\StoreReciboCajaController;
 use App\Http\Controllers\StoreImpuestoController;
 use App\Http\Controllers\StoreFormaPagoController;
 use App\Http\Controllers\StoreCentroCostoController;
-use App\Http\Controllers\StoreVitrinaController;
 use App\Http\Controllers\StoreWorkerController;
 use App\Http\Controllers\StoreWorkerHourRateTemplateController;
 use App\Http\Controllers\StoreWorkerScheduleController;
-use App\Http\Controllers\VitrinaAuthController;
-use App\Http\Controllers\VitrinaController;
 use App\Models\Store;
 use Illuminate\Support\Facades\Route;
 
@@ -52,37 +39,9 @@ Route::view('profile', 'profile')
     ->middleware(['auth'])
     ->name('profile');
 
-// Vitrina virtual: demo estática y vitrina pública por slug
-Route::view('/vitrina/demo', 'vitrina.demo')->name('vitrina.demo');
-Route::get('/vitrina/{slug}', [VitrinaController::class, 'show'])->name('vitrina.show');
-Route::post('/vitrina/{slug}/cart/add', [VitrinaController::class, 'addToCart'])->name('vitrina.cart.add');
-Route::post('/vitrina/{slug}/cart/update', [VitrinaController::class, 'updateCart'])->name('vitrina.cart.update');
-Route::post('/vitrina/{slug}/cart/clear', [VitrinaController::class, 'clearCart'])->name('vitrina.cart.clear');
-Route::post('/vitrina/{slug}/cart/checkout', [VitrinaController::class, 'checkoutCart'])->name('vitrina.cart.checkout');
-Route::post('/vitrina/{slug}/login', [VitrinaAuthController::class, 'login'])->name('vitrina.login');
-Route::post('/vitrina/{slug}/register', [VitrinaAuthController::class, 'register'])->name('vitrina.register');
-Route::post('/vitrina/{slug}/logout', [VitrinaAuthController::class, 'logout'])->name('vitrina.logout');
-Route::post('/vitrina/{slug}/complete-customer-profile', [VitrinaAuthController::class, 'completeCustomerProfile'])->middleware('auth')->name('vitrina.complete_customer_profile');
-
-Route::post('{slug}/PanelSuscripciones/login', [PanelSuscripcionesAuthController::class, 'login'])->name('panel_suscripciones.login');
-Route::post('{slug}/PanelSuscripciones/register', [PanelSuscripcionesAuthController::class, 'register'])->name('panel_suscripciones.register');
-Route::post('{slug}/PanelSuscripciones/logout', [PanelSuscripcionesAuthController::class, 'logout'])->name('panel_suscripciones.logout');
-Route::post('{slug}/PanelSuscripciones/complete-customer-profile', [PanelSuscripcionesAuthController::class, 'completeCustomerProfile'])->middleware('auth')->name('panel_suscripciones.complete_customer_profile');
-Route::post('{slug}/PanelSuscripciones/cart/add', [PanelSuscripcionesController::class, 'addToCart'])->name('panel_suscripciones.cart.add');
-Route::post('{slug}/PanelSuscripciones/cart/update', [PanelSuscripcionesController::class, 'updateCart'])->name('panel_suscripciones.cart.update');
-Route::post('{slug}/PanelSuscripciones/cart/clear', [PanelSuscripcionesController::class, 'clearCart'])->name('panel_suscripciones.cart.clear');
-Route::post('{slug}/PanelSuscripciones/cart/checkout', [PanelSuscripcionesController::class, 'checkoutCart'])->name('panel_suscripciones.cart.checkout');
-Route::get('{slug}/PanelSuscripciones', [PanelSuscripcionesController::class, 'show'])->name('panel_suscripciones.show');
-
 Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:slug}')->name('stores.')->group(function () {
 
     Route::get('/', [StoreController::class, 'show'])->name('dashboard');
-
-    Route::get('/vitrina', [StoreVitrinaController::class, 'edit'])->name('vitrina.edit');
-    Route::put('/vitrina', [StoreVitrinaController::class, 'update'])->name('vitrina.update');
-
-    Route::get('/panel-suscripciones', [StorePanelSuscripcionesController::class, 'edit'])->name('panel-suscripciones.edit');
-    Route::put('/panel-suscripciones', [StorePanelSuscripcionesController::class, 'update'])->name('panel-suscripciones.update');
 
     Route::get('/configuracion', [StoreConfigController::class, 'edit'])->name('configuracion');
     Route::put('/configuracion', [StoreConfigController::class, 'update'])->name('configuracion.update');
@@ -117,74 +76,24 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::put('/roles/{role}', [StoreRoleController::class, 'update'])->name('roles.update');
     Route::delete('/roles/{role}', [StoreRoleController::class, 'destroy'])->name('roles.destroy');
 
+    // Productos (shell — flujo incompleto)
     Route::get('/productos', [StoreProductController::class, 'index'])->name('products');
-    Route::get('/productos/exportar-excel-inventario', [StoreInventoryController::class, 'exportExcel'])->name('products.export-inventory-excel');
-    Route::get('/productos/exportar-excel-movimientos', [StoreInventoryController::class, 'exportMovementsExcel'])->name('products.export-inventory-movements-excel');
+
     Route::get('/informes', [StoreController::class, 'reportsIndex'])->name('reports.index');
     Route::post('/informes/analisis-facturas', [StoreInvoiceAnalysisController::class, 'process'])->name('reports.invoice-analysis.process');
-    Route::get('/informes/productos', function (\App\Models\Store $store) {
-        return redirect()->route('stores.reports.index', ['store' => $store, 'tab' => 'productos']);
-    })->name('reports.products');
-    Route::get('/productos/compras', [StoreController::class, 'productPurchases'])->name('product-purchases');
-    Route::get('/productos/compras/crear', [StoreController::class, 'createProductPurchase'])->name('product-purchases.create');
-    Route::get('/productos/compras/documento-soporte/crear', [StoreController::class, 'createDocumentoSoportePurchase'])->name('product-purchases.documento-soporte.create');
-    Route::post('/productos/compras/documento-soporte', [StoreController::class, 'storeDocumentoSoportePurchase'])->name('product-purchases.documento-soporte.store');
-    Route::get('/productos/compras/documentos-soporte/exportar-excel', [StoreController::class, 'exportSupportDocumentsListExcel'])->name('product-purchases.support-documents.export-excel');
-    Route::get('/productos/compras/documento-soporte/{supportDocument}/imprimir-tira', [StoreController::class, 'printDocumentoSoportePurchase'])->name('product-purchases.documento-soporte.print');
-    Route::get('/productos/compras/documento-soporte/{supportDocument}/editar', [StoreController::class, 'editDocumentoSoportePurchase'])->name('product-purchases.documento-soporte.edit');
-    Route::put('/productos/compras/documento-soporte/{supportDocument}', [StoreController::class, 'updateDocumentoSoportePurchase'])->name('product-purchases.documento-soporte.update');
-    Route::post('/productos/compras/documento-soporte/{supportDocument}/aprobar', [StoreController::class, 'aprobarDocumentoSoportePurchase'])->name('product-purchases.documento-soporte.aprobar');
-    Route::post('/productos/compras/documento-soporte/{supportDocument}/anular', [StoreController::class, 'anularDocumentoSoportePurchase'])->name('product-purchases.documento-soporte.anular');
-    Route::post('/productos/compras', [StoreController::class, 'storeProductPurchase'])->name('product-purchases.store');
-    Route::get('/productos/compras/{purchase}/editar', [StoreController::class, 'editProductPurchase'])->name('product-purchases.edit');
-    Route::put('/productos/compras/{purchase}', [StoreController::class, 'updateProductPurchase'])->name('product-purchases.update');
-    Route::get('/productos/{product}', [StoreProductController::class, 'show'])->name('products.show');
-    Route::get('/productos/{productId}/atributos-categoria', [StoreProductController::class, 'atributosCategoria'])->name('productos.atributos-categoria')->whereNumber('productId');
-    Route::put('/productos/{product}/variante', [StoreProductController::class, 'updateVariant'])->name('productos.variant.update');
-    Route::post('/productos/{product}/variantes', [StoreProductController::class, 'storeVariants'])->name('productos.variants.store');
-    Route::delete('/productos/{product}', [StoreProductController::class, 'destroy'])->name('products.destroy');
 
-    Route::get('/categorias', [StoreCategoryController::class, 'index'])->name('categories');
-    Route::get('/categorias/{category}', [StoreCategoryController::class, 'show'])->name('category.show');
-    Route::delete('/categorias/{category}', [StoreCategoryController::class, 'destroy'])->name('categories.destroy');
-
-    // Grupos de atributos (gestión global)
-    Route::get('/atributos', [StoreController::class, 'attributeGroups'])->name('attribute-groups');
-    Route::delete('/atributos/grupos/{attributeGroup}', [StoreController::class, 'destroyAttributeGroup'])->name('attribute-groups.destroy');
-    Route::delete('/atributos/items/{attribute}', [StoreController::class, 'destroyAttribute'])->name('attribute-groups.attributes.destroy');
-
-    // Atributos de categorías
-    Route::get('/categorias/{category}/atributos', [StoreCategoryController::class, 'attributes'])->name('category.attributes');
-    Route::post('/categorias/{category}/atributos', [StoreCategoryController::class, 'assignAttributes'])->name('category.attributes.assign');
-
-    // Ventas (carrito, cotizaciones)
+    // Ventas (shell — flujo incompleto)
     Route::get('/ventas/carrito', [StoreController::class, 'carrito'])->name('ventas.carrito');
-    Route::get('/ventas/cotizaciones', [StoreController::class, 'cotizaciones'])->name('ventas.cotizaciones');
-    Route::get('/ventas/cotizaciones/{cotizacion}', [StoreController::class, 'showCotizacion'])->name('ventas.cotizaciones.show');
-    Route::delete('/ventas/cotizaciones/{cotizacion}', [StoreController::class, 'destroyCotizacion'])->name('ventas.cotizaciones.destroy');
 
-    // Facturas
+    // Facturas (listado histórico; creación deshabilitada)
     Route::get('/facturas', [StoreInvoiceController::class, 'index'])->name('invoices');
-    Route::post('/facturas', [StoreInvoiceController::class, 'store'])->name('invoices.store');
     Route::get('/facturas/exportar-excel', [StoreInvoiceController::class, 'exportExcel'])->name('invoices.export-excel');
     Route::get('/facturas/{invoice}', [StoreInvoiceController::class, 'show'])->name('invoices.show');
     Route::get('/facturas/{invoice}/imprimir-tira', [StoreInvoiceController::class, 'printReceipt'])->name('invoices.printReceipt');
     Route::post('/facturas/{invoice}/anular', [StoreInvoiceController::class, 'void'])->name('invoices.void');
 
-    // Proveedores
+    // Proveedores (legacy redirect / list si aplica)
     Route::get('/proveedores', [StoreProveedorController::class, 'index'])->name('proveedores');
-
-    // Suscripciones (planes, membresías)
-    Route::get('/suscripciones/membresias', [StoreSubscriptionController::class, 'memberships'])->name('subscriptions.memberships');
-    Route::get('/suscripciones/planes', [StoreSubscriptionController::class, 'plans'])->name('subscriptions.plans');
-    Route::get('/suscripciones/planes/disenador', [StorePlanDesignerController::class, 'index'])->name('subscriptions.plans.designer');
-    Route::put('/suscripciones/planes/disenador/feature', [StorePlanDesignerController::class, 'updateFeature'])->name('subscriptions.plans.designer.feature');
-    Route::put('/suscripciones/planes/disenador/bulk', [StorePlanDesignerController::class, 'bulk'])->name('subscriptions.plans.designer.bulk');
-    Route::put('/suscripciones/planes/visibility', [StoreSubscriptionController::class, 'updateVisibility'])->name('subscriptions.plans.visibility');
-    Route::delete('/suscripciones/planes/{plan}', [StoreSubscriptionController::class, 'destroy'])->name('subscriptions.plans.destroy');
-
-    // Asistencias
-    Route::get('/asistencias', [StoreAsistenciaController::class, 'index'])->name('asistencias');
 
     // Clientes
     Route::get('/clientes', [StoreCustomerController::class, 'index'])->name('customers');
@@ -202,7 +111,7 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::get('/caja/bolsillos/{bolsillo}', [StoreCajaController::class, 'showBolsillo'])->name('cajas.bolsillos.show');
     Route::put('/caja/bolsillos/{bolsillo}', [StoreCajaController::class, 'updateBolsillo'])->name('cajas.bolsillos.update');
     Route::delete('/caja/bolsillos/{bolsillo}', [StoreCajaController::class, 'destroyBolsillo'])->name('cajas.bolsillos.destroy');
-    // Comprobantes de ingreso (índice unificado en Movimientos → pestaña Ingresos)
+
     Route::get('/comprobantes-ingreso', function (Store $store) {
         return redirect()->route('stores.cajas.movimientos', ['store' => $store, 'tab' => 'ingresos']);
     })->name('comprobantes-ingreso.index');
@@ -211,11 +120,10 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::get('/comprobantes-ingreso/{comprobanteIngreso}/pdf', [StoreCajaController::class, 'pdfComprobanteIngreso'])->name('comprobantes-ingreso.pdf');
     Route::get('/comprobantes-ingreso/{comprobanteIngreso}', [StoreCajaController::class, 'showComprobanteIngreso'])->name('comprobantes-ingreso.show');
 
-    // Recibo de caja (elaborar — estilo Siigo)
     Route::get('/recibos-caja/crear', [StoreReciboCajaController::class, 'create'])->name('recibos-caja.create');
     Route::post('/recibos-caja', [StoreReciboCajaController::class, 'store'])->name('recibos-caja.store');
     Route::get('/recibos-caja/cuentas-pendientes', [StoreReciboCajaController::class, 'cuentasPendientes'])->name('recibos-caja.cuentas-pendientes');
-    // Comprobantes de egreso (índice unificado en Movimientos → pestaña Egresos)
+
     Route::get('/comprobantes-egreso', function (Store $store) {
         return redirect()->route('stores.cajas.movimientos', ['store' => $store, 'tab' => 'egresos']);
     })->name('comprobantes-egreso.index');
@@ -229,7 +137,7 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::post('/comprobantes-egreso/{comprobanteEgreso}/reversar', [StoreCajaController::class, 'reversarComprobanteEgreso'])->name('comprobantes-egreso.reversar');
     Route::post('/comprobantes-egreso/{comprobanteEgreso}/anular', [StoreCajaController::class, 'anularComprobanteEgreso'])->name('comprobantes-egreso.anular');
 
-    // Contabilidad — plan de cuentas y categorías de productos/servicios
+    // Contabilidad
     Route::get('/contabilidad/cuentas', [StoreCuentaContableController::class, 'index'])->name('contabilidad.cuentas');
     Route::get('/contabilidad/cuentas/{cuentaContable}/hijos', [StoreCuentaContableController::class, 'hijosJson'])->name('contabilidad.cuentas.hijos.json');
     Route::post('/contabilidad/cuentas/importar-puc', [StoreCuentaContableController::class, 'importarPuc'])->name('contabilidad.cuentas.importar');
@@ -272,29 +180,6 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::post('/contabilidad/comprobantes/{comprobanteContable}/contabilizar', [StoreComprobanteContableController::class, 'contabilizar'])->name('contabilidad.comprobantes.post');
     Route::post('/contabilidad/comprobantes/{comprobanteContable}/reversar', [StoreComprobanteContableController::class, 'reversar'])->name('contabilidad.comprobantes.reverse');
 
-    // Activos Fijos
-    Route::controller(StoreActivoController::class)->group(function () {
-        Route::get('/activos', 'index')->name('activos');
-        Route::get('/activos/movimientos', 'movimientos')->name('activos.movimientos');
-        Route::get('/activos/{activo}', 'show')->name('activos.show');
-        Route::get('/activos/{activo}/editar', 'edit')->name('activos.edit');
-        Route::put('/activos/{activo}', 'update')->name('activos.update');
-        Route::post('/activos/{activo}/baja', 'darDeBaja')->name('activos.baja');
-    });
-
-    // Compra de activos (módulo Financiero)
-    Route::controller(StorePurchaseController::class)->group(function () {
-        Route::get('/compras', 'index')->name('purchases');
-        Route::get('/compras/crear', 'create')->name('purchases.create');
-        Route::post('/compras', 'store')->name('purchases.store');
-        Route::get('/compras/{purchase}', 'show')->name('purchases.show');
-        Route::get('/compras/{purchase}/editar', 'edit')->name('purchases.edit');
-        Route::put('/compras/{purchase}', 'update')->name('purchases.update');
-        Route::post('/compras/{purchase}/aprobar', 'approve')->name('purchases.approve');
-        Route::post('/compras/{purchase}/anular', 'void')->name('purchases.void');
-    });
-
-    // Cuentas por pagar (índice unificado en Movimientos → pestaña Por pagar)
     Route::get('/cuentas-por-pagar', function (Store $store) {
         return redirect()->route('stores.cajas.movimientos', ['store' => $store, 'tab' => 'por-pagar']);
     })->name('accounts-payables');
@@ -305,7 +190,6 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
         Route::post('/cuentas-por-pagar/{accountPayable}/pagar', 'pay')->name('accounts-payables.pay');
     });
 
-    // Cuentas por cobrar (índice unificado en Movimientos → pestaña Por cobrar)
     Route::get('/cuentas-por-cobrar', function (Store $store) {
         return redirect()->route('stores.cajas.movimientos', ['store' => $store, 'tab' => 'por-cobrar']);
     })->name('accounts-receivables');

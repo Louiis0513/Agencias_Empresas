@@ -12,8 +12,8 @@ class InvoiceDetail extends Model
     protected $fillable = [
         'invoice_id',
         'product_id',
-        'product_name', // Snapshot del nombre del producto (o "Suscripción: ...")
-        'receipt_description', // Descripción simplificada para recibo: "Producto Val1 Val2 SN"
+        'product_name', // Snapshot del nombre del producto
+        'receipt_description', // Descripción simplificada para recibo
         'unit_price',   // Snapshot del precio unitario
         'quantity',
         'discount_type',
@@ -21,7 +21,6 @@ class InvoiceDetail extends Model
         'discount_amount',
         'subtotal_before_discount',
         'subtotal',
-        'store_plan_id',
         'subscription_starts_at',
     ];
 
@@ -41,21 +40,9 @@ class InvoiceDetail extends Model
         return $this->belongsTo(Invoice::class);
     }
 
-    // Relación: Un detalle es de un producto específico (null para líneas de suscripción)
+    // Relación: Un detalle es de un producto específico
     public function product()
     {
         return $this->belongsTo(Product::class);
-    }
-
-    // Relación: Plan de suscripción (solo en líneas tipo suscripción)
-    public function storePlan()
-    {
-        return $this->belongsTo(StorePlan::class, 'store_plan_id');
-    }
-
-    /** Indica si la línea es de suscripción (no producto de inventario). */
-    public function isSubscriptionLine(): bool
-    {
-        return $this->product_id === null;
     }
 }

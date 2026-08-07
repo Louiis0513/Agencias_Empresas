@@ -18,7 +18,6 @@ class AccountPayable extends Model
 
     protected $fillable = [
         'store_id',
-        'purchase_id',
         'tercero_id',
         'source',
         'creditor_name',
@@ -46,11 +45,6 @@ class AccountPayable extends Model
     public function store()
     {
         return $this->belongsTo(Store::class);
-    }
-
-    public function purchase()
-    {
-        return $this->belongsTo(Purchase::class);
     }
 
     public function tercero()
@@ -86,11 +80,6 @@ class AccountPayable extends Model
     public function isPagado(): bool
     {
         return $this->status === self::STATUS_PAGADO;
-    }
-
-    public function isFromPurchase(): bool
-    {
-        return $this->purchase_id !== null;
     }
 
     public function isManual(): bool

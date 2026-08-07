@@ -27,7 +27,7 @@ class AccountPayableService
     {
         $accountPayable = AccountPayable::where('id', $accountPayableId)
             ->where('store_id', $store->id)
-            ->with('purchase')
+            ->with('tercero')
             ->firstOrFail();
 
         if ($accountPayable->isPagado()) {
@@ -79,7 +79,7 @@ class AccountPayableService
         }
 
         $comprobanteData = [
-            'proveedor_id' => $accountPayable->tercero_id ?? $accountPayable->purchase?->tercero_id,
+            'proveedor_id' => $accountPayable->tercero_id,
             'payment_date' => $data['payment_date'] ?? now()->toDateString(),
             'notes' => $data['notes'] ?? null,
             'destinos' => $destinos,
@@ -104,7 +104,6 @@ class AccountPayableService
 
             return AccountPayable::create([
                 'store_id' => $store->id,
-                'purchase_id' => null,
                 'tercero_id' => $data['tercero_id'] ?? $data['proveedor_id'] ?? null,
                 'source' => AccountPayable::SOURCE_MANUAL,
                 'creditor_name' => trim((string) $data['creditor_name']),
@@ -122,7 +121,7 @@ class AccountPayableService
     public function listarCuentasPorPagar(Store $store, array $filtros = []): LengthAwarePaginator
     {
         $query = AccountPayable::deTienda($store->id)
-            ->with(['purchase.proveedor', 'purchase.user'])
+            ->with(['tercero'])
             ->orderBy('due_date');
 
         if (isset($filtros['status']) && $filtros['status'] !== '') {
@@ -160,29 +159,20 @@ class AccountPayableService
         if (! empty($filtros['search'])) {
             $term = trim($filtros['search']);
             $query->where(function ($q) use ($term) {
-                $q->whereHas('purchase', function ($sub) use ($term) {
-                    if (is_numeric($term)) {
-                        $sub->where('id', (int) $term)
-                            ->orWhere('invoice_number', 'like', "%{$term}%");
-                    } else {
-                        $sub->where('invoice_number', 'like', "%{$term}%");
-                    }
+                $q->whereHas('tercero', function ($sub) use ($term) {
+                    $sub->where('nombre', 'like', "%{$term}%")
+                        ->orWhere('numero_identificacion', 'like', "%{$term}%");
                 })
-                    ->orWhereHas('purchase.proveedor', function ($sub) use ($term) {
-                        $sub->where('nombre', 'like', "%{$term}%")
-                            ->orWhere('numero_identificacion', 'like', "%{$term}%");
-                    })
                     ->orWhere(function ($q2) use ($term) {
-                        $q2->where('source', AccountPayable::SOURCE_MANUAL)
-                            ->where(function ($q3) use ($term) {
-                                $q3->where('creditor_name', 'like', "%{$term}%")
-                                    ->orWhere('creditor_document', 'like', "%{$term}%")
-                                    ->orWhere('document_reference', 'like', "%{$term}%")
-                                    ->orWhere('description', 'like', "%{$term}%");
-                                if (is_numeric($term)) {
-                                    $q3->orWhere('id', (int) $term);
-                                }
-                            });
+                        $q2->where(function ($q3) use ($term) {
+                            $q3->where('creditor_name', 'like', "%{$term}%")
+                                ->orWhere('creditor_document', 'like', "%{$term}%")
+                                ->orWhere('document_reference', 'like', "%{$term}%")
+                                ->orWhere('description', 'like', "%{$term}%");
+                            if (is_numeric($term)) {
+                                $q3->orWhere('id', (int) $term);
+                            }
+                        });
                     });
             });
         }
@@ -206,7 +196,7 @@ class AccountPayableService
     public function coleccionParaExportacionCuentasPorPagar(Store $store, array $filtros = []): EloquentCollection
     {
         $query = AccountPayable::deTienda($store->id)
-            ->with(['purchase.proveedor', 'purchase.user'])
+            ->with(['tercero'])
             ->orderBy('due_date');
 
         if (isset($filtros['status']) && $filtros['status'] !== '') {
@@ -253,29 +243,20 @@ class AccountPayableService
         if (! empty($filtros['search'])) {
             $term = trim((string) $filtros['search']);
             $query->where(function ($q) use ($term) {
-                $q->whereHas('purchase', function ($sub) use ($term) {
-                    if (is_numeric($term)) {
-                        $sub->where('id', (int) $term)
-                            ->orWhere('invoice_number', 'like', "%{$term}%");
-                    } else {
-                        $sub->where('invoice_number', 'like', "%{$term}%");
-                    }
+                $q->whereHas('tercero', function ($sub) use ($term) {
+                    $sub->where('nombre', 'like', "%{$term}%")
+                        ->orWhere('numero_identificacion', 'like', "%{$term}%");
                 })
-                    ->orWhereHas('purchase.proveedor', function ($sub) use ($term) {
-                        $sub->where('nombre', 'like', "%{$term}%")
-                            ->orWhere('numero_identificacion', 'like', "%{$term}%");
-                    })
                     ->orWhere(function ($q2) use ($term) {
-                        $q2->where('source', AccountPayable::SOURCE_MANUAL)
-                            ->where(function ($q3) use ($term) {
-                                $q3->where('creditor_name', 'like', "%{$term}%")
-                                    ->orWhere('creditor_document', 'like', "%{$term}%")
-                                    ->orWhere('document_reference', 'like', "%{$term}%")
-                                    ->orWhere('description', 'like', "%{$term}%");
-                                if (is_numeric($term)) {
-                                    $q3->orWhere('id', (int) $term);
-                                }
-                            });
+                        $q2->where(function ($q3) use ($term) {
+                            $q3->where('creditor_name', 'like', "%{$term}%")
+                                ->orWhere('creditor_document', 'like', "%{$term}%")
+                                ->orWhere('document_reference', 'like', "%{$term}%")
+                                ->orWhere('description', 'like', "%{$term}%");
+                            if (is_numeric($term)) {
+                                $q3->orWhere('id', (int) $term);
+                            }
+                        });
                     });
             });
         }
@@ -287,7 +268,7 @@ class AccountPayableService
     {
         return AccountPayable::where('id', $accountPayableId)
             ->where('store_id', $store->id)
-            ->with(['purchase.details.product', 'purchase.proveedor', 'comprobanteDestinos.comprobanteEgreso.origenes.bolsillo'])
+            ->with(['tercero', 'comprobanteDestinos.comprobanteEgreso.origenes.bolsillo'])
             ->firstOrFail();
     }
 

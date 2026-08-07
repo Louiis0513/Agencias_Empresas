@@ -43,10 +43,9 @@ new class extends Component
 
                         @php
                             $canPersonas = app(\App\Services\StorePermissionService::class)->can($store, 'terceros.view') || app(\App\Services\StorePermissionService::class)->can($store, 'workers.schedules.view');
-                            $canProductos = app(\App\Services\StorePermissionService::class)->can($store, 'products.view') || app(\App\Services\StorePermissionService::class)->can($store, 'categories.view') || app(\App\Services\StorePermissionService::class)->can($store, 'attribute-groups.view') || app(\App\Services\StorePermissionService::class)->can($store, 'inventario.view') || app(\App\Services\StorePermissionService::class)->can($store, 'product-purchases.view') || app(\App\Services\StorePermissionService::class)->can($store, 'support-documents.view');
-                            $canFinanciero = app(\App\Services\StorePermissionService::class)->can($store, 'caja.view') || app(\App\Services\StorePermissionService::class)->can($store, 'activos.view') || app(\App\Services\StorePermissionService::class)->can($store, 'accounts-payables.view') || app(\App\Services\StorePermissionService::class)->can($store, 'accounts-receivables.view') || app(\App\Services\StorePermissionService::class)->can($store, 'comprobantes-egreso.view') || app(\App\Services\StorePermissionService::class)->can($store, 'comprobantes-ingreso.view') || app(\App\Services\StorePermissionService::class)->can($store, 'invoices.view') || app(\App\Services\StorePermissionService::class)->can($store, 'purchases.view') || app(\App\Services\StorePermissionService::class)->can($store, 'contabilidad.cuentas.view') || app(\App\Services\StorePermissionService::class)->can($store, 'contabilidad.categorias.view') || app(\App\Services\StorePermissionService::class)->can($store, 'contabilidad.tipos.view') || app(\App\Services\StorePermissionService::class)->can($store, 'contabilidad.impuestos.view') || app(\App\Services\StorePermissionService::class)->can($store, 'contabilidad.formas-pago.view') || app(\App\Services\StorePermissionService::class)->can($store, 'contabilidad.centros-costo.view') || app(\App\Services\StorePermissionService::class)->can($store, 'contabilidad.comprobantes.view');
-                            $canVentas = app(\App\Services\StorePermissionService::class)->can($store, 'ventas.carrito.view') || app(\App\Services\StorePermissionService::class)->can($store, 'cotizaciones.view');
-                            $canSuscripciones = app(\App\Services\StorePermissionService::class)->can($store, 'subscriptions.view') || app(\App\Services\StorePermissionService::class)->can($store, 'asistencias.view');
+                            $canProductos = app(\App\Services\StorePermissionService::class)->can($store, 'products.view');
+                            $canFinanciero = app(\App\Services\StorePermissionService::class)->can($store, 'caja.view') || app(\App\Services\StorePermissionService::class)->can($store, 'accounts-payables.view') || app(\App\Services\StorePermissionService::class)->can($store, 'accounts-receivables.view') || app(\App\Services\StorePermissionService::class)->can($store, 'comprobantes-egreso.view') || app(\App\Services\StorePermissionService::class)->can($store, 'comprobantes-ingreso.view') || app(\App\Services\StorePermissionService::class)->can($store, 'invoices.view') || app(\App\Services\StorePermissionService::class)->can($store, 'contabilidad.cuentas.view') || app(\App\Services\StorePermissionService::class)->can($store, 'contabilidad.categorias.view') || app(\App\Services\StorePermissionService::class)->can($store, 'contabilidad.tipos.view') || app(\App\Services\StorePermissionService::class)->can($store, 'contabilidad.impuestos.view') || app(\App\Services\StorePermissionService::class)->can($store, 'contabilidad.formas-pago.view') || app(\App\Services\StorePermissionService::class)->can($store, 'contabilidad.centros-costo.view') || app(\App\Services\StorePermissionService::class)->can($store, 'contabilidad.comprobantes.view');
+                            $canVentas = app(\App\Services\StorePermissionService::class)->can($store, 'ventas.carrito.view');
                         @endphp
                         @if($canPersonas)
                         <x-nav-link :href="route('stores.terceros', $store)" :active="request()->routeIs('stores.terceros*') || request()->routeIs('stores.workers*')" wire:navigate>
@@ -54,45 +53,18 @@ new class extends Component
                         </x-nav-link>
                         @endif
                         @if($canProductos)
-                        @php
-                            $isProductPurchaseMain = false;
-                            if (request()->routeIs('stores.purchases.show')) {
-                                $purchaseMain = request()->route('purchase');
-                                if ($purchaseMain && method_exists($purchaseMain, 'isProducto')) {
-                                    $isProductPurchaseMain = $purchaseMain->isProducto();
-                                } elseif (request()->header('referer') && str_contains(request()->header('referer'), '/productos/compras')) {
-                                    $isProductPurchaseMain = true;
-                                }
-                            }
-                        @endphp
-                        <x-nav-link :href="route('stores.products', $store)" :active="request()->routeIs('stores.products*') || request()->routeIs('stores.categories*') || request()->routeIs('stores.attribute-groups*') || request()->routeIs('stores.product-purchases*') || (request()->routeIs('stores.purchases.show') && $isProductPurchaseMain)" wire:navigate>
+                        <x-nav-link :href="route('stores.products', $store)" :active="request()->routeIs('stores.products*')" wire:navigate>
                             {{ __('Productos') }}
                         </x-nav-link>
                         @endif
                         @if($canFinanciero)
-                        @php
-                            $isProductPurchaseNav = false;
-                            if (request()->routeIs('stores.purchases.show')) {
-                                $purchaseNav = request()->route('purchase');
-                                if ($purchaseNav && method_exists($purchaseNav, 'isProducto')) {
-                                    $isProductPurchaseNav = $purchaseNav->isProducto();
-                                } elseif (request()->header('referer') && str_contains(request()->header('referer'), '/productos/compras')) {
-                                    $isProductPurchaseNav = true;
-                                }
-                            }
-                        @endphp
-                        <x-nav-link :href="route('stores.cajas.movimientos', $store)" :active="(request()->routeIs('stores.cajas*') || request()->routeIs('stores.activos*') || request()->routeIs('stores.accounts-payables*') || request()->routeIs('stores.accounts-receivables*') || request()->routeIs('stores.comprobantes-egreso*') || request()->routeIs('stores.comprobantes-ingreso*') || request()->routeIs('stores.invoices*') || request()->routeIs('stores.contabilidad*') || (request()->routeIs('stores.purchases*') && !$isProductPurchaseNav)) && !request()->routeIs('stores.product-purchases*')" wire:navigate>
+                        <x-nav-link :href="route('stores.cajas.movimientos', $store)" :active="request()->routeIs('stores.cajas*') || request()->routeIs('stores.accounts-payables*') || request()->routeIs('stores.accounts-receivables*') || request()->routeIs('stores.comprobantes-egreso*') || request()->routeIs('stores.comprobantes-ingreso*') || request()->routeIs('stores.invoices*') || request()->routeIs('stores.contabilidad*')" wire:navigate>
                             {{ __('Financiero') }}
                         </x-nav-link>
                         @endif
                         @if($canVentas)
                         <x-nav-link :href="route('stores.ventas.carrito', $store)" :active="request()->routeIs('stores.ventas*')" wire:navigate>
                             {{ __('Ventas') }}
-                        </x-nav-link>
-                        @endif
-                        @if($canSuscripciones)
-                        <x-nav-link :href="route('stores.subscriptions.memberships', $store)" :active="request()->routeIs('stores.subscriptions*') || request()->routeIs('stores.asistencias*')" wire:navigate>
-                            {{ __('Suscripciones') }}
                         </x-nav-link>
                         @endif
 
@@ -154,26 +126,12 @@ new class extends Component
         {{-- Sub-navbar (Personas, Productos, Financiero) --}}
         @if($store ?? null)
             @php
-                // Verificar si estamos en purchases.show y si es una compra de productos
-                $isProductPurchase = false;
-                if (request()->routeIs('stores.purchases.show')) {
-                    $purchase = request()->route('purchase');
-                    if ($purchase && method_exists($purchase, 'isProducto')) {
-                        $isProductPurchase = $purchase->isProducto();
-                    } elseif (request()->header('referer') && str_contains(request()->header('referer'), '/productos/compras')) {
-                        // Fallback: verificar referer si viene de compras de productos
-                        $isProductPurchase = true;
-                    }
-                }
-                
                 $inPersonas = request()->routeIs('stores.terceros*') || request()->routeIs('stores.customers*') || request()->routeIs('stores.workers*') || request()->routeIs('stores.workers.schedules*');
-                $inProductos = request()->routeIs('stores.products*') || request()->routeIs('stores.categories*') || request()->routeIs('stores.attribute-groups*') || request()->routeIs('stores.product-purchases*') || (request()->routeIs('stores.purchases.show') && $isProductPurchase);
-                $inFinanciero = (request()->routeIs('stores.cajas*') || request()->routeIs('stores.activos*') || request()->routeIs('stores.accounts-payables*') || request()->routeIs('stores.accounts-receivables*') || request()->routeIs('stores.comprobantes-egreso*') || request()->routeIs('stores.comprobantes-ingreso*') || request()->routeIs('stores.invoices*') || request()->routeIs('stores.contabilidad*') || (request()->routeIs('stores.purchases*') && !$isProductPurchase)) && !request()->routeIs('stores.product-purchases*');
+                $inProductos = request()->routeIs('stores.products*');
+                $inFinanciero = request()->routeIs('stores.cajas*') || request()->routeIs('stores.accounts-payables*') || request()->routeIs('stores.accounts-receivables*') || request()->routeIs('stores.comprobantes-egreso*') || request()->routeIs('stores.comprobantes-ingreso*') || request()->routeIs('stores.invoices*') || request()->routeIs('stores.contabilidad*') || request()->routeIs('stores.recibos-caja*');
                 $inVentas = request()->routeIs('stores.ventas*');
-                $inSuscripciones = request()->routeIs('stores.subscriptions*');
-                $inAsistencias = request()->routeIs('stores.asistencias*');
             @endphp
-            @if($inPersonas || $inProductos || $inFinanciero || $inVentas || $inSuscripciones || $inAsistencias)
+            @if($inPersonas || $inProductos || $inFinanciero || $inVentas)
                 <div class="border-t border-white/5 bg-dark/80">
                     <div class="flex gap-1 py-2 overflow-x-auto">
                         @if($inPersonas)
@@ -194,28 +152,8 @@ new class extends Component
                                 {{ __('Productos') }}
                             </a>
                             @endstoreCan
-                            @storeCan($store, 'categories.view')
-                            <a href="{{ route('stores.categories', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.categories*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
-                                {{ __('Categorías') }}
-                            </a>
-                            @endstoreCan
-                            @storeCan($store, 'attribute-groups.view')
-                            <a href="{{ route('stores.attribute-groups', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.attribute-groups*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
-                                {{ __('Atributos') }}
-                            </a>
-                            @endstoreCan
-                            @storeCan($store, 'product-purchases.view')
-                            <a href="{{ route('stores.product-purchases', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.product-purchases*') || (request()->routeIs('stores.purchases.show') && $isProductPurchase) ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
-                                {{ __('Compra de productos') }}
-                            </a>
-                            @endstoreCan
                         @endif
                         @if($inFinanciero)
-                            @storeCan($store, 'purchases.view')
-                            <a href="{{ route('stores.purchases', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ (request()->routeIs('stores.purchases*') && !$isProductPurchase) ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
-                                {{ __('Compra de activos') }}
-                            </a>
-                            @endstoreCan
                             @storeCan($store, 'caja.view')
                             <a href="{{ route('stores.cajas.movimientos', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.cajas*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
                                 {{ __('Movimientos') }}
@@ -270,11 +208,6 @@ new class extends Component
                                 {{ __('Libro Mayor') }}
                             </a>
                             @endstoreCan
-                            @storeCan($store, 'activos.view')
-                            <a href="{{ route('stores.activos', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.activos*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
-                                {{ __('Activos') }}
-                            </a>
-                            @endstoreCan
                             @storeCan($store, 'invoices.view')
                             <a href="{{ route('stores.invoices', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.invoices*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
                                 {{ __('Facturas') }}
@@ -285,26 +218,6 @@ new class extends Component
                             @storeCan($store, 'ventas.carrito.view')
                             <a href="{{ route('stores.ventas.carrito', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.ventas.carrito*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
                                 {{ __('Carrito') }}
-                            </a>
-                            @endstoreCan
-                            @storeCan($store, 'cotizaciones.view')
-                            <a href="{{ route('stores.ventas.cotizaciones', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.ventas.cotizaciones*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
-                                {{ __('Cotizaciones') }}
-                            </a>
-                            @endstoreCan
-                        @endif
-                        @if($inSuscripciones || $inAsistencias)
-                            @storeCan($store, 'subscriptions.view')
-                            <a href="{{ route('stores.subscriptions.memberships', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.subscriptions.memberships*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
-                                {{ __('Membresías') }}
-                            </a>
-                            <a href="{{ route('stores.subscriptions.plans', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.subscriptions.plans*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
-                                {{ __('Planes') }}
-                            </a>
-                            @endstoreCan
-                            @storeCan($store, 'asistencias.view')
-                            <a href="{{ route('stores.asistencias', $store) }}" wire:navigate class="shrink-0 px-4 py-2 rounded-lg text-sm font-medium {{ request()->routeIs('stores.asistencias*') ? 'bg-brand/20 text-brand border border-brand/30' : 'text-gray-400 hover:bg-white/5 hover:text-gray-100' }}">
-                                {{ __('Asistencias') }}
                             </a>
                             @endstoreCan
                         @endif
@@ -325,10 +238,9 @@ new class extends Component
                 @php
                     $perm = app(\App\Services\StorePermissionService::class);
                     $canP = $perm->can($store, 'terceros.view') || $perm->can($store, 'workers.schedules.view');
-                    $canProd = $perm->can($store, 'products.view') || $perm->can($store, 'categories.view') || $perm->can($store, 'attribute-groups.view') || $perm->can($store, 'inventario.view') || $perm->can($store, 'product-purchases.view') || $perm->can($store, 'support-documents.view');
-                    $canF = $perm->can($store, 'caja.view') || $perm->can($store, 'activos.view') || $perm->can($store, 'accounts-payables.view') || $perm->can($store, 'accounts-receivables.view') || $perm->can($store, 'comprobantes-egreso.view') || $perm->can($store, 'comprobantes-ingreso.view') || $perm->can($store, 'invoices.view') || $perm->can($store, 'purchases.view') || $perm->can($store, 'contabilidad.cuentas.view') || $perm->can($store, 'contabilidad.categorias.view') || $perm->can($store, 'contabilidad.tipos.view') || $perm->can($store, 'contabilidad.impuestos.view') || $perm->can($store, 'contabilidad.formas-pago.view') || $perm->can($store, 'contabilidad.centros-costo.view') || $perm->can($store, 'contabilidad.comprobantes.view');
-                    $canV = $perm->can($store, 'ventas.carrito.view') || $perm->can($store, 'cotizaciones.view');
-                    $canSuscripciones = $perm->can($store, 'subscriptions.view') || $perm->can($store, 'asistencias.view');
+                    $canProd = $perm->can($store, 'products.view');
+                    $canF = $perm->can($store, 'caja.view') || $perm->can($store, 'accounts-payables.view') || $perm->can($store, 'accounts-receivables.view') || $perm->can($store, 'comprobantes-egreso.view') || $perm->can($store, 'comprobantes-ingreso.view') || $perm->can($store, 'invoices.view') || $perm->can($store, 'contabilidad.cuentas.view') || $perm->can($store, 'contabilidad.categorias.view') || $perm->can($store, 'contabilidad.tipos.view') || $perm->can($store, 'contabilidad.impuestos.view') || $perm->can($store, 'contabilidad.formas-pago.view') || $perm->can($store, 'contabilidad.centros-costo.view') || $perm->can($store, 'contabilidad.comprobantes.view');
+                    $canV = $perm->can($store, 'ventas.carrito.view');
                 @endphp
                 {{-- Móvil: Menú de Tienda (agrupado) --}}
                 @storeCan($store, 'dashboard.view')
@@ -356,29 +268,9 @@ new class extends Component
                     {{ __('Productos') }}
                 </x-responsive-nav-link>
                 @endstoreCan
-                @storeCan($store, 'categories.view')
-                <x-responsive-nav-link :href="route('stores.categories', $store)" :active="request()->routeIs('stores.categories*')" wire:navigate>
-                    {{ __('Categorías') }}
-                </x-responsive-nav-link>
-                @endstoreCan
-                @storeCan($store, 'attribute-groups.view')
-                <x-responsive-nav-link :href="route('stores.attribute-groups', $store)" :active="request()->routeIs('stores.attribute-groups*')" wire:navigate>
-                    {{ __('Atributos') }}
-                </x-responsive-nav-link>
-                @endstoreCan
-                @storeCan($store, 'product-purchases.view')
-                <x-responsive-nav-link :href="route('stores.product-purchases', $store)" :active="request()->routeIs('stores.product-purchases*')" wire:navigate>
-                    {{ __('Compra de productos') }}
-                </x-responsive-nav-link>
-                @endstoreCan
                 @endif
                 @if($canF)
                 <div class="px-4 py-2 text-xs font-semibold text-gray-400 uppercase">{{ __('Financiero') }}</div>
-                @storeCan($store, 'purchases.view')
-                <x-responsive-nav-link :href="route('stores.purchases', $store)" :active="request()->routeIs('stores.purchases*')" wire:navigate>
-                    {{ __('Compra de activos') }}
-                </x-responsive-nav-link>
-                @endstoreCan
                 @storeCan($store, 'caja.view')
                 <x-responsive-nav-link :href="route('stores.cajas.movimientos', $store)" :active="request()->routeIs('stores.cajas*')" wire:navigate>
                     {{ __('Movimientos') }}
@@ -428,11 +320,6 @@ new class extends Component
                     {{ __('Libro Mayor') }}
                 </x-responsive-nav-link>
                 @endstoreCan
-                @storeCan($store, 'activos.view')
-                <x-responsive-nav-link :href="route('stores.activos', $store)" :active="request()->routeIs('stores.activos*')" wire:navigate>
-                    {{ __('Activos') }}
-                </x-responsive-nav-link>
-                @endstoreCan
                 @storeCan($store, 'invoices.view')
                 <x-responsive-nav-link :href="route('stores.invoices', $store)" :active="request()->routeIs('stores.invoices*')" wire:navigate>
                     {{ __('Facturas') }}
@@ -444,27 +331,6 @@ new class extends Component
                 @storeCan($store, 'ventas.carrito.view')
                 <x-responsive-nav-link :href="route('stores.ventas.carrito', $store)" :active="request()->routeIs('stores.ventas.carrito*')" wire:navigate>
                     {{ __('Carrito') }}
-                </x-responsive-nav-link>
-                @endstoreCan
-                @storeCan($store, 'cotizaciones.view')
-                <x-responsive-nav-link :href="route('stores.ventas.cotizaciones', $store)" :active="request()->routeIs('stores.ventas.cotizaciones*')" wire:navigate>
-                    {{ __('Cotizaciones') }}
-                </x-responsive-nav-link>
-                @endstoreCan
-                @endif
-                @if($canSuscripciones)
-                <div class="px-4 py-2 text-xs font-semibold text-gray-400 uppercase">{{ __('Suscripciones') }}</div>
-                @storeCan($store, 'subscriptions.view')
-                <x-responsive-nav-link :href="route('stores.subscriptions.memberships', $store)" :active="request()->routeIs('stores.subscriptions.memberships*')" wire:navigate>
-                    {{ __('Membresías') }}
-                </x-responsive-nav-link>
-                <x-responsive-nav-link :href="route('stores.subscriptions.plans', $store)" :active="request()->routeIs('stores.subscriptions.plans*')" wire:navigate>
-                    {{ __('Planes') }}
-                </x-responsive-nav-link>
-                @endstoreCan
-                @storeCan($store, 'asistencias.view')
-                <x-responsive-nav-link :href="route('stores.asistencias', $store)" :active="request()->routeIs('stores.asistencias*')" wire:navigate>
-                    {{ __('Asistencias') }}
                 </x-responsive-nav-link>
                 @endstoreCan
                 @endif

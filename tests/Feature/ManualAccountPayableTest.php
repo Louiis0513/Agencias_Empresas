@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\AccountPayable;
 use App\Models\Bolsillo;
 use App\Models\ComprobanteEgreso;
-use App\Models\Purchase;
 use App\Models\Store;
 use App\Models\Tercero;
 use App\Models\User;
@@ -78,7 +77,7 @@ class ManualAccountPayableTest extends TestCase
         $this->assertSame(AccountPayable::STATUS_PENDIENTE, $ap->status);
     }
 
-    public function test_pago_cxp_manual_liquida_sin_actualizar_compra(): void
+    public function test_pago_cxp_manual_liquida_saldo(): void
     {
         [$user, $store] = $this->seedStoreWithOwner();
         [$bolsillo] = $this->seedOpenCajaConSaldo($store, $user, 500000.0);
@@ -90,17 +89,6 @@ class ManualAccountPayableTest extends TestCase
             'total_amount' => 80000,
         ]);
 
-        $purchase = Purchase::create([
-            'store_id' => $store->id,
-            'user_id' => $user->id,
-            'proveedor_id' => null,
-            'status' => Purchase::STATUS_APROBADO,
-            'purchase_type' => Purchase::TYPE_ACTIVO,
-            'payment_status' => Purchase::PAYMENT_PENDIENTE,
-            'payment_type' => Purchase::PAYMENT_TYPE_CREDITO,
-            'total' => '99999.00',
-        ]);
-
         $svc->registrarPago($store, $ap->id, $user->id, [
             'payment_date' => now()->toDateString(),
             'parts' => [
@@ -109,16 +97,13 @@ class ManualAccountPayableTest extends TestCase
         ]);
 
         $ap->refresh();
-        $purchase->refresh();
 
         $this->assertSame(AccountPayable::STATUS_PAGADO, $ap->status);
         $this->assertSame('0.00', (string) $ap->balance);
-        $this->assertSame(Purchase::PAYMENT_PENDIENTE, $purchase->payment_status);
-
         $this->assertSame(1, ComprobanteEgreso::deTienda($store->id)->count());
     }
 
-    public function test_pago_cxp_de_compra_marca_compra_como_pagada(): void
+    public function test_pago_cxp_con_tercero_liquida_saldo(): void
     {
         [$user, $store] = $this->seedStoreWithOwner();
         [$bolsillo] = $this->seedOpenCajaConSaldo($store, $user, 500000.0);
@@ -130,21 +115,11 @@ class ManualAccountPayableTest extends TestCase
             'roles' => [Tercero::ROL_PROVEEDOR],
         ]);
 
-        $purchase = Purchase::create([
-            'store_id' => $store->id,
-            'user_id' => $user->id,
-            'tercero_id' => $proveedor->id,
-            'status' => Purchase::STATUS_APROBADO,
-            'purchase_type' => Purchase::TYPE_ACTIVO,
-            'payment_status' => Purchase::PAYMENT_PENDIENTE,
-            'payment_type' => Purchase::PAYMENT_TYPE_CREDITO,
-            'total' => '75000.00',
-        ]);
-
         $ap = AccountPayable::create([
             'store_id' => $store->id,
-            'purchase_id' => $purchase->id,
-            'source' => AccountPayable::SOURCE_COMPRA,
+            'tercero_id' => $proveedor->id,
+            'source' => AccountPayable::SOURCE_MANUAL,
+            'creditor_name' => $proveedor->nombre,
             'total_amount' => 75000,
             'balance' => 75000,
             'status' => AccountPayable::STATUS_PENDIENTE,
@@ -160,10 +135,9 @@ class ManualAccountPayableTest extends TestCase
         ]);
 
         $ap->refresh();
-        $purchase->refresh();
 
         $this->assertSame(AccountPayable::STATUS_PAGADO, $ap->status);
-        $this->assertSame(Purchase::PAYMENT_PAGADO, $purchase->payment_status);
+        $this->assertSame('0.00', (string) $ap->balance);
     }
 
     public function test_pestana_por_pagar_muestra_acreedor_cxp_manual(): void

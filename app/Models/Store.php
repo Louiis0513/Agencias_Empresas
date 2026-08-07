@@ -48,24 +48,9 @@ class Store extends Model
         return $this->belongsTo(User::class, 'user_id');
     }
 
-    public function categories()
-    {
-        return $this->hasMany(Category::class);
-    }
-
     public function products()
     {
         return $this->hasMany(Product::class);
-    }
-
-    public function attributes()
-    {
-        return $this->hasMany(Attribute::class);
-    }
-
-    public function attributeGroups()
-    {
-        return $this->hasMany(AttributeGroup::class, 'store_id');
     }
 
     public function customers()
@@ -93,44 +78,14 @@ class Store extends Model
         return $this->terceros()->conRol(Tercero::ROL_PROVEEDOR);
     }
 
-    public function purchases()
-    {
-        return $this->hasMany(Purchase::class);
-    }
-
-    public function supportDocuments()
-    {
-        return $this->hasMany(SupportDocument::class);
-    }
-
-    public function supportDocumentSequences()
-    {
-        return $this->hasMany(SupportDocumentSequence::class);
-    }
-
     public function accountsPayables()
     {
         return $this->hasMany(AccountPayable::class);
     }
 
-    public function storePlans()
-    {
-        return $this->hasMany(StorePlan::class);
-    }
-
-    public function customerSubscriptions()
-    {
-        return $this->hasMany(CustomerSubscription::class);
-    }
-
     public function vitrinaConfig()
     {
         return $this->hasOne(VitrinaConfig::class);
-    }
-
-    public function panelSuscripcionesConfig()
-    {
-        return $this->hasOne(PanelSuscripcionesConfig::class);
     }
 
     public function workerSchedules()

@@ -696,8 +696,8 @@ class StoreCajaController extends Controller
 
         $data = collect($cuentas->items())->map(fn ($ap) => [
             'id' => $ap->id,
-            'purchase_id' => $ap->purchase->id ?? null,
-            'proveedor_nombre' => $ap->purchase->proveedor->nombre ?? '—',
+            'purchase_id' => null,
+            'proveedor_nombre' => $ap->tercero?->nombre ?? $ap->creditor_name ?? '—',
             'total_amount' => (float) $ap->total_amount,
             'balance' => (float) $ap->balance,
             'due_date' => $ap->due_date?->format('Y-m-d'),

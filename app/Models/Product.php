@@ -5,41 +5,23 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * Cascarón mínimo del maestro de ítems (producto/servicio).
+ * Se rediseñará con categoría contable estilo Siigo.
+ */
 class Product extends Model
 {
     use HasFactory;
 
-    public const QUANTITY_MODE_UNIT = 'unit';
-    public const QUANTITY_MODE_DECIMAL = 'decimal';
-
     protected $fillable = [
         'store_id',
-        'category_id',
         'categoria_contable_id',
         'name',
-        'barcode',
-        'sku',
-        'image_path',
-        'price',
-        'cost',
-        'margin',
-        'stock',
-        'quantity_mode',
-        'quantity_step',
-        'location',
-        'type',
         'is_active',
-        'in_showcase',
     ];
 
     protected $casts = [
-        'price' => 'decimal:2',
-        'cost' => 'decimal:2',
-        'margin' => 'decimal:2',
-        'stock' => 'decimal:2',
-        'quantity_step' => 'decimal:2',
         'is_active' => 'boolean',
-        'in_showcase' => 'boolean',
     ];
 
     public function store()
@@ -47,88 +29,13 @@ class Product extends Model
         return $this->belongsTo(Store::class);
     }
 
-    public function category()
-    {
-        return $this->belongsTo(Category::class);
-    }
-
     public function categoriaContable()
     {
         return $this->belongsTo(CategoriaContable::class, 'categoria_contable_id');
     }
 
-    public function attributeValues()
-    {
-        return $this->hasMany(ProductAttributeValue::class);
-    }
-
-    public function attributes()
-    {
-        return $this->belongsToMany(Attribute::class, 'product_attribute_values')
-            ->withPivot('value')
-            ->withTimestamps();
-    }
-
     public function invoiceDetails()
     {
         return $this->hasMany(InvoiceDetail::class);
-    }
-
-    public function movimientosInventario()
-    {
-        return $this->hasMany(MovimientoInventario::class);
-    }
-
-    public function productItems()
-    {
-        return $this->hasMany(ProductItem::class);
-    }
-
-    public function batches()
-    {
-        return $this->hasMany(Batch::class);
-    }
-
-    /**
-     * Variantes del producto (solo productos por lote).
-     * Cada variante es una combinación única de atributos con su precio,
-     * costo de referencia, barcode y SKU propios.
-     */
-    public function variants()
-    {
-        return $this->hasMany(ProductVariant::class);
-    }
-
-    public function proveedores()
-    {
-        return $this->belongsToMany(Tercero::class, 'producto_tercero', 'product_id', 'tercero_id')
-            ->whereHas('roles', fn ($query) => $query
-                ->where('rol', Tercero::ROL_PROVEEDOR)
-                ->where('activo', true))
-            ->withTimestamps();
-    }
-
-    /** Indica si el producto tiene control de inventario (simple, serializado o por lotes). */
-    public function isProductoInventario(): bool
-    {
-        return in_array($this->type, ['simple', MovimientoInventario::PRODUCT_TYPE_SERIALIZED, MovimientoInventario::PRODUCT_TYPE_BATCH], true)
-            || empty($this->type);
-    }
-
-    /** Indica si el producto es serializado (cada unidad en product_items). */
-    public function isSerialized(): bool
-    {
-        return $this->type === MovimientoInventario::PRODUCT_TYPE_SERIALIZED;
-    }
-
-    /** Indica si el producto es por lotes (batches + batch_items). */
-    public function isBatch(): bool
-    {
-        return $this->type === MovimientoInventario::PRODUCT_TYPE_BATCH;
-    }
-
-    public function usesDecimalQuantity(): bool
-    {
-        return ($this->quantity_mode ?? self::QUANTITY_MODE_UNIT) === self::QUANTITY_MODE_DECIMAL;
     }
 }

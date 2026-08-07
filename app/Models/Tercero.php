@@ -151,16 +151,6 @@ class Tercero extends Model
         return $this->hasMany(Invoice::class, 'tercero_id');
     }
 
-    public function purchases(): HasMany
-    {
-        return $this->hasMany(Purchase::class, 'tercero_id');
-    }
-
-    public function subscriptions(): HasMany
-    {
-        return $this->hasMany(CustomerSubscription::class, 'tercero_id');
-    }
-
     public function schedules(): HasMany
     {
         return $this->hasMany(WorkerSchedule::class, 'tercero_id');

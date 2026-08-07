@@ -403,8 +403,8 @@ class MovimientosExcelExportService
         }
 
         foreach ($cuentas as $ap) {
-            $nombreProveedorOAcreedor = $ap->purchase?->proveedor?->nombre ?? $ap->creditor_name ?? '';
-            $refCompra = $ap->purchase_id ? (string) $ap->purchase_id : __('Manual').' #'.$ap->id;
+            $nombreProveedorOAcreedor = $ap->tercero?->nombre ?? $ap->creditor_name ?? '';
+            $refCompra = $ap->isManual() ? __('Manual').' #'.$ap->id : '#'.$ap->id;
             $medioPago = $ap->isManual() ? __('CxP manual / cuenta de cobro') : __('Crédito proveedor');
 
             $sheet->setCellValue('A'.$r, $ap->id);

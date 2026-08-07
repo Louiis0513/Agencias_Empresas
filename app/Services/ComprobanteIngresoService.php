@@ -25,7 +25,6 @@ class ComprobanteIngresoService
 {
     public function __construct(
         protected CajaService $cajaService,
-        protected InvoiceService $invoiceService,
         protected StoreTimezoneService $storeTimezoneService,
         protected TipoComprobanteService $tipoComprobanteService,
         protected CentroCostoService $centroCostoService,
@@ -672,12 +671,43 @@ class ComprobanteIngresoService
                 ->filter()
                 ->values()
                 ->all();
-            $paymentMethod = $this->invoiceService->derivarMetodoPagoDesdeBolsillos($store, $bolsilloIds) ?? 'CASH';
+            $paymentMethod = $this->derivarMetodoPagoDesdeBolsillos($store, $bolsilloIds) ?? 'CASH';
             $invoice->update(array_filter([
                 'payment_method' => $paymentMethod,
                 'status' => $newBalance <= 0 ? 'PAID' : null,
             ]));
         }
+    }
+
+    /**
+     * @param  array<int>  $bolsilloIds
+     */
+    private function derivarMetodoPagoDesdeBolsillos(Store $store, array $bolsilloIds): ?string
+    {
+        $bolsilloIds = array_filter(array_unique(array_map('intval', $bolsilloIds)));
+        if ($bolsilloIds === []) {
+            return null;
+        }
+
+        $bolsillos = Bolsillo::whereIn('id', $bolsilloIds)
+            ->where('store_id', $store->id)
+            ->get();
+
+        if ($bolsillos->isEmpty()) {
+            return null;
+        }
+
+        $todosEfectivo = $bolsillos->every(fn (Bolsillo $b) => ! $b->is_bank_account);
+        $todosBancario = $bolsillos->every(fn (Bolsillo $b) => $b->is_bank_account);
+
+        if ($todosEfectivo) {
+            return 'CASH';
+        }
+        if ($todosBancario) {
+            return 'TRANSFER';
+        }
+
+        return 'MIXED';
     }
 
     public function listar(Store $store, array $filtros = []): LengthAwarePaginator

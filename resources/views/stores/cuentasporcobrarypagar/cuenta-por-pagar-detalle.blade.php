@@ -5,7 +5,7 @@
                 @if($accountPayable->isManual())
                     {{ __('CxP manual') }} #{{ $accountPayable->id }} — {{ $store->name }}
                 @else
-                    {{ __('CxP') }} — {{ __('Compra') }} #{{ $accountPayable->purchase->id }} — {{ $store->name }}
+                    {{ __('CxP') }} #{{ $accountPayable->id }} — {{ $store->name }}
                 @endif
             </h2>
             <a href="{{ route('stores.cajas.movimientos', ['store' => $store, 'tab' => 'por-pagar']) }}" wire:navigate class="text-sm text-gray-400 hover:text-brand transition">
@@ -57,14 +57,16 @@
                                 </div>
                             @endif
                         @else
-                            <div>
-                                <p class="text-sm text-gray-400">{{ __('Compra') }}</p>
-                                <a href="{{ route('stores.purchases.show', [$store, $accountPayable->purchase]) }}" class="text-lg font-semibold text-indigo-400 hover:text-indigo-300">#{{ $accountPayable->purchase->id }}</a>
+                            <div class="md:col-span-2">
+                                <p class="text-sm text-gray-400">{{ __('Tipo') }}</p>
+                                <p class="text-lg font-semibold text-gray-100">{{ __('Cuenta por pagar') }} #{{ $accountPayable->id }}</p>
                             </div>
-                            <div>
-                                <p class="text-sm text-gray-400">{{ __('Proveedor') }}</p>
-                                <p class="text-lg font-semibold text-gray-100">{{ $accountPayable->purchase->proveedor?->nombre ?? '-' }}</p>
-                            </div>
+                            @if($accountPayable->tercero)
+                                <div>
+                                    <p class="text-sm text-gray-400">{{ __('Tercero') }}</p>
+                                    <p class="text-lg font-semibold text-gray-100">{{ $accountPayable->tercero->nombre ?? $accountPayable->tercero->name ?? '—' }}</p>
+                                </div>
+                            @endif
                         @endif
                         <div>
                             <p class="text-sm text-gray-400">{{ __('Deuda original') }}</p>

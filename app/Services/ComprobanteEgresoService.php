@@ -7,7 +7,6 @@ use App\Models\ComprobanteEgreso;
 use App\Models\ComprobanteEgresoDestino;
 use App\Models\ComprobanteEgresoOrigen;
 use App\Models\MovimientoBolsillo;
-use App\Models\Purchase;
 use App\Models\SesionCaja;
 use App\Models\Store;
 use App\Models\Tercero;
@@ -147,7 +146,7 @@ class ComprobanteEgresoService
                 ]);
             }
 
-            return $comprobante->load(['destinos.accountPayable.purchase.proveedor', 'origenes.bolsillo']);
+            return $comprobante->load(['destinos.accountPayable.tercero', 'origenes.bolsillo']);
         });
     }
 
@@ -184,7 +183,7 @@ class ComprobanteEgresoService
         DB::transaction(function () use ($store, $comprobanteId, $userId, $origenes) {
             $comprobante = ComprobanteEgreso::where('id', $comprobanteId)
                 ->where('store_id', $store->id)
-                ->with(['destinos.accountPayable.purchase', 'origenes.bolsillo'])
+                ->with(['destinos.accountPayable', 'origenes.bolsillo'])
                 ->lockForUpdate()
                 ->firstOrFail();
 
@@ -256,7 +255,7 @@ class ComprobanteEgresoService
     public function listar(Store $store, array $filtros = []): LengthAwarePaginator
     {
         $query = ComprobanteEgreso::deTienda($store->id)
-            ->with(['user:id,name', 'proveedor:id,nombre', 'destinos.accountPayable.purchase.proveedor'])
+            ->with(['user:id,name', 'proveedor:id,nombre', 'destinos.accountPayable.tercero'])
             ->orderByDesc('payment_date')
             ->orderByDesc('id');
 
@@ -404,7 +403,7 @@ class ComprobanteEgresoService
     {
         return ComprobanteEgreso::where('id', $comprobanteId)
             ->where('store_id', $store->id)
-            ->with(['user', 'proveedor', 'destinos.accountPayable.purchase.proveedor', 'origenes.bolsillo'])
+            ->with(['user', 'proveedor', 'destinos.accountPayable.tercero', 'origenes.bolsillo'])
             ->firstOrFail();
     }
 
@@ -532,42 +531,28 @@ class ComprobanteEgresoService
             'notes' => $data['notes'] ?? $comprobante->notes,
         ]);
 
-        return $comprobante->load(['user', 'proveedor', 'destinos.accountPayable.purchase.proveedor', 'origenes.bolsillo']);
+        return $comprobante->load(['user', 'proveedor', 'destinos.accountPayable.tercero', 'origenes.bolsillo']);
     }
 
     private function descripcionVistaCuentaPorPagar(AccountPayable $ap): string
     {
-        if ($ap->isManual() || $ap->purchase_id === null) {
-            $parts = array_filter([
-                $ap->description ? (string) $ap->description : null,
-                filled($ap->document_reference) ? __('Ref. :r', ['r' => $ap->document_reference]) : null,
-                filled($ap->creditor_name) ? (string) $ap->creditor_name : null,
-            ]);
+        $parts = array_filter([
+            $ap->description ? (string) $ap->description : null,
+            filled($ap->document_reference) ? __('Ref. :r', ['r' => $ap->document_reference]) : null,
+            filled($ap->creditor_name) ? (string) $ap->creditor_name : null,
+            $ap->tercero?->nombre ? (string) $ap->tercero->nombre : null,
+        ]);
 
-            return $parts !== [] ? implode(' — ', $parts) : __('CxP manual #:id', ['id' => $ap->id]);
-        }
-
-        $purchase = $ap->purchase;
-        $proveedorNombre = $purchase?->proveedor?->nombre ?? __('Proveedor');
-        $purchaseId = $ap->purchase_id;
-
-        if ($purchase !== null) {
-            $doc = trim((string) ($purchase->invoice_number ?? ''));
-            if ($doc !== '') {
-                return __('Abono a :doc — Compra a :prov', ['doc' => $doc, 'prov' => $proveedorNombre]);
-            }
-        }
-
-        if ($purchaseId) {
-            return __('Abono a compra #:id · :prov', ['id' => $purchaseId, 'prov' => $proveedorNombre]);
+        if ($parts !== []) {
+            return implode(' — ', $parts);
         }
 
         $fechaCxP = $ap->due_date?->format('d/m/Y');
         if ($fechaCxP) {
-            return __('Abono a CxP (:fecha) · :prov', ['fecha' => $fechaCxP, 'prov' => $proveedorNombre]);
+            return __('Abono a CxP (:fecha) #:id', ['fecha' => $fechaCxP, 'id' => $ap->id]);
         }
 
-        return __('Abono a CxP · :prov', ['prov' => $proveedorNombre]);
+        return __('Abono a CxP #:id', ['id' => $ap->id]);
     }
 
     private function calcularBeneficiaryName(Store $store, ?int $proveedorId, array $destinos, bool $tieneCuentasPorPagar = false): ?string
@@ -600,18 +585,13 @@ class ComprobanteEgresoService
     {
         $ap = AccountPayable::where('id', $accountPayableId)
             ->where('store_id', $store->id)
-            ->with('purchase')
             ->first();
 
         if (! $ap) {
             throw new Exception("La CxP #{$accountPayableId} no existe en esta tienda.");
         }
 
-        if (! $ap->purchase_id) {
-            throw new Exception("La CxP #{$accountPayableId} no está vinculada a una compra con proveedor.");
-        }
-
-        if ((int) $ap->purchase->tercero_id !== $proveedorId) {
+        if ((int) $ap->tercero_id !== $proveedorId) {
             throw new Exception("La CxP #{$accountPayableId} no pertenece al proveedor seleccionado.");
         }
     }
@@ -624,13 +604,7 @@ class ComprobanteEgresoService
             $amount = (float) ($d['amount'] ?? 0);
             if ($d['account_payable_id'] ?? null) {
                 $apId = (int) $d['account_payable_id'];
-                $ap = AccountPayable::with('purchase')->find($apId);
-                if ($ap && ! $ap->purchase_id) {
-                    $partes[] = 'CxP #'.$apId.': '.money($amount, $currency, false);
-                } else {
-                    $compraId = $ap?->purchase?->id ?? $apId;
-                    $partes[] = "Compra #{$compraId}: ".money($amount, $currency, false);
-                }
+                $partes[] = 'CxP #'.$apId.': '.money($amount, $currency, false);
             } else {
                 $partes[] = ($d['concepto'] ?? 'Gasto').': '.money($amount, $currency, false);
             }
@@ -663,16 +637,11 @@ class ComprobanteEgresoService
             'balance' => max(0, $nuevoBalance),
             'status' => $nuevoStatus,
         ]);
-
-        if ($nuevoStatus === AccountPayable::STATUS_PAGADO && $accountPayable->purchase_id && $accountPayable->purchase) {
-            $accountPayable->purchase->update(['payment_status' => Purchase::PAYMENT_PAGADO]);
-        }
     }
 
     private function revertirPagoACuentaPorPagar(AccountPayable $accountPayable, float $monto): void
     {
         $accountPayable = AccountPayable::where('id', $accountPayable->id)->lockForUpdate()->firstOrFail();
-        $eraPagado = $accountPayable->isPagado();
         $nuevoBalance = $accountPayable->balance + $monto;
         $nuevoStatus = $nuevoBalance <= 0
             ? AccountPayable::STATUS_PAGADO
@@ -684,9 +653,5 @@ class ComprobanteEgresoService
             'balance' => $nuevoBalance,
             'status' => $nuevoStatus,
         ]);
-
-        if ($eraPagado && $accountPayable->purchase_id && $accountPayable->purchase) {
-            $accountPayable->purchase->update(['payment_status' => Purchase::PAYMENT_PENDIENTE]);
-        }
     }
 }

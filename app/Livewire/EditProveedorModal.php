@@ -5,7 +5,6 @@ namespace App\Livewire;
 use App\Models\Product;
 use App\Models\Store;
 use App\Models\Tercero;
-use App\Services\ProductService;
 use App\Services\ProveedorService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
@@ -100,13 +99,15 @@ class EditProveedorModal extends Component
         if (empty($this->producto_ids)) {
             return collect();
         }
+
         return Product::whereIn('id', $this->producto_ids)->orderBy('name')->get();
     }
 
-    public function buscarProductos(ProductService $productService): void
+    public function buscarProductos(): void
     {
         if (empty($this->busquedaProducto)) {
             $this->productosEncontrados = [];
+
             return;
         }
 
@@ -115,8 +116,19 @@ class EditProveedorModal extends Component
             return;
         }
 
-        $this->productosEncontrados = $productService->buscarProductos($store, $this->busquedaProducto, $this->producto_ids)
-            ->map(fn ($p) => ['id' => $p->id, 'name' => $p->name, 'sku' => $p->sku])
+        $query = Product::query()
+            ->where('store_id', $store->id)
+            ->where('name', 'like', '%'.$this->busquedaProducto.'%')
+            ->orderBy('name')
+            ->limit(25);
+
+        if (! empty($this->producto_ids)) {
+            $query->whereNotIn('id', $this->producto_ids);
+        }
+
+        $this->productosEncontrados = $query
+            ->get(['id', 'name'])
+            ->map(fn (Product $p) => ['id' => $p->id, 'name' => $p->name])
             ->toArray();
     }
 
@@ -127,13 +139,13 @@ class EditProveedorModal extends Component
         }
         $this->producto_ids[] = $productId;
         $this->producto_ids = array_values(array_unique($this->producto_ids));
-        $this->buscarProductos(app(ProductService::class));
+        $this->buscarProductos();
     }
 
     public function quitarProducto(int $productId): void
     {
         $this->producto_ids = array_values(array_filter($this->producto_ids, fn ($id) => $id !== $productId));
-        $this->buscarProductos(app(ProductService::class));
+        $this->buscarProductos();
     }
 
     public function update(ProveedorService $proveedorService)

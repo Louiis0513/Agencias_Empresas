@@ -56,18 +56,6 @@
                         <p class="text-sm text-gray-400 mt-1">Elige qué deseas configurar.</p>
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        @storeCan($store, 'vitrina.view')
-                        <a href="{{ route('stores.vitrina.edit', $store) }}" wire:navigate
-                           class="flex w-full items-start gap-4 rounded-xl border border-white/10 bg-dark-card p-5 text-left text-white transition hover:border-brand/30 hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-brand/50">
-                            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-brand/20 text-brand">
-                                <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
-                            </span>
-                            <span class="min-w-0 flex-1">
-                                <span class="block font-medium text-white">Vitrina virtual</span>
-                                <span class="mt-1 block text-sm text-gray-400">Configura y comparte el enlace de tu catálogo para que tus clientes vean productos, planes y te contacten por WhatsApp o llamada.</span>
-                            </span>
-                        </a>
-                        @endstoreCan
                         @storeCan($store, 'caja.view')
                         <button type="button" @click="panel = 'caja'"
                                 class="flex w-full items-start gap-4 rounded-xl border border-white/10 bg-dark-card p-5 text-left text-white transition hover:border-brand/30 hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-brand/50">

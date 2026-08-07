@@ -10,12 +10,10 @@
         </div>
     </x-slot>
 
-    @livewire('select-item-modal', ['storeId' => $store->id, 'itemType' => 'INVENTARIO', 'rowId' => 'factura'])
-    @livewire('select-batch-variant-modal', ['storeId' => $store->id])
-    <livewire:create-invoice-modal :store-id="$store->id" />
-
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+            @include('stores.partials.flujo-factura-incompleto')
+
             {{-- Mensajes de éxito/error --}}
             @if(session('success'))
                 <div class="mb-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-4 py-3 rounded relative" role="alert">
@@ -35,19 +33,6 @@
                         $fieldClass = 'w-full min-h-[42px] rounded-lg border border-white/15 bg-zinc-950/70 px-3 py-2 text-sm text-gray-100 placeholder:text-gray-500 shadow-sm focus:border-brand/60 focus:outline-none focus:ring-2 focus:ring-brand/25 transition';
                         $labelClass = 'block text-xs font-medium text-gray-400 mb-1.5';
                     @endphp
-
-                    {{-- Botón crear factura --}}
-                    <div class="mb-6 flex flex-wrap justify-end gap-2">
-                        <button type="button"
-                                x-data=""
-                                x-on:click="Livewire.dispatch('open-create-invoice-fresh')"
-                                class="inline-flex items-center justify-center gap-2 min-h-[42px] px-4 rounded-lg bg-brand text-white text-sm font-semibold hover:bg-brand/90 focus:outline-none focus:ring-2 focus:ring-brand/40 transition">
-                            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                            </svg>
-                            Crear factura
-                        </button>
-                    </div>
 
                     {{-- Filtros y búsqueda --}}
                     <form method="GET" action="{{ route('stores.invoices', $store) }}" class="mb-6 space-y-5">

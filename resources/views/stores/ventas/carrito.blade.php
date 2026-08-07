@@ -10,15 +10,13 @@
         </div>
     </x-slot>
 
-    @livewire('select-item-modal', ['storeId' => $store->id, 'itemType' => 'INVENTARIO', 'rowId' => 'venta'])
-    @livewire('select-batch-variant-modal', ['storeId' => $store->id])
-
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-            <div class="bg-dark-card border border-white/5 overflow-hidden sm:rounded-xl">
-                <div class="p-6">
-                    <livewire:ventas-carrito :store-id="$store->id" />
-                </div>
+            @include('stores.partials.flujo-ventas-incompleto')
+            <div class="bg-dark-card border border-white/5 overflow-hidden sm:rounded-xl p-8 text-center">
+                <p class="text-gray-400 text-sm">
+                    El carrito de ventas no está disponible hasta el rediseño contable del flujo de venta.
+                </p>
             </div>
         </div>
     </div>

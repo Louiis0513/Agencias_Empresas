@@ -2,14 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\StoreInvoiceRequest;
 use App\Models\Invoice;
 use App\Models\Store;
 use App\Services\CustomerService;
 use App\Services\InvoiceExcelExportService;
 use App\Services\InvoiceService;
 use App\Services\StorePermissionService;
-use App\Services\VentaService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -78,20 +76,6 @@ class StoreInvoiceController extends Controller
         return view('stores.factura.factura-detalle', compact('store', 'invoice'));
     }
 
-    public function store(Store $store, StoreInvoiceRequest $request, VentaService $ventaService, StorePermissionService $permission)
-    {
-        $permission->authorize($store, 'invoices.create');
-
-        try {
-            $ventaService->registrarVenta($store, Auth::id(), $request->validated());
-            return redirect()->route('stores.invoices', $store)
-                ->with('success', 'Factura creada correctamente.');
-        } catch (\Exception $e) {
-            return redirect()->route('stores.invoices', $store)
-                ->with('error', $e->getMessage());
-        }
-    }
-
     public function void(Store $store, Invoice $invoice, InvoiceService $invoiceService, StorePermissionService $permission)
     {
         $permission->authorize($store, 'invoices.void');
@@ -101,7 +85,8 @@ class StoreInvoiceController extends Controller
         }
 
         try {
-            $invoiceService->anularFactura($store, $invoice);
+            $invoiceService->anularFactura($store, $invoice->id);
+
             return redirect()->route('stores.invoices', $store)
                 ->with('success', 'Factura anulada correctamente.');
         } catch (\Exception $e) {
@@ -110,10 +95,6 @@ class StoreInvoiceController extends Controller
         }
     }
 
-    /**
-     * Imprime la factura en formato tira térmica (recibo de supermercado).
-     * Solo facturas PAID (venta directa pagada).
-     */
     public function printReceipt(Store $store, Invoice $invoice, InvoiceService $invoiceService, StorePermissionService $permission)
     {
         $permission->authorize($store, 'invoices.view');
@@ -122,42 +103,19 @@ class StoreInvoiceController extends Controller
             abort(404);
         }
 
-        if ($invoice->status !== 'PAID') {
-            abort(403, 'Solo se puede imprimir facturas pagadas.');
-        }
-
         $invoice = $invoiceService->obtenerFactura($store, $invoice->id);
 
-        $barcodeBase64 = null;
-        try {
-            $generator = new BarcodeGeneratorPNG();
-            $barcodePng = $generator->getBarcode((string) $invoice->id, $generator::TYPE_CODE_128, 2, 40);
-            $barcodeBase64 = 'data:image/png;base64,' . base64_encode($barcodePng);
-        } catch (\Throwable $e) {
-            // Si falla el barcode, continuar sin él
-        }
+        $generator = new BarcodeGeneratorPNG;
+        $barcode = base64_encode($generator->getBarcode(
+            (string) $invoice->id,
+            $generator::TYPE_CODE_128,
+            2,
+            40
+        ));
 
-        $pdf = Pdf::loadView('invoices.receipt-tira', [
-            'invoice' => $invoice,
-            'store' => $store,
-            'barcodeBase64' => $barcodeBase64,
-        ]);
+        $pdf = Pdf::loadView('stores.factura.factura-tira', compact('store', 'invoice', 'barcode'))
+            ->setPaper([0, 0, 226.77, 600], 'portrait');
 
-        // Altura dinámica: desde nombre tienda hasta *id* del barcode, sin sobrante de papel
-        // No usar size en @page para evitar conflicto con setPaper
-        $baseHeightMm = 69; // encabezado + datos + cabecera tabla + totales + pie + barcode
-        $itemsHeightMm = 0;
-        foreach ($invoice->details as $detail) {
-            $desc = $detail->receipt_description ?? $detail->product_name ?? '';
-            $charsPerLine = 18; // ~18 caracteres caben en 20mm
-            $lines = max(1, (int) ceil(mb_strlen($desc) / $charsPerLine));
-            $itemsHeightMm += max(3, $lines * 3); // ~3mm por fila, más si descripción larga
-        }
-        $totalHeightMm = $baseHeightMm + $itemsHeightMm;
-        $heightPt = round($totalHeightMm * 2.83465, 1); // mm a pt, redondeado para precisión
-
-        $pdf->setPaper([0, 0, 164.4, $heightPt], 'portrait');
-
-        return $pdf->stream('factura-' . $invoice->id . '.pdf');
+        return $pdf->stream('factura-'.$invoice->id.'.pdf');
     }
 }

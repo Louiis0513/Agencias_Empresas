@@ -3,12 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreTerceroRequest;
+use App\Models\Product;
 use App\Models\Role;
 use App\Models\Store;
 use App\Models\Tercero;
 use App\Models\TerceroContacto;
 use App\Models\TerceroDireccion;
-use App\Services\ProductService;
 use App\Services\StorePermissionService;
 use App\Services\TerceroService;
 use Exception;
@@ -20,7 +20,6 @@ class StoreTerceroController extends Controller
     public function __construct(
         private readonly StorePermissionService $permissionService,
         private readonly TerceroService $terceroService,
-        private readonly ProductService $productService,
     ) {}
 
     public function index(Request $request, Store $store)
@@ -158,17 +157,25 @@ class StoreTerceroController extends Controller
             'exclude.*' => ['integer'],
         ]);
 
-        if (trim($data['q']) === '') {
+        $q = trim($data['q']);
+        if ($q === '') {
             return response()->json([]);
         }
 
-        $productos = $this->productService
-            ->buscarProductos($store, trim($data['q']), $data['exclude'] ?? [])
-            ->map(fn ($producto) => [
+        $query = Product::query()
+            ->where('store_id', $store->id)
+            ->where('name', 'like', '%'.$q.'%')
+            ->orderBy('name')
+            ->limit(25);
+
+        if (! empty($data['exclude'])) {
+            $query->whereNotIn('id', $data['exclude']);
+        }
+
+        $productos = $query->get(['id', 'name'])
+            ->map(fn (Product $producto) => [
                 'id' => $producto->id,
                 'name' => $producto->name,
-                'sku' => $producto->sku,
-                'barcode' => $producto->barcode,
             ])
             ->values();
 
