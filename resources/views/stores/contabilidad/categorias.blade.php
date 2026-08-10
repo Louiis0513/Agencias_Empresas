@@ -2,10 +2,10 @@
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-white leading-tight">
-                Categorías de productos y servicios — {{ $store->name }}
+                Categoría de productos y servicios — {{ $store->name }}
             </h2>
-            <a href="{{ route('stores.contabilidad.cuentas', $store) }}" class="text-sm text-gray-400 hover:text-brand transition">
-                ← Plan de cuentas
+            <a href="{{ route('stores.configuracion', $store) }}?panel=productos" class="text-sm text-gray-400 hover:text-brand transition">
+                ← Configuración
             </a>
         </div>
     </x-slot>

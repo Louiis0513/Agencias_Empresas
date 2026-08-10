@@ -10,8 +10,8 @@
             <h2 class="font-semibold text-xl text-white leading-tight">
                 Impuestos — {{ $store->name }}
             </h2>
-            <a href="{{ route('stores.contabilidad.tipos', $store) }}" class="text-sm text-gray-400 hover:text-brand transition">
-                ← Comprobantes contables
+            <a href="{{ route('stores.configuracion', $store) }}?panel=contabilidad" class="text-sm text-gray-400 hover:text-brand transition">
+                ← Configuración
             </a>
         </div>
     </x-slot>
@@ -84,7 +84,7 @@
 
             @if($cuentas->isEmpty())
                 <div class="mb-4 rounded-xl border border-amber-500/30 bg-amber-950/30 px-4 py-3 text-amber-200">
-                    No hay cuentas auxiliares transaccionales. Créelas primero en el Plan de cuentas.
+                    No hay cuentas auxiliares transaccionales. Créelas primero en Cuentas contables.
                 </div>
             @endif
 

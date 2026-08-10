@@ -18,7 +18,7 @@
         <p class="mt-2 flex flex-wrap gap-x-3 gap-y-1">
             @storeCan($storeRef, 'contabilidad.cuentas.view')
                 <a href="{{ route('stores.contabilidad.cuentas', $storeRef) }}" wire:navigate
-                   class="underline hover:text-white">Plan de cuentas</a>
+                   class="underline hover:text-white">Cuentas contables</a>
             @endstoreCan
             @if(\Illuminate\Support\Facades\Route::has('stores.contabilidad.formas-pago'))
                 @storeCan($storeRef, 'contabilidad.formas-pago.view')

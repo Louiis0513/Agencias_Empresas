@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreProductRequest;
+use App\Models\Bodega;
+use App\Models\CentroCosto;
 use App\Models\Impuesto;
 use App\Models\ListaPrecio;
 use App\Models\Product;
@@ -179,6 +181,44 @@ class StoreProductController extends Controller
         if ($product->store_id !== $store->id) {
             abort(404);
         }
+    }
+
+    /**
+     * Formulario shell: saldos iniciales de inventario (solo UI, sin persistencia).
+     */
+    public function createSaldosIniciales(Store $store)
+    {
+        $this->permissionService->authorize($store, 'products.view');
+
+        $productosInventariables = Product::query()
+            ->where('store_id', $store->id)
+            ->where('es_inventariable', true)
+            ->activos()
+            ->orderBy('codigo')
+            ->get(['id', 'codigo', 'nombre']);
+
+        $bodegas = $store->maneja_bodegas
+            ? Bodega::query()
+                ->deStore($store)
+                ->activos()
+                ->orderBy('codigo')
+                ->get(['id', 'codigo', 'nombre'])
+            : collect();
+
+        $centrosCosto = CentroCosto::query()
+            ->deStore($store)
+            ->subcentros()
+            ->activos()
+            ->with('padre:id,codigo,nombre')
+            ->orderBy('codigo')
+            ->get(['id', 'codigo', 'nombre', 'parent_id']);
+
+        return view('stores.productos.documentos.saldos-iniciales-crear', [
+            'store' => $store,
+            'productosInventariables' => $productosInventariables,
+            'bodegas' => $bodegas,
+            'centrosCosto' => $centrosCosto,
+        ]);
     }
 
     /**

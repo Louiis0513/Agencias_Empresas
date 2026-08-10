@@ -67,7 +67,7 @@
             @if($cuentas->isEmpty())
                 <div class="mb-4 rounded-xl border border-amber-500/30 bg-amber-950/30 px-4 py-3 text-amber-200">
                     No hay cuentas auxiliares transaccionales. Créelas primero en el
-                    <a href="{{ route('stores.contabilidad.cuentas', $store) }}" class="underline">Plan de cuentas</a>
+                    <a href="{{ route('stores.contabilidad.cuentas', $store) }}" class="underline">Cuentas contables</a>
                     o importa el PUC base para poder generar los defaults.
                 </div>
             @endif

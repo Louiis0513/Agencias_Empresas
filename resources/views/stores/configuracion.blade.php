@@ -1,6 +1,6 @@
 @php
     $panelQuery = request('panel');
-    $allowedPanels = ['menu', 'basica', 'caja'];
+    $allowedPanels = ['menu', 'basica', 'caja', 'productos', 'contabilidad'];
     if (in_array($panelQuery, $allowedPanels, true)) {
         $initialPanel = $panelQuery;
     } elseif ($errors->any()) {
@@ -8,6 +8,12 @@
     } else {
         $initialPanel = 'menu';
     }
+    $perm = app(\App\Services\StorePermissionService::class);
+    $canHubProductos = $perm->can($store, 'contabilidad.categorias.view') || $perm->can($store, 'products.bodegas.view');
+    $canHubContabilidad = $perm->can($store, 'contabilidad.impuestos.view')
+        || $perm->can($store, 'contabilidad.centros-costo.view')
+        || $perm->can($store, 'contabilidad.tipos.view')
+        || $perm->can($store, 'contabilidad.cuentas.view');
 @endphp
 <x-app-layout>
     <x-slot name="header">
@@ -80,6 +86,30 @@
                             </span>
                         </button>
                         @endstoreCan
+                        @if($canHubProductos)
+                        <button type="button" @click="panel = 'productos'"
+                                class="flex w-full items-start gap-4 rounded-xl border border-white/10 bg-dark-card p-5 text-left text-white transition hover:border-brand/30 hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-brand/50">
+                            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-brand/20 text-brand">
+                                <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" /></svg>
+                            </span>
+                            <span class="min-w-0 flex-1">
+                                <span class="block font-medium text-white">Productos y servicios</span>
+                                <span class="mt-1 block text-sm text-gray-400">Categorías y configuración de bodegas.</span>
+                            </span>
+                        </button>
+                        @endif
+                        @if($canHubContabilidad)
+                        <button type="button" @click="panel = 'contabilidad'"
+                                class="flex w-full items-start gap-4 rounded-xl border border-white/10 bg-dark-card p-5 text-left text-white transition hover:border-brand/30 hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-brand/50">
+                            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-brand/20 text-brand">
+                                <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>
+                            </span>
+                            <span class="min-w-0 flex-1">
+                                <span class="block font-medium text-white">Contabilidad</span>
+                                <span class="mt-1 block text-sm text-gray-400">Cuentas, impuestos, centros de costo y comprobantes.</span>
+                            </span>
+                        </button>
+                        @endif
                     </div>
                 </div>
 
@@ -258,6 +288,114 @@
                     @endif
                 </div>
                 @endstoreCan
+
+                {{-- Hub: Productos y servicios --}}
+                @if($canHubProductos)
+                <div x-show="panel === 'productos'" x-cloak class="space-y-4">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <button type="button" @click="panel = 'menu'"
+                                class="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm text-gray-300 transition hover:bg-white/5 hover:text-white focus:outline-none focus:ring-2 focus:ring-brand/50">
+                            <span aria-hidden="true">←</span> Volver a configuraciones
+                        </button>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-white">Productos y servicios</h3>
+                        <p class="text-sm text-gray-400 mt-1">Elige qué deseas configurar.</p>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        @storeCan($store, 'contabilidad.categorias.view')
+                        <a href="{{ route('stores.contabilidad.categorias', $store) }}" wire:navigate
+                           class="flex w-full items-start gap-4 rounded-xl border border-white/10 bg-dark-card p-5 text-left text-white transition hover:border-brand/30 hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-brand/50">
+                            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-brand/20 text-brand">
+                                <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" /><path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" /></svg>
+                            </span>
+                            <span class="min-w-0 flex-1">
+                                <span class="block font-medium text-white">Categoría de productos y servicios</span>
+                                <span class="mt-1 block text-sm text-gray-400">Clasificación contable de productos y servicios.</span>
+                            </span>
+                        </a>
+                        @endstoreCan
+                        @storeCan($store, 'products.bodegas.view')
+                        <a href="{{ route('stores.products.bodegas', $store) }}" wire:navigate
+                           class="flex w-full items-start gap-4 rounded-xl border border-white/10 bg-dark-card p-5 text-left text-white transition hover:border-brand/30 hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-brand/50">
+                            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-brand/20 text-brand">
+                                <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" /></svg>
+                            </span>
+                            <span class="min-w-0 flex-1">
+                                <span class="block font-medium text-white">Configuración de bodegas</span>
+                                <span class="mt-1 block text-sm text-gray-400">Manejo de bodegas, códigos y ubicaciones.</span>
+                            </span>
+                        </a>
+                        @endstoreCan
+                    </div>
+                </div>
+                @endif
+
+                {{-- Hub: Contabilidad --}}
+                @if($canHubContabilidad)
+                <div x-show="panel === 'contabilidad'" x-cloak class="space-y-4">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <button type="button" @click="panel = 'menu'"
+                                class="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm text-gray-300 transition hover:bg-white/5 hover:text-white focus:outline-none focus:ring-2 focus:ring-brand/50">
+                            <span aria-hidden="true">←</span> Volver a configuraciones
+                        </button>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-white">Contabilidad</h3>
+                        <p class="text-sm text-gray-400 mt-1">Elige qué deseas configurar.</p>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        @storeCan($store, 'contabilidad.impuestos.view')
+                        <a href="{{ route('stores.contabilidad.impuestos', $store) }}" wire:navigate
+                           class="flex w-full items-start gap-4 rounded-xl border border-white/10 bg-dark-card p-5 text-left text-white transition hover:border-brand/30 hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-brand/50">
+                            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-brand/20 text-brand">
+                                <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 14.25l6-6m4.036-1.166a2.25 2.25 0 00-3.182.034l-1.5 1.5a2.25 2.25 0 00.034 3.182l3 3a2.25 2.25 0 003.182-.034l1.5-1.5a2.25 2.25 0 00-.034-3.182l-3-3z" /><path stroke-linecap="round" stroke-linejoin="round" d="M12.75 15.75l-1.5 1.5a2.25 2.25 0 01-3.182-.034l-3-3a2.25 2.25 0 01.034-3.182l1.5-1.5" /></svg>
+                            </span>
+                            <span class="min-w-0 flex-1">
+                                <span class="block font-medium text-white">Impuestos</span>
+                                <span class="mt-1 block text-sm text-gray-400">IVA, retenciones y demás impuestos.</span>
+                            </span>
+                        </a>
+                        @endstoreCan
+                        @storeCan($store, 'contabilidad.centros-costo.view')
+                        <a href="{{ route('stores.contabilidad.centros-costo', $store) }}" wire:navigate
+                           class="flex w-full items-start gap-4 rounded-xl border border-white/10 bg-dark-card p-5 text-left text-white transition hover:border-brand/30 hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-brand/50">
+                            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-brand/20 text-brand">
+                                <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" /></svg>
+                            </span>
+                            <span class="min-w-0 flex-1">
+                                <span class="block font-medium text-white">Centros de costo</span>
+                                <span class="mt-1 block text-sm text-gray-400">Centros, subcentros y definición en comprobantes.</span>
+                            </span>
+                        </a>
+                        @endstoreCan
+                        @storeCan($store, 'contabilidad.tipos.view')
+                        <a href="{{ route('stores.contabilidad.tipos', $store) }}" wire:navigate
+                           class="flex w-full items-start gap-4 rounded-xl border border-white/10 bg-dark-card p-5 text-left text-white transition hover:border-brand/30 hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-brand/50">
+                            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-brand/20 text-brand">
+                                <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>
+                            </span>
+                            <span class="min-w-0 flex-1">
+                                <span class="block font-medium text-white">Comprobantes contables</span>
+                                <span class="mt-1 block text-sm text-gray-400">Tipos de comprobante y consecutivos.</span>
+                            </span>
+                        </a>
+                        @endstoreCan
+                        @storeCan($store, 'contabilidad.cuentas.view')
+                        <a href="{{ route('stores.contabilidad.cuentas', $store) }}" wire:navigate
+                           class="flex w-full items-start gap-4 rounded-xl border border-white/10 bg-dark-card p-5 text-left text-white transition hover:border-brand/30 hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-brand/50">
+                            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-brand/20 text-brand">
+                                <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" /></svg>
+                            </span>
+                            <span class="min-w-0 flex-1">
+                                <span class="block font-medium text-white">Cuentas contables</span>
+                                <span class="mt-1 block text-sm text-gray-400">Cuentas contables / PUC de la tienda.</span>
+                            </span>
+                        </a>
+                        @endstoreCan
+                    </div>
+                </div>
+                @endif
             </div>
         </div>
     </div>

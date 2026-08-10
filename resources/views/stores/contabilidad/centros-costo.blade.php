@@ -4,8 +4,8 @@
             <h2 class="font-semibold text-xl text-white leading-tight">
                 Centros de costo — {{ $store->name }}
             </h2>
-            <a href="{{ route('stores.contabilidad.tipos', $store) }}" class="text-sm text-gray-400 hover:text-brand transition">
-                Comprobantes contables →
+            <a href="{{ route('stores.configuracion', $store) }}?panel=contabilidad" class="text-sm text-gray-400 hover:text-brand transition">
+                ← Configuración
             </a>
         </div>
     </x-slot>

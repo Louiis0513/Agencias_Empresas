@@ -29,7 +29,7 @@
     <div
         class="py-8"
         x-data="{
-            tab: 'gestion',
+            tab: @js(in_array(request('tab'), ['gestion', 'combos', 'documentos', 'costeo'], true) ? request('tab') : 'gestion'),
             drawerOpen: false,
             openActionId: null,
             actionMenuStyle: {},
@@ -389,9 +389,8 @@
                 <p class="text-gray-300 font-medium">Gestión combos</p>
                 <p class="mt-2 text-sm text-gray-500">Próximamente</p>
             </div>
-            <div x-show="tab === 'documentos'" x-cloak class="bg-dark-card border border-white/5 rounded-xl p-10 text-center">
-                <p class="text-gray-300 font-medium">Documentos de productos / servicios</p>
-                <p class="mt-2 text-sm text-gray-500">Próximamente</p>
+            <div x-show="tab === 'documentos'" x-cloak>
+                @include('stores.productos._documentos', ['store' => $store])
             </div>
             <div x-show="tab === 'costeo'" x-cloak class="bg-dark-card border border-white/5 rounded-xl p-10 text-center">
                 <p class="text-gray-300 font-medium">Costeo mensual</p>

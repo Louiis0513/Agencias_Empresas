@@ -14,8 +14,15 @@ class Store extends Model
         'name', 'slug', 'user_id',
         'rut_nit', 'currency', 'timezone', 'date_format', 'time_format',
         'country', 'department', 'city', 'address', 'phone', 'mobile',
-        'domain', 'regimen', 'logo_path',
+        'domain', 'regimen', 'logo_path', 'maneja_bodegas',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'maneja_bodegas' => 'boolean',
+        ];
+    }
 
     // Relación: Una tienda tiene muchos usuarios (trabajadores)
     public function workers()
@@ -51,6 +58,11 @@ class Store extends Model
     public function products()
     {
         return $this->hasMany(Product::class);
+    }
+
+    public function bodegas()
+    {
+        return $this->hasMany(Bodega::class);
     }
 
     public function listasPrecios()

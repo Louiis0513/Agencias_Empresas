@@ -8,6 +8,9 @@
                 Tipos de comprobante contable — {{ $store->name }}
             </h2>
             <div class="flex items-center gap-4">
+                <a href="{{ route('stores.configuracion', $store) }}?panel=contabilidad" class="text-sm text-gray-400 hover:text-brand transition">
+                    ← Configuración
+                </a>
                 @storeCan($store, 'contabilidad.centros-costo.view')
                 <a href="{{ route('stores.contabilidad.centros-costo', $store) }}" class="text-sm text-gray-400 hover:text-brand transition">
                     Centros de costo

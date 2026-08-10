@@ -37,7 +37,7 @@
                     @elseif($this->codigoPadre)
                         <p class="mt-1 text-xs text-amber-400">
                             No existe la cuenta padre <span class="font-mono">{{ $this->codigoPadre }}</span>.
-                            Importa el PUC base en Contabilidad → Plan de cuentas.
+                            Importa el PUC base en Contabilidad → Cuentas contables.
                         </p>
                     @endif
                 </div>

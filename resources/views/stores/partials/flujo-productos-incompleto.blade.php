@@ -17,7 +17,7 @@
         <p class="mt-2 flex flex-wrap gap-x-3 gap-y-1">
             @storeCan($storeRef, 'contabilidad.categorias.view')
                 <a href="{{ route('stores.contabilidad.categorias', $storeRef) }}" wire:navigate
-                   class="underline hover:text-white">Categorías contables</a>
+                   class="underline hover:text-white">Categoría de productos y servicios</a>
             @endstoreCan
         </p>
     </div>

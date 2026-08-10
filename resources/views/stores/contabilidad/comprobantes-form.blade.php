@@ -152,7 +152,7 @@
             @endif
             @if($cuentas->isEmpty())
                 <div class="rounded-xl border border-amber-500/30 bg-amber-950/30 px-4 py-3 text-amber-200">
-                    No hay cuentas auxiliares transaccionales activas. Créelas primero en el Plan de cuentas.
+                    No hay cuentas auxiliares transaccionales activas. Créelas primero en Cuentas contables.
                 </div>
             @endif
 
