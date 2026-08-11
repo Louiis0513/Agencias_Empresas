@@ -159,9 +159,12 @@ document.addEventListener('alpine:init', () => {
             productos: cfg.productos || [],
             bodegas: cfg.bodegas || [],
             centros: cfg.centros || [],
+            terceros: cfg.terceros || [],
             manejaBodegas: !!cfg.manejaBodegas,
             moneda: cfg.moneda || 'COP',
             fecha: cfg.fechaDefault || '',
+            tercero_id: '',
+            tercero_search: '',
             tercero: '',
             observaciones: '',
             lines: [emptyLine()],
@@ -181,8 +184,7 @@ document.addEventListener('alpine:init', () => {
                 if (!this.fecha) return false;
                 const valid = this.lines.filter((l) => l.product_id
                     && Number(l.cantidad) > 0
-                    && Number(l.costo_unitario) > 0
-                    && (!this.manejaBodegas || l.bodega_id));
+                    && Number(l.costo_unitario) > 0);
                 return valid.length > 0;
             },
 
@@ -200,8 +202,12 @@ document.addEventListener('alpine:init', () => {
             },
 
             get ddItems() {
+                if (!this.dd.type) return [];
+                if (this.dd.type === 'tercero') {
+                    return this.filterCatalog(this.terceros, this.tercero_search);
+                }
                 const line = this.ddLine;
-                if (!line || !this.dd.type) return [];
+                if (!line) return [];
                 if (this.dd.type === 'product') {
                     return this.filterCatalog(this.productos, line.product_search);
                 }
@@ -228,11 +234,11 @@ document.addEventListener('alpine:init', () => {
                 const el = event?.currentTarget || event?.target;
                 if (!el || !el.getBoundingClientRect) return;
                 const r = el.getBoundingClientRect();
-                const minW = type === 'product' ? 360 : 280;
+                const minW = (type === 'product' || type === 'tercero') ? 360 : 280;
                 this.dd = {
                     open: true,
                     type,
-                    lineKey: line.key,
+                    lineKey: line?.key ?? null,
                     top: r.bottom + 4,
                     left: r.left,
                     width: Math.max(r.width, minW),
@@ -248,7 +254,9 @@ document.addEventListener('alpine:init', () => {
             onDdOutside(event) {
                 const t = event?.target;
                 if (!t || !this.dd.open) return;
-                const anchor = `${this.dd.type}-${this.dd.lineKey}`;
+                const anchor = this.dd.type === 'tercero'
+                    ? 'tercero-header'
+                    : `${this.dd.type}-${this.dd.lineKey}`;
                 if (t.closest && t.closest(`[data-dd-anchor="${anchor}"]`)) {
                     return;
                 }
@@ -256,11 +264,35 @@ document.addEventListener('alpine:init', () => {
             },
 
             pickDdItem(item) {
+                if (this.dd.type === 'tercero') {
+                    this.selectTercero(item);
+                    return;
+                }
                 const line = this.ddLine;
                 if (!line) return;
                 if (this.dd.type === 'product') this.selectProduct(line, item);
                 else if (this.dd.type === 'bodega') this.selectBodega(line, item);
                 else this.selectCentro(line, item);
+            },
+
+            onTerceroSearchInput() {
+                if (this.tercero_id) {
+                    this.tercero_id = '';
+                    this.tercero = '';
+                }
+            },
+            selectTercero(t) {
+                this.tercero_id = String(t.id);
+                this.tercero = t.nombre;
+                this.tercero_search = `${t.codigo} — ${t.nombre}`;
+                this.closeDd();
+            },
+            terceroNombreParaGuardar() {
+                if (this.tercero) return this.tercero;
+                const typed = String(this.tercero_search || '').trim();
+                if (!typed) return null;
+                // Si quedó el formato "id — nombre" sin selección limpia, usa solo el texto.
+                return typed;
             },
 
             addLine() {
@@ -296,7 +328,6 @@ document.addEventListener('alpine:init', () => {
                 if (!line?.product_id) return false;
                 if (!(Number(line.cantidad) > 0)) return false;
                 if (!(Number(line.costo_unitario) > 0)) return false;
-                if (this.manejaBodegas && !line.bodega_id) return false;
                 return true;
             },
 
@@ -469,7 +500,7 @@ document.addEventListener('alpine:init', () => {
                         },
                         body: JSON.stringify({
                             fecha: this.fecha,
-                            tercero_nombre: this.tercero || null,
+                            tercero_nombre: this.terceroNombreParaGuardar(),
                             observaciones: this.observaciones || null,
                             lineas,
                         }),

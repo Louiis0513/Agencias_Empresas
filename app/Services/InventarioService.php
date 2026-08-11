@@ -54,10 +54,7 @@ class InventarioService
         }
 
         $bodegaId = $datos['bodega_id'] ?? null;
-        if ($store->maneja_bodegas) {
-            if (! $bodegaId) {
-                throw new Exception('Debe indicar la bodega cuando la tienda maneja bodegas.');
-            }
+        if ($bodegaId) {
             $bodega = Bodega::query()->deStore($store)->whereKey((int) $bodegaId)->first();
             if (! $bodega) {
                 throw new Exception('La bodega no pertenece a esta tienda.');
@@ -67,6 +64,7 @@ class InventarioService
             }
             $bodegaId = $bodega->id;
         } else {
+            // Null = «Sin asignar» (estilo Siigo), aunque la tienda maneje bodegas.
             $bodegaId = null;
         }
 

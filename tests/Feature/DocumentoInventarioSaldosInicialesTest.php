@@ -124,27 +124,41 @@ class DocumentoInventarioSaldosInicialesTest extends TestCase
             ->orderBy('orden')
             ->get();
 
-        $this->assertCount(2, $movimientosCont);
+        // 2 productos × (Dr inventario + Cr puente)
+        $this->assertCount(4, $movimientosCont);
         $this->assertTrue($movimientosCont->every(fn ($m) => $m->comprobante_contable_id === null));
-
-        $debito = $movimientosCont->firstWhere('debito', '>', 0);
-        $credito = $movimientosCont->firstWhere('credito', '>', 0);
-
-        $this->assertNotNull($debito);
-        $this->assertNotNull($credito);
-        $this->assertSame($this->cuentaInventario->id, $debito->cuenta_contable_id);
-        $this->assertSame('20000.00', (string) $debito->debito);
-        $this->assertSame('0.00', (string) $debito->credito);
 
         $puente = CuentaContable::query()
             ->deStore($this->store)
             ->where('codigo', DocumentoInventarioService::CODIGO_PUENTE_SALDOS_INICIALES)
             ->first();
-
         $this->assertNotNull($puente);
-        $this->assertSame($puente->id, $credito->cuenta_contable_id);
-        $this->assertSame('0.00', (string) $credito->debito);
-        $this->assertSame('20000.00', (string) $credito->credito);
+
+        $debitos = $movimientosCont->filter(fn ($m) => (float) $m->debito > 0)->values();
+        $creditos = $movimientosCont->filter(fn ($m) => (float) $m->credito > 0)->values();
+
+        $this->assertCount(2, $debitos);
+        $this->assertCount(2, $creditos);
+        $this->assertTrue($debitos->every(fn ($m) => $m->cuenta_contable_id === $this->cuentaInventario->id));
+        $this->assertTrue($creditos->every(fn ($m) => $m->cuenta_contable_id === $puente->id));
+        $this->assertSame('10000.00', (string) $debitos[0]->debito);
+        $this->assertSame('10000.00', (string) $debitos[1]->debito);
+        $this->assertSame('10000.00', (string) $creditos[0]->credito);
+        $this->assertSame('10000.00', (string) $creditos[1]->credito);
+        $this->assertSame(
+            'Prod: P-001 Cant: 10.00',
+            $debitos[0]->detalle_contable
+        );
+        $this->assertSame(
+            'Prod: P-002 Cant: 2.00',
+            $debitos[1]->detalle_contable
+        );
+
+        // Pares intercalados: Dr, Cr, Dr, Cr
+        $this->assertSame($this->cuentaInventario->id, $movimientosCont[0]->cuenta_contable_id);
+        $this->assertSame($puente->id, $movimientosCont[1]->cuenta_contable_id);
+        $this->assertSame($this->cuentaInventario->id, $movimientosCont[2]->cuenta_contable_id);
+        $this->assertSame($puente->id, $movimientosCont[3]->cuenta_contable_id);
     }
 
     public function test_propietario_puede_contabilizar_por_http(): void
@@ -172,7 +186,7 @@ class DocumentoInventarioSaldosInicialesTest extends TestCase
 
         $this->assertDatabaseCount('documentos_inventario', 1);
         $this->assertDatabaseCount('movimientos_inventario', 2);
-        $this->assertDatabaseCount('movimientos_contables', 2);
+        $this->assertDatabaseCount('movimientos_contables', 4);
     }
 
     private function crearCuenta(Store $store, string $codigo, string $nombre): CuentaContable

@@ -55,20 +55,27 @@ class StoreDocumentoInventarioController extends Controller
     public function show(Store $store, DocumentoInventario $documentoInventario)
     {
         $this->permissionService->authorize($store, 'products.view');
-        $documento = $this->documentoInventarioService->obtener($store, $documentoInventario);
+        $vista = $this->documentoInventarioService->datosVistaPdf($store, $documentoInventario);
 
-        return view('stores.productos.documentos.show', compact('store', 'documento'));
+        $logoUrl = null;
+        if (filled($store->logo_path)) {
+            $logoUrl = asset('storage/'.$store->logo_path);
+        }
+
+        return view('stores.productos.documentos.show', array_merge($vista, [
+            'logoUrl' => $logoUrl,
+        ]));
     }
 
     public function pdf(Store $store, DocumentoInventario $documentoInventario)
     {
         $this->permissionService->authorize($store, 'products.view');
-        $documento = $this->documentoInventarioService->obtener($store, $documentoInventario);
+        $vista = $this->documentoInventarioService->datosVistaPdf($store, $documentoInventario);
 
-        $pdf = Pdf::loadView('stores.productos.documentos.pdf', compact('store', 'documento'));
+        $pdf = Pdf::loadView('stores.productos.documentos.pdf', $vista);
         $pdf->setPaper('a4', 'portrait');
 
-        $safeNumber = preg_replace('/[^A-Za-z0-9._-]+/', '-', $documento->numero);
+        $safeNumber = preg_replace('/[^A-Za-z0-9._-]+/', '-', $vista['documento']->numero);
 
         return $pdf->stream('documento-inventario-'.$safeNumber.'.pdf');
     }

@@ -14,6 +14,11 @@
         'codigo' => $c->codigo,
         'nombre' => ($c->padre?->nombre ? $c->padre->nombre.' / ' : '').$c->nombre,
     ])->values();
+    $tercerosJs = $terceros->map(fn ($t) => [
+        'id' => $t->id,
+        'codigo' => $t->numero_identificacion,
+        'nombre' => $t->nombre,
+    ])->values();
     $documentosUrl = route('stores.products', $store).'?tab=documentos';
     $hoy = now()->timezone($store->timezone ?? config('app.timezone'))->format('Y-m-d');
     $moneda = $store->currency ?: 'COP';
@@ -41,6 +46,7 @@
             productos: @js($productosJs),
             bodegas: @js($bodegasJs),
             centros: @js($centrosJs),
+            terceros: @js($tercerosJs),
             manejaBodegas: @js((bool) $store->maneja_bodegas),
             moneda: @js($moneda),
             fechaDefault: @js($hoy),
@@ -69,9 +75,20 @@
                     </div>
                     <div class="min-w-0 flex-1">
                         <label class="mb-1 block text-sm text-gray-400">Cliente, proveedor u otros</label>
-                        <input type="text" x-model="tercero"
-                               placeholder="Cliente, Proveedor u Otros"
-                               class="w-full rounded-lg border-white/10 bg-white/5 py-2 text-sm text-gray-100 placeholder:text-gray-600">
+                        <div class="relative" data-dd-anchor="tercero-header">
+                            <input type="text"
+                                   x-model="tercero_search"
+                                   @focus="openDd(null, 'tercero', $event)"
+                                   @click="openDd(null, 'tercero', $event)"
+                                   @input="openDd(null, 'tercero', $event); onTerceroSearchInput()"
+                                   @keydown.escape.stop="closeDd()"
+                                   placeholder="Buscar por identificación o nombre"
+                                   class="w-full rounded-lg border border-white/10 bg-white/5 py-2 pr-9 text-sm text-gray-100 placeholder:text-gray-600 focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                                   autocomplete="off">
+                            <span class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500">
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z"/></svg>
+                            </span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -135,13 +152,14 @@
                                                    @click="openDd(line, 'bodega', $event)"
                                                    @input="openDd(line, 'bodega', $event); onBodegaSearchInput(line)"
                                                    @keydown.escape.stop="closeDd()"
-                                                   placeholder="Buscar bodega"
+                                                   placeholder="Sin asignar"
                                                    class="w-full rounded-lg border border-white/15 bg-white/5 py-2 pr-9 text-sm text-gray-100 focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
                                                    autocomplete="off">
                                             <span class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500">
                                                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z"/></svg>
                                             </span>
                                         </div>
+                                        <p class="mt-1 text-[11px] text-gray-500" x-show="!line.bodega_id && line.product_id">Sin asignar</p>
                                     </td>
 
                                     <td class="px-3 py-2.5">
@@ -266,7 +284,7 @@
                  class="fixed z-[9999] overflow-hidden rounded-lg border border-white/10 bg-slate-900 shadow-2xl"
                  style="display: none;">
                 <div class="grid grid-cols-[7rem_1fr] gap-2 border-b border-white/10 bg-white/[0.04] px-3 py-2 text-[11px] uppercase tracking-wide text-gray-400">
-                    <span>Código</span>
+                    <span x-text="dd.type === 'tercero' ? 'Identificación' : 'Código'"></span>
                     <span>Nombre</span>
                 </div>
                 <ul class="max-h-56 overflow-y-auto">

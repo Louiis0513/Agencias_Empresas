@@ -9,6 +9,7 @@ use App\Models\Impuesto;
 use App\Models\ListaPrecio;
 use App\Models\Product;
 use App\Models\Store;
+use App\Models\Tercero;
 use App\Models\UnidadMedidaFe;
 use App\Services\CategoriaContableService;
 use App\Services\DocumentoInventarioService;
@@ -223,11 +224,18 @@ class StoreProductController extends Controller
             ->orderBy('codigo')
             ->get(['id', 'codigo', 'nombre', 'parent_id']);
 
+        $terceros = Tercero::query()
+            ->deStore($store)
+            ->activos()
+            ->orderBy('nombre')
+            ->get(['id', 'numero_identificacion', 'nombre']);
+
         return view('stores.productos.documentos.saldos-iniciales-crear', [
             'store' => $store,
             'productosInventariables' => $productosInventariables,
             'bodegas' => $bodegas,
             'centrosCosto' => $centrosCosto,
+            'terceros' => $terceros,
         ]);
     }
 

@@ -89,4 +89,27 @@ class DocumentoInventario extends Model
             default => $this->tipo_documento,
         };
     }
+
+    /**
+     * Etiqueta Siigo de naturaleza del movimiento (saldos iniciales = siempre Aumenta).
+     */
+    public function etiquetaNaturaleza(): string
+    {
+        return match ($this->tipo_documento) {
+            self::TIPO_SALDO_INICIAL => 'Aumenta',
+            default => 'Aumenta',
+        };
+    }
+
+    /**
+     * Número para impresión (ej. A-0002 → 2, o el número crudo si no aplica).
+     */
+    public function numeroImpresion(): string
+    {
+        if (preg_match('/(\d+)\s*$/', (string) $this->numero, $m)) {
+            return (string) ((int) $m[1]);
+        }
+
+        return (string) $this->numero;
+    }
 }

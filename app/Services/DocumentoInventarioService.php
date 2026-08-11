@@ -72,8 +72,9 @@ class DocumentoInventarioService
                 'created_by' => $userId,
             ]);
 
-            $agrupadoDebitos = [];
             $ordenLinea = 1;
+            $ordenMov = 1;
+            $totalDebito = 0.0;
 
             foreach ($lineasNorm as $linea) {
                 DocumentoInventarioLinea::create([
@@ -103,59 +104,42 @@ class DocumentoInventarioService
                     'descripcion' => $linea['descripcion'],
                 ]);
 
-                $cuentaId = $linea['cuenta_inventario_id'];
-                $centroId = $linea['centro_costo_id'] ?? 0;
-                $key = $cuentaId.'|'.$centroId;
-                if (! isset($agrupadoDebitos[$key])) {
-                    $agrupadoDebitos[$key] = [
-                        'cuenta_contable_id' => $cuentaId,
-                        'centro_costo_id' => $linea['centro_costo_id'],
-                        'debito' => 0.0,
-                        'detalle' => [],
-                    ];
-                }
-                $agrupadoDebitos[$key]['debito'] = round(
-                    $agrupadoDebitos[$key]['debito'] + $linea['costo_total'],
-                    2
-                );
-                $agrupadoDebitos[$key]['detalle'][] = 'Prod: '.$linea['product_codigo']
+                $valor = round((float) $linea['costo_total'], 2);
+                $totalDebito = round($totalDebito + $valor, 2);
+
+                $detalle = 'Prod: '.$linea['product_codigo']
                     .($linea['bodega_codigo'] ? ' Bod: '.$linea['bodega_codigo'] : '')
                     .' Cant: '.number_format($linea['cantidad'], 2, '.', '');
-            }
 
-            $ordenMov = 1;
-            $totalDebito = 0.0;
-            foreach ($agrupadoDebitos as $grupo) {
-                $debito = round($grupo['debito'], 2);
-                $totalDebito = round($totalDebito + $debito, 2);
+                // Estilo Siigo: una línea Dr inventario + Cr puente por cada producto.
                 MovimientoContable::create([
                     'comprobante_contable_id' => null,
                     'documento_inventario_id' => $documento->id,
                     'store_id' => $store->id,
-                    'cuenta_contable_id' => $grupo['cuenta_contable_id'],
+                    'cuenta_contable_id' => $linea['cuenta_inventario_id'],
                     'tercero_id' => null,
-                    'centro_costo_id' => $grupo['centro_costo_id'],
-                    'detalle_contable' => implode(' | ', array_slice($grupo['detalle'], 0, 5)),
-                    'descripcion' => 'Saldo inicial de inventario '.$numero,
-                    'debito' => $debito,
+                    'centro_costo_id' => $linea['centro_costo_id'],
+                    'detalle_contable' => $detalle,
+                    'descripcion' => $linea['descripcion'],
+                    'debito' => $valor,
                     'credito' => 0,
                     'orden' => $ordenMov++,
                 ]);
-            }
 
-            MovimientoContable::create([
-                'comprobante_contable_id' => null,
-                'documento_inventario_id' => $documento->id,
-                'store_id' => $store->id,
-                'cuenta_contable_id' => $puente->id,
-                'tercero_id' => null,
-                'centro_costo_id' => null,
-                'detalle_contable' => null,
-                'descripcion' => 'Saldos iniciales por conciliar '.$numero,
-                'debito' => 0,
-                'credito' => $totalDebito,
-                'orden' => $ordenMov,
-            ]);
+                MovimientoContable::create([
+                    'comprobante_contable_id' => null,
+                    'documento_inventario_id' => $documento->id,
+                    'store_id' => $store->id,
+                    'cuenta_contable_id' => $puente->id,
+                    'tercero_id' => null,
+                    'centro_costo_id' => null,
+                    'detalle_contable' => null,
+                    'descripcion' => 'Saldos iniciales por conciliar',
+                    'debito' => 0,
+                    'credito' => $valor,
+                    'orden' => $ordenMov++,
+                ]);
+            }
 
             if (abs($totalDebito - $total) > 0.009) {
                 throw new Exception('El asiento de saldos iniciales no cuadra con el total del documento.');
@@ -211,12 +195,51 @@ class DocumentoInventarioService
         return $documento->load([
             'tipoComprobante',
             'creador:id,name',
-            'lineas.product:id,codigo,nombre',
+            'lineas.product:id,codigo,nombre,referencia,categoria_contable_id',
+            'lineas.product.categoriaContable:id,cuenta_inventario_id',
+            'lineas.product.categoriaContable.cuentaInventario:id,codigo,nombre',
             'lineas.bodega:id,codigo,nombre',
             'lineas.centroCosto:id,codigo,nombre',
             'movimientosContables.cuentaContable:id,codigo,nombre',
             'movimientosContables.centroCosto:id,codigo,nombre',
         ]);
+    }
+
+    /**
+     * Datos para PDF/show imprimible estilo Siigo.
+     *
+     * @return array{
+     *   documento: DocumentoInventario,
+     *   store: Store,
+     *   logoAbsPath: string|null,
+     *   ciudadEmpresa: string,
+     *   naturaleza: string
+     * }
+     */
+    public function datosVistaPdf(Store $store, DocumentoInventario $documento): array
+    {
+        $documento = $this->obtener($store, $documento);
+
+        $ciudadEmpresa = trim(implode(' - ', array_filter([
+            $store->city ?? null,
+            $store->country ?? null,
+        ])));
+
+        $logoAbsPath = null;
+        if (filled($store->logo_path)) {
+            $candidate = storage_path('app/public/'.$store->logo_path);
+            if (is_file($candidate)) {
+                $logoAbsPath = $candidate;
+            }
+        }
+
+        return [
+            'documento' => $documento,
+            'store' => $store,
+            'logoAbsPath' => $logoAbsPath,
+            'ciudadEmpresa' => $ciudadEmpresa,
+            'naturaleza' => $documento->etiquetaNaturaleza(),
+        ];
     }
 
     public function exportContabilizacionExcel(Store $store, DocumentoInventario $documento): StreamedResponse
@@ -339,15 +362,18 @@ class DocumentoInventarioService
 
             $bodegaId = null;
             $bodegaCodigo = null;
-            if ($store->maneja_bodegas) {
-                $bodegaId = (int) ($raw['bodega_id'] ?? 0);
-                $bodega = Bodega::query()->deStore($store)->whereKey($bodegaId)->first();
+            if (! empty($raw['bodega_id'])) {
+                $bodega = Bodega::query()
+                    ->deStore($store)
+                    ->whereKey((int) $raw['bodega_id'])
+                    ->first();
                 if (! $bodega || ! $bodega->activo) {
-                    throw new Exception("Línea {$n}: debe indicar una bodega activa.");
+                    throw new Exception("Línea {$n}: la bodega indicada no es válida o está inactiva.");
                 }
                 $bodegaId = $bodega->id;
                 $bodegaCodigo = $bodega->codigo;
             }
+            // Sin bodega = «Sin asignar» (permitido aunque la tienda maneje bodegas).
 
             $centroId = null;
             if (! empty($raw['centro_costo_id'])) {
