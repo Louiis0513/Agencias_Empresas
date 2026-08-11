@@ -6,6 +6,7 @@ use App\Models\CategoriaContable;
 use App\Models\CotizacionItem;
 use App\Models\Impuesto;
 use App\Models\ListaPrecio;
+use App\Models\MovimientoInventario;
 use App\Models\Product;
 use App\Models\ProductImage;
 use App\Models\ProductPrecio;
@@ -21,6 +22,7 @@ class ProductService
     public function __construct(
         protected ListaPrecioService $listaPrecioService,
         protected ConvertidorImgService $convertidorImgService,
+        protected InventarioService $inventarioService,
     ) {}
 
     /**
@@ -32,7 +34,7 @@ class ProductService
      * - categoria_contable_id
      * - estado / is_active: 1|0|activo|inactivo
      * - es_inventariable: 1|0
-     * - stock: aceptado pero ignorado hasta reconstruir inventario
+     * - stock: con_saldos|sin_saldos|bajo_minimo|negativos
      *
      * @param  array{
      *     search?: ?string,
@@ -90,9 +92,51 @@ class ProductService
             );
         }
 
-        // stock: UI only por ahora — inventario demolido; no filtrar hasta reconstruir stock.
+        $stockFiltro = trim((string) ($filtros['stock'] ?? ''));
+        if ($stockFiltro !== '') {
+            $this->aplicarFiltroStock($q, $store, $stockFiltro);
+        }
 
-        return $q->paginate($perPage)->withQueryString();
+        $paginator = $q->paginate($perPage)->withQueryString();
+
+        $ids = $paginator->getCollection()
+            ->filter(fn (Product $p) => $p->es_inventariable)
+            ->pluck('id')
+            ->all();
+        $stocks = $this->inventarioService->stockTotalPorProductos($store, $ids);
+
+        return $paginator->through(function (Product $product) use ($stocks) {
+            $product->setAttribute(
+                'stock_actual',
+                $product->es_inventariable ? ($stocks[$product->id] ?? 0.0) : null
+            );
+
+            return $product;
+        });
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder<\App\Models\Product>  $q
+     */
+    protected function aplicarFiltroStock($q, Store $store, string $filtro): void
+    {
+        $stockSql = '(SELECT COALESCE(SUM(CASE WHEN direccion = ? THEN cantidad ELSE -cantidad END), 0)
+            FROM movimientos_inventario
+            WHERE movimientos_inventario.product_id = products.id
+              AND movimientos_inventario.store_id = ?)';
+
+        $bindings = [MovimientoInventario::DIRECCION_ENTRADA, $store->id];
+
+        $q->where('es_inventariable', true);
+
+        match ($filtro) {
+            'con_saldos' => $q->whereRaw($stockSql.' <> 0', $bindings),
+            'sin_saldos' => $q->whereRaw($stockSql.' = 0', $bindings),
+            'bajo_minimo' => $q->whereNotNull('stock_minimo')
+                ->whereRaw($stockSql.' < products.stock_minimo', $bindings),
+            'negativos' => $q->whereRaw($stockSql.' < 0', $bindings),
+            default => null,
+        };
     }
 
     /**
@@ -296,6 +340,69 @@ class ProductService
         $product->save();
 
         return $product;
+    }
+
+    /**
+     * Copia ficha + precios sin stock ni imágenes. Redirigir a editar tras crear.
+     */
+    public function duplicar(Store $store, Product $origen): Product
+    {
+        if ($origen->store_id !== $store->id) {
+            throw new Exception('El producto no pertenece a esta tienda.');
+        }
+
+        $origen->loadMissing('precios');
+
+        $precios = [];
+        foreach ($origen->precios as $pp) {
+            $precios[(string) $pp->lista_precio_id] = $pp->precio;
+        }
+
+        $data = [
+            'tipo' => $origen->tipo,
+            'categoria_contable_id' => $origen->categoria_contable_id,
+            'codigo' => $this->generarCodigoCopia($store, (string) $origen->codigo),
+            'nombre' => 'Copia de '.$origen->nombre,
+            'unidad_medida_dian' => $origen->unidad_medida_dian,
+            'es_inventariable' => $origen->es_inventariable,
+            'visible_en_ventas' => $origen->visible_en_ventas,
+            'impuesto_cargo_id' => $origen->impuesto_cargo_id,
+            'impuesto_retencion_id' => $origen->impuesto_retencion_id,
+            'valor_impuesto_cargo' => $origen->valor_impuesto_cargo,
+            'aplica_impuesto_bolsas' => $origen->aplica_impuesto_bolsas,
+            'referencia' => $origen->referencia,
+            'unidad_medida_factura' => $origen->unidad_medida_factura,
+            'stock_minimo' => $origen->stock_minimo,
+            'descripcion' => $origen->descripcion,
+            'marca' => $origen->marca,
+            'modelo' => $origen->modelo,
+            'codigo_arancelario' => $origen->codigo_arancelario,
+            'precio_incluye_iva' => $origen->precio_incluye_iva,
+            'precios' => $precios,
+        ];
+
+        return $this->crear($store, $data, null);
+    }
+
+    /**
+     * Código único: {base}-C, {base}-C2, … (máx. 30 caracteres).
+     */
+    protected function generarCodigoCopia(Store $store, string $codigoOrigen): string
+    {
+        $base = mb_substr(trim($codigoOrigen), 0, 27);
+        if ($base === '') {
+            $base = 'COPIA';
+        }
+
+        $candidato = mb_substr($base.'-C', 0, 30);
+        $n = 1;
+        while (Product::query()->deStore($store)->where('codigo', $candidato)->exists()) {
+            $n++;
+            $sufijo = '-C'.$n;
+            $candidato = mb_substr($base, 0, 30 - mb_strlen($sufijo)).$sufijo;
+        }
+
+        return $candidato;
     }
 
     /**

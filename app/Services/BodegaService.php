@@ -27,7 +27,11 @@ class BodegaService
             $q->where('activo', filter_var($filtros['activo'], FILTER_VALIDATE_BOOLEAN));
         }
 
-        return $q->paginate($perPage)->withQueryString();
+        return $q->paginate($perPage)->withQueryString()->through(function (Bodega $bodega) {
+            $bodega->setAttribute('tiene_movimientos', $this->tieneMovimientos($bodega));
+
+            return $bodega;
+        });
     }
 
     public function crear(Store $store, array $data): Bodega
@@ -64,6 +68,19 @@ class BodegaService
         $bodega->save();
 
         return $bodega->fresh();
+    }
+
+    public function eliminar(Store $store, Bodega $bodega): void
+    {
+        $this->validarPertenencia($store, $bodega);
+
+        if ($this->tieneMovimientos($bodega)) {
+            throw new Exception(
+                'No se puede eliminar la bodega «'.$bodega->codigo.'» porque tiene movimientos de inventario. Inactívala en su lugar.'
+            );
+        }
+
+        $bodega->delete();
     }
 
     public function actualizarManejoBodegas(Store $store, bool $maneja): Store

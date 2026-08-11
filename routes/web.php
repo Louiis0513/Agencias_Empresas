@@ -12,6 +12,7 @@ use App\Http\Controllers\StoreCustomerController;
 use App\Http\Controllers\StoreInvoiceAnalysisController;
 use App\Http\Controllers\StoreInvoiceController;
 use App\Http\Controllers\StoreBodegaController;
+use App\Http\Controllers\StoreListaPrecioController;
 use App\Http\Controllers\StoreDocumentoInventarioController;
 use App\Http\Controllers\StoreProductController;
 use App\Http\Controllers\StoreProveedorController;
@@ -86,8 +87,15 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::post('/productos/bodegas', [StoreBodegaController::class, 'store'])->name('products.bodegas.store');
     Route::put('/productos/bodegas/manejo', [StoreBodegaController::class, 'updateManejo'])->name('products.bodegas.manejo');
     Route::put('/productos/bodegas/{bodega}', [StoreBodegaController::class, 'update'])->name('products.bodegas.update');
+    Route::delete('/productos/bodegas/{bodega}', [StoreBodegaController::class, 'destroy'])->name('products.bodegas.destroy');
+    Route::get('/productos/listas-precios', [StoreListaPrecioController::class, 'index'])->name('products.listas-precios');
+    Route::put('/productos/listas-precios/{listaPrecio}', [StoreListaPrecioController::class, 'update'])->name('products.listas-precios.update');
     Route::get('/productos/documentos/saldos-iniciales/crear', [StoreProductController::class, 'createSaldosIniciales'])->name('products.documentos.saldos-iniciales.create');
     Route::post('/productos/documentos/saldos-iniciales', [StoreDocumentoInventarioController::class, 'storeSaldosIniciales'])->name('products.documentos.saldos-iniciales.store');
+    Route::get('/productos/documentos/ajuste/crear', [StoreProductController::class, 'createAjuste'])->name('products.documentos.ajuste.create');
+    Route::post('/productos/documentos/ajuste', [StoreDocumentoInventarioController::class, 'storeAjuste'])->name('products.documentos.ajuste.store');
+    Route::get('/productos/documentos/traslado/crear', [StoreProductController::class, 'createTraslado'])->name('products.documentos.traslado.create');
+    Route::post('/productos/documentos/traslado', [StoreDocumentoInventarioController::class, 'storeTraslado'])->name('products.documentos.traslado.store');
     Route::get('/productos/documentos/{documentoInventario}', [StoreDocumentoInventarioController::class, 'show'])->name('products.documentos.show');
     Route::get('/productos/documentos/{documentoInventario}/pdf', [StoreDocumentoInventarioController::class, 'pdf'])->name('products.documentos.pdf');
     Route::get('/productos/documentos/{documentoInventario}/contabilizacion', [StoreDocumentoInventarioController::class, 'contabilizacion'])->name('products.documentos.contabilizacion');
@@ -95,6 +103,7 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::get('/productos/{product}/editar', [StoreProductController::class, 'edit'])->name('products.edit');
     Route::put('/productos/{product}', [StoreProductController::class, 'update'])->name('products.update');
     Route::patch('/productos/{product}/estado', [StoreProductController::class, 'toggle'])->name('products.toggle');
+    Route::post('/productos/{product}/duplicar', [StoreProductController::class, 'duplicate'])->name('products.duplicate');
     Route::delete('/productos/{product}', [StoreProductController::class, 'destroy'])->name('products.destroy');
     Route::get('/productos/{product}', [StoreProductController::class, 'show'])->name('products.show');
 

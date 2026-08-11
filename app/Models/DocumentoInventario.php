@@ -14,6 +14,10 @@ class DocumentoInventario extends Model
 
     public const TIPO_SALDO_INICIAL = 'SALDO_INICIAL';
 
+    public const TIPO_AJUSTE = 'AJUSTE';
+
+    public const TIPO_TRASLADO = 'TRASLADO';
+
     public const ESTADO_CONTABILIZADO = 'CONTABILIZADO';
 
     protected $table = 'documentos_inventario';
@@ -86,19 +90,29 @@ class DocumentoInventario extends Model
     {
         return match ($this->tipo_documento) {
             self::TIPO_SALDO_INICIAL => 'Ajuste / Saldo inicial de inventario',
+            self::TIPO_AJUSTE => 'Ajuste de inventario',
+            self::TIPO_TRASLADO => 'Nota de traslado entre bodegas',
             default => $this->tipo_documento,
         };
     }
 
     /**
-     * Etiqueta Siigo de naturaleza del movimiento (saldos iniciales = siempre Aumenta).
+     * Etiqueta Siigo de naturaleza del movimiento a nivel documento (fallback).
+     * En ajustes la naturaleza va por línea.
      */
     public function etiquetaNaturaleza(): string
     {
         return match ($this->tipo_documento) {
             self::TIPO_SALDO_INICIAL => 'Aumenta',
+            self::TIPO_AJUSTE => 'Ajuste',
+            self::TIPO_TRASLADO => 'Traslado',
             default => 'Aumenta',
         };
+    }
+
+    public function esTraslado(): bool
+    {
+        return $this->tipo_documento === self::TIPO_TRASLADO;
     }
 
     /**

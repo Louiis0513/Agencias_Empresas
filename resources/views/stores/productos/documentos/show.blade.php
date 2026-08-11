@@ -84,7 +84,7 @@
                             </div>
                             <div class="overflow-hidden rounded border border-gray-400">
                                 <div class="bg-gray-200 px-3 py-1.5 text-center text-xs font-bold text-gray-700">
-                                    Fecha Comprobante
+                                    {{ $documento->esTraslado() ? 'Fecha de traslado' : 'Fecha Comprobante' }}
                                 </div>
                                 <div class="px-3 py-3 text-center text-base font-bold text-gray-900">
                                     {{ $documento->fecha->format('Y-m-d') }}
@@ -112,11 +112,17 @@
                                     <th class="border border-gray-300 px-2 py-2">Producto</th>
                                     <th class="border border-gray-300 px-2 py-2">Descripción</th>
                                     <th class="border border-gray-300 px-2 py-2">Referencia de fábrica</th>
-                                    <th class="border border-gray-300 px-2 py-2">Bodega</th>
-                                    <th class="border border-gray-300 px-2 py-2 text-center">Aumenta/Disminuye</th>
-                                    <th class="border border-gray-300 px-2 py-2 text-right">Cantidad</th>
-                                    <th class="border border-gray-300 px-2 py-2 text-right">Costo total</th>
-                                    <th class="border border-gray-300 px-2 py-2">Nombre de Cuenta contable</th>
+                                    @if($documento->esTraslado())
+                                        <th class="border border-gray-300 px-2 py-2">Bodega origen</th>
+                                        <th class="border border-gray-300 px-2 py-2">Bodega destino</th>
+                                        <th class="border border-gray-300 px-2 py-2 text-right">Cantidad</th>
+                                    @else
+                                        <th class="border border-gray-300 px-2 py-2">Bodega</th>
+                                        <th class="border border-gray-300 px-2 py-2 text-center">Aumenta/Disminuye</th>
+                                        <th class="border border-gray-300 px-2 py-2 text-right">Cantidad</th>
+                                        <th class="border border-gray-300 px-2 py-2 text-right">Costo total</th>
+                                        <th class="border border-gray-300 px-2 py-2">Nombre de Cuenta contable</th>
+                                    @endif
                                 </tr>
                             </thead>
                             <tbody>
@@ -126,11 +132,17 @@
                                         <td class="border border-gray-300 px-2 py-2 font-mono">{{ $linea->product?->codigo }}</td>
                                         <td class="border border-gray-300 px-2 py-2">{{ $linea->descripcion }}</td>
                                         <td class="border border-gray-300 px-2 py-2">{{ $linea->product?->referencia ?: '—' }}</td>
-                                        <td class="border border-gray-300 px-2 py-2">{{ $linea->bodega?->nombre ?? ($linea->bodega?->codigo ?? 'Sin asignar') }}</td>
-                                        <td class="border border-gray-300 px-2 py-2 text-center">{{ $naturaleza }}</td>
-                                        <td class="border border-gray-300 px-2 py-2 text-right font-mono">{{ number_format((float) $linea->cantidad, 2, '.', ',') }}</td>
-                                        <td class="border border-gray-300 px-2 py-2 text-right font-mono">{{ number_format((float) $linea->costo_total, 2, ',', '.') }}</td>
-                                        <td class="border border-gray-300 px-2 py-2">{{ $linea->product?->categoriaContable?->cuentaInventario?->nombre ?? '—' }}</td>
+                                        @if($documento->esTraslado())
+                                            <td class="border border-gray-300 px-2 py-2">{{ $linea->etiquetaBodegaOrigen() }}</td>
+                                            <td class="border border-gray-300 px-2 py-2">{{ $linea->etiquetaBodegaDestino() }}</td>
+                                            <td class="border border-gray-300 px-2 py-2 text-right font-mono">{{ number_format((float) $linea->cantidad, 2, '.', ',') }}</td>
+                                        @else
+                                            <td class="border border-gray-300 px-2 py-2">{{ $linea->bodega?->nombre ?? ($linea->bodega?->codigo ?? 'Sin asignar') }}</td>
+                                            <td class="border border-gray-300 px-2 py-2 text-center">{{ $linea->etiquetaDireccion() }}</td>
+                                            <td class="border border-gray-300 px-2 py-2 text-right font-mono">{{ number_format((float) $linea->cantidad, 2, '.', ',') }}</td>
+                                            <td class="border border-gray-300 px-2 py-2 text-right font-mono">{{ number_format((float) $linea->costo_total, 2, ',', '.') }}</td>
+                                            <td class="border border-gray-300 px-2 py-2">{{ $linea->product?->categoriaContable?->cuentaInventario?->nombre ?? '—' }}</td>
+                                        @endif
                                     </tr>
                                 @endforeach
                             </tbody>
@@ -139,9 +151,11 @@
 
                     <div class="flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 pt-3 text-xs text-gray-500">
                         <span>{{ $documento->numero }} · {{ $documento->estado }}</span>
-                        <span class="font-semibold text-gray-800">
-                            Total: $ {{ number_format((float) $documento->total, 2, ',', '.') }}
-                        </span>
+                        @unless($documento->esTraslado())
+                            <span class="font-semibold text-gray-800">
+                                Total: $ {{ number_format((float) $documento->total, 2, ',', '.') }}
+                            </span>
+                        @endunless
                     </div>
                 </div>
             </article>

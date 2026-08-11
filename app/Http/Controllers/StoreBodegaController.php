@@ -101,4 +101,27 @@ class StoreBodegaController extends Controller
                 ->with('error', $e->getMessage());
         }
     }
+
+    public function destroy(Store $store, Bodega $bodega)
+    {
+        $this->permissionService->authorize($store, 'products.bodegas.delete');
+
+        if ($bodega->store_id !== $store->id) {
+            abort(404);
+        }
+
+        $etiqueta = $bodega->codigo.' — '.$bodega->nombre;
+
+        try {
+            $this->bodegaService->eliminar($store, $bodega);
+        } catch (Exception $e) {
+            return redirect()
+                ->route('stores.products.bodegas', $store)
+                ->with('error', $e->getMessage());
+        }
+
+        return redirect()
+            ->route('stores.products.bodegas', $store)
+            ->with('success', 'Se eliminó la bodega «'.$etiqueta.'».');
+    }
 }

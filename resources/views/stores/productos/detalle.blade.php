@@ -73,13 +73,18 @@
                         </button>
                     </form>
                     @endstoreCan
-                    <button type="button"
-                            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-brand/40 text-brand text-sm font-medium hover:bg-brand/10">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
-                        </svg>
-                        Duplicar
-                    </button>
+                    @storeCan($store, 'products.create')
+                    <form method="POST" action="{{ route('stores.products.duplicate', [$store, $product]) }}">
+                        @csrf
+                        <button type="submit"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-brand/40 text-brand text-sm font-medium hover:bg-brand/10">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                            </svg>
+                            Duplicar
+                        </button>
+                    </form>
+                    @endstoreCan
                     @storeCan($store, 'products.edit')
                     <a href="{{ route('stores.products.edit', [$store, $product]) }}"
                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-brand/40 text-brand text-sm font-medium hover:bg-brand/10">
@@ -101,10 +106,49 @@
                             {{ $product->nombre }}
                         </h1>
                         @unless($esServicio)
-                            <p class="mt-2 text-sm text-gray-400">
-                                Stock actual: 0.00 {{ $product->unidad_medida_factura ?: 'und' }}.
-                                <button type="button" class="text-brand hover:underline ml-1">Ver stock</button>
-                            </p>
+                            @php
+                                $unidadStock = $product->unidad_medida_factura ?: 'und';
+                                $stockFmt = number_format((float) ($stockActual ?? 0), 2, ',', '.');
+                            @endphp
+                            <div class="mt-2" x-data="{ openStock: false }">
+                                <p class="text-sm text-gray-400">
+                                    Stock actual: {{ $stockFmt }} {{ $unidadStock }}.
+                                    @if($product->es_inventariable)
+                                        <button type="button"
+                                                class="text-brand hover:underline ml-1"
+                                                @click="openStock = !openStock"
+                                                x-text="openStock ? 'Ocultar stock' : 'Ver stock'"></button>
+                                    @endif
+                                </p>
+                                @if($product->es_inventariable)
+                                    <div x-show="openStock"
+                                         x-cloak
+                                         x-transition
+                                         class="mt-3 rounded-lg border border-white/10 bg-white/[0.03] p-3 max-w-md">
+                                        <p class="text-xs font-medium text-gray-400 mb-2">Stock por bodega</p>
+                                        @forelse($stockPorBodega as $fila)
+                                            <div class="flex items-center justify-between gap-3 py-1.5 text-sm {{ ! $loop->last ? 'border-b border-white/5' : '' }}">
+                                                <span class="text-gray-300 truncate">
+                                                    @if(($fila['codigo'] ?? '') !== '—')
+                                                        <span class="font-mono text-gray-500">{{ $fila['codigo'] }}</span>
+                                                        ·
+                                                    @endif
+                                                    {{ $fila['nombre'] }}
+                                                </span>
+                                                <span class="tabular-nums text-gray-100 shrink-0">
+                                                    {{ number_format((float) $fila['cantidad'], 2, ',', '.') }}
+                                                </span>
+                                            </div>
+                                        @empty
+                                            <p class="text-sm text-gray-500">Sin movimientos en bodegas.</p>
+                                        @endforelse
+                                        <div class="mt-2 pt-2 border-t border-white/10 flex items-center justify-between text-sm">
+                                            <span class="text-gray-400">Total</span>
+                                            <span class="tabular-nums font-medium text-white">{{ $stockFmt }} {{ $unidadStock }}</span>
+                                        </div>
+                                    </div>
+                                @endif
+                            </div>
                         @endunless
                         <div class="mt-4 flex items-center gap-3">
                             <span class="text-sm text-gray-300">{{ $product->is_active ? 'Activo' : 'Inactivo' }}</span>

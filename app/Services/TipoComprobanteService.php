@@ -69,6 +69,14 @@ class TipoComprobanteService
                     'prefijo' => 'A',
                     'libro_oficial' => null,
                 ],
+                [
+                    'familia' => TipoComprobante::FAMILIA_NT,
+                    'codigo' => '1',
+                    'nombre' => 'Nota de traslado entre bodegas',
+                    'titulo' => 'Nota de traslado entre bodegas',
+                    'prefijo' => 'NT',
+                    'libro_oficial' => null,
+                ],
             ],
             CatalogoComprobantesContablesPredeterminados::tipos()
         );
@@ -96,7 +104,7 @@ class TipoComprobanteService
         $q = TipoComprobante::query()
             ->deStore($store)
             ->with(['cuentaAnticipos:id,codigo,nombre'])
-            ->orderByRaw("CASE familia WHEN 'FV' THEN 1 WHEN 'RC' THEN 2 WHEN 'FC' THEN 3 WHEN 'RP' THEN 4 WHEN 'CC' THEN 5 WHEN 'A' THEN 6 ELSE 99 END")
+            ->orderByRaw("CASE familia WHEN 'FV' THEN 1 WHEN 'RC' THEN 2 WHEN 'FC' THEN 3 WHEN 'RP' THEN 4 WHEN 'CC' THEN 5 WHEN 'A' THEN 6 WHEN 'NT' THEN 7 ELSE 99 END")
             ->orderByRaw('CAST(codigo AS UNSIGNED) asc')
             ->orderBy('codigo');
 

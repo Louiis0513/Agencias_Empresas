@@ -104,7 +104,7 @@
                 </p>
             </div>
             <div class="fecha-box">
-                <div class="lbl">Fecha Comprobante</div>
+                <div class="lbl">{{ $documento->esTraslado() ? 'Fecha de traslado' : 'Fecha Comprobante' }}</div>
                 <div class="val">{{ $documento->fecha->format('Y-m-d') }}</div>
             </div>
         </td>
@@ -122,14 +122,20 @@
     <thead>
         <tr>
             <th class="center" style="width: 4%;">Ítem</th>
-            <th style="width: 9%;">Producto</th>
-            <th style="width: 22%;">Descripción</th>
-            <th style="width: 10%;">Referencia de fábrica</th>
-            <th style="width: 10%;">Bodega</th>
-            <th class="center" style="width: 10%;">Aumenta/Disminuye</th>
-            <th class="num" style="width: 9%;">Cantidad</th>
-            <th class="num" style="width: 11%;">Costo total</th>
-            <th style="width: 15%;">Nombre de Cuenta contable</th>
+            <th style="width: 10%;">Producto</th>
+            <th style="width: 24%;">Descripción</th>
+            <th style="width: 12%;">Referencia de fábrica</th>
+            @if($documento->esTraslado())
+                <th style="width: 16%;">Bodega origen</th>
+                <th style="width: 16%;">Bodega destino</th>
+                <th class="num" style="width: 10%;">Cantidad</th>
+            @else
+                <th style="width: 10%;">Bodega</th>
+                <th class="center" style="width: 10%;">Aumenta/Disminuye</th>
+                <th class="num" style="width: 9%;">Cantidad</th>
+                <th class="num" style="width: 11%;">Costo total</th>
+                <th style="width: 15%;">Nombre de Cuenta contable</th>
+            @endif
         </tr>
     </thead>
     <tbody>
@@ -139,11 +145,17 @@
                 <td>{{ $linea->product?->codigo }}</td>
                 <td>{{ $linea->descripcion }}</td>
                 <td>{{ $linea->product?->referencia ?: '—' }}</td>
-                <td>{{ $linea->bodega?->nombre ?? ($linea->bodega?->codigo ?? 'Sin asignar') }}</td>
-                <td class="center">{{ $naturaleza }}</td>
-                <td class="num">{{ number_format((float) $linea->cantidad, 2, '.', ',') }}</td>
-                <td class="num">{{ number_format((float) $linea->costo_total, 2, ',', '.') }}</td>
-                <td>{{ $linea->product?->categoriaContable?->cuentaInventario?->nombre ?? '—' }}</td>
+                @if($documento->esTraslado())
+                    <td>{{ $linea->etiquetaBodegaOrigen() }}</td>
+                    <td>{{ $linea->etiquetaBodegaDestino() }}</td>
+                    <td class="num">{{ number_format((float) $linea->cantidad, 2, '.', ',') }}</td>
+                @else
+                    <td>{{ $linea->bodega?->nombre ?? ($linea->bodega?->codigo ?? 'Sin asignar') }}</td>
+                    <td class="center">{{ $linea->etiquetaDireccion() }}</td>
+                    <td class="num">{{ number_format((float) $linea->cantidad, 2, '.', ',') }}</td>
+                    <td class="num">{{ number_format((float) $linea->costo_total, 2, ',', '.') }}</td>
+                    <td>{{ $linea->product?->categoriaContable?->cuentaInventario?->nombre ?? '—' }}</td>
+                @endif
             </tr>
         @endforeach
     </tbody>

@@ -45,6 +45,19 @@ class ListaPrecioService
     }
 
     /**
+     * @return \Illuminate\Database\Eloquent\Collection<int, ListaPrecio>
+     */
+    public function listar(Store $store)
+    {
+        $this->asegurarListasPorDefecto($store);
+
+        return ListaPrecio::query()
+            ->deStore($store)
+            ->orderBy('numero')
+            ->get();
+    }
+
+    /**
      * Actualiza nombre/activo de una lista de la tienda.
      *
      * @param  array{nombre?: string, activo?: bool}  $data

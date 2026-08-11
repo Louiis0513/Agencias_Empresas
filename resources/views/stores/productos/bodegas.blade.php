@@ -141,7 +141,7 @@
                                                         <span class="text-gray-500">No</span>
                                                     @endif
                                                 </td>
-                                                <td class="px-3 py-3 text-right">
+                                                <td class="px-3 py-3 text-right space-x-3">
                                                     @storeCan($store, 'products.bodegas.edit')
                                                     <button type="button" class="text-brand hover:underline text-sm"
                                                         @click="openEdit({
@@ -152,6 +152,17 @@
                                                         })">
                                                         Editar
                                                     </button>
+                                                    @endstoreCan
+                                                    @storeCan($store, 'products.bodegas.delete')
+                                                        @if(! $item->tiene_movimientos)
+                                                            <form method="POST" action="{{ route('stores.products.bodegas.destroy', [$store, $item]) }}"
+                                                                  class="inline"
+                                                                  onsubmit="return confirm(@js('¿Eliminar la bodega «'.$item->codigo.' — '.$item->nombre.'»? No se puede recuperar.'));">
+                                                                @csrf
+                                                                @method('DELETE')
+                                                                <button type="submit" class="text-red-400 hover:underline text-sm">Eliminar</button>
+                                                            </form>
+                                                        @endif
                                                     @endstoreCan
                                                 </td>
                                             </tr>

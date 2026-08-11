@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreAjusteInventarioRequest;
 use App\Http\Requests\StoreSaldosInicialesRequest;
+use App\Http\Requests\StoreTrasladoBodegaRequest;
 use App\Models\DocumentoInventario;
 use App\Models\Store;
 use App\Services\DocumentoInventarioService;
@@ -39,6 +41,74 @@ class StoreDocumentoInventarioController extends Controller
         if ($request->expectsJson()) {
             return response()->json([
                 'message' => 'Saldos iniciales contabilizados.',
+                'redirect' => route('stores.products.documentos.show', [$store, $documento]),
+                'documento' => [
+                    'id' => $documento->id,
+                    'numero' => $documento->numero,
+                ],
+            ]);
+        }
+
+        return redirect()
+            ->route('stores.products.documentos.show', [$store, $documento])
+            ->with('success', 'Documento '.$documento->numero.' contabilizado.');
+    }
+
+    public function storeAjuste(StoreAjusteInventarioRequest $request, Store $store)
+    {
+        $this->permissionService->authorize($store, 'products.create');
+
+        try {
+            $documento = $this->documentoInventarioService->contabilizarAjuste(
+                $store,
+                (int) $request->user()->id,
+                $request->validated()
+            );
+        } catch (Exception $e) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $e->getMessage()], 422);
+            }
+
+            return back()->withInput()->with('error', $e->getMessage());
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Ajuste de inventario contabilizado.',
+                'redirect' => route('stores.products.documentos.show', [$store, $documento]),
+                'documento' => [
+                    'id' => $documento->id,
+                    'numero' => $documento->numero,
+                ],
+            ]);
+        }
+
+        return redirect()
+            ->route('stores.products.documentos.show', [$store, $documento])
+            ->with('success', 'Documento '.$documento->numero.' contabilizado.');
+    }
+
+    public function storeTraslado(StoreTrasladoBodegaRequest $request, Store $store)
+    {
+        $this->permissionService->authorize($store, 'products.create');
+
+        try {
+            $documento = $this->documentoInventarioService->contabilizarTraslado(
+                $store,
+                (int) $request->user()->id,
+                $request->validated()
+            );
+        } catch (Exception $e) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $e->getMessage()], 422);
+            }
+
+            return back()->withInput()->with('error', $e->getMessage());
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Nota de traslado contabilizada.',
                 'redirect' => route('stores.products.documentos.show', [$store, $documento]),
                 'documento' => [
                     'id' => $documento->id,

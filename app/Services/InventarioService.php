@@ -113,4 +113,152 @@ class InventarioService
             ->where('bodega_id', $bodega->id)
             ->exists();
     }
+
+    /**
+     * Stock total por producto (suma de todas las bodegas + Sin asignar).
+     * ENTRADA suma, SALIDA resta.
+     *
+     * @param  list<int>  $productIds
+     * @return array<int, float> product_id => stock
+     */
+    public function stockTotalPorProductos(Store $store, array $productIds): array
+    {
+        $ids = array_values(array_unique(array_map('intval', $productIds)));
+        if ($ids === []) {
+            return [];
+        }
+
+        $rows = MovimientoInventario::query()
+            ->deStore($store)
+            ->whereIn('product_id', $ids)
+            ->selectRaw(
+                'product_id, COALESCE(SUM(CASE WHEN direccion = ? THEN cantidad ELSE -cantidad END), 0) as stock',
+                [MovimientoInventario::DIRECCION_ENTRADA]
+            )
+            ->groupBy('product_id')
+            ->pluck('stock', 'product_id');
+
+        $out = [];
+        foreach ($ids as $id) {
+            $out[$id] = round((float) ($rows[$id] ?? 0), 4);
+        }
+
+        return $out;
+    }
+
+    public function stockTotal(Store $store, Product $product): float
+    {
+        if ($product->store_id !== $store->id) {
+            throw new Exception('El producto no pertenece a esta tienda.');
+        }
+
+        if (! $product->es_inventariable) {
+            return 0.0;
+        }
+
+        return $this->stockTotalPorProductos($store, [$product->id])[$product->id] ?? 0.0;
+    }
+
+    /**
+     * Desglose de stock por bodega (incluye «Sin asignar» si hay movimientos sin bodega).
+     *
+     * @return list<array{bodega_id: int|null, codigo: string, nombre: string, cantidad: float}>
+     */
+    public function stockPorBodega(Store $store, Product $product): array
+    {
+        if ($product->store_id !== $store->id) {
+            throw new Exception('El producto no pertenece a esta tienda.');
+        }
+
+        if (! $product->es_inventariable) {
+            return [];
+        }
+
+        $rows = MovimientoInventario::query()
+            ->deStore($store)
+            ->where('product_id', $product->id)
+            ->selectRaw(
+                'bodega_id, COALESCE(SUM(CASE WHEN direccion = ? THEN cantidad ELSE -cantidad END), 0) as stock',
+                [MovimientoInventario::DIRECCION_ENTRADA]
+            )
+            ->groupBy('bodega_id')
+            ->get();
+
+        $bodegaIds = $rows->pluck('bodega_id')->filter()->map(fn ($id) => (int) $id)->all();
+        $bodegas = $bodegaIds === []
+            ? collect()
+            : Bodega::query()->deStore($store)->whereIn('id', $bodegaIds)->get(['id', 'codigo', 'nombre'])->keyBy('id');
+
+        $out = [];
+        foreach ($rows as $row) {
+            $cantidad = round((float) $row->stock, 4);
+            if (abs($cantidad) < 0.00005) {
+                continue;
+            }
+
+            $bodegaId = $row->bodega_id !== null ? (int) $row->bodega_id : null;
+            if ($bodegaId === null) {
+                $out[] = [
+                    'bodega_id' => null,
+                    'codigo' => '—',
+                    'nombre' => 'Sin asignar',
+                    'cantidad' => $cantidad,
+                ];
+
+                continue;
+            }
+
+            $bodega = $bodegas->get($bodegaId);
+            $out[] = [
+                'bodega_id' => $bodegaId,
+                'codigo' => (string) ($bodega?->codigo ?? $bodegaId),
+                'nombre' => (string) ($bodega?->nombre ?? 'Bodega #'.$bodegaId),
+                'cantidad' => $cantidad,
+            ];
+        }
+
+        usort($out, function (array $a, array $b) {
+            if ($a['bodega_id'] === null) {
+                return 1;
+            }
+            if ($b['bodega_id'] === null) {
+                return -1;
+            }
+
+            return strcmp($a['codigo'], $b['codigo']);
+        });
+
+        return $out;
+    }
+
+    /**
+     * Stock del producto en una bodega concreta (null = «Sin asignar»).
+     */
+    public function stockEnBodega(Store $store, Product $product, ?int $bodegaId): float
+    {
+        if ($product->store_id !== $store->id) {
+            throw new Exception('El producto no pertenece a esta tienda.');
+        }
+
+        if (! $product->es_inventariable) {
+            return 0.0;
+        }
+
+        $q = MovimientoInventario::query()
+            ->deStore($store)
+            ->where('product_id', $product->id);
+
+        if ($bodegaId === null) {
+            $q->whereNull('bodega_id');
+        } else {
+            $q->where('bodega_id', $bodegaId);
+        }
+
+        $stock = $q->selectRaw(
+            'COALESCE(SUM(CASE WHEN direccion = ? THEN cantidad ELSE -cantidad END), 0) as stock',
+            [MovimientoInventario::DIRECCION_ENTRADA]
+        )->value('stock');
+
+        return round((float) ($stock ?? 0), 4);
+    }
 }

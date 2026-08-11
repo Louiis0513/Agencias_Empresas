@@ -23,6 +23,8 @@ class TipoComprobante extends Model
 
     public const FAMILIA_A = 'A';
 
+    public const FAMILIA_NT = 'NT';
+
     public const FAMILIAS = [
         self::FAMILIA_FV,
         self::FAMILIA_RC,
@@ -30,6 +32,7 @@ class TipoComprobante extends Model
         self::FAMILIA_RP,
         self::FAMILIA_CC,
         self::FAMILIA_A,
+        self::FAMILIA_NT,
     ];
 
     public const LIBRO_VENTAS = 'ventas';
@@ -118,6 +121,7 @@ class TipoComprobante extends Model
             self::FAMILIA_RP => 'RECIBOS DE PAGO',
             self::FAMILIA_CC => 'COMPROBANTES CONTABLES',
             self::FAMILIA_A => 'AJUSTES DE INVENTARIO',
+            self::FAMILIA_NT => 'NOTAS DE TRASLADO',
         ];
     }
 
@@ -142,6 +146,7 @@ class TipoComprobante extends Model
             self::FAMILIA_RP => 'Recibo de pago / egreso',
             self::FAMILIA_CC => 'Comprobante contable',
             self::FAMILIA_A => 'Ajuste / Saldo inicial de inventario',
+            self::FAMILIA_NT => 'Nota de traslado entre bodegas',
             default => $this->familia,
         };
     }
@@ -173,6 +178,7 @@ class TipoComprobante extends Model
             self::FAMILIA_RP => 'Recibo de pago / egreso',
             self::FAMILIA_CC => 'Comprobante contable',
             self::FAMILIA_A => 'Ajuste / Saldo inicial de inventario',
+            self::FAMILIA_NT => 'Nota de traslado entre bodegas',
         ];
     }
 }

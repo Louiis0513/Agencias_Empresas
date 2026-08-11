@@ -198,7 +198,13 @@
                                             <td class="px-4 py-3 text-gray-300">
                                                 {{ $product->impuestoCargo?->nombre ?? '—' }}
                                             </td>
-                                            <td class="px-4 py-3 text-gray-500">—</td>
+                                            <td class="px-4 py-3 tabular-nums text-gray-300">
+                                                @if($product->es_inventariable && ! $product->esServicio())
+                                                    {{ number_format((float) ($product->stock_actual ?? 0), 2, ',', '.') }}
+                                                @else
+                                                    <span class="text-gray-500">—</span>
+                                                @endif
+                                            </td>
                                             <td class="px-4 py-3 whitespace-nowrap">
                                                 @if($product->is_active)
                                                     <span class="inline-flex items-center gap-1.5 text-emerald-400">
@@ -259,7 +265,12 @@
                                                                     <button type="submit" class="block w-full px-4 py-2 text-sm text-red-400 hover:bg-white/5 text-left">Eliminar</button>
                                                                 </form>
                                                                 @endstoreCan
-                                                                <button type="button" class="block w-full px-4 py-2 text-sm text-gray-200 hover:bg-white/5 text-left">Duplicar</button>
+                                                                @storeCan($store, 'products.create')
+                                                                <form method="POST" action="{{ route('stores.products.duplicate', [$store, $product]) }}">
+                                                                    @csrf
+                                                                    <button type="submit" class="block w-full px-4 py-2 text-sm text-gray-200 hover:bg-white/5 text-left">Duplicar</button>
+                                                                </form>
+                                                                @endstoreCan
                                                             </div>
                                                         </template>
                                                     </div>
@@ -358,7 +369,7 @@
                                 <option value="bajo_minimo" @selected(($filtros['stock'] ?? '') === 'bajo_minimo')>Por debajo del saldo mínimo</option>
                                 <option value="negativos" @selected(($filtros['stock'] ?? '') === 'negativos')>Saldos negativos</option>
                             </select>
-                            <p class="mt-1 text-xs text-gray-500">El filtro de stock se habilitará cuando exista inventario.</p>
+                            <p class="mt-1 text-xs text-gray-500">Filtra por saldos del ledger de inventario.</p>
                         </div>
 
                         <div>

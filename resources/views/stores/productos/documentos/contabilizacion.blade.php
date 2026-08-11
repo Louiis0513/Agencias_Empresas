@@ -44,10 +44,10 @@
                                     <td class="px-4 py-3 max-w-xs">{{ $mov->descripcion ?: '—' }}</td>
                                     <td class="px-4 py-3">{{ $mov->centroCosto?->nombre ?? '—' }}</td>
                                     <td class="px-4 py-3 text-right font-mono">
-                                        {{ (float) $mov->debito > 0 ? '$ '.number_format((float) $mov->debito, 2, ',', '.') : '—' }}
+                                        $ {{ number_format((float) $mov->debito, 2, ',', '.') }}
                                     </td>
                                     <td class="px-4 py-3 text-right font-mono">
-                                        {{ (float) $mov->credito > 0 ? '$ '.number_format((float) $mov->credito, 2, ',', '.') : '—' }}
+                                        $ {{ number_format((float) $mov->credito, 2, ',', '.') }}
                                     </td>
                                 </tr>
                             @endforeach

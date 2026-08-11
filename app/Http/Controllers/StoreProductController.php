@@ -11,8 +11,10 @@ use App\Models\Product;
 use App\Models\Store;
 use App\Models\Tercero;
 use App\Models\UnidadMedidaFe;
+use App\Services\AsientoContableService;
 use App\Services\CategoriaContableService;
 use App\Services\DocumentoInventarioService;
+use App\Services\InventarioService;
 use App\Services\ListaPrecioService;
 use App\Services\ProductService;
 use App\Services\StorePermissionService;
@@ -28,6 +30,8 @@ class StoreProductController extends Controller
         protected CategoriaContableService $categoriaContableService,
         protected ListaPrecioService $listaPrecioService,
         protected DocumentoInventarioService $documentoInventarioService,
+        protected AsientoContableService $asientoContableService,
+        protected InventarioService $inventarioService,
     ) {}
 
     /**
@@ -113,7 +117,20 @@ class StoreProductController extends Controller
             ->orderBy('numero')
             ->get(['id', 'numero', 'nombre']);
 
-        return view('stores.productos.detalle', compact('store', 'product', 'listasActivas'));
+        $stockActual = null;
+        $stockPorBodega = [];
+        if ($product->es_inventariable && ! $product->esServicio()) {
+            $stockActual = $this->inventarioService->stockTotal($store, $product);
+            $stockPorBodega = $this->inventarioService->stockPorBodega($store, $product);
+        }
+
+        return view('stores.productos.detalle', compact(
+            'store',
+            'product',
+            'listasActivas',
+            'stockActual',
+            'stockPorBodega'
+        ));
     }
 
     public function edit(Store $store, Product $product)
@@ -167,6 +184,22 @@ class StoreProductController extends Controller
             : 'Se inactivó «'.$product->nombre.'».';
 
         return back()->with('success', $msg);
+    }
+
+    public function duplicate(Store $store, Product $product)
+    {
+        $this->permissionService->authorize($store, 'products.create');
+        $this->assertStoreProduct($store, $product);
+
+        try {
+            $copia = $this->productService->duplicar($store, $product);
+        } catch (Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return redirect()
+            ->route('stores.products.edit', [$store, $copia])
+            ->with('success', 'Se duplicó como «'.$copia->nombre.'» ('.$copia->codigo.'). Revisa y guarda si necesitas cambios.');
     }
 
     public function destroy(Store $store, Product $product)
@@ -235,6 +268,100 @@ class StoreProductController extends Controller
             'productosInventariables' => $productosInventariables,
             'bodegas' => $bodegas,
             'centrosCosto' => $centrosCosto,
+            'terceros' => $terceros,
+        ]);
+    }
+
+    /**
+     * Formulario: ajuste de inventario (aumenta / disminuye).
+     */
+    public function createAjuste(Store $store)
+    {
+        $this->permissionService->authorize($store, 'products.view');
+
+        $productosInventariables = Product::query()
+            ->where('store_id', $store->id)
+            ->where('es_inventariable', true)
+            ->activos()
+            ->orderBy('codigo')
+            ->get(['id', 'codigo', 'nombre']);
+
+        $bodegas = $store->maneja_bodegas
+            ? Bodega::query()
+                ->deStore($store)
+                ->activos()
+                ->orderBy('codigo')
+                ->get(['id', 'codigo', 'nombre'])
+            : collect();
+
+        $centrosCosto = CentroCosto::query()
+            ->deStore($store)
+            ->subcentros()
+            ->activos()
+            ->with('padre:id,codigo,nombre')
+            ->orderBy('codigo')
+            ->get(['id', 'codigo', 'nombre', 'parent_id']);
+
+        $terceros = Tercero::query()
+            ->deStore($store)
+            ->activos()
+            ->orderBy('nombre')
+            ->get(['id', 'numero_identificacion', 'nombre']);
+
+        $cuentas = $this->asientoContableService->cuentasDisponibles($store);
+
+        return view('stores.productos.documentos.ajuste-crear', [
+            'store' => $store,
+            'productosInventariables' => $productosInventariables,
+            'bodegas' => $bodegas,
+            'centrosCosto' => $centrosCosto,
+            'terceros' => $terceros,
+            'cuentas' => $cuentas,
+        ]);
+    }
+
+    /**
+     * Formulario: nota de traslado entre bodegas.
+     */
+    public function createTraslado(Store $store)
+    {
+        $this->permissionService->authorize($store, 'products.view');
+
+        if (! $store->maneja_bodegas) {
+            return redirect()
+                ->route('stores.products.bodegas', $store)
+                ->with('error', 'Activa el manejo de bodegas antes de elaborar una nota de traslado.');
+        }
+
+        $productosInventariables = Product::query()
+            ->where('store_id', $store->id)
+            ->where('es_inventariable', true)
+            ->activos()
+            ->orderBy('codigo')
+            ->get(['id', 'codigo', 'nombre']);
+
+        $bodegas = Bodega::query()
+            ->deStore($store)
+            ->activos()
+            ->orderBy('codigo')
+            ->get(['id', 'codigo', 'nombre']);
+
+        if ($bodegas->isEmpty()) {
+            return redirect()
+                ->route('stores.products.bodegas', $store)
+                ->with('error', 'Crea al menos una bodega activa para elaborar traslados.');
+        }
+
+        $terceros = Tercero::query()
+            ->deStore($store)
+            ->activos()
+            ->orderBy('nombre')
+            ->get(['id', 'numero_identificacion', 'nombre']);
+
+        return view('stores.productos.documentos.traslado-crear', [
+            'store' => $store,
+            'productosInventariables' => $productosInventariables,
+            'bodegas' => $bodegas,
             'terceros' => $terceros,
         ]);
     }

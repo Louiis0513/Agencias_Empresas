@@ -1,6 +1,8 @@
 {{-- Pestaña Documentos de productos / servicios --}}
 @php
     $saldosCreateUrl = route('stores.products.documentos.saldos-iniciales.create', $store);
+    $ajusteCreateUrl = route('stores.products.documentos.ajuste.create', $store);
+    $trasladoCreateUrl = route('stores.products.documentos.traslado.create', $store);
     $documentos = $documentos ?? null;
 @endphp
 
@@ -55,16 +57,16 @@
                 </button>
                 <div x-show="openNuevo" x-cloak
                      class="absolute right-0 mt-1 w-80 rounded-lg border border-white/10 bg-dark-card shadow-xl z-30 py-1">
-                    <button type="button" disabled
-                            class="w-full text-left px-4 py-2.5 text-sm text-gray-500 cursor-not-allowed">
+                    <a href="{{ $ajusteCreateUrl }}" wire:navigate
+                       class="block px-4 py-2.5 text-sm text-gray-100 hover:bg-white/5">
                         Ajuste de inventario
-                        <span class="block text-xs text-gray-600">Próximamente</span>
-                    </button>
-                    <button type="button" disabled
-                            class="w-full text-left px-4 py-2.5 text-sm text-gray-500 cursor-not-allowed">
+                        <span class="block text-xs text-gray-500">Aumenta o disminuye cantidades y valores</span>
+                    </a>
+                    <a href="{{ $trasladoCreateUrl }}" wire:navigate
+                       class="block px-4 py-2.5 text-sm text-gray-100 hover:bg-white/5">
                         Nota de traslado entre bodegas
-                        <span class="block text-xs text-gray-600">Próximamente</span>
-                    </button>
+                        <span class="block text-xs text-gray-500">Mueve inventario de una bodega a otra</span>
+                    </a>
                     <button type="button" disabled
                             class="w-full text-left px-4 py-2.5 text-sm text-gray-500 cursor-not-allowed">
                         Ensamble de producto
