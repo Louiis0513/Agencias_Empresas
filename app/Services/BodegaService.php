@@ -79,11 +79,11 @@ class BodegaService
     }
 
     /**
-     * Stub hasta reconstruir inventario: sin movimientos asociados aún.
+     * ¿La bodega tiene movimientos de inventario?
      */
     public function tieneMovimientos(Bodega $bodega): bool
     {
-        return false;
+        return app(InventarioService::class)->tieneMovimientosBodega($bodega);
     }
 
     public function tiendaTieneBodegasConMovimientos(Store $store): bool

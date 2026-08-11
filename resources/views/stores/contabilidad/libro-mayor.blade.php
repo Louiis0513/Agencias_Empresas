@@ -75,16 +75,29 @@
                                     <td class="px-4 py-3 text-right font-mono text-gray-200">{{ $fmt($bloque['saldo_inicial']) }}</td>
                                 </tr>
                                 @forelse($bloque['movimientos'] as $fila)
-                                    @php $movimiento = $fila['movimiento']; @endphp
+                                    @php
+                                        $movimiento = $fila['movimiento'];
+                                        $fechaMov = $movimiento->fechaAsiento();
+                                        $numeroMov = $movimiento->numeroAsiento();
+                                        $urlShow = $movimiento->comprobante
+                                            ? route('stores.contabilidad.comprobantes.show', [$store, $movimiento->comprobante])
+                                            : ($movimiento->documentoInventario
+                                                ? route('stores.products.documentos.show', [$store, $movimiento->documentoInventario])
+                                                : null);
+                                    @endphp
                                     <tr class="text-sm text-gray-300">
-                                        <td class="whitespace-nowrap px-4 py-3">{{ $movimiento->comprobante->fecha->format('d/m/Y') }}</td>
+                                        <td class="whitespace-nowrap px-4 py-3">{{ $fechaMov?->format('d/m/Y') ?? '—' }}</td>
                                         <td class="px-4 py-3">
-                                            <a href="{{ route('stores.contabilidad.comprobantes.show', [$store, $movimiento->comprobante]) }}"
-                                               class="font-mono text-brand hover:underline">{{ $movimiento->comprobante->numero }}</a>
+                                            @if($urlShow)
+                                                <a href="{{ $urlShow }}"
+                                                   class="font-mono text-brand hover:underline">{{ $numeroMov }}</a>
+                                            @else
+                                                <span class="font-mono">{{ $numeroMov ?? '—' }}</span>
+                                            @endif
                                         </td>
-                                        <td class="px-4 py-3">{{ $movimiento->tercero?->nombre ?? '—' }}</td>
+                                        <td class="px-4 py-3">{{ $movimiento->tercero?->nombre ?? $movimiento->documentoInventario?->tercero_nombre ?? '—' }}</td>
                                         <td class="max-w-xs px-4 py-3">
-                                            {{ $movimiento->detalle_contable ?: ($movimiento->descripcion ?? $movimiento->comprobante->descripcion) }}
+                                            {{ $movimiento->detalle_contable ?: $movimiento->glosaAsiento() }}
                                         </td>
                                         <td class="whitespace-nowrap px-4 py-3 text-right font-mono">
                                             {{ (float) $movimiento->debito > 0 ? $fmt($movimiento->debito) : '—' }}

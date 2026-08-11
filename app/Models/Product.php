@@ -27,6 +27,10 @@ class Product extends Model
     /** Código DIAN por defecto: unidad. */
     public const UNIDAD_MEDIDA_DIAN_DEFAULT = '94';
 
+    public const QUANTITY_MODE_UNIT = 'unit';
+
+    public const QUANTITY_MODE_DECIMAL = 'decimal';
+
     /** Máximo de imágenes por producto/servicio. */
     public const MAX_IMAGENES = 5;
 

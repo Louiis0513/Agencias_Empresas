@@ -44,11 +44,17 @@
             manejaBodegas: @js((bool) $store->maneja_bodegas),
             moneda: @js($moneda),
             fechaDefault: @js($hoy),
+            storeUrl: @js(route('stores.products.documentos.saldos-iniciales.store', $store)),
          })">
         <div class="flex-1 space-y-4 px-3 py-4 sm:px-5 lg:px-6 pb-28">
-            <div class="rounded-lg border border-amber-500/30 bg-amber-950/30 px-3 py-2 text-sm text-amber-100">
-                Vista de captura. Aún no se guarda stock ni se genera asiento contable.
-            </div>
+            <template x-if="errorMsg">
+                <div class="rounded-lg border border-red-500/30 bg-red-950/30 px-3 py-2 text-sm text-red-200" x-text="errorMsg"></div>
+            </template>
+            <template x-if="!errorMsg">
+                <div class="rounded-lg border border-sky-500/30 bg-sky-950/20 px-3 py-2 text-sm text-sky-100">
+                    Al contabilizar se crea el documento A, las entradas de inventario y el asiento Dr inventario / Cr 99999999.
+                </div>
+            </template>
 
             {{-- Encabezado compacto --}}
             <div class="space-y-3 rounded-xl border border-white/5 bg-dark-card p-4 sm:p-5">
@@ -74,7 +80,7 @@
             <div class="overflow-hidden rounded-xl border border-white/5 bg-dark-card">
                 <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 px-4 py-2.5">
                     <h2 class="text-sm font-semibold text-white">Detalle</h2>
-                    <p class="text-xs text-gray-500">Enter en costo unitario agrega la siguiente fila</p>
+                    <p class="text-xs text-gray-500">Al completar una fila se agrega la siguiente · Enter también avanza</p>
                 </div>
 
                 <div class="overflow-x-auto">
@@ -186,7 +192,7 @@
                                     </td>
                                     <td class="px-3 py-2.5 text-right font-medium tabular-nums text-gray-200" x-text="formatMoney(lineTotal(line))"></td>
                                     <td class="px-2 py-2.5">
-                                        <div class="flex items-center justify-center gap-1" x-show="lines.length > 1" x-cloak>
+                                        <div class="flex items-center justify-center gap-0.5" x-show="line.product_id" x-cloak>
                                             <button type="button" @click="duplicateLine(index)" title="Duplicar"
                                                     class="rounded-md p-1.5 text-sky-400 transition hover:bg-sky-500/20">
                                                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
@@ -234,12 +240,18 @@
                     Cancelar
                 </a>
                 <div class="flex flex-col items-end gap-1">
-                    <button type="button" disabled
-                            class="inline-flex cursor-not-allowed items-center rounded-xl bg-brand/40 px-5 py-2.5 text-sm font-semibold text-white/70"
-                            title="Sin persistencia en esta fase">
-                        Contabilizar
+                    <button type="button"
+                            @click="contabilizar()"
+                            :disabled="saving || !puedeContabilizar"
+                            :class="saving || !puedeContabilizar
+                                ? 'cursor-not-allowed bg-brand/40 text-white/70'
+                                : 'bg-brand text-white hover:opacity-95'"
+                            class="inline-flex items-center rounded-xl px-5 py-2.5 text-sm font-semibold">
+                        <span x-text="saving ? 'Contabilizando…' : 'Contabilizar'"></span>
                     </button>
-                    <p class="text-[11px] text-gray-500">La contabilización se conectará en una fase siguiente.</p>
+                    <p class="text-[11px] text-gray-500" x-show="!puedeContabilizar && !saving">
+                        Completa fecha, productos, cantidades y costos mayores a cero.
+                    </p>
                 </div>
             </div>
         </div>

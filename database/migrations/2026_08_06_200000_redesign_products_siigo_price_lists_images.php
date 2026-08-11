@@ -19,7 +19,9 @@ return new class extends Migration
             });
             DB::statement('UPDATE products SET nombre = name');
             DB::statement("UPDATE products SET nombre = '' WHERE nombre IS NULL");
-            DB::statement('ALTER TABLE products MODIFY nombre VARCHAR(255) NOT NULL');
+            if (Schema::getConnection()->getDriverName() === 'mysql') {
+                DB::statement('ALTER TABLE products MODIFY nombre VARCHAR(255) NOT NULL');
+            }
             Schema::table('products', function (Blueprint $table) {
                 $table->dropColumn('name');
             });
@@ -97,7 +99,9 @@ return new class extends Migration
                 ]);
             }
 
-            DB::statement('ALTER TABLE products MODIFY codigo VARCHAR(30) NOT NULL');
+            if (Schema::getConnection()->getDriverName() === 'mysql') {
+                DB::statement('ALTER TABLE products MODIFY codigo VARCHAR(30) NOT NULL');
+            }
 
             $this->addIndexIfMissing('products', 'products_store_codigo_unique', function (Blueprint $table) {
                 $table->unique(['store_id', 'codigo'], 'products_store_codigo_unique');
@@ -203,7 +207,9 @@ return new class extends Migration
             });
             DB::statement('UPDATE products SET name = nombre');
             DB::statement("UPDATE products SET name = '' WHERE name IS NULL");
-            DB::statement('ALTER TABLE products MODIFY name VARCHAR(255) NOT NULL');
+            if (Schema::getConnection()->getDriverName() === 'mysql') {
+                DB::statement('ALTER TABLE products MODIFY name VARCHAR(255) NOT NULL');
+            }
             Schema::table('products', function (Blueprint $table) {
                 $table->dropColumn('nombre');
             });
@@ -212,11 +218,19 @@ return new class extends Migration
 
     private function addIndexIfMissing(string $tableName, string $indexName, callable $callback): void
     {
-        $exists = collect(DB::select("SHOW INDEX FROM `{$tableName}`"))
-            ->contains(fn ($row) => ($row->Key_name ?? null) === $indexName);
-
-        if ($exists) {
-            return;
+        $driver = Schema::getConnection()->getDriverName();
+        if ($driver === 'mysql') {
+            $exists = collect(DB::select("SHOW INDEX FROM `{$tableName}`"))
+                ->contains(fn ($row) => ($row->Key_name ?? null) === $indexName);
+            if ($exists) {
+                return;
+            }
+        } elseif ($driver === 'sqlite') {
+            $exists = collect(DB::select("PRAGMA index_list('{$tableName}')"))
+                ->contains(fn ($row) => ($row->name ?? null) === $indexName);
+            if ($exists) {
+                return;
+            }
         }
 
         Schema::table($tableName, $callback);

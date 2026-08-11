@@ -19,7 +19,9 @@ return new class extends Migration
         });
 
         if (Schema::hasTable('products') && Schema::hasColumn('products', 'unidad_medida_dian')) {
-            DB::statement("ALTER TABLE products MODIFY unidad_medida_dian VARCHAR(40) NOT NULL DEFAULT '94'");
+            if (Schema::getConnection()->getDriverName() === 'mysql') {
+                DB::statement("ALTER TABLE products MODIFY unidad_medida_dian VARCHAR(40) NOT NULL DEFAULT '94'");
+            }
         }
     }
 
@@ -28,7 +30,9 @@ return new class extends Migration
         Schema::dropIfExists('unidades_medida_fe');
 
         if (Schema::hasTable('products') && Schema::hasColumn('products', 'unidad_medida_dian')) {
-            DB::statement("ALTER TABLE products MODIFY unidad_medida_dian VARCHAR(10) NOT NULL DEFAULT '94'");
+            if (Schema::getConnection()->getDriverName() === 'mysql') {
+                DB::statement("ALTER TABLE products MODIFY unidad_medida_dian VARCHAR(10) NOT NULL DEFAULT '94'");
+            }
         }
     }
 };

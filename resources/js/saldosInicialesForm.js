@@ -165,6 +165,9 @@ document.addEventListener('alpine:init', () => {
             tercero: '',
             observaciones: '',
             lines: [emptyLine()],
+            storeUrl: cfg.storeUrl || '',
+            saving: false,
+            errorMsg: '',
             dd: {
                 open: false,
                 type: null,
@@ -172,6 +175,15 @@ document.addEventListener('alpine:init', () => {
                 top: 0,
                 left: 0,
                 width: 320,
+            },
+
+            get puedeContabilizar() {
+                if (!this.fecha) return false;
+                const valid = this.lines.filter((l) => l.product_id
+                    && Number(l.cantidad) > 0
+                    && Number(l.costo_unitario) > 0
+                    && (!this.manejaBodegas || l.bodega_id));
+                return valid.length > 0;
             },
 
             get ddStyle() {
@@ -255,8 +267,19 @@ document.addEventListener('alpine:init', () => {
                 this.lines.push(emptyLine());
             },
             removeLine(index) {
-                if (this.lines.length <= 1) return;
+                const line = this.lines[index];
+                if (!line) return;
+
+                // Una sola fila: limpiarla en lugar de dejar la tabla vacía.
+                if (this.lines.length <= 1) {
+                    const key = line.key;
+                    Object.assign(line, emptyLine(), { key });
+                    this.closeDd();
+                    return;
+                }
+
                 this.lines.splice(index, 1);
+                this.ensureTrailingEmptyLine();
                 this.closeDd();
             },
             duplicateLine(index) {
@@ -266,6 +289,22 @@ document.addEventListener('alpine:init', () => {
                     key: keySeq++,
                     costo_touched: false,
                 });
+                this.ensureTrailingEmptyLine();
+            },
+
+            lineCompleta(line) {
+                if (!line?.product_id) return false;
+                if (!(Number(line.cantidad) > 0)) return false;
+                if (!(Number(line.costo_unitario) > 0)) return false;
+                if (this.manejaBodegas && !line.bodega_id) return false;
+                return true;
+            },
+
+            ensureTrailingEmptyLine() {
+                const last = this.lines[this.lines.length - 1];
+                if (!last || this.lineCompleta(last)) {
+                    this.addLine();
+                }
             },
 
             costoInvalido(line) {
@@ -282,9 +321,7 @@ document.addEventListener('alpine:init', () => {
                     return;
                 }
 
-                if (index === this.lines.length - 1) {
-                    this.addLine();
-                }
+                this.ensureTrailingEmptyLine();
 
                 this.$nextTick(() => {
                     const next = this.lines[index + 1];
@@ -331,6 +368,7 @@ document.addEventListener('alpine:init', () => {
                 line.bodega_id = String(b.id);
                 line.bodega_search = `${b.codigo} — ${b.nombre}`;
                 this.closeDd();
+                this.ensureTrailingEmptyLine();
             },
 
             onCentroSearchInput(line) {
@@ -344,10 +382,24 @@ document.addEventListener('alpine:init', () => {
 
             onMoneyInput(line, field, event) {
                 const el = event.target;
-                const raw = String(el.value || '').replace(/,/g, '.');
+                const original = String(el.value || '');
+                const sel = el.selectionStart ?? original.length;
+
+                let raw;
+                let cursorHint = sel;
+                if (isQtyField(field)) {
+                    // Cantidad: coma puede ser decimal.
+                    raw = original.replace(/,/g, '.');
+                } else {
+                    // Costo Siigo: coma = miles → quitar, no convertir a punto.
+                    const commasBefore = (original.slice(0, sel).match(/,/g) || []).length;
+                    raw = original.replace(/,/g, '');
+                    cursorHint = Math.max(0, sel - commasBefore);
+                }
+
                 const result = isQtyField(field)
-                    ? formatLiveQty(raw, el.selectionStart)
-                    : formatLiveSiigo(raw.replace(/[^\d.]/g, ''), el.selectionStart);
+                    ? formatLiveQty(raw, cursorHint)
+                    : formatLiveSiigo(raw.replace(/[^\d.]/g, ''), cursorHint);
 
                 line[field] = result.value;
                 line[displayKey(field)] = result.display;
@@ -358,6 +410,7 @@ document.addEventListener('alpine:init', () => {
                     try {
                         el.setSelectionRange(result.cursor, result.cursor);
                     } catch (_) { /* ignore */ }
+                    this.ensureTrailingEmptyLine();
                 });
             },
             onMoneyBlur(line, field) {
@@ -366,12 +419,15 @@ document.addEventListener('alpine:init', () => {
                     const parsed = parseQty(line[key]);
                     line[field] = parsed;
                     line[key] = formatQty(parsed);
+                    this.ensureTrailingEmptyLine();
                     return;
                 }
-                const parsed = parseSiigo(String(line[key] || '').replace(/,/g, '.'));
+                // Comas = separador de miles (en-US), no decimal.
+                const parsed = parseSiigo(String(line[key] || '').replace(/,/g, ''));
                 line[field] = parsed;
                 line[key] = formatSiigo(parsed);
                 line.costo_touched = true;
+                this.ensureTrailingEmptyLine();
             },
 
             lineTotal(line) {
@@ -382,6 +438,62 @@ document.addEventListener('alpine:init', () => {
             },
             formatMoney(n) {
                 return formatSiigo(n);
+            },
+
+            async contabilizar() {
+                if (this.saving || !this.puedeContabilizar || !this.storeUrl) return;
+
+                this.errorMsg = '';
+                this.saving = true;
+
+                const lineas = this.lines
+                    .filter((l) => l.product_id && Number(l.cantidad) > 0 && Number(l.costo_unitario) > 0)
+                    .map((l) => ({
+                        product_id: Number(l.product_id),
+                        bodega_id: l.bodega_id ? Number(l.bodega_id) : null,
+                        centro_costo_id: l.centro_costo_id ? Number(l.centro_costo_id) : null,
+                        cantidad: Number(l.cantidad),
+                        costo_unitario: Number(l.costo_unitario),
+                        descripcion: l.descripcion || null,
+                    }));
+
+                try {
+                    const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+                    const res = await fetch(this.storeUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Accept: 'application/json',
+                            'X-CSRF-TOKEN': csrf,
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        body: JSON.stringify({
+                            fecha: this.fecha,
+                            tercero_nombre: this.tercero || null,
+                            observaciones: this.observaciones || null,
+                            lineas,
+                        }),
+                    });
+
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                        const firstFieldError = data.errors
+                            ? Object.values(data.errors).flat()[0]
+                            : null;
+                        throw new Error(firstFieldError || data.message || 'No se pudo contabilizar.');
+                    }
+
+                    if (data.redirect) {
+                        window.location.href = data.redirect;
+                        return;
+                    }
+
+                    this.errorMsg = 'Contabilizado, pero no se recibió URL de redirección.';
+                } catch (err) {
+                    this.errorMsg = err?.message || 'Error al contabilizar.';
+                } finally {
+                    this.saving = false;
+                }
             },
         };
     });

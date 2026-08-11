@@ -61,6 +61,14 @@ class TipoComprobanteService
                     'prefijo' => 'RP',
                     'libro_oficial' => null,
                 ],
+                [
+                    'familia' => TipoComprobante::FAMILIA_A,
+                    'codigo' => '1',
+                    'nombre' => 'Ajuste / Saldo inicial de inventario',
+                    'titulo' => 'Ajuste / Saldo inicial de inventario',
+                    'prefijo' => 'A',
+                    'libro_oficial' => null,
+                ],
             ],
             CatalogoComprobantesContablesPredeterminados::tipos()
         );
@@ -88,7 +96,7 @@ class TipoComprobanteService
         $q = TipoComprobante::query()
             ->deStore($store)
             ->with(['cuentaAnticipos:id,codigo,nombre'])
-            ->orderByRaw("CASE familia WHEN 'FV' THEN 1 WHEN 'RC' THEN 2 WHEN 'FC' THEN 3 WHEN 'RP' THEN 4 WHEN 'CC' THEN 5 ELSE 99 END")
+            ->orderByRaw("CASE familia WHEN 'FV' THEN 1 WHEN 'RC' THEN 2 WHEN 'FC' THEN 3 WHEN 'RP' THEN 4 WHEN 'CC' THEN 5 WHEN 'A' THEN 6 ELSE 99 END")
             ->orderByRaw('CAST(codigo AS UNSIGNED) asc')
             ->orderBy('codigo');
 
@@ -286,7 +294,7 @@ class TipoComprobanteService
     {
         $familia = strtoupper(trim((string) ($data['familia'] ?? '')));
         if (! in_array($familia, TipoComprobante::FAMILIAS, true)) {
-            throw new Exception('La familia debe ser FV, RC, FC, RP o CC.');
+            throw new Exception('La familia debe ser FV, RC, FC, RP, CC o A.');
         }
 
         $codigo = trim((string) ($data['codigo'] ?? ''));

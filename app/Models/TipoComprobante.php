@@ -21,12 +21,15 @@ class TipoComprobante extends Model
 
     public const FAMILIA_CC = 'CC';
 
+    public const FAMILIA_A = 'A';
+
     public const FAMILIAS = [
         self::FAMILIA_FV,
         self::FAMILIA_RC,
         self::FAMILIA_FC,
         self::FAMILIA_RP,
         self::FAMILIA_CC,
+        self::FAMILIA_A,
     ];
 
     public const LIBRO_VENTAS = 'ventas';
@@ -114,6 +117,7 @@ class TipoComprobante extends Model
             self::FAMILIA_RC => 'RECIBOS DE CAJA',
             self::FAMILIA_RP => 'RECIBOS DE PAGO',
             self::FAMILIA_CC => 'COMPROBANTES CONTABLES',
+            self::FAMILIA_A => 'AJUSTES DE INVENTARIO',
         ];
     }
 
@@ -137,6 +141,7 @@ class TipoComprobante extends Model
             self::FAMILIA_FC => 'Factura de compra',
             self::FAMILIA_RP => 'Recibo de pago / egreso',
             self::FAMILIA_CC => 'Comprobante contable',
+            self::FAMILIA_A => 'Ajuste / Saldo inicial de inventario',
             default => $this->familia,
         };
     }
@@ -167,6 +172,7 @@ class TipoComprobante extends Model
             self::FAMILIA_FC => 'Factura de compra',
             self::FAMILIA_RP => 'Recibo de pago / egreso',
             self::FAMILIA_CC => 'Comprobante contable',
+            self::FAMILIA_A => 'Ajuste / Saldo inicial de inventario',
         ];
     }
 }

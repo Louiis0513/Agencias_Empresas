@@ -11,6 +11,7 @@ use App\Models\Product;
 use App\Models\Store;
 use App\Models\UnidadMedidaFe;
 use App\Services\CategoriaContableService;
+use App\Services\DocumentoInventarioService;
 use App\Services\ListaPrecioService;
 use App\Services\ProductService;
 use App\Services\StorePermissionService;
@@ -25,6 +26,7 @@ class StoreProductController extends Controller
         protected ProductService $productService,
         protected CategoriaContableService $categoriaContableService,
         protected ListaPrecioService $listaPrecioService,
+        protected DocumentoInventarioService $documentoInventarioService,
     ) {}
 
     /**
@@ -43,11 +45,19 @@ class StoreProductController extends Controller
             'stock' => $request->get('stock'),
         ];
 
+        $documentosFiltros = [
+            'search' => $request->get('doc_search'),
+            'fecha_desde' => $request->get('doc_fecha_desde'),
+            'fecha_hasta' => $request->get('doc_fecha_hasta'),
+        ];
+
         return view('stores.productos.productos', [
             'store' => $store,
             'products' => $this->productService->listar($store, $filtros, 10),
             'categorias' => $this->categoriaContableService->listarActivasParaProducto($store),
             'filtros' => $filtros,
+            'documentos' => $this->documentoInventarioService->listar($store, $documentosFiltros, (int) $request->get('doc_per_page', 50)),
+            'documentosFiltros' => $documentosFiltros,
         ]);
     }
 

@@ -14,6 +14,7 @@ class MovimientoContable extends Model
 
     protected $fillable = [
         'comprobante_contable_id',
+        'documento_inventario_id',
         'store_id',
         'cuenta_contable_id',
         'tercero_id',
@@ -39,6 +40,11 @@ class MovimientoContable extends Model
         return $this->belongsTo(ComprobanteContable::class, 'comprobante_contable_id');
     }
 
+    public function documentoInventario(): BelongsTo
+    {
+        return $this->belongsTo(DocumentoInventario::class, 'documento_inventario_id');
+    }
+
     public function store(): BelongsTo
     {
         return $this->belongsTo(Store::class);
@@ -57,5 +63,25 @@ class MovimientoContable extends Model
     public function centroCosto(): BelongsTo
     {
         return $this->belongsTo(CentroCosto::class, 'centro_costo_id');
+    }
+
+    public function fechaAsiento(): ?\Carbon\CarbonInterface
+    {
+        return $this->comprobante?->fecha ?? $this->documentoInventario?->fecha;
+    }
+
+    public function numeroAsiento(): ?string
+    {
+        return $this->comprobante?->numero ?? $this->documentoInventario?->numero;
+    }
+
+    public function glosaAsiento(): ?string
+    {
+        if ($this->descripcion) {
+            return $this->descripcion;
+        }
+
+        return $this->comprobante?->descripcion
+            ?? $this->documentoInventario?->observaciones;
     }
 }

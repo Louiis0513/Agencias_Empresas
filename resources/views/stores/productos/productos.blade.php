@@ -390,7 +390,11 @@
                 <p class="mt-2 text-sm text-gray-500">Próximamente</p>
             </div>
             <div x-show="tab === 'documentos'" x-cloak>
-                @include('stores.productos._documentos', ['store' => $store])
+                @include('stores.productos._documentos', [
+                    'store' => $store,
+                    'documentos' => $documentos ?? null,
+                    'documentosFiltros' => $documentosFiltros ?? [],
+                ])
             </div>
             <div x-show="tab === 'costeo'" x-cloak class="bg-dark-card border border-white/5 rounded-xl p-10 text-center">
                 <p class="text-gray-300 font-medium">Costeo mensual</p>

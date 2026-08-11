@@ -15,13 +15,21 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // MySQL: permitir drops en cascada parcial (demolición controlada)
-        DB::statement('SET FOREIGN_KEY_CHECKS=0');
+        $driver = Schema::getConnection()->getDriverName();
+        if ($driver === 'mysql') {
+            DB::statement('SET FOREIGN_KEY_CHECKS=0');
+        } elseif ($driver === 'sqlite') {
+            DB::statement('PRAGMA foreign_keys = OFF');
+        }
 
         try {
             $this->demoler();
         } finally {
-            DB::statement('SET FOREIGN_KEY_CHECKS=1');
+            if ($driver === 'mysql') {
+                DB::statement('SET FOREIGN_KEY_CHECKS=1');
+            } elseif ($driver === 'sqlite') {
+                DB::statement('PRAGMA foreign_keys = ON');
+            }
         }
     }
 
@@ -129,9 +137,23 @@ return new class extends Migration
                     $table->dropConstrainedForeignId('purchase_id');
                 });
             } catch (\Throwable $e) {
-                Schema::table('accounts_payables', function (Blueprint $table) {
-                    $table->dropColumn('purchase_id');
-                });
+                try {
+                    Schema::table('accounts_payables', function (Blueprint $table) {
+                        $table->dropUnique(['purchase_id']);
+                    });
+                } catch (\Throwable $ignored) {
+                    // índice puede no existir o tener otro nombre
+                }
+
+                try {
+                    Schema::table('accounts_payables', function (Blueprint $table) {
+                        if (Schema::hasColumn('accounts_payables', 'purchase_id')) {
+                            $table->dropColumn('purchase_id');
+                        }
+                    });
+                } catch (\Throwable $ignored) {
+                    // sqlite/mysql pueden fallar si el índice residual bloquea; no abortar demolición
+                }
             }
         }
 

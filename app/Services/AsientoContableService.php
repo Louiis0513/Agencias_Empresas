@@ -4,12 +4,14 @@ namespace App\Services;
 
 use App\Models\ComprobanteContable;
 use App\Models\CuentaContable;
+use App\Models\DocumentoInventario;
 use App\Models\MovimientoContable;
 use App\Models\Store;
 use App\Models\Tercero;
 use App\Models\TipoComprobante;
 use Exception;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -62,21 +64,31 @@ class AsientoContableService
     public function libroDiario(Store $store, array $filtros = [], int $perPage = 50): LengthAwarePaginator
     {
         $query = MovimientoContable::query()
-            ->with(['comprobante.tipoComprobante', 'comprobante.tercero', 'cuentaContable', 'tercero'])
-            ->where('store_id', $store->id)
-            ->whereHas('comprobante', fn ($q) => $q
-                ->where('store_id', $store->id)
-                ->whereIn('estado', [
-                    ComprobanteContable::ESTADO_CONTABILIZADO,
-                    ComprobanteContable::ESTADO_REVERSADO,
-                ]));
+            ->with([
+                'comprobante.tipoComprobante',
+                'comprobante.tercero',
+                'documentoInventario.tipoComprobante',
+                'cuentaContable',
+                'tercero',
+            ])
+            ->where('store_id', $store->id);
+
+        $this->aplicarFiltroMovimientosPublicados($query, $store);
 
         if (! empty($filtros['fecha_desde'])) {
-            $query->whereHas('comprobante', fn ($q) => $q->whereDate('fecha', '>=', $filtros['fecha_desde']));
+            $desde = (string) $filtros['fecha_desde'];
+            $query->where(function ($q) use ($desde) {
+                $q->whereHas('comprobante', fn ($c) => $c->whereDate('fecha', '>=', $desde))
+                    ->orWhereHas('documentoInventario', fn ($d) => $d->whereDate('fecha', '>=', $desde));
+            });
         }
 
         if (! empty($filtros['fecha_hasta'])) {
-            $query->whereHas('comprobante', fn ($q) => $q->whereDate('fecha', '<=', $filtros['fecha_hasta']));
+            $hasta = (string) $filtros['fecha_hasta'];
+            $query->where(function ($q) use ($hasta) {
+                $q->whereHas('comprobante', fn ($c) => $c->whereDate('fecha', '<=', $hasta))
+                    ->orWhereHas('documentoInventario', fn ($d) => $d->whereDate('fecha', '<=', $hasta));
+            });
         }
 
         if (! empty($filtros['cuenta_contable_id'])) {
@@ -92,6 +104,12 @@ class AsientoContableService
                             ->where('numero', 'like', '%'.$search.'%')
                             ->orWhere('descripcion', 'like', '%'.$search.'%')
                     ))
+                    ->orWhereHas('documentoInventario', fn ($d) => $d->where(
+                        fn ($doc) => $doc
+                            ->where('numero', 'like', '%'.$search.'%')
+                            ->orWhere('observaciones', 'like', '%'.$search.'%')
+                            ->orWhere('tercero_nombre', 'like', '%'.$search.'%')
+                    ))
                     ->orWhereHas('tercero', fn ($t) => $t->where(
                         fn ($tercero) => $tercero
                             ->where('nombre', 'like', '%'.$search.'%')
@@ -101,11 +119,8 @@ class AsientoContableService
         }
 
         return $query
-            ->orderBy(
-                ComprobanteContable::select('fecha')
-                    ->whereColumn('comprobantes_contables.id', 'movimientos_contables.comprobante_contable_id')
-            )
-            ->orderBy('comprobante_contable_id')
+            ->orderByRaw($this->sqlFechaAsiento())
+            ->orderByRaw('COALESCE(comprobante_contable_id, documento_inventario_id)')
             ->orderBy('orden')
             ->paginate($perPage)
             ->withQueryString();
@@ -134,21 +149,18 @@ class AsientoContableService
 
         $saldosIniciales = [];
         if ($fechaDesde !== null) {
-            $aperturas = MovimientoContable::query()
+            $aperturasQ = MovimientoContable::query()
                 ->selectRaw('cuenta_contable_id, SUM(debito) as total_debito, SUM(credito) as total_credito')
-                ->where('store_id', $store->id)
-                ->whereHas('comprobante', fn ($q) => $q
-                    ->where('store_id', $store->id)
-                    ->whereIn('estado', [
-                        ComprobanteContable::ESTADO_CONTABILIZADO,
-                        ComprobanteContable::ESTADO_REVERSADO,
-                    ])
-                    ->whereDate('fecha', '<', $fechaDesde))
+                ->where('store_id', $store->id);
+            $this->aplicarFiltroMovimientosPublicados($aperturasQ, $store);
+            $aperturasQ->where(function ($q) use ($fechaDesde) {
+                $q->whereHas('comprobante', fn ($c) => $c->whereDate('fecha', '<', $fechaDesde))
+                    ->orWhereHas('documentoInventario', fn ($d) => $d->whereDate('fecha', '<', $fechaDesde));
+            })
                 ->when($cuentaId, fn ($q) => $q->where('cuenta_contable_id', $cuentaId))
-                ->groupBy('cuenta_contable_id')
-                ->get();
+                ->groupBy('cuenta_contable_id');
 
-            foreach ($aperturas as $fila) {
+            foreach ($aperturasQ->get() as $fila) {
                 $saldosIniciales[(int) $fila->cuenta_contable_id] = [
                     'debito' => (float) $fila->total_debito,
                     'credito' => (float) $fila->total_credito,
@@ -156,29 +168,33 @@ class AsientoContableService
             }
         }
 
-        $movimientos = MovimientoContable::query()
-            ->with(['comprobante.tipoComprobante', 'cuentaContable', 'tercero'])
-            ->where('store_id', $store->id)
-            ->whereHas('comprobante', function ($q) use ($store, $fechaDesde, $fechaHasta) {
-                $q->where('store_id', $store->id)
-                    ->whereIn('estado', [
-                        ComprobanteContable::ESTADO_CONTABILIZADO,
-                        ComprobanteContable::ESTADO_REVERSADO,
-                    ]);
+        $movimientosQ = MovimientoContable::query()
+            ->with([
+                'comprobante.tipoComprobante',
+                'documentoInventario.tipoComprobante',
+                'cuentaContable',
+                'tercero',
+            ])
+            ->where('store_id', $store->id);
+        $this->aplicarFiltroMovimientosPublicados($movimientosQ, $store);
 
-                if ($fechaDesde !== null) {
-                    $q->whereDate('fecha', '>=', $fechaDesde);
-                }
-                if ($fechaHasta !== null) {
-                    $q->whereDate('fecha', '<=', $fechaHasta);
-                }
-            })
+        if ($fechaDesde !== null) {
+            $movimientosQ->where(function ($q) use ($fechaDesde) {
+                $q->whereHas('comprobante', fn ($c) => $c->whereDate('fecha', '>=', $fechaDesde))
+                    ->orWhereHas('documentoInventario', fn ($d) => $d->whereDate('fecha', '>=', $fechaDesde));
+            });
+        }
+        if ($fechaHasta !== null) {
+            $movimientosQ->where(function ($q) use ($fechaHasta) {
+                $q->whereHas('comprobante', fn ($c) => $c->whereDate('fecha', '<=', $fechaHasta))
+                    ->orWhereHas('documentoInventario', fn ($d) => $d->whereDate('fecha', '<=', $fechaHasta));
+            });
+        }
+
+        $movimientos = $movimientosQ
             ->when($cuentaId, fn ($q) => $q->where('cuenta_contable_id', $cuentaId))
-            ->orderBy(
-                ComprobanteContable::select('fecha')
-                    ->whereColumn('comprobantes_contables.id', 'movimientos_contables.comprobante_contable_id')
-            )
-            ->orderBy('comprobante_contable_id')
+            ->orderByRaw($this->sqlFechaAsiento())
+            ->orderByRaw('COALESCE(comprobante_contable_id, documento_inventario_id)')
             ->orderBy('orden')
             ->get();
 
@@ -762,5 +778,33 @@ class AsientoContableService
         $texto = trim((string) ($valor ?? ''));
 
         return $texto === '' ? null : $texto;
+    }
+
+    protected function aplicarFiltroMovimientosPublicados(Builder $query, Store $store): void
+    {
+        $query->where(function ($q) use ($store) {
+            $q->where(function ($qq) use ($store) {
+                $qq->whereNotNull('comprobante_contable_id')
+                    ->whereHas('comprobante', fn ($c) => $c
+                        ->where('store_id', $store->id)
+                        ->whereIn('estado', [
+                            ComprobanteContable::ESTADO_CONTABILIZADO,
+                            ComprobanteContable::ESTADO_REVERSADO,
+                        ]));
+            })->orWhere(function ($qq) use ($store) {
+                $qq->whereNotNull('documento_inventario_id')
+                    ->whereHas('documentoInventario', fn ($d) => $d
+                        ->where('store_id', $store->id)
+                        ->where('estado', DocumentoInventario::ESTADO_CONTABILIZADO));
+            });
+        });
+    }
+
+    protected function sqlFechaAsiento(): string
+    {
+        return 'COALESCE(
+            (SELECT fecha FROM comprobantes_contables WHERE comprobantes_contables.id = movimientos_contables.comprobante_contable_id),
+            (SELECT fecha FROM documentos_inventario WHERE documentos_inventario.id = movimientos_contables.documento_inventario_id)
+        )';
     }
 }
