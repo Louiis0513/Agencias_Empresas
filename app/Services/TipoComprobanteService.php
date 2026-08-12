@@ -77,6 +77,14 @@ class TipoComprobanteService
                     'prefijo' => 'NT',
                     'libro_oficial' => null,
                 ],
+                [
+                    'familia' => TipoComprobante::FAMILIA_CF,
+                    'codigo' => '1',
+                    'nombre' => 'Conteo físico',
+                    'titulo' => 'Conteo físico',
+                    'prefijo' => 'CF',
+                    'libro_oficial' => null,
+                ],
             ],
             CatalogoComprobantesContablesPredeterminados::tipos()
         );

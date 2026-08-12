@@ -116,6 +116,12 @@
                                         <th class="border border-gray-300 px-2 py-2">Bodega origen</th>
                                         <th class="border border-gray-300 px-2 py-2">Bodega destino</th>
                                         <th class="border border-gray-300 px-2 py-2 text-right">Cantidad</th>
+                                    @elseif($documento->esConteoFisico())
+                                        <th class="border border-gray-300 px-2 py-2">Bodega</th>
+                                        <th class="border border-gray-300 px-2 py-2 text-right">Sistema</th>
+                                        <th class="border border-gray-300 px-2 py-2 text-right">Contado</th>
+                                        <th class="border border-gray-300 px-2 py-2 text-right">Diferencia</th>
+                                        <th class="border border-gray-300 px-2 py-2 text-center">Ajuste</th>
                                     @else
                                         <th class="border border-gray-300 px-2 py-2">Bodega</th>
                                         <th class="border border-gray-300 px-2 py-2 text-center">Aumenta/Disminuye</th>
@@ -136,6 +142,17 @@
                                             <td class="border border-gray-300 px-2 py-2">{{ $linea->etiquetaBodegaOrigen() }}</td>
                                             <td class="border border-gray-300 px-2 py-2">{{ $linea->etiquetaBodegaDestino() }}</td>
                                             <td class="border border-gray-300 px-2 py-2 text-right font-mono">{{ number_format((float) $linea->cantidad, 2, '.', ',') }}</td>
+                                        @elseif($documento->esConteoFisico())
+                                            <td class="border border-gray-300 px-2 py-2">{{ $linea->etiquetaBodega() }}</td>
+                                            <td class="border border-gray-300 px-2 py-2 text-right font-mono">{{ number_format((float) $linea->cantidad_sistema, 2, '.', ',') }}</td>
+                                            <td class="border border-gray-300 px-2 py-2 text-right font-mono">{{ number_format((float) $linea->cantidad_contada, 2, '.', ',') }}</td>
+                                            <td class="border border-gray-300 px-2 py-2 text-right font-mono">
+                                                @php
+                                                    $delta = (float) $linea->cantidad_contada - (float) $linea->cantidad_sistema;
+                                                @endphp
+                                                {{ ($delta > 0 ? '+' : '').number_format($delta, 2, '.', ',') }}
+                                            </td>
+                                            <td class="border border-gray-300 px-2 py-2 text-center">{{ $linea->etiquetaDireccion() }}</td>
                                         @else
                                             <td class="border border-gray-300 px-2 py-2">{{ $linea->bodega?->nombre ?? ($linea->bodega?->codigo ?? 'Sin asignar') }}</td>
                                             <td class="border border-gray-300 px-2 py-2 text-center">{{ $linea->etiquetaDireccion() }}</td>
@@ -151,7 +168,7 @@
 
                     <div class="flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 pt-3 text-xs text-gray-500">
                         <span>{{ $documento->numero }} · {{ $documento->estado }}</span>
-                        @unless($documento->esTraslado())
+                        @unless($documento->esTraslado() || $documento->esConteoFisico())
                             <span class="font-semibold text-gray-800">
                                 Total: $ {{ number_format((float) $documento->total, 2, ',', '.') }}
                             </span>

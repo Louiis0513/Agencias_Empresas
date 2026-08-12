@@ -631,6 +631,354 @@ class DocumentoInventarioService
         return $tipo;
     }
 
+    public function asegurarTipoConteoFisico(Store $store): TipoComprobante
+    {
+        $this->tipoComprobanteService->asegurarTiposPorDefecto($store);
+
+        $tipo = TipoComprobante::query()
+            ->deStore($store)
+            ->where('familia', TipoComprobante::FAMILIA_CF)
+            ->where('codigo', '1')
+            ->first();
+
+        if (! $tipo) {
+            throw new Exception('No se pudo asegurar el tipo de comprobante CF-1.');
+        }
+
+        return $tipo;
+    }
+
+    /**
+     * Registra un conteo físico: solo ajusta cantidades en el ledger (sin asiento económico).
+     *
+     * @param  array{
+     *   fecha: string,
+     *   tercero_nombre?: string|null,
+     *   observaciones?: string|null,
+     *   lineas: list<array{
+     *     product_id: int,
+     *     bodega_id?: int|null,
+     *     cantidad_contada: float|int|string,
+     *     descripcion?: string|null
+     *   }>
+     * }  $payload
+     */
+    public function registrarConteoFisico(Store $store, int $userId, array $payload): DocumentoInventario
+    {
+        return DB::transaction(function () use ($store, $userId, $payload) {
+            $fecha = (string) ($payload['fecha'] ?? '');
+            if ($fecha === '') {
+                throw new Exception('La fecha del conteo físico es obligatoria.');
+            }
+
+            $lineasRaw = $payload['lineas'] ?? [];
+            if ($lineasRaw === []) {
+                throw new Exception('Debe agregar al menos una línea de producto.');
+            }
+
+            $productIds = collect($lineasRaw)
+                ->pluck('product_id')
+                ->map(fn ($id) => (int) $id)
+                ->filter()
+                ->unique()
+                ->sort()
+                ->values()
+                ->all();
+
+            if ($productIds !== []) {
+                Product::query()
+                    ->where('store_id', $store->id)
+                    ->whereIn('id', $productIds)
+                    ->orderBy('id')
+                    ->lockForUpdate()
+                    ->get(['id']);
+            }
+
+            $lineasNorm = $this->validarLineasConteo($store, $lineasRaw);
+
+            $tipo = $this->asegurarTipoConteoFisico($store);
+            $numero = $this->tipoComprobanteService->tomarSiguienteNumero($store, $tipo);
+
+            $terceroNombre = trim((string) ($payload['tercero_nombre'] ?? ''));
+            if ($terceroNombre === '') {
+                $terceroNombre = (string) $store->name;
+            }
+
+            $documento = DocumentoInventario::create([
+                'store_id' => $store->id,
+                'tipo_comprobante_id' => $tipo->id,
+                'numero' => $numero,
+                'tipo_documento' => DocumentoInventario::TIPO_CONTEO_FISICO,
+                'fecha' => $fecha,
+                'tercero_nombre' => $terceroNombre,
+                'observaciones' => trim((string) ($payload['observaciones'] ?? '')) ?: null,
+                'total' => 0,
+                'total_debito' => 0,
+                'total_credito' => 0,
+                'estado' => DocumentoInventario::ESTADO_CONTABILIZADO,
+                'created_by' => $userId,
+            ]);
+
+            $ordenLinea = 1;
+
+            foreach ($lineasNorm as $linea) {
+                DocumentoInventarioLinea::create([
+                    'documento_inventario_id' => $documento->id,
+                    'store_id' => $store->id,
+                    'orden' => $ordenLinea++,
+                    'product_id' => $linea['product_id'],
+                    'descripcion' => $linea['descripcion'],
+                    'direccion' => $linea['direccion'],
+                    'bodega_id' => $linea['bodega_id'],
+                    'cantidad' => $linea['cantidad'],
+                    'cantidad_sistema' => $linea['cantidad_sistema'],
+                    'cantidad_contada' => $linea['cantidad_contada'],
+                    // Schema NOT NULL en línea: 0 placeholder; el ledger usa costos NULL.
+                    'costo_unitario' => 0,
+                    'costo_total' => 0,
+                ]);
+
+                $esEntrada = $linea['direccion'] === DocumentoInventarioLinea::DIRECCION_AUMENTA;
+
+                $movDatos = [
+                    'product_id' => $linea['product_id'],
+                    'bodega_id' => $linea['bodega_id'],
+                    'fecha' => $fecha,
+                    'clase_movimiento' => $esEntrada
+                        ? MovimientoInventario::CLASE_CONTEO_ENTRADA
+                        : MovimientoInventario::CLASE_CONTEO_SALIDA,
+                    'direccion' => $esEntrada
+                        ? MovimientoInventario::DIRECCION_ENTRADA
+                        : MovimientoInventario::DIRECCION_SALIDA,
+                    'cantidad' => $linea['cantidad'],
+                    'documento' => $documento,
+                    'documento_etiqueta' => $numero,
+                    'descripcion' => $linea['descripcion'],
+                ];
+                // No enviar costo_unitario_entrada / valor_entrada → quedan NULL (no valorizado).
+
+                $this->inventarioService->registrarMovimiento($store, $userId, $movDatos);
+            }
+
+            return $documento->fresh(['lineas.product', 'lineas.bodega', 'tipoComprobante']);
+        });
+    }
+
+    /** Código de bodega en plantilla Excel para «Sin asignar». */
+    public const PLANILLA_CONTEO_BODEGA_SIN_ASIGNAR = 'SIN_ASIGNAR';
+
+    /**
+     * Genera plantilla Excel de conteo físico para una bodega (o Sin asignar).
+     * Solo precarga el formulario; no registra el documento.
+     */
+    public function descargarPlantillaConteoFisico(Store $store, ?int $bodegaId): StreamedResponse
+    {
+        $bodegaCodigo = self::PLANILLA_CONTEO_BODEGA_SIN_ASIGNAR;
+        $bodegaNombre = 'Sin asignar';
+        $bodegaLabel = 'sin-asignar';
+
+        if ($bodegaId !== null) {
+            $bodega = Bodega::query()->deStore($store)->whereKey($bodegaId)->first();
+            if (! $bodega || ! $bodega->activo) {
+                throw new Exception('La bodega no es válida o está inactiva.');
+            }
+            $bodegaCodigo = (string) $bodega->codigo;
+            $bodegaNombre = (string) $bodega->nombre;
+            $bodegaLabel = preg_replace('/[^A-Za-z0-9_-]+/', '-', $bodegaCodigo) ?: 'bodega';
+        }
+
+        $productos = Product::query()
+            ->where('store_id', $store->id)
+            ->where('es_inventariable', true)
+            ->activos()
+            ->orderBy('codigo')
+            ->get(['id', 'store_id', 'codigo', 'nombre', 'es_inventariable']);
+
+        if ($productos->isEmpty()) {
+            throw new Exception('No hay productos inventariables activos para generar la plantilla.');
+        }
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet;
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Conteo fisico');
+
+        $sheet->setCellValue('A1', 'Plantilla conteo físico — '.$store->name);
+        $sheet->setCellValue('A2', 'Bodega: '.$bodegaCodigo.' — '.$bodegaNombre);
+        $sheet->setCellValue('A3', 'Llena solo la columna cantidad_contada. No cambies codigo ni bodega_codigo.');
+        $sheet->setCellValue('A4', 'Al subir el archivo en la pantalla de conteo se precargan las líneas; el stock se recalcula al registrar.');
+
+        $headers = ['codigo', 'nombre', 'bodega_codigo', 'stock_sistema', 'cantidad_contada'];
+        foreach ($headers as $i => $h) {
+            $col = chr(ord('A') + $i);
+            $sheet->setCellValue($col.'6', $h);
+        }
+        $sheet->getStyle('A6:E6')->getFont()->setBold(true);
+
+        $row = 7;
+        foreach ($productos as $product) {
+            $stock = $this->inventarioService->stockEnBodega($store, $product, $bodegaId);
+            $sheet->setCellValue('A'.$row, $product->codigo);
+            $sheet->setCellValue('B'.$row, $product->nombre);
+            $sheet->setCellValue('C'.$row, $bodegaCodigo);
+            $sheet->setCellValue('D'.$row, $stock);
+            $sheet->setCellValue('E'.$row, '');
+            $row++;
+        }
+
+        foreach (range('A', 'E') as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        $filename = 'plantilla-conteo-'.$bodegaLabel.'-'.now()->format('Ymd').'.xlsx';
+
+        return response()->streamDownload(function () use ($spreadsheet) {
+            $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
+    }
+
+    /**
+     * Parsea plantilla Excel y devuelve líneas listas para precargar el formulario de conteo.
+     *
+     * @return list<array{
+     *   product_id: int,
+     *   product_codigo: string,
+     *   product_nombre: string,
+     *   bodega_id: int|null,
+     *   bodega_codigo: string,
+     *   bodega_nombre: string,
+     *   cantidad_contada: float,
+     *   descripcion: string
+     * }>
+     */
+    public function parsearPlantillaConteoFisico(Store $store, string $path): array
+    {
+        if (! is_file($path)) {
+            throw new Exception('No se pudo leer el archivo Excel.');
+        }
+
+        $reader = new \PhpOffice\PhpSpreadsheet\Reader\Xlsx;
+        $reader->setReadDataOnly(true);
+        $spreadsheet = $reader->load($path);
+        $sheet = $spreadsheet->getActiveSheet();
+        $rows = $sheet->toArray(null, true, true, false);
+
+        if ($rows === []) {
+            throw new Exception('El archivo Excel está vacío.');
+        }
+
+        $headerRowIndex = null;
+        $map = [];
+        foreach ($rows as $i => $row) {
+            $normalized = [];
+            foreach ($row as $cell) {
+                $key = strtolower(trim((string) $cell));
+                $key = str_replace([' ', '-'], '_', $key);
+                $normalized[] = $key;
+            }
+            if (in_array('codigo', $normalized, true) && in_array('cantidad_contada', $normalized, true)) {
+                $headerRowIndex = $i;
+                foreach ($normalized as $col => $name) {
+                    if ($name !== '') {
+                        $map[$name] = $col;
+                    }
+                }
+                break;
+            }
+        }
+
+        if ($headerRowIndex === null) {
+            throw new Exception('No se encontró la fila de encabezados (codigo, cantidad_contada). Usa la plantilla descargada desde el sistema.');
+        }
+
+        if (! isset($map['bodega_codigo'])) {
+            throw new Exception('Falta la columna bodega_codigo en la plantilla.');
+        }
+
+        $productos = Product::query()
+            ->where('store_id', $store->id)
+            ->where('es_inventariable', true)
+            ->get(['id', 'codigo', 'nombre'])
+            ->keyBy(fn (Product $p) => strtoupper(trim((string) $p->codigo)));
+
+        $bodegas = Bodega::query()
+            ->deStore($store)
+            ->activos()
+            ->get(['id', 'codigo', 'nombre'])
+            ->keyBy(fn (Bodega $b) => strtoupper(trim((string) $b->codigo)));
+
+        $out = [];
+        $errores = [];
+
+        for ($i = $headerRowIndex + 1; $i < count($rows); $i++) {
+            $row = $rows[$i];
+            $n = $i + 1;
+            $codigo = strtoupper(trim((string) ($row[$map['codigo']] ?? '')));
+            if ($codigo === '') {
+                continue;
+            }
+
+            $contadoRaw = $row[$map['cantidad_contada']] ?? null;
+            if ($contadoRaw === null || trim((string) $contadoRaw) === '') {
+                continue;
+            }
+
+            $contado = round((float) str_replace(',', '.', (string) $contadoRaw), 4);
+            if ($contado < 0) {
+                $errores[] = "Fila {$n}: cantidad_contada no puede ser negativa.";
+
+                continue;
+            }
+
+            $product = $productos->get($codigo);
+            if (! $product) {
+                $errores[] = "Fila {$n}: producto «{$codigo}» no existe o no es inventariable.";
+
+                continue;
+            }
+
+            $bodegaCodigo = strtoupper(trim((string) ($row[$map['bodega_codigo']] ?? '')));
+            $bodegaId = null;
+            $bodegaNombre = 'Sin asignar';
+            $bodegaCodigoOut = self::PLANILLA_CONTEO_BODEGA_SIN_ASIGNAR;
+
+            if ($bodegaCodigo !== '' && $bodegaCodigo !== self::PLANILLA_CONTEO_BODEGA_SIN_ASIGNAR && $bodegaCodigo !== '—' && $bodegaCodigo !== '-') {
+                $bodega = $bodegas->get($bodegaCodigo);
+                if (! $bodega) {
+                    $errores[] = "Fila {$n}: bodega «{$bodegaCodigo}» no válida.";
+
+                    continue;
+                }
+                $bodegaId = $bodega->id;
+                $bodegaNombre = (string) $bodega->nombre;
+                $bodegaCodigoOut = (string) $bodega->codigo;
+            }
+
+            $out[] = [
+                'product_id' => $product->id,
+                'product_codigo' => (string) $product->codigo,
+                'product_nombre' => (string) $product->nombre,
+                'bodega_id' => $bodegaId,
+                'bodega_codigo' => $bodegaCodigoOut,
+                'bodega_nombre' => $bodegaNombre,
+                'cantidad_contada' => $contado,
+                'descripcion' => (string) $product->nombre,
+            ];
+        }
+
+        if ($errores !== []) {
+            throw new Exception(implode(' ', array_slice($errores, 0, 5)));
+        }
+
+        if ($out === []) {
+            throw new Exception('No hay filas con cantidad_contada para cargar. Llena al menos un producto en la plantilla.');
+        }
+
+        return $out;
+    }
+
     public function asegurarCuentaPuenteSaldosIniciales(Store $store): CuentaContable
     {
         return $this->cuentaContableService->asegurarCuentaPorCodigo(
@@ -950,6 +1298,88 @@ class DocumentoInventarioService
                 'cantidad' => $cantidad,
                 'cuenta_inventario_id' => $cuentaInv->id,
             ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $lineas
+     * @return list<array<string, mixed>>
+     */
+    protected function validarLineasConteo(Store $store, array $lineas): array
+    {
+        if ($lineas === []) {
+            throw new Exception('Debe agregar al menos una línea de producto.');
+        }
+
+        $out = [];
+        /** @var array<string, float> $ajustadoPorOrigen productId:bodegaKey => delta ya aplicado en líneas previas del mismo doc */
+        $ajustadoPorOrigen = [];
+
+        foreach ($lineas as $idx => $raw) {
+            $n = $idx + 1;
+            $productId = (int) ($raw['product_id'] ?? 0);
+            $product = Product::query()
+                ->where('store_id', $store->id)
+                ->whereKey($productId)
+                ->first();
+
+            if (! $product) {
+                throw new Exception("Línea {$n}: producto no válido.");
+            }
+            if (! $product->es_inventariable) {
+                throw new Exception("Línea {$n}: el producto «{$product->codigo}» no es inventariable.");
+            }
+
+            $contado = round((float) ($raw['cantidad_contada'] ?? -1), 4);
+            if ($contado < 0) {
+                throw new Exception("Línea {$n}: las existencias contadas no pueden ser negativas.");
+            }
+
+            $bodegaId = null;
+            if (! empty($raw['bodega_id'])) {
+                $bodega = Bodega::query()
+                    ->deStore($store)
+                    ->whereKey((int) $raw['bodega_id'])
+                    ->first();
+                if (! $bodega || ! $bodega->activo) {
+                    throw new Exception("Línea {$n}: la bodega no es válida o está inactiva.");
+                }
+                $bodegaId = $bodega->id;
+            }
+
+            $clave = $product->id.':'.($bodegaId === null ? 'null' : (string) $bodegaId);
+            $yaAjustado = $ajustadoPorOrigen[$clave] ?? 0.0;
+
+            $sistemaBase = $this->inventarioService->stockEnBodega($store, $product, $bodegaId);
+            $sistema = round($sistemaBase + $yaAjustado, 4);
+            $delta = round($contado - $sistema, 4);
+
+            if (abs($delta) < 0.00005) {
+                continue;
+            }
+
+            $descripcion = trim((string) ($raw['descripcion'] ?? '')) ?: $product->nombre;
+
+            $out[] = [
+                'product_id' => $product->id,
+                'product_codigo' => $product->codigo,
+                'descripcion' => $descripcion,
+                'bodega_id' => $bodegaId,
+                'cantidad_sistema' => $sistema,
+                'cantidad_contada' => $contado,
+                'cantidad' => abs($delta),
+                'direccion' => $delta > 0
+                    ? DocumentoInventarioLinea::DIRECCION_AUMENTA
+                    : DocumentoInventarioLinea::DIRECCION_DISMINUYE,
+            ];
+
+            $ajustadoPorOrigen[$clave] = round($yaAjustado + $delta, 4);
+        }
+
+        if ($out === []) {
+            throw new Exception('No hay diferencias que registrar: las existencias contadas coinciden con el stock del sistema.');
         }
 
         return $out;

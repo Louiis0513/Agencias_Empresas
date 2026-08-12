@@ -367,6 +367,62 @@ class StoreProductController extends Controller
     }
 
     /**
+     * Formulario: conteo físico (existencias contadas → ajuste de cantidades en ledger).
+     */
+    public function createConteo(Store $store)
+    {
+        $this->permissionService->authorize($store, 'products.view');
+
+        $productosInventariables = Product::query()
+            ->where('store_id', $store->id)
+            ->where('es_inventariable', true)
+            ->activos()
+            ->orderBy('codigo')
+            ->get(['id', 'codigo', 'nombre']);
+
+        $bodegas = $store->maneja_bodegas
+            ? Bodega::query()
+                ->deStore($store)
+                ->activos()
+                ->orderBy('codigo')
+                ->get(['id', 'codigo', 'nombre'])
+            : collect();
+
+        $terceros = Tercero::query()
+            ->deStore($store)
+            ->activos()
+            ->orderBy('nombre')
+            ->get(['id', 'numero_identificacion', 'nombre']);
+
+        return view('stores.productos.documentos.conteo-crear', [
+            'store' => $store,
+            'productosInventariables' => $productosInventariables,
+            'bodegas' => $bodegas,
+            'terceros' => $terceros,
+        ]);
+    }
+
+    /**
+     * Stock de un producto en una bodega (preview UI de conteo; el backend recalcula al guardar).
+     */
+    public function stockBodega(Request $request, Store $store, Product $product)
+    {
+        $this->permissionService->authorize($store, 'products.view');
+
+        if ($product->store_id !== $store->id) {
+            abort(404);
+        }
+
+        $bodegaId = $request->filled('bodega_id') ? (int) $request->input('bodega_id') : null;
+
+        return response()->json([
+            'product_id' => $product->id,
+            'bodega_id' => $bodegaId,
+            'stock' => $this->inventarioService->stockEnBodega($store, $product, $bodegaId),
+        ]);
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function formCatalogos(Store $store): array

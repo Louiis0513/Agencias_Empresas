@@ -129,6 +129,12 @@
                 <th style="width: 16%;">Bodega origen</th>
                 <th style="width: 16%;">Bodega destino</th>
                 <th class="num" style="width: 10%;">Cantidad</th>
+            @elseif($documento->esConteoFisico())
+                <th style="width: 14%;">Bodega</th>
+                <th class="num" style="width: 10%;">Sistema</th>
+                <th class="num" style="width: 10%;">Contado</th>
+                <th class="num" style="width: 10%;">Diferencia</th>
+                <th class="center" style="width: 10%;">Ajuste</th>
             @else
                 <th style="width: 10%;">Bodega</th>
                 <th class="center" style="width: 10%;">Aumenta/Disminuye</th>
@@ -149,6 +155,15 @@
                     <td>{{ $linea->etiquetaBodegaOrigen() }}</td>
                     <td>{{ $linea->etiquetaBodegaDestino() }}</td>
                     <td class="num">{{ number_format((float) $linea->cantidad, 2, '.', ',') }}</td>
+                @elseif($documento->esConteoFisico())
+                    <td>{{ $linea->etiquetaBodega() }}</td>
+                    <td class="num">{{ number_format((float) $linea->cantidad_sistema, 2, '.', ',') }}</td>
+                    <td class="num">{{ number_format((float) $linea->cantidad_contada, 2, '.', ',') }}</td>
+                    <td class="num">
+                        @php $delta = (float) $linea->cantidad_contada - (float) $linea->cantidad_sistema; @endphp
+                        {{ ($delta > 0 ? '+' : '').number_format($delta, 2, '.', ',') }}
+                    </td>
+                    <td class="center">{{ $linea->etiquetaDireccion() }}</td>
                 @else
                     <td>{{ $linea->bodega?->nombre ?? ($linea->bodega?->codigo ?? 'Sin asignar') }}</td>
                     <td class="center">{{ $linea->etiquetaDireccion() }}</td>

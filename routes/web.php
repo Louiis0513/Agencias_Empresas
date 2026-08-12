@@ -96,6 +96,11 @@ Route::middleware(['auth', 'verified', 'store.access'])->prefix('stores/{store:s
     Route::post('/productos/documentos/ajuste', [StoreDocumentoInventarioController::class, 'storeAjuste'])->name('products.documentos.ajuste.store');
     Route::get('/productos/documentos/traslado/crear', [StoreProductController::class, 'createTraslado'])->name('products.documentos.traslado.create');
     Route::post('/productos/documentos/traslado', [StoreDocumentoInventarioController::class, 'storeTraslado'])->name('products.documentos.traslado.store');
+    Route::get('/productos/documentos/conteo/crear', [StoreProductController::class, 'createConteo'])->name('products.documentos.conteo.create');
+    Route::get('/productos/documentos/conteo/plantilla', [StoreDocumentoInventarioController::class, 'plantillaConteo'])->name('products.documentos.conteo.plantilla');
+    Route::post('/productos/documentos/conteo/plantilla/parse', [StoreDocumentoInventarioController::class, 'parsePlantillaConteo'])->name('products.documentos.conteo.plantilla.parse');
+    Route::post('/productos/documentos/conteo', [StoreDocumentoInventarioController::class, 'storeConteo'])->name('products.documentos.conteo.store');
+    Route::get('/productos/{product}/stock-bodega', [StoreProductController::class, 'stockBodega'])->name('products.stock-bodega');
     Route::get('/productos/documentos/{documentoInventario}', [StoreDocumentoInventarioController::class, 'show'])->name('products.documentos.show');
     Route::get('/productos/documentos/{documentoInventario}/pdf', [StoreDocumentoInventarioController::class, 'pdf'])->name('products.documentos.pdf');
     Route::get('/productos/documentos/{documentoInventario}/contabilizacion', [StoreDocumentoInventarioController::class, 'contabilizacion'])->name('products.documentos.contabilizacion');

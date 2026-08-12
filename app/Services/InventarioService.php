@@ -148,7 +148,7 @@ class InventarioService
 
     public function stockTotal(Store $store, Product $product): float
     {
-        if ($product->store_id !== $store->id) {
+        if ((int) $product->store_id !== (int) $store->id) {
             throw new Exception('El producto no pertenece a esta tienda.');
         }
 
@@ -166,7 +166,7 @@ class InventarioService
      */
     public function stockPorBodega(Store $store, Product $product): array
     {
-        if ($product->store_id !== $store->id) {
+        if ((int) $product->store_id !== (int) $store->id) {
             throw new Exception('El producto no pertenece a esta tienda.');
         }
 
@@ -236,7 +236,7 @@ class InventarioService
      */
     public function stockEnBodega(Store $store, Product $product, ?int $bodegaId): float
     {
-        if ($product->store_id !== $store->id) {
+        if ((int) $product->store_id !== (int) $store->id) {
             throw new Exception('El producto no pertenece a esta tienda.');
         }
 

@@ -29,6 +29,8 @@ class DocumentoInventarioLinea extends Model
         'centro_costo_id',
         'cuenta_contable_id',
         'cantidad',
+        'cantidad_sistema',
+        'cantidad_contada',
         'costo_unitario',
         'costo_total',
     ];
@@ -38,9 +40,18 @@ class DocumentoInventarioLinea extends Model
         return [
             'orden' => 'integer',
             'cantidad' => 'decimal:4',
+            'cantidad_sistema' => 'decimal:4',
+            'cantidad_contada' => 'decimal:4',
             'costo_unitario' => 'decimal:4',
             'costo_total' => 'decimal:2',
         ];
+    }
+
+    public function etiquetaBodega(): string
+    {
+        return $this->bodega?->nombre
+            ?? $this->bodega?->codigo
+            ?? 'Sin asignar';
     }
 
     public function documento(): BelongsTo

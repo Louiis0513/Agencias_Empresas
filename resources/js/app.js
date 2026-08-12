@@ -4,3 +4,4 @@ import './movimientosFiltros';
 import './saldosInicialesForm';
 import './ajusteInventarioForm';
 import './trasladoBodegasForm';
+import './conteoFisicoForm';

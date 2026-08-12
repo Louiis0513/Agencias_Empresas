@@ -18,6 +18,8 @@ class DocumentoInventario extends Model
 
     public const TIPO_TRASLADO = 'TRASLADO';
 
+    public const TIPO_CONTEO_FISICO = 'CONTEO_FISICO';
+
     public const ESTADO_CONTABILIZADO = 'CONTABILIZADO';
 
     protected $table = 'documentos_inventario';
@@ -92,6 +94,7 @@ class DocumentoInventario extends Model
             self::TIPO_SALDO_INICIAL => 'Ajuste / Saldo inicial de inventario',
             self::TIPO_AJUSTE => 'Ajuste de inventario',
             self::TIPO_TRASLADO => 'Nota de traslado entre bodegas',
+            self::TIPO_CONTEO_FISICO => 'Conteo físico',
             default => $this->tipo_documento,
         };
     }
@@ -106,6 +109,7 @@ class DocumentoInventario extends Model
             self::TIPO_SALDO_INICIAL => 'Aumenta',
             self::TIPO_AJUSTE => 'Ajuste',
             self::TIPO_TRASLADO => 'Traslado',
+            self::TIPO_CONTEO_FISICO => 'Conteo',
             default => 'Aumenta',
         };
     }
@@ -113,6 +117,11 @@ class DocumentoInventario extends Model
     public function esTraslado(): bool
     {
         return $this->tipo_documento === self::TIPO_TRASLADO;
+    }
+
+    public function esConteoFisico(): bool
+    {
+        return $this->tipo_documento === self::TIPO_CONTEO_FISICO;
     }
 
     /**

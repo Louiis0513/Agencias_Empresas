@@ -29,6 +29,10 @@ class MovimientoInventario extends Model
 
     public const CLASE_TRASLADO_ENTRADA = 'TRASLADO_ENTRADA';
 
+    public const CLASE_CONTEO_ENTRADA = 'CONTEO_ENTRADA';
+
+    public const CLASE_CONTEO_SALIDA = 'CONTEO_SALIDA';
+
     protected $table = 'movimientos_inventario';
 
     protected $fillable = [

@@ -3,6 +3,7 @@
     $saldosCreateUrl = route('stores.products.documentos.saldos-iniciales.create', $store);
     $ajusteCreateUrl = route('stores.products.documentos.ajuste.create', $store);
     $trasladoCreateUrl = route('stores.products.documentos.traslado.create', $store);
+    $conteoCreateUrl = route('stores.products.documentos.conteo.create', $store);
     $documentos = $documentos ?? null;
 @endphp
 
@@ -40,11 +41,11 @@
                         Importar saldos iniciales de inventario
                         <span class="block text-xs text-gray-500">Carga saldos y genera documento A</span>
                     </a>
-                    <button type="button" disabled
-                            class="w-full text-left px-4 py-2.5 text-sm text-gray-500 cursor-not-allowed">
+                    <a href="{{ $conteoCreateUrl }}" wire:navigate
+                       class="block px-4 py-2.5 text-sm text-gray-100 hover:bg-white/5">
                         Importar conteo físico
-                        <span class="block text-xs text-gray-600">Próximamente</span>
-                    </button>
+                        <span class="block text-xs text-gray-500">Plantilla Excel en la pantalla de conteo</span>
+                    </a>
                 </div>
             </div>
 
@@ -72,11 +73,11 @@
                         Ensamble de producto
                         <span class="block text-xs text-gray-600">Próximamente</span>
                     </button>
-                    <button type="button" disabled
-                            class="w-full text-left px-4 py-2.5 text-sm text-gray-500 cursor-not-allowed">
-                        Conteo físico / Ajustes
-                        <span class="block text-xs text-gray-600">Próximamente</span>
-                    </button>
+                    <a href="{{ $conteoCreateUrl }}" wire:navigate
+                       class="block px-4 py-2.5 text-sm text-gray-100 hover:bg-white/5">
+                        Conteo físico
+                        <span class="block text-xs text-gray-500">Iguala el stock a las existencias contadas</span>
+                    </a>
                     <button type="button" disabled
                             class="w-full text-left px-4 py-2.5 text-sm text-gray-500 cursor-not-allowed">
                         Remisión
