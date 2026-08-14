@@ -190,114 +190,116 @@ class CategoriaContableService
             'errores' => [],
         ];
 
-        try {
-            $productos = CategoriaContable::query()
-                ->deStore($store)
-                ->where('tipo', CategoriaContable::TIPO_PRODUCTO)
-                ->orderBy('id')
-                ->first();
+        $this->asegurarCategoriaConAuxiliares(
+            $store,
+            CategoriaContable::TIPO_PRODUCTO,
+            'Productos',
+            'producto',
+            'productos',
+            $stats
+        );
+        $this->asegurarCategoriaConAuxiliares(
+            $store,
+            CategoriaContable::TIPO_SERVICIO,
+            'Servicios',
+            'servicio',
+            'servicios',
+            $stats
+        );
 
-            if ($productos) {
-                $stats['omitidas'][] = 'producto:'.$productos->codigo;
-            } else {
-                $cuentas = $this->cuentasParaSelects($store);
-                if ($cuentas['inventario']->isEmpty() || $cuentas['costo']->isEmpty()
-                    || $cuentas['ingreso']->isEmpty() || $cuentas['devolucion']->isEmpty()) {
-                    $stats['errores'][] = 'No hay auxiliares suficientes para crear la categoría Productos.';
-                } else {
-                    $cat = $this->crear($store, [
-                        'nombre' => 'Productos',
-                        'tipo' => CategoriaContable::TIPO_PRODUCTO,
-                        'cuenta_inventario_id' => $cuentas['inventario']->first()->id,
-                        'cuenta_costo_id' => $cuentas['costo']->first()->id,
-                        'cuenta_ingreso_id' => $cuentas['ingreso']->first()->id,
-                        'cuenta_devolucion_id' => $cuentas['devolucion']->first()->id,
-                        'activo' => true,
-                    ]);
-                    $stats['creadas'][] = 'producto:'.$cat->codigo;
-                }
-            }
-        } catch (Exception $e) {
-            $stats['errores'][] = 'producto: '.$e->getMessage();
-        }
+        return $stats;
+    }
 
+    /**
+     * Crea o completa una categoría (Productos/Servicios) con auxiliares propias.
+     *
+     * @param  array{creadas: list<string>, omitidas: list<string>, errores: list<string>}  $stats
+     */
+    private function asegurarCategoriaConAuxiliares(
+        Store $store,
+        string $tipo,
+        string $nombreCategoria,
+        string $claveStats,
+        string $sufijoAuxiliar,
+        array &$stats
+    ): void {
         try {
-            $servicios = CategoriaContable::query()
+            $categoria = CategoriaContable::query()
                 ->deStore($store)
-                ->where('tipo', CategoriaContable::TIPO_SERVICIO)
+                ->where('tipo', $tipo)
                 ->orderBy('id')
                 ->first();
 
             $inventario = $this->asegurarAuxiliarNombrado(
                 $store,
                 CuentaContable::PADRE_INVENTARIO_MERCANCIA,
-                'Inventario – servicios',
+                'Inventario – '.$sufijoAuxiliar,
                 CuentaContable::CATEGORIA_INVENTARIOS,
                 CuentaContable::RELACION_INVENTARIO
             );
             $costo = $this->asegurarAuxiliarNombrado(
                 $store,
                 CuentaContable::PADRE_COSTO_COMERCIO,
-                'Costo de ventas – servicios',
+                'Costo de ventas – '.$sufijoAuxiliar,
                 CuentaContable::CATEGORIA_COSTO_VENTAS,
                 CuentaContable::RELACION_COSTO_VENTAS
             );
             $ingreso = $this->asegurarAuxiliarNombrado(
                 $store,
                 CuentaContable::PADRE_INGRESO_COMERCIO,
-                'Ingresos – servicios',
+                'Ingresos – '.$sufijoAuxiliar,
                 CuentaContable::CATEGORIA_INGRESOS,
                 CuentaContable::RELACION_INGRESOS_OPERACIONALES
             );
             $devolucion = $this->asegurarAuxiliarNombrado(
                 $store,
                 CuentaContable::PADRE_DEVOLUCION_VENTAS,
-                'Devoluciones en ventas – servicios',
+                'Devoluciones en ventas – '.$sufijoAuxiliar,
                 CuentaContable::CATEGORIA_INGRESOS,
                 CuentaContable::RELACION_DEVOLUCIONES_VENTAS
             );
 
-            if ($servicios) {
+            if ($categoria) {
                 $dirty = false;
-                if (! $servicios->cuenta_inventario_id) {
-                    $servicios->cuenta_inventario_id = $inventario->id;
+                if (! $categoria->cuenta_inventario_id) {
+                    $categoria->cuenta_inventario_id = $inventario->id;
                     $dirty = true;
                 }
-                if (! $servicios->cuenta_costo_id) {
-                    $servicios->cuenta_costo_id = $costo->id;
+                if (! $categoria->cuenta_costo_id) {
+                    $categoria->cuenta_costo_id = $costo->id;
                     $dirty = true;
                 }
-                if (! $servicios->cuenta_ingreso_id) {
-                    $servicios->cuenta_ingreso_id = $ingreso->id;
+                if (! $categoria->cuenta_ingreso_id) {
+                    $categoria->cuenta_ingreso_id = $ingreso->id;
                     $dirty = true;
                 }
-                if (! $servicios->cuenta_devolucion_id) {
-                    $servicios->cuenta_devolucion_id = $devolucion->id;
+                if (! $categoria->cuenta_devolucion_id) {
+                    $categoria->cuenta_devolucion_id = $devolucion->id;
                     $dirty = true;
                 }
                 if ($dirty) {
-                    $servicios->save();
-                    $stats['creadas'][] = 'servicio-cuentas:'.$servicios->codigo;
+                    $categoria->save();
+                    $stats['creadas'][] = $claveStats.'-cuentas:'.$categoria->codigo;
                 } else {
-                    $stats['omitidas'][] = 'servicio:'.$servicios->codigo;
+                    $stats['omitidas'][] = $claveStats.':'.$categoria->codigo;
                 }
-            } else {
-                $cat = $this->crear($store, [
-                    'nombre' => 'Servicios',
-                    'tipo' => CategoriaContable::TIPO_SERVICIO,
-                    'cuenta_inventario_id' => $inventario->id,
-                    'cuenta_costo_id' => $costo->id,
-                    'cuenta_ingreso_id' => $ingreso->id,
-                    'cuenta_devolucion_id' => $devolucion->id,
-                    'activo' => true,
-                ]);
-                $stats['creadas'][] = 'servicio:'.$cat->codigo;
-            }
-        } catch (Exception $e) {
-            $stats['errores'][] = 'servicio: '.$e->getMessage();
-        }
 
-        return $stats;
+                return;
+            }
+
+            $cat = $this->crear($store, [
+                'nombre' => $nombreCategoria,
+                'tipo' => $tipo,
+                'cuenta_inventario_id' => $inventario->id,
+                'cuenta_costo_id' => $costo->id,
+                'cuenta_ingreso_id' => $ingreso->id,
+                'cuenta_devolucion_id' => $devolucion->id,
+                'activo' => true,
+            ]);
+            $stats['creadas'][] = $claveStats.':'.$cat->codigo;
+        } catch (Exception $e) {
+            $stats['errores'][] = $claveStats.': '.$e->getMessage();
+        }
     }
 
     /**

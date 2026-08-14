@@ -77,6 +77,7 @@ class DemoDataSeeder extends Seeder
         );
 
         app(\App\Services\TerceroService::class)->asegurarConsumidorFinal($store);
+        app(\App\Services\StoreCatalogoInicialService::class)->bootstrap($store);
 
         return $store;
     }

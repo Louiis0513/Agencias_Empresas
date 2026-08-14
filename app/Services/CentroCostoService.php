@@ -72,6 +72,30 @@ class CentroCostoService
             ->values();
     }
 
+    /**
+     * Crea el centro 01 «General» (con subcentro General) si la tienda no tiene centros.
+     *
+     * @return array{creadas: int, omitidas: int}
+     */
+    public function asegurarDefaults(Store $store): array
+    {
+        $existe = CentroCosto::query()
+            ->deStore($store)
+            ->centros()
+            ->exists();
+
+        if ($existe) {
+            return ['creadas' => 0, 'omitidas' => 1];
+        }
+
+        $this->crearCentro($store, [
+            'codigo' => '01',
+            'nombre' => 'General',
+        ]);
+
+        return ['creadas' => 1, 'omitidas' => 0];
+    }
+
     public function crearCentro(Store $store, array $data): CentroCosto
     {
         $codigo = $this->normalizarCodigo($data['codigo'] ?? null);

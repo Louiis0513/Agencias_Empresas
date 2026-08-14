@@ -75,6 +75,7 @@ class StoreService
             ]);
 
             app(TerceroService::class)->asegurarConsumidorFinal($store);
+            app(StoreCatalogoInicialService::class)->bootstrap($store);
 
             return $store;
         });

@@ -3,6 +3,22 @@
 ## Qué es
 Catálogo PUC por tienda (`cuentas_contables`), scoped por `store_id`.
 
+## Bootstrap al crear la tienda
+Al crear una tienda (`StoreService::createStore` y el seeder de demo) `StoreCatalogoInicialService` deja el catálogo mínimo para operar, de forma **idempotente**:
+
+1. Importa el **PUC base** (Excel, códigos ≤ 6 dígitos).
+2. **Impuestos** (22, estilo Siigo) con sus cuentas hoja.
+3. **Formas de pago** default (Efectivo, Transferencia, Crédito) y auxiliares bajo `110505` / `111005` / `130505`.
+4. Auxiliares de mercancía y categorías **Productos** / **Servicios** (cada una con sus 4 cuentas; no se comparten).
+5. Cuenta puente `99999999` (saldos iniciales).
+6. Tipos de comprobante FV/RC/FC/RP + catálogo **CC** + A/NT/CF.
+7. Centro de costo `01` «General» (con subcentro General).
+8. 12 **listas de precio** (las 2 primeras activas).
+
+No se activan bodegas (`maneja_bodegas` queda en `false`). El botón **Importar PUC base** sigue disponible para reimportar.
+
+`Store::factory()` en tests **no** ejecuta este bootstrap.
+
 ## Reglas
 - **Clase** se deriva del primer dígito del código (1 Activo … 9 Orden acreedoras).
 - **Import PUC base**: solo códigos de **hasta 6 dígitos** (clase/grupo/cuenta/subcuenta). Se omiten auxiliares de otras empresas.
@@ -75,8 +91,10 @@ Tabla `categorias_contables`: puente entre el catálogo y las cuentas auxiliares
 | Devolución | auxiliar `4175…` | auxiliar propia |
 
 - UI: Financiero → **Categorías contables**
-- Al abrir la pantalla se aseguran por defecto (si faltan) **Productos** y **Servicios** con sus 4 auxiliares (estilo Siigo).
-- Si **Servicios** ya existía sin inventario/costo, se completan al recargar.
+- Al **crear la tienda** (y, si faltan, al abrir la pantalla) se aseguran **Productos** y **Servicios** con sus 4 auxiliares propias (estilo Siigo):
+  - Productos: `Inventario – productos`, `Costo de ventas – productos`, `Ingresos – productos`, `Devoluciones en ventas – productos`
+  - Servicios: `Inventario – servicios`, `Costo de ventas – servicios`, `Ingresos – servicios`, `Devoluciones en ventas – servicios`
+- Si **Servicios** o **Productos** ya existían sin alguna cuenta, se completan al recargar.
 - Permisos: `contabilidad.categorias.view|create|edit`
 - Productos: `products.categoria_contable_id` **obligatoria**. Al crear se preselecciona «Productos»; si falta, `ProductService` la asigna automáticamente.
 
@@ -120,23 +138,24 @@ Campos clave: `prefijo`, `numeracion_automatica`, `siguiente_numero`, `activo`, 
 - FV/FC/RP: configuración dedicada pendiente.
 
 ## Cómo usar
-1. Entrar a la tienda → Financiero → **Plan de cuentas**.
-2. Pulsar **Importar PUC base**.
+1. Al crear la tienda el PUC y los catálogos default ya quedan listos (ver **Bootstrap al crear la tienda**).
+2. Entrar a la tienda → Financiero → **Plan de cuentas**. El botón **Importar PUC base** reimporta el Excel sin pisar auxiliares manuales.
 3. En el **árbol**, despliega Clase → Grupo → … y usa el botón contextual (**+ Grupo**, **+ Cuenta**, etc.). La búsqueda muestra lista plana.
 4. Si el padre tiene movimientos/vínculos, confirmar el traslado al nuevo hijo en el modal.
-5. Ir a **Categorías contables** y crear p. ej. «Productos» con las 4 auxiliares.
+5. Ir a **Categorías contables**: Productos y Servicios ya existen; se pueden crear más.
 6. Al crear/editar un producto, la categoría contable es obligatoria (default «Productos»).
 7. Ir a **Comprobantes contables** (catálogo CC) y/o **Recibos de caja** (tipos RC).
 8. Crear bolsillos desde Caja/Configuración, o auxiliares del 11 desde Plan de cuentas.
 
 ## Servicios
+- `StoreCatalogoInicialService` — bootstrap de catálogos al crear tienda (PUC + defaults).
 - `ImportacionPucService` — lee Excel e importa.
 - `CuentaContableService` — listar, `crearHijo` / `crearAuxiliar` (+ bolsillo si aplica), `metaCrearHijo`, `padreTieneUsos`, traslado de usos, padres, reconstruir jerarquía, backfill.
 - `CategoriaContableService` — categorías producto/servicio y validación de cuentas por rol.
 - `TipoComprobanteService` — catálogo de tipos; defaults FV/RC/FC/RP + `CatalogoComprobantesContablesPredeterminados` (CC).
 - `ImpuestoService` — catálogo de impuestos (IVA, retenciones, etc.) con cuentas ventas/compras/devoluciones.
 - `FormaPagoService` — catálogo de formas de pago (aplica a + cuenta + medio DIAN) y defaults con auxiliares.
-- `CentroCostoService` — catálogo centro/subcentro, auto-subcentro General, opciones para asientos.
+- `CentroCostoService` — catálogo centro/subcentro, auto-subcentro General, `asegurarDefaults` (centro 01), opciones para asientos.
 - `CajaService` — crear/actualizar bolsillo con cuenta auxiliar.
 
 ## Impuestos (catálogo v1)
